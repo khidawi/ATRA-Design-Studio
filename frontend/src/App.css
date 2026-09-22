@@ -1,0 +1,252 @@
+.ai-app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────── */
+
+.ai-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-bg);
+  flex: 0 0 auto;
+}
+
+.ai-header__title {
+  font-size: 18px;
+}
+
+.ai-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ai-score-btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ai-score-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* ── Body layout ────────────────────────────────────────────────────── */
+
+.ai-body {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: 200px 1fr 260px;
+  min-height: 0;
+}
+
+.ai-canvas {
+  height: 100%;
+  width: 100%;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+/* ── Sidebar / palette ──────────────────────────────────────────────── */
+
+.ai-sidebar,
+.ai-inspector {
+  padding: 16px;
+  background: var(--panel-bg);
+  overflow-y: auto;
+}
+
+.ai-sidebar__title,
+.ai-inspector__title {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  opacity: 0.7;
+  margin-bottom: 8px;
+}
+
+.ai-sidebar__hint,
+.ai-inspector__hint {
+  font-size: 12px;
+  opacity: 0.6;
+  margin: 0 0 16px;
+}
+
+.ai-sidebar__note {
+  font-size: 12px;
+  opacity: 0.6;
+  margin-top: 24px;
+  line-height: 1.5;
+}
+
+.ai-palette-item {
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  margin-bottom: 8px;
+  cursor: grab;
+  font-size: 13px;
+  font-weight: 600;
+  background: #f0eeff;
+}
+
+.ai-palette-item--constraint {
+  background: #fff3e0;
+}
+
+/* ── Inspector fields ───────────────────────────────────────────────── */
+
+.ai-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+
+.ai-field span {
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.ai-field select,
+.ai-field input,
+.ai-field textarea {
+  font: inherit;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel-bg);
+  color: var(--text);
+}
+
+.ai-field__meta {
+  font-size: 12px;
+  opacity: 0.75;
+  margin: -8px 0 14px;
+}
+
+/* ── Canvas nodes ───────────────────────────────────────────────────── */
+
+.ai-node {
+  min-width: 150px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+  background: var(--panel-bg);
+  font-size: 12px;
+}
+
+.ai-node--selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(109, 59, 255, 0.25);
+}
+
+.ai-node--actor {
+  border-color: #7c6df0;
+  background: #f0eeff;
+}
+
+.ai-node--constraint.ai-node--pending {
+  border-color: #d9a441;
+  background: #fff3e0;
+}
+
+.ai-node--constraint.ai-node--satisfied {
+  border-color: #2e9e5b;
+  background: #e6f7ec;
+}
+
+.ai-node--constraint.ai-node--unmet {
+  border-color: #d64545;
+  background: #fdeaea;
+}
+
+.ai-node__kind {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.6;
+  margin-bottom: 2px;
+}
+
+.ai-node__label {
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.ai-node__status {
+  margin-top: 2px;
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+/* ── PCS badge ──────────────────────────────────────────────────────── */
+
+.ai-badge-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ai-badge {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: #eee;
+  color: #333;
+}
+
+.ai-badge--idle {
+  background: #eee;
+}
+
+.ai-badge--pending {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.ai-badge--approved {
+  background: #d1fadf;
+  color: #05603a;
+}
+
+.ai-badge--review {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.ai-badge--blocked {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.ai-badge--error {
+  background: #fee2e2;
+  color: #991b1b;
+  border-radius: 6px;
+  max-width: 420px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ai-badge__veto-list,
+.ai-badge__warnings {
+  font-size: 11px;
+  opacity: 0.75;
+}
