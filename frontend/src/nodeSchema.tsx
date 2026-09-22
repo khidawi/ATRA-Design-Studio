@@ -7,19 +7,28 @@ import type { ReactNode } from "react";
 import type {
   ActorNodeData,
   AIModelNodeData,
+  ConsentRecordNodeData,
   ConstraintCatalogueEntry,
   ConstraintNodeData,
+  DataCategoryNodeData,
   DepartmentNodeData,
+  DeploymentEnvNodeData,
+  LegalBasisNodeData,
   NodeKind,
+  RegulatoryReqNodeData,
+  TrainingDatasetNodeData,
 } from "./types";
 import {
   ACTOR_SUBTYPES,
   AI_CRITICALITIES,
   ALL_CONSTRAINT_IDS,
+  CATEGORY_SENSITIVITIES,
   CONSTRAINT_STATUSES,
   DATA_SENSITIVITIES,
   HOSTING_ENVIRONMENTS,
+  LEGAL_BASIS_VALUES,
   MODEL_TYPES,
+  VALIDATION_SOURCES,
 } from "./types";
 
 export interface RenderCtx {
@@ -297,10 +306,192 @@ const constraintDescriptor: NodeTypeDescriptor<ConstraintNodeData> = {
   ),
 };
 
+const CATEGORY_SENSITIVITY_LABEL: Record<string, string> = {
+  NON_PERSONAL: "Non-personal",
+  PERSONAL: "Personal",
+  SPECIAL_CATEGORY: "Special Category",
+};
+
+const dataCategoryDescriptor: NodeTypeDescriptor<DataCategoryNodeData> = {
+  kickerClass: "data-category",
+  kicker: () => "Data Category",
+  heading: (d) => d.name || "(unnamed category)",
+  fields: [
+    {
+      key: "name",
+      label: "Name",
+      kind: "text",
+      placeholder: "e.g. Patient diagnostic records",
+    },
+    {
+      key: "sensitivity",
+      label: "Sensitivity",
+      kind: "select",
+      options: CATEGORY_SENSITIVITIES,
+      optionLabels: CATEGORY_SENSITIVITY_LABEL,
+    },
+  ],
+  footnote: (
+    <>
+      Becomes a <code>registry.data_categories</code> entry. Connect a
+      Consent Record to reference it.
+    </>
+  ),
+};
+
+const VALIDATION_SOURCE_LABEL: Record<string, string> = {
+  MANUAL: "Manual",
+  DIAPROD_API: "DiaProd API",
+};
+
+const consentRecordDescriptor: NodeTypeDescriptor<ConsentRecordNodeData> = {
+  kickerClass: "consent-record",
+  kicker: () => "Consent Record",
+  heading: (d) => d.diaprodConsentId || "(unnamed consent record)",
+  fields: [
+    {
+      key: "diaprodConsentId",
+      label: "Consent ID",
+      kind: "text",
+      placeholder: "e.g. DIAPROD-2026-0143",
+    },
+    {
+      key: "validatedAt",
+      label: "Validated At",
+      kind: "text",
+      placeholder: "e.g. 2026-01-15",
+    },
+    {
+      key: "validationSource",
+      label: "Validation Source",
+      kind: "select",
+      options: VALIDATION_SOURCES,
+      optionLabels: VALIDATION_SOURCE_LABEL,
+    },
+  ],
+  footnote: (
+    <>
+      Becomes a <code>registry.consent_records</code> entry. Connect it to a
+      Legal Basis node to set its legal basis, and to Data Category nodes to
+      set which categories it covers.
+    </>
+  ),
+};
+
+const regulatoryReqDescriptor: NodeTypeDescriptor<RegulatoryReqNodeData> = {
+  kickerClass: "regulatory-req",
+  kicker: () => "Regulatory Requirement",
+  heading: (d) => d.instrument || "(unnamed requirement)",
+  fields: [
+    {
+      key: "instrument",
+      label: "Instrument",
+      kind: "text",
+      placeholder: "e.g. GDPR, EU AI Act",
+    },
+    {
+      key: "clause",
+      label: "Clause",
+      kind: "text",
+      placeholder: "e.g. Art. 22",
+    },
+    {
+      key: "riskTier",
+      label: "Risk Tier",
+      kind: "text",
+      placeholder: "e.g. HIGH",
+    },
+    {
+      key: "status",
+      label: "Status",
+      kind: "status-buttons",
+      options: CONSTRAINT_STATUSES,
+      optionLabels: STATUS_LABEL,
+      variant: STATUS_VARIANT,
+    },
+  ],
+  footnote: (
+    <>
+      Becomes a <code>registry.regulatory_requirements</code> entry. Connect
+      it to a Constraint node it requires, or to the AI Model it covers.
+    </>
+  ),
+};
+
+const LEGAL_BASIS_LABEL: Record<string, string> = {
+  CONSENT: "Consent",
+  CONTRACT: "Contract",
+  LEGAL_OBLIGATION: "Legal Obligation",
+  VITAL_INTERESTS: "Vital Interests",
+  PUBLIC_TASK: "Public Task",
+  LEGITIMATE_INTERESTS: "Legitimate Interests",
+};
+
+const legalBasisDescriptor: NodeTypeDescriptor<LegalBasisNodeData> = {
+  kickerClass: "legal-basis",
+  kicker: () => "Legal Basis",
+  heading: (d) => LEGAL_BASIS_LABEL[d.basis],
+  fields: [
+    {
+      key: "basis",
+      label: "GDPR Art. 6(1) Basis",
+      kind: "select",
+      options: LEGAL_BASIS_VALUES,
+      optionLabels: LEGAL_BASIS_LABEL,
+    },
+  ],
+  footnote: (
+    <>
+      schema.py has no dedicated Legal Basis entity — connecting this to a
+      Consent Record sets that record's <code>legal_basis</code> text field.
+    </>
+  ),
+};
+
+const trainingDatasetDescriptor: NodeTypeDescriptor<TrainingDatasetNodeData> = {
+  kickerClass: "training-dataset",
+  kicker: () => "Training Dataset",
+  heading: (d) => d.name || "(unnamed dataset)",
+  fields: [
+    { key: "name", label: "Name", kind: "text", placeholder: "e.g. Triage-2026-Q1" },
+    { key: "description", label: "Description", kind: "textarea" },
+  ],
+  footnote: (
+    <>
+      Presentational only — schema.py has no registry-level field for
+      datasets yet, so this doesn't feed <code>/score</code>. Connect it to
+      an AI Model to document what it was trained on.
+    </>
+  ),
+};
+
+const deploymentEnvDescriptor: NodeTypeDescriptor<DeploymentEnvNodeData> = {
+  kickerClass: "deployment-env",
+  kicker: () => "Deployment Environment",
+  heading: (d) => d.name || "(unnamed environment)",
+  fields: [
+    { key: "name", label: "Name", kind: "text", placeholder: "e.g. AWS eu-west-1 prod" },
+    { key: "description", label: "Description", kind: "textarea" },
+  ],
+  footnote: (
+    <>
+      Presentational only — schema.py has no registry-level field for
+      deployment environments yet, so this doesn't feed <code>/score</code>.
+      Connect it to an AI Model to document where it runs.
+    </>
+  ),
+};
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const NODE_SCHEMA: Partial<Record<NodeKind, NodeTypeDescriptor<any>>> = {
   ACTOR: actorDescriptor,
   CONSTRAINT: constraintDescriptor,
   DEPARTMENT: departmentDescriptor,
   AI_MODEL: aiModelDescriptor,
+  DATA_CATEGORY: dataCategoryDescriptor,
+  CONSENT_RECORD: consentRecordDescriptor,
+  REGULATORY_REQ: regulatoryReqDescriptor,
+  LEGAL_BASIS: legalBasisDescriptor,
+  TRAINING_DATASET: trainingDatasetDescriptor,
+  DEPLOYMENT_ENV: deploymentEnvDescriptor,
 };

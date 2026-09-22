@@ -11,6 +11,7 @@ import AIModelNode from "../nodes/AIModelNode";
 import ActorNode from "../nodes/ActorNode";
 import ConstraintNode from "../nodes/ConstraintNode";
 import DepartmentNode from "../nodes/DepartmentNode";
+import SimpleNode from "../nodes/SimpleNode";
 import { useCanvasStore } from "../store/useCanvasStore";
 import type { ActorSubtype, NodeKind } from "../types";
 
@@ -19,7 +20,17 @@ const nodeTypes = {
   constraintNode: ConstraintNode,
   departmentNode: DepartmentNode,
   aiModelNode: AIModelNode,
+  simpleNode: SimpleNode,
 };
+
+const SIMPLE_KINDS = new Set<NodeKind>([
+  "DATA_CATEGORY",
+  "CONSENT_RECORD",
+  "REGULATORY_REQ",
+  "LEGAL_BASIS",
+  "TRAINING_DATASET",
+  "DEPLOYMENT_ENV",
+]);
 
 export default function Canvas() {
   const nodes = useCanvasStore((s) => s.nodes);
@@ -31,6 +42,7 @@ export default function Canvas() {
   const addConstraintNode = useCanvasStore((s) => s.addConstraintNode);
   const addDepartmentNode = useCanvasStore((s) => s.addDepartmentNode);
   const addAIModelNode = useCanvasStore((s) => s.addAIModelNode);
+  const addSimpleNode = useCanvasStore((s) => s.addSimpleNode);
   const setSelectedNode = useCanvasStore((s) => s.setSelectedNode);
   const settleNodeParent = useCanvasStore((s) => s.settleNodeParent);
 
@@ -68,6 +80,17 @@ export default function Canvas() {
         addDepartmentNode(position);
       } else if (payload.kind === "AI_MODEL") {
         addAIModelNode(position);
+      } else if (SIMPLE_KINDS.has(payload.kind)) {
+        addSimpleNode(
+          payload.kind as
+            | "DATA_CATEGORY"
+            | "CONSENT_RECORD"
+            | "REGULATORY_REQ"
+            | "LEGAL_BASIS"
+            | "TRAINING_DATASET"
+            | "DEPLOYMENT_ENV",
+          position
+        );
       }
     },
     [
@@ -75,6 +98,7 @@ export default function Canvas() {
       addConstraintNode,
       addDepartmentNode,
       addAIModelNode,
+      addSimpleNode,
       settleNodeParent,
     ]
   );

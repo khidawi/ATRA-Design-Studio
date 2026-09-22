@@ -144,11 +144,90 @@ export interface AIModelNodeData {
   hostingEnvironment: HostingEnvironment;
 }
 
+// DataCategory.sensitivity uses its own 3-value vocabulary in schema.py —
+// distinct from DeploymentContext's 5-value DataSensitivity above.
+export type CategorySensitivity = "NON_PERSONAL" | "PERSONAL" | "SPECIAL_CATEGORY";
+export const CATEGORY_SENSITIVITIES: CategorySensitivity[] = [
+  "NON_PERSONAL",
+  "PERSONAL",
+  "SPECIAL_CATEGORY",
+];
+
+export interface DataCategoryNodeData {
+  kind: "DATA_CATEGORY";
+  name: string;
+  sensitivity: CategorySensitivity;
+}
+
+export type ValidationSource = "MANUAL" | "DIAPROD_API";
+export const VALIDATION_SOURCES: ValidationSource[] = ["MANUAL", "DIAPROD_API"];
+
+export interface ConsentRecordNodeData {
+  kind: "CONSENT_RECORD";
+  diaprodConsentId: string;
+  validatedAt: string;
+  validationSource: ValidationSource;
+}
+
+export interface RegulatoryReqNodeData {
+  kind: "REGULATORY_REQ";
+  instrument: string;
+  clause: string;
+  riskTier: string;
+  status: ConstraintStatus;
+}
+
+// GDPR Art. 6(1) legal bases — the standard six, since schema.py's
+// ConsentRecord.legal_basis is free text with no backend-defined enum.
+export type LegalBasisValue =
+  | "CONSENT"
+  | "CONTRACT"
+  | "LEGAL_OBLIGATION"
+  | "VITAL_INTERESTS"
+  | "PUBLIC_TASK"
+  | "LEGITIMATE_INTERESTS";
+export const LEGAL_BASIS_VALUES: LegalBasisValue[] = [
+  "CONSENT",
+  "CONTRACT",
+  "LEGAL_OBLIGATION",
+  "VITAL_INTERESTS",
+  "PUBLIC_TASK",
+  "LEGITIMATE_INTERESTS",
+];
+
+export interface LegalBasisNodeData {
+  kind: "LEGAL_BASIS";
+  basis: LegalBasisValue;
+}
+
+// TRAINING_DATASET and DEPLOYMENT_ENV have no corresponding registry-level
+// model in schema.py (RegistryBlock has no such lists) — they're purely
+// presentational canvas nodes today, same as the graph itself. Useful for
+// documenting the deployment visually (AI_MODEL --trained_on/runs_in-->)
+// even though they don't feed /score yet.
+export interface TrainingDatasetNodeData {
+  kind: "TRAINING_DATASET";
+  name: string;
+  description: string;
+}
+
+export interface DeploymentEnvNodeData {
+  kind: "DEPLOYMENT_ENV";
+  name: string;
+  description: string;
+}
+
 export type CanvasNodeData =
   | ActorNodeData
   | ConstraintNodeData
   | DepartmentNodeData
-  | AIModelNodeData;
+  | AIModelNodeData
+  | DataCategoryNodeData
+  | ConsentRecordNodeData
+  | RegulatoryReqNodeData
+  | LegalBasisNodeData
+  | TrainingDatasetNodeData
+  | DeploymentEnvNodeData;
 
 export interface ConstraintCatalogueEntry {
   constraint_id: string;
@@ -177,6 +256,22 @@ export interface RegistryBlockPayload {
     domain: string;
   };
   system_type?: HostingEnvironment;
+  data_categories: { id: string; name: string; sensitivity: CategorySensitivity }[];
+  consent_records: {
+    id: string;
+    diaprod_consent_id?: string;
+    legal_basis: string;
+    data_category_ids: string[];
+    validated_at?: string;
+    validation_source?: ValidationSource;
+  }[];
+  regulatory_requirements: {
+    id: string;
+    instrument: string;
+    clause: string;
+    risk_tier?: string;
+    status: ConstraintStatus;
+  }[];
   governance_state: {
     constraints_declared: Record<
       string,

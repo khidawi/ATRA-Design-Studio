@@ -198,6 +198,32 @@
   border-color: var(--model-border);
 }
 
+.ai-palette-swatch--data-category {
+  border-color: var(--data-emerald);
+}
+
+.ai-palette-swatch--consent-record {
+  border-color: var(--consent-cyan);
+}
+
+.ai-palette-swatch--regulatory-req {
+  border-color: var(--regulatory-violet);
+}
+
+.ai-palette-swatch--legal-basis {
+  border-color: var(--legal-basis-orange);
+}
+
+.ai-palette-swatch--training-dataset {
+  border-color: var(--dataset-sky);
+  border-style: dashed;
+}
+
+.ai-palette-swatch--deployment-env {
+  border-color: var(--deployment-env-fuchsia);
+  border-style: dashed;
+}
+
 /* ── Inspector fields ───────────────────────────────────────────────── */
 
 .ai-inspector__kicker {
@@ -222,6 +248,30 @@
 
 .ai-inspector__kicker--ai-model {
   color: var(--model-border);
+}
+
+.ai-inspector__kicker--data-category {
+  color: var(--data-emerald);
+}
+
+.ai-inspector__kicker--consent-record {
+  color: var(--consent-cyan);
+}
+
+.ai-inspector__kicker--regulatory-req {
+  color: var(--regulatory-violet);
+}
+
+.ai-inspector__kicker--legal-basis {
+  color: var(--legal-basis-orange);
+}
+
+.ai-inspector__kicker--training-dataset {
+  color: var(--dataset-sky);
+}
+
+.ai-inspector__kicker--deployment-env {
+  color: var(--deployment-env-fuchsia);
 }
 
 .ai-inspector__heading {
@@ -425,6 +475,82 @@
   border-radius: 10px;
   width: fit-content;
   margin-top: 2px;
+}
+
+.ai-simple-node {
+  width: 170px;
+  background: var(--bg-node);
+  border: 2px solid var(--border-input);
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
+.ai-simple-node--selected {
+  box-shadow: 0 0 0 3px var(--accent-blue);
+}
+
+.ai-simple-node__kicker {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.85;
+  margin-bottom: 2px;
+}
+
+.ai-simple-node__title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ai-simple-node__subtitle {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.ai-simple-node--data-category {
+  border-color: var(--data-emerald);
+}
+.ai-simple-node--data-category .ai-simple-node__kicker {
+  color: var(--data-emerald);
+}
+
+.ai-simple-node--consent-record {
+  border-color: var(--consent-cyan);
+}
+.ai-simple-node--consent-record .ai-simple-node__kicker {
+  color: var(--consent-cyan);
+}
+
+.ai-simple-node--regulatory-req {
+  border-color: var(--regulatory-violet);
+}
+.ai-simple-node--regulatory-req .ai-simple-node__kicker {
+  color: var(--regulatory-violet);
+}
+
+.ai-simple-node--legal-basis {
+  border-color: var(--legal-basis-orange);
+}
+.ai-simple-node--legal-basis .ai-simple-node__kicker {
+  color: var(--legal-basis-orange);
+}
+
+.ai-simple-node--training-dataset {
+  border-color: var(--dataset-sky);
+  border-style: dashed;
+}
+.ai-simple-node--training-dataset .ai-simple-node__kicker {
+  color: var(--dataset-sky);
+}
+
+.ai-simple-node--deployment-env {
+  border-color: var(--deployment-env-fuchsia);
+  border-style: dashed;
+}
+.ai-simple-node--deployment-env .ai-simple-node__kicker {
+  color: var(--deployment-env-fuchsia);
 }
 
 .ai-constraint-node {

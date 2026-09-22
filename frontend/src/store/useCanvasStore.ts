@@ -33,6 +33,45 @@ import {
 } from "../types";
 
 let nextId = 1;
+
+// The six "breadth" node types added in Phase 6 all share one component
+// (SimpleNode.tsx) and don't need bespoke add-actions like Actor/Constraint/
+// Department/AI Model do — one factory covers all of them.
+type SimpleKind =
+  | "DATA_CATEGORY"
+  | "CONSENT_RECORD"
+  | "REGULATORY_REQ"
+  | "LEGAL_BASIS"
+  | "TRAINING_DATASET"
+  | "DEPLOYMENT_ENV";
+
+function defaultSimpleData(kind: SimpleKind): CanvasNodeData {
+  switch (kind) {
+    case "DATA_CATEGORY":
+      return { kind, name: "", sensitivity: "NON_PERSONAL" };
+    case "CONSENT_RECORD":
+      return {
+        kind,
+        diaprodConsentId: "",
+        validatedAt: "",
+        validationSource: "MANUAL",
+      };
+    case "REGULATORY_REQ":
+      return {
+        kind,
+        instrument: "",
+        clause: "",
+        riskTier: "",
+        status: "NOT_YET_DETERMINED",
+      };
+    case "LEGAL_BASIS":
+      return { kind, basis: "CONSENT" };
+    case "TRAINING_DATASET":
+      return { kind, name: "", description: "" };
+    case "DEPLOYMENT_ENV":
+      return { kind, name: "", description: "" };
+  }
+}
 const freshId = (prefix: string) => `${prefix}-${nextId++}`;
 
 const DEFAULT_DEPARTMENT_SIZE = { width: 260, height: 200 };
@@ -123,6 +162,7 @@ interface CanvasState {
   addConstraintNode: (position: { x: number; y: number }) => void;
   addDepartmentNode: (position: { x: number; y: number }) => void;
   addAIModelNode: (position: { x: number; y: number }) => void;
+  addSimpleNode: (kind: SimpleKind, position: { x: number; y: number }) => void;
   updateNodeData: (id: string, data: Partial<CanvasNodeData>) => void;
   setSelectedNode: (id: string | null) => void;
   settleNodeParent: (nodeId: string) => void;
@@ -230,6 +270,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set((s) => ({ nodes: [...s.nodes, node], selectedNodeId: id }));
   },
 
+  addSimpleNode: (kind, position) => {
+    const id = freshId(kind.toLowerCase().replace(/_/g, "-"));
+    const node: Node<CanvasNodeData> = {
+      id,
+      type: "simpleNode",
+      position,
+      data: defaultSimpleData(kind),
+    };
+    set((s) => ({ nodes: [...s.nodes, node], selectedNodeId: id }));
+  },
+
   addConstraintNode: (position) => {
     const id = freshId("constraint");
     const data: ConstraintNodeData = {
@@ -322,8 +373,27 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   runScore: async () => {
-    const { nodes } = get();
+    const { nodes, edges } = get();
     set({ scoring: true, scoreError: null });
+
+    // Edges are stored in whatever direction they were resolved to, which
+    // for pairs with no specific edgeRules.ts rule (e.g. Consent Record —
+    // Data Category) depends on which node the user dragged from. Looking
+    // both directions here is simpler and more robust than relying on a
+    // canonical direction that isn't guaranteed for every pair.
+    const neighborsOfKind = (nodeId: string, kind: CanvasNodeData["kind"]) => {
+      const ids: string[] = [];
+      for (const e of edges) {
+        if (e.source === nodeId) {
+          const other = nodes.find((n) => n.id === e.target);
+          if (other?.data.kind === kind) ids.push(other.id);
+        } else if (e.target === nodeId) {
+          const other = nodes.find((n) => n.id === e.source);
+          if (other?.data.kind === kind) ids.push(other.id);
+        }
+      }
+      return ids;
+    };
 
     const actors: RegistryBlockPayload["actors"] = {};
     for (const n of nodes) {
@@ -376,11 +446,60 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       }
     }
 
+    const data_categories: RegistryBlockPayload["data_categories"] = [];
+    for (const n of nodes) {
+      if (n.data.kind === "DATA_CATEGORY") {
+        data_categories.push({
+          id: n.id,
+          name: n.data.name || n.id,
+          sensitivity: n.data.sensitivity,
+        });
+      }
+    }
+
+    const regulatory_requirements: RegistryBlockPayload["regulatory_requirements"] =
+      [];
+    for (const n of nodes) {
+      if (n.data.kind === "REGULATORY_REQ") {
+        regulatory_requirements.push({
+          id: n.id,
+          instrument: n.data.instrument || n.id,
+          clause: n.data.clause,
+          risk_tier: n.data.riskTier || undefined,
+          status: n.data.status,
+        });
+      }
+    }
+
+    const consent_records: RegistryBlockPayload["consent_records"] = [];
+    for (const n of nodes) {
+      if (n.data.kind !== "CONSENT_RECORD") continue;
+      const legalBasisId = neighborsOfKind(n.id, "LEGAL_BASIS")[0];
+      const legalBasisNode = legalBasisId
+        ? nodes.find((x) => x.id === legalBasisId)
+        : undefined;
+      const legalBasis =
+        legalBasisNode?.data.kind === "LEGAL_BASIS"
+          ? legalBasisNode.data.basis
+          : "";
+      consent_records.push({
+        id: n.id,
+        diaprod_consent_id: n.data.diaprodConsentId || undefined,
+        legal_basis: legalBasis,
+        data_category_ids: neighborsOfKind(n.id, "DATA_CATEGORY"),
+        validated_at: n.data.validatedAt || undefined,
+        validation_source: n.data.validationSource,
+      });
+    }
+
     const registry: RegistryBlockPayload = {
       actors,
       departments,
       deployment_context,
       system_type,
+      data_categories,
+      consent_records,
+      regulatory_requirements,
       governance_state: { constraints_declared },
     };
 

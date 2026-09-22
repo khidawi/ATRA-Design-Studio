@@ -15,7 +15,11 @@ export type EdgeTypeName =
   | "DEPLOYS"
   | "OPERATES"
   | "CONSUMED_BY"
-  | "REPORTS_TO";
+  | "REPORTS_TO"
+  | "TRAINED_ON"
+  | "RUNS_IN"
+  | "COVERED_BY"
+  | "REQUIRES";
 
 interface EdgeRule {
   // True when (from -> to), in exactly this order, is the relation's
@@ -69,6 +73,31 @@ const RULES: EdgeRule[] = [
     match: (f, t) => f.kind === "DEPARTMENT" && t.kind === "DEPARTMENT",
     type: "REPORTS_TO",
     label: "reports_to",
+  },
+  {
+    match: (f, t) => f.kind === "AI_MODEL" && t.kind === "TRAINING_DATASET",
+    type: "TRAINED_ON",
+    label: "trained_on",
+  },
+  {
+    match: (f, t) => f.kind === "AI_MODEL" && t.kind === "DEPLOYMENT_ENV",
+    type: "RUNS_IN",
+    label: "runs_in",
+  },
+  {
+    match: (f, t) => f.kind === "AI_MODEL" && t.kind === "REGULATORY_REQ",
+    type: "COVERED_BY",
+    label: "covered_by",
+  },
+  {
+    match: (f, t) => f.kind === "REGULATORY_REQ" && t.kind === "CONSTRAINT",
+    type: "REQUIRES",
+    label: "requires",
+  },
+  {
+    match: (f, t) => f.kind === "CONSENT_RECORD" && t.kind === "LEGAL_BASIS",
+    type: "COVERED_BY",
+    label: "covered_by",
   },
 ];
 

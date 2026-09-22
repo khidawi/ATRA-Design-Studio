@@ -25,6 +25,11 @@
   --model-tier-bg: #4338ca;
   --model-tier-text: #e0e7ff;
   --data-emerald: #34d399;
+  --consent-cyan: #22d3ee;
+  --regulatory-violet: #a78bfa;
+  --legal-basis-orange: #fb923c;
+  --dataset-sky: #38bdf8;
+  --deployment-env-fuchsia: #e879f9;
 
   --status-satisfied: #22c55e;
   --status-satisfied-text: #4ade80;
