@@ -20,7 +20,11 @@ function App() {
   return (
     <div className="ai-app">
       <header className="ai-header">
-        <h1 className="ai-header__title">ST-AI Design Studio</h1>
+        <div className="ai-header__brand">
+          <div className="ai-header__mark">S</div>
+          <span className="ai-header__title">ST-AI Design Studio</span>
+        </div>
+        <div className="ai-header__spacer" />
         <div className="ai-header__actions">
           <PCSBadge />
           <button

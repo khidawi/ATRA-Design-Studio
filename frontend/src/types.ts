@@ -35,8 +35,8 @@ export type ConstraintStatus = "SATISFIED" | "UNMET" | "NOT_YET_DETERMINED";
 
 export const CONSTRAINT_STATUSES: ConstraintStatus[] = [
   "NOT_YET_DETERMINED",
-  "SATISFIED",
   "UNMET",
+  "SATISFIED",
 ];
 
 // Copied verbatim from backend/schema.py VETO_CLASS_CONSTRAINTS /

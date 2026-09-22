@@ -14,6 +14,7 @@ import { ApiError, getConstraintCatalogue, scoreRegistry } from "../api/client";
 import {
   ALL_CONSTRAINT_IDS,
   type ActorNodeData,
+  type ActorSubtype,
   type CanvasNodeData,
   type ConstraintCatalogueEntry,
   type ConstraintNodeData,
@@ -38,7 +39,10 @@ interface CanvasState {
   onEdgesChange: (changes: EdgeChange[]) => void;
   onConnect: (connection: Connection) => void;
 
-  addActorNode: (position: { x: number; y: number }) => void;
+  addActorNode: (
+    position: { x: number; y: number },
+    subtype?: ActorSubtype
+  ) => void;
   addConstraintNode: (position: { x: number; y: number }) => void;
   updateNodeData: (id: string, data: Partial<CanvasNodeData>) => void;
   setSelectedNode: (id: string | null) => void;
@@ -76,11 +80,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       ),
     })),
 
-  addActorNode: (position) => {
+  addActorNode: (position, subtype = "TRAINER") => {
     const id = freshId("actor");
     const data: ActorNodeData = {
       kind: "ACTOR",
-      subtype: "TRAINER",
+      subtype,
       identity: "",
     };
     const node: Node<CanvasNodeData> = {

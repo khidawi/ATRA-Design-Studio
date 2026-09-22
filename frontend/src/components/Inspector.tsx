@@ -1,6 +1,26 @@
 import { useCanvasStore } from "../store/useCanvasStore";
 import { ACTOR_SUBTYPES, ALL_CONSTRAINT_IDS, CONSTRAINT_STATUSES } from "../types";
 
+const TITLE_CASE: Record<string, string> = {
+  TRAINER: "Trainer",
+  VALIDATOR: "Validator",
+  DEPLOYER: "Deployer",
+  OPERATOR: "Operator",
+  CONSUMER: "Consumer",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  NOT_YET_DETERMINED: "Not Yet Det.",
+  UNMET: "Unmet",
+  SATISFIED: "Satisfied",
+};
+
+const STATUS_CLASS: Record<string, string> = {
+  NOT_YET_DETERMINED: "ai-status-btn--pending",
+  UNMET: "ai-status-btn--unmet",
+  SATISFIED: "ai-status-btn--satisfied",
+};
+
 export default function Inspector() {
   const nodes = useCanvasStore((s) => s.nodes);
   const selectedNodeId = useCanvasStore((s) => s.selectedNodeId);
@@ -12,8 +32,10 @@ export default function Inspector() {
   if (!node) {
     return (
       <aside className="ai-inspector">
-        <h2 className="ai-inspector__title">Inspector</h2>
-        <p className="ai-inspector__hint">Select a node to edit it.</p>
+        <div className="ai-inspector__title">Properties</div>
+        <p className="ai-inspector__empty">
+          Click any node on the canvas to inspect and edit its properties.
+        </p>
       </aside>
     );
   }
@@ -22,7 +44,11 @@ export default function Inspector() {
     const d = node.data;
     return (
       <aside className="ai-inspector">
-        <h2 className="ai-inspector__title">Actor</h2>
+        <div className="ai-inspector__title">Properties</div>
+        <div className="ai-inspector__kicker ai-inspector__kicker--actor">
+          Actor · {TITLE_CASE[d.subtype]}
+        </div>
+        <div className="ai-inspector__heading">{TITLE_CASE[d.subtype]}</div>
 
         <label className="ai-field">
           <span>Subtype</span>
@@ -36,7 +62,7 @@ export default function Inspector() {
           >
             {ACTOR_SUBTYPES.map((s) => (
               <option key={s} value={s}>
-                {s}
+                {TITLE_CASE[s]}
               </option>
             ))}
           </select>
@@ -47,12 +73,17 @@ export default function Inspector() {
           <input
             type="text"
             value={d.identity}
-            placeholder="e.g. acme-ml-team"
+            placeholder="e.g. Data Science ML Team"
             onChange={(e) =>
               updateNodeData(node.id, { identity: e.target.value })
             }
           />
         </label>
+
+        <div className="ai-inspector__footnote">
+          Actor nodes show identity and department. Connect an actor to a
+          constraint to create an <code>on_dependency</code> edge.
+        </div>
       </aside>
     );
   }
@@ -63,7 +94,11 @@ export default function Inspector() {
 
   return (
     <aside className="ai-inspector">
-      <h2 className="ai-inspector__title">Constraint</h2>
+      <div className="ai-inspector__title">Properties</div>
+      <div className="ai-inspector__kicker ai-inspector__kicker--constraint">
+        Security Constraint
+      </div>
+      <div className="ai-inspector__heading">{d.constraintId}</div>
 
       <label className="ai-field">
         <span>Constraint ID</span>
@@ -88,28 +123,28 @@ export default function Inspector() {
         </p>
       )}
 
-      <label className="ai-field">
+      <div className="ai-field">
         <span>Status</span>
-        <select
-          value={d.status}
-          onChange={(e) =>
-            updateNodeData(node.id, {
-              status: e.target.value as typeof d.status,
-            })
-          }
-        >
+        <div className="ai-status-row">
           {CONSTRAINT_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
+            <button
+              key={s}
+              type="button"
+              className={`ai-status-btn ${STATUS_CLASS[s]}${
+                d.status === s ? " ai-status-btn--active" : ""
+              }`}
+              onClick={() => updateNodeData(node.id, { status: s })}
+            >
+              {STATUS_LABEL[s]}
+            </button>
           ))}
-        </select>
-      </label>
+        </div>
+      </div>
 
       <label className="ai-field">
         <span>
           Evidence
-          {needsEvidence ? " (required)" : ""}
+          {needsEvidence ? " (required to mark Satisfied)" : ""}
         </span>
         <textarea
           rows={4}
@@ -124,6 +159,11 @@ export default function Inspector() {
           }
         />
       </label>
+
+      <div className="ai-inspector__footnote">
+        Veto-class constraints can only reach Satisfied with non-empty
+        evidence — enforced server-side on every <code>/score</code> call.
+      </div>
     </aside>
   );
 }

@@ -1,16 +1,47 @@
 :root {
-  --text: #2c2b33;
-  --text-h: #08060d;
-  --bg: #f7f7f9;
-  --panel-bg: #ffffff;
-  --border: #e2e1e6;
-  --accent: #6d3bff;
-  --sans: system-ui, "Segoe UI", Roboto, sans-serif;
+  --bg-app: #0b1220;
+  --bg-header: #111827;
+  --bg-panel: #0f172a;
+  --bg-node: #1e293b;
+  --border-subtle: #1f2937;
+  --border-input: #334155;
+
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-faint: #64748b;
+  --text-faintest: #475569;
+
+  --accent-indigo: #6366f1;
+  --accent-blue: #60a5fa;
+
+  --actor-red: #f87171;
+  --actor-consumer: #94a3b8;
+  --dept-blue: #3b82f6;
+  --dept-blue-bg: #1e3a8a;
+  --dept-blue-text: #bfdbfe;
+  --model-border: #818cf8;
+  --model-bg: #312e81;
+  --model-tier-bg: #4338ca;
+  --model-tier-text: #e0e7ff;
+  --data-emerald: #34d399;
+
+  --status-satisfied: #22c55e;
+  --status-satisfied-text: #4ade80;
+  --status-unmet: #ef4444;
+  --status-unmet-text: #f87171;
+  --status-pending: #f59e0b;
+  --status-pending-text: #fbbf24;
+
+  --edge-default: #475569;
+  --edge-label: #94a3b8;
+
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
+  color-scheme: dark;
+  color: var(--text-secondary);
+  background: var(--bg-app);
   font: 14px/1.4 var(--sans);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -27,12 +58,20 @@ body,
 #root {
   height: 100%;
   margin: 0;
+  background: var(--bg-app);
 }
 
 h1,
 h2 {
   font-family: var(--sans);
   font-weight: 600;
-  color: var(--text-h);
+  color: var(--text-primary);
   margin: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
 }

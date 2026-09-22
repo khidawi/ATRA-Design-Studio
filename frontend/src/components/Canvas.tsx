@@ -10,7 +10,7 @@ import "reactflow/dist/style.css";
 import ActorNode from "../nodes/ActorNode";
 import ConstraintNode from "../nodes/ConstraintNode";
 import { useCanvasStore } from "../store/useCanvasStore";
-import type { NodeKind } from "../types";
+import type { ActorSubtype, NodeKind } from "../types";
 
 const nodeTypes = { actorNode: ActorNode, constraintNode: ConstraintNode };
 
@@ -35,18 +35,21 @@ export default function Canvas() {
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
-      const kind = event.dataTransfer.getData(
-        "application/stai-node-kind"
-      ) as NodeKind | "";
-      if (!kind || !instanceRef.current) return;
+      const raw = event.dataTransfer.getData("application/stai-node-kind");
+      if (!raw || !instanceRef.current) return;
+
+      const payload = JSON.parse(raw) as {
+        kind: NodeKind;
+        subtype?: ActorSubtype;
+      };
 
       const position = instanceRef.current.screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
       });
 
-      if (kind === "ACTOR") addActorNode(position);
-      else if (kind === "CONSTRAINT") addConstraintNode(position);
+      if (payload.kind === "ACTOR") addActorNode(position, payload.subtype);
+      else if (payload.kind === "CONSTRAINT") addConstraintNode(position);
     },
     [addActorNode, addConstraintNode]
   );
@@ -79,9 +82,13 @@ export default function Canvas() {
         onNodeClick={onNodeClick}
         fitView
       >
-        <Background />
+        <Background gap={22} size={1.5} color="#1e293b" />
         <Controls />
-        <MiniMap />
+        <MiniMap
+          maskColor="rgba(11, 18, 32, 0.7)"
+          nodeColor="#334155"
+          nodeStrokeWidth={0}
+        />
       </ReactFlow>
     </div>
   );
