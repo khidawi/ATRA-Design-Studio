@@ -6,6 +6,7 @@ Endpoints:
   POST /score             → score a registry block, returns PCSResultBlock
   POST /document/validate → validate a full DesignStudioDocument
   GET  /catalogue/constraints → return all 12 constraint IDs with metadata
+  POST /chat               → natural-language description → proposed canvas nodes/edges
 """
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
@@ -13,10 +14,14 @@ sys.path.insert(0, os.path.dirname(__file__))
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
+from chat import ChatRequest, GeneratedGraph, generate_graph
 from schema import (
     ScoreRequest, ScoreResponse,
     DesignStudioDocument,
@@ -117,3 +122,15 @@ def get_constraints() -> List[Dict[str, Any]]:
             "actor_role":    sc.actor_role.value if hasattr(sc, "actor_role") and sc.actor_role else None,
         })
     return result
+
+
+# ── Chatbot integration point ───────────────────────────────────────────────
+
+@app.post("/chat", response_model=GeneratedGraph)
+def chat(req: ChatRequest) -> GeneratedGraph:
+    """
+    Turn a natural-language message into proposed canvas nodes/edges.
+    Additive only — does not see or modify the client's existing canvas
+    state, only the conversation history it is given.
+    """
+    return generate_graph(req)

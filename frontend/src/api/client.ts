@@ -1,5 +1,7 @@
 import type {
+  ChatMessage,
   ConstraintCatalogueEntry,
+  GeneratedGraph,
   RegistryBlockPayload,
   ScoreResponse,
 } from "../types";
@@ -51,5 +53,15 @@ export function scoreRegistry(
   return request("/score", {
     method: "POST",
     body: JSON.stringify({ registry }),
+  });
+}
+
+export function sendChatMessage(
+  message: string,
+  history: ChatMessage[]
+): Promise<GeneratedGraph> {
+  return request("/chat", {
+    method: "POST",
+    body: JSON.stringify({ message, history }),
   });
 }

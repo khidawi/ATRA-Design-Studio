@@ -10,7 +10,12 @@ import {
 } from "reactflow";
 import { create } from "zustand";
 
-import { ApiError, getConstraintCatalogue, scoreRegistry } from "../api/client";
+import {
+  ApiError,
+  getConstraintCatalogue,
+  scoreRegistry,
+  sendChatMessage as apiSendChatMessage,
+} from "../api/client";
 import { resolveEdge } from "../edgeRules";
 import {
   ALL_CONSTRAINT_IDS,
@@ -18,9 +23,11 @@ import {
   type ActorSubtype,
   type AIModelNodeData,
   type CanvasNodeData,
+  type ChatMessage,
   type ConstraintCatalogueEntry,
   type ConstraintNodeData,
   type DepartmentNodeData,
+  type GeneratedGraph,
   type PCSResultBlock,
   type RegistryBlockPayload,
 } from "../types";
@@ -63,6 +70,33 @@ function reorderParentsFirst(nodes: Node<CanvasNodeData>[]) {
   return [...withoutParent, ...withParent];
 }
 
+// Shared by manual drag-to-connect (onConnect) and the chatbot's generated
+// edges (applyGeneratedGraph) — both are just "two node ids", and the
+// canonical EdgeType/direction/label always comes from edgeRules.ts.
+function buildResolvedEdge(
+  nodes: Node<CanvasNodeData>[],
+  sourceId: string,
+  targetId: string
+): Edge | null {
+  const sourceNode = nodes.find((n) => n.id === sourceId);
+  const targetNode = nodes.find((n) => n.id === targetId);
+  if (!sourceNode || !targetNode) return null;
+
+  const resolved = resolveEdge(sourceNode.data, targetNode.data);
+  const [finalSource, finalTarget] = resolved.swapped
+    ? [targetId, sourceId]
+    : [sourceId, targetId];
+
+  return {
+    id: freshId("edge"),
+    source: finalSource,
+    target: finalTarget,
+    type: "default",
+    label: resolved.label,
+    data: { kind: resolved.type },
+  };
+}
+
 interface CanvasState {
   nodes: Node<CanvasNodeData>[];
   edges: Edge[];
@@ -72,6 +106,11 @@ interface CanvasState {
   scoreWarnings: string[];
   scoring: boolean;
   scoreError: string | null;
+
+  chatMessages: ChatMessage[];
+  chatOpen: boolean;
+  chatLoading: boolean;
+  chatError: string | null;
 
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
@@ -90,6 +129,10 @@ interface CanvasState {
 
   loadCatalogue: () => Promise<void>;
   runScore: () => Promise<void>;
+
+  toggleChat: () => void;
+  sendChatMessage: (text: string) => Promise<void>;
+  applyGeneratedGraph: (graph: GeneratedGraph) => void;
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -101,6 +144,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   scoreWarnings: [],
   scoring: false,
   scoreError: null,
+
+  chatMessages: [],
+  chatOpen: false,
+  chatLoading: false,
+  chatError: null,
 
   onNodesChange: (changes) => {
     set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) }));
@@ -118,36 +166,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set((s) => {
       const { source, target } = connection;
       if (!source || !target) return {};
-
-      const sourceNode = s.nodes.find((n) => n.id === source);
-      const targetNode = s.nodes.find((n) => n.id === target);
-      if (!sourceNode || !targetNode) return {};
-
-      const resolved = resolveEdge(sourceNode.data, targetNode.data);
-      // Canonical direction may run opposite to the way the user actually
-      // dragged (e.g. dragging from an AI Model to its Trainer still
-      // renders as Trainer --trains--> Model).
-      const finalConnection = resolved.swapped
-        ? {
-            ...connection,
-            source: target,
-            target: source,
-            sourceHandle: connection.targetHandle,
-            targetHandle: connection.sourceHandle,
-          }
-        : connection;
-
-      return {
-        edges: addEdge(
-          {
-            ...finalConnection,
-            type: "default",
-            label: resolved.label,
-            data: { kind: resolved.type },
-          },
-          s.edges
-        ),
-      };
+      // Canonical direction (from edgeRules.ts) may run opposite to the way
+      // the user actually dragged — e.g. dragging from an AI Model to its
+      // Trainer still renders as Trainer --trains--> Model.
+      const edge = buildResolvedEdge(s.nodes, source, target);
+      if (!edge) return {};
+      return { edges: addEdge(edge, s.edges) };
     }),
 
   addActorNode: (position, subtype = "TRAINER") => {
@@ -378,5 +402,196 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
             : "Unknown error";
       set({ scoring: false, scoreError: message, scoreResult: null });
     }
+  },
+
+  toggleChat: () => set((s) => ({ chatOpen: !s.chatOpen })),
+
+  sendChatMessage: async (text) => {
+    const userMessage: ChatMessage = { role: "user", content: text };
+    set((s) => ({
+      chatMessages: [...s.chatMessages, userMessage],
+      chatLoading: true,
+      chatError: null,
+    }));
+
+    try {
+      const history = get().chatMessages.slice(0, -1); // history before this turn
+      const graph = await apiSendChatMessage(text, history);
+      get().applyGeneratedGraph(graph);
+      set((s) => ({
+        chatMessages: [
+          ...s.chatMessages,
+          { role: "assistant", content: graph.reply },
+        ],
+        chatLoading: false,
+      }));
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? typeof err.detail === "string"
+            ? err.detail
+            : JSON.stringify(err.detail)
+          : err instanceof Error
+            ? err.message
+            : "Unknown error";
+      set({ chatLoading: false, chatError: message });
+    }
+  },
+
+  applyGeneratedGraph: (graph) => {
+    const DEPT_GAP_X = 300;
+    const DEPT_BASE_X = 60;
+    const DEPT_BASE_Y = 60;
+    const ACTOR_ROW_H = 70;
+    const MODEL_GAP_Y = 220;
+    const CONSTRAINT_GAP_X = 100;
+
+    const tempIdToRealId = new Map<string, string>();
+    const newNodes: Node<CanvasNodeData>[] = [];
+
+    // Departments first — position left-to-right, sized to fit however
+    // many actors will end up nested inside once actors are placed below.
+    const actorsByDept = new Map<string, typeof graph.actors>();
+    const looseActors: typeof graph.actors = [];
+    for (const a of graph.actors) {
+      if (a.department_temp_id && graph.departments.some((d) => d.temp_id === a.department_temp_id)) {
+        const list = actorsByDept.get(a.department_temp_id) ?? [];
+        list.push(a);
+        actorsByDept.set(a.department_temp_id, list);
+      } else {
+        looseActors.push(a);
+      }
+    }
+
+    const deptOrigin = new Map<string, { x: number; y: number; height: number }>();
+    graph.departments.forEach((d, i) => {
+      const id = freshId("department");
+      tempIdToRealId.set(d.temp_id, id);
+      const count = actorsByDept.get(d.temp_id)?.length ?? 0;
+      const height = Math.max(DEFAULT_DEPARTMENT_SIZE.height, 60 + count * ACTOR_ROW_H + 20);
+      const x = DEPT_BASE_X + i * DEPT_GAP_X;
+      const y = DEPT_BASE_Y;
+      deptOrigin.set(d.temp_id, { x, y, height });
+      newNodes.push({
+        id,
+        type: "departmentNode",
+        position: { x, y },
+        style: { width: DEFAULT_DEPARTMENT_SIZE.width, height },
+        data: { kind: "DEPARTMENT", name: d.name, reportsToDepartmentId: "" },
+      });
+    });
+    // Second pass: reports_to_temp_id may reference a department defined
+    // later in the array, so resolve it only once every id is known.
+    graph.departments.forEach((d) => {
+      if (!d.reports_to_temp_id) return;
+      const realId = tempIdToRealId.get(d.temp_id);
+      const parentRealId = tempIdToRealId.get(d.reports_to_temp_id);
+      const node = newNodes.find((n) => n.id === realId);
+      if (node && parentRealId && node.data.kind === "DEPARTMENT") {
+        node.data = { ...node.data, reportsToDepartmentId: parentRealId };
+      }
+    });
+
+    // Actors nested in a department: stacked vertically, positioned
+    // relative to the parent (React Flow requires this once parentNode is set).
+    for (const [deptTempId, actors] of actorsByDept) {
+      const deptRealId = tempIdToRealId.get(deptTempId)!;
+      actors.forEach((a, i) => {
+        const id = freshId("actor");
+        tempIdToRealId.set(a.temp_id, id);
+        newNodes.push({
+          id,
+          type: "actorNode",
+          parentNode: deptRealId,
+          position: { x: 20, y: 50 + i * ACTOR_ROW_H },
+          data: {
+            kind: "ACTOR",
+            subtype: a.subtype,
+            identity: a.identity,
+            departmentId: deptRealId,
+          },
+        });
+      });
+    }
+
+    // Actors with no department: a free row below the department band.
+    const belowDeptsY =
+      DEPT_BASE_Y +
+      Math.max(DEFAULT_DEPARTMENT_SIZE.height, ...[...deptOrigin.values()].map((o) => o.height), 0) +
+      60;
+    looseActors.forEach((a, i) => {
+      const id = freshId("actor");
+      tempIdToRealId.set(a.temp_id, id);
+      newNodes.push({
+        id,
+        type: "actorNode",
+        position: { x: DEPT_BASE_X + i * 210, y: belowDeptsY },
+        data: {
+          kind: "ACTOR",
+          subtype: a.subtype,
+          identity: a.identity,
+          departmentId: "",
+        },
+      });
+    });
+
+    // AI Models: a column to the right of the department band.
+    const modelsX =
+      graph.departments.length > 0
+        ? DEPT_BASE_X + graph.departments.length * DEPT_GAP_X
+        : DEPT_BASE_X;
+    graph.ai_models.forEach((m, i) => {
+      const id = freshId("ai-model");
+      tempIdToRealId.set(m.temp_id, id);
+      newNodes.push({
+        id,
+        type: "aiModelNode",
+        position: { x: modelsX, y: DEPT_BASE_Y + i * MODEL_GAP_Y },
+        data: {
+          kind: "AI_MODEL",
+          name: m.name,
+          modelType: m.model_type,
+          aiCriticality: m.ai_criticality,
+          domain: m.domain,
+          dataSensitivity: m.data_sensitivity,
+          hostingEnvironment: m.hosting_environment,
+        },
+      });
+    });
+
+    // Constraints: a row beneath everything else.
+    const constraintsY = belowDeptsY + (looseActors.length > 0 ? 120 : 0);
+    graph.constraints.forEach((c, i) => {
+      const id = freshId("constraint");
+      tempIdToRealId.set(c.temp_id, id);
+      newNodes.push({
+        id,
+        type: "constraintNode",
+        position: { x: DEPT_BASE_X + i * CONSTRAINT_GAP_X, y: constraintsY },
+        data: {
+          kind: "CONSTRAINT",
+          constraintId: c.constraint_id,
+          status: c.status,
+          evidence: c.evidence,
+        },
+      });
+    });
+
+    set((s) => {
+      const allNodes = reorderParentsFirst([...s.nodes, ...newNodes]);
+
+      const newEdges: Edge[] = [];
+      for (const e of graph.edges) {
+        const sourceId = tempIdToRealId.get(e.from_temp_id);
+        const targetId = tempIdToRealId.get(e.to_temp_id);
+        // Silently drop edges referencing a temp_id the model didn't
+        // actually define a node for, rather than failing the whole turn.
+        if (!sourceId || !targetId) continue;
+        const edge = buildResolvedEdge(allNodes, sourceId, targetId);
+        if (edge) newEdges.push(edge);
+      }
+
+      return { nodes: allNodes, edges: [...s.edges, ...newEdges] };
+    });
   },
 }));

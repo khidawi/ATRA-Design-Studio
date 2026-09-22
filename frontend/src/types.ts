@@ -210,3 +210,54 @@ export interface ScoreResponse {
   pcs_result: PCSResultBlock;
   warnings: string[];
 }
+
+// ── /chat request / response ───────────────────────────────────────────────
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface GeneratedDepartment {
+  temp_id: string;
+  name: string;
+  reports_to_temp_id?: string | null;
+}
+
+export interface GeneratedActor {
+  temp_id: string;
+  subtype: ActorSubtype;
+  identity: string;
+  department_temp_id?: string | null;
+}
+
+export interface GeneratedAIModel {
+  temp_id: string;
+  name: string;
+  model_type: ModelType;
+  ai_criticality: AICriticality;
+  domain: string;
+  data_sensitivity: DataSensitivity;
+  hosting_environment: HostingEnvironment;
+}
+
+export interface GeneratedConstraint {
+  temp_id: string;
+  constraint_id: string;
+  status: ConstraintStatus;
+  evidence: string;
+}
+
+export interface GeneratedEdge {
+  from_temp_id: string;
+  to_temp_id: string;
+}
+
+export interface GeneratedGraph {
+  reply: string;
+  departments: GeneratedDepartment[];
+  actors: GeneratedActor[];
+  ai_models: GeneratedAIModel[];
+  constraints: GeneratedConstraint[];
+  edges: GeneratedEdge[];
+}

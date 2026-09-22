@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { ReactFlowProvider } from "reactflow";
 
 import Canvas from "./components/Canvas";
+import ChatPanel from "./components/ChatPanel";
 import Inspector from "./components/Inspector";
 import PCSBadge from "./components/PCSBadge";
 import Sidebar from "./components/Sidebar";
@@ -12,6 +13,8 @@ function App() {
   const loadCatalogue = useCanvasStore((s) => s.loadCatalogue);
   const runScore = useCanvasStore((s) => s.runScore);
   const scoring = useCanvasStore((s) => s.scoring);
+  const chatOpen = useCanvasStore((s) => s.chatOpen);
+  const toggleChat = useCanvasStore((s) => s.toggleChat);
 
   useEffect(() => {
     loadCatalogue();
@@ -27,6 +30,13 @@ function App() {
         <div className="ai-header__spacer" />
         <div className="ai-header__actions">
           <PCSBadge />
+          <button
+            type="button"
+            className={`ai-chat-toggle${chatOpen ? " ai-chat-toggle--active" : ""}`}
+            onClick={toggleChat}
+          >
+            Chat
+          </button>
           <button
             type="button"
             className="ai-score-btn"
@@ -45,6 +55,8 @@ function App() {
         </ReactFlowProvider>
         <Inspector />
       </div>
+
+      <ChatPanel />
     </div>
   );
 }
