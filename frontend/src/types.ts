@@ -69,6 +69,7 @@ export interface ActorNodeData {
   kind: "ACTOR";
   subtype: ActorSubtype;
   identity: string;
+  departmentId: string;
 }
 
 export interface ConstraintNodeData {
@@ -78,7 +79,16 @@ export interface ConstraintNodeData {
   evidence: string;
 }
 
-export type CanvasNodeData = ActorNodeData | ConstraintNodeData;
+export interface DepartmentNodeData {
+  kind: "DEPARTMENT";
+  name: string;
+  reportsToDepartmentId: string;
+}
+
+export type CanvasNodeData =
+  | ActorNodeData
+  | ConstraintNodeData
+  | DepartmentNodeData;
 
 export interface ConstraintCatalogueEntry {
   constraint_id: string;
@@ -92,7 +102,14 @@ export interface ConstraintCatalogueEntry {
 // ── /score request / response ──────────────────────────────────────────────
 
 export interface RegistryBlockPayload {
-  actors: Partial<Record<string, { identity: string }>>;
+  actors: Partial<
+    Record<string, { identity: string; department_id?: string }>
+  >;
+  departments: {
+    id: string;
+    name: string;
+    reports_to_department_id?: string;
+  }[];
   governance_state: {
     constraints_declared: Record<
       string,

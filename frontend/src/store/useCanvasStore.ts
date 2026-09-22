@@ -18,12 +18,48 @@ import {
   type CanvasNodeData,
   type ConstraintCatalogueEntry,
   type ConstraintNodeData,
+  type DepartmentNodeData,
   type PCSResultBlock,
   type RegistryBlockPayload,
 } from "../types";
 
 let nextId = 1;
 const freshId = (prefix: string) => `${prefix}-${nextId++}`;
+
+const DEFAULT_DEPARTMENT_SIZE = { width: 260, height: 200 };
+
+function absoluteRect(node: Node<CanvasNodeData>) {
+  const pos = node.positionAbsolute ?? node.position;
+  const width = node.width ?? (node.data.kind === "DEPARTMENT" ? DEFAULT_DEPARTMENT_SIZE.width : 190);
+  const height = node.height ?? (node.data.kind === "DEPARTMENT" ? DEFAULT_DEPARTMENT_SIZE.height : 60);
+  return { x: pos.x, y: pos.y, width, height };
+}
+
+function centerOf(rect: { x: number; y: number; width: number; height: number }) {
+  return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+}
+
+function rectContainsPoint(
+  rect: { x: number; y: number; width: number; height: number },
+  point: { x: number; y: number }
+) {
+  return (
+    point.x >= rect.x &&
+    point.x <= rect.x + rect.width &&
+    point.y >= rect.y &&
+    point.y <= rect.y + rect.height
+  );
+}
+
+// React Flow v11 requires a parent node to appear before its children in
+// the nodes array. Only DEPARTMENT nodes are ever parents here, and they
+// never have a parent themselves, so partitioning is enough — no need for
+// a full topological sort.
+function reorderParentsFirst(nodes: Node<CanvasNodeData>[]) {
+  const withoutParent = nodes.filter((n) => !n.parentNode);
+  const withParent = nodes.filter((n) => n.parentNode);
+  return [...withoutParent, ...withParent];
+}
 
 interface CanvasState {
   nodes: Node<CanvasNodeData>[];
@@ -44,8 +80,10 @@ interface CanvasState {
     subtype?: ActorSubtype
   ) => void;
   addConstraintNode: (position: { x: number; y: number }) => void;
+  addDepartmentNode: (position: { x: number; y: number }) => void;
   updateNodeData: (id: string, data: Partial<CanvasNodeData>) => void;
   setSelectedNode: (id: string | null) => void;
+  settleNodeParent: (nodeId: string) => void;
 
   loadCatalogue: () => Promise<void>;
   runScore: () => Promise<void>;
@@ -61,8 +99,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   scoring: false,
   scoreError: null,
 
-  onNodesChange: (changes) =>
-    set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) })),
+  onNodesChange: (changes) => {
+    set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) }));
+    for (const change of changes) {
+      if (change.type === "position" && change.dragging === false) {
+        get().settleNodeParent(change.id);
+      }
+    }
+  },
 
   onEdgesChange: (changes) =>
     set((s) => ({ edges: applyEdgeChanges(changes, s.edges) })),
@@ -86,6 +130,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       kind: "ACTOR",
       subtype,
       identity: "",
+      departmentId: "",
     };
     const node: Node<CanvasNodeData> = {
       id,
@@ -93,6 +138,25 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       position,
       data,
     };
+    set((s) => ({ nodes: [...s.nodes, node], selectedNodeId: id }));
+  },
+
+  addDepartmentNode: (position) => {
+    const id = freshId("department");
+    const data: DepartmentNodeData = {
+      kind: "DEPARTMENT",
+      name: "",
+      reportsToDepartmentId: "",
+    };
+    const node: Node<CanvasNodeData> = {
+      id,
+      type: "departmentNode",
+      position,
+      style: { ...DEFAULT_DEPARTMENT_SIZE },
+      data,
+    };
+    // Department nodes must precede any node parented to them, and they
+    // can never be parents of each other visually, so appending is safe.
     set((s) => ({ nodes: [...s.nodes, node], selectedNodeId: id }));
   },
 
@@ -124,6 +188,59 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setSelectedNode: (id) => set({ selectedNodeId: id }),
 
+  settleNodeParent: (nodeId) =>
+    set((s) => {
+      const node = s.nodes.find((n) => n.id === nodeId);
+      if (!node || node.data.kind === "DEPARTMENT") return {};
+
+      const rect = absoluteRect(node);
+      const center = centerOf(rect);
+      const department = s.nodes.find(
+        (n) =>
+          n.id !== nodeId &&
+          n.data.kind === "DEPARTMENT" &&
+          rectContainsPoint(absoluteRect(n), center)
+      );
+
+      const nextParentId = department?.id;
+      if ((node.parentNode ?? undefined) === nextParentId) return {};
+
+      let nodes = s.nodes.map((n): Node<CanvasNodeData> => {
+        if (n.id !== nodeId) return n;
+
+        const isActor = n.data.kind === "ACTOR";
+        if (department) {
+          const deptRect = absoluteRect(department);
+          // No `extent: 'parent'` here on purpose: that hard-clamps drags
+          // to stay inside the parent, which would make it impossible to
+          // ever drag a node back out to detach it. Containment is instead
+          // just a bounding-box check on drag-stop (above), same as the
+          // membership model this ports from Secure Tropos's canvas.
+          return {
+            ...n,
+            parentNode: department.id,
+            position: { x: rect.x - deptRect.x, y: rect.y - deptRect.y },
+            data: isActor
+              ? { ...(n.data as ActorNodeData), departmentId: department.id }
+              : n.data,
+          };
+        }
+        // Dragged outside every department — detach back to a top-level node.
+        const { parentNode: _parentNode, ...rest } = n;
+        return {
+          ...rest,
+          position: { x: rect.x, y: rect.y },
+          data: isActor
+            ? { ...(n.data as ActorNodeData), departmentId: "" }
+            : n.data,
+        };
+      });
+
+      if (department) nodes = reorderParentsFirst(nodes);
+
+      return { nodes };
+    }),
+
   loadCatalogue: async () => {
     try {
       const catalogue = await getConstraintCatalogue();
@@ -142,7 +259,21 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     for (const n of nodes) {
       if (n.data.kind === "ACTOR") {
         const key = n.data.subtype.toLowerCase();
-        actors[key] = { identity: n.data.identity || n.id };
+        actors[key] = {
+          identity: n.data.identity || n.id,
+          department_id: n.data.departmentId || undefined,
+        };
+      }
+    }
+
+    const departments: RegistryBlockPayload["departments"] = [];
+    for (const n of nodes) {
+      if (n.data.kind === "DEPARTMENT") {
+        departments.push({
+          id: n.id,
+          name: n.data.name || n.id,
+          reports_to_department_id: n.data.reportsToDepartmentId || undefined,
+        });
       }
     }
 
@@ -162,6 +293,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
     const registry: RegistryBlockPayload = {
       actors,
+      departments,
       governance_state: { constraints_declared },
     };
 

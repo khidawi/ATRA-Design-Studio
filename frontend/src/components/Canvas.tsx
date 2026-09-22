@@ -9,10 +9,15 @@ import "reactflow/dist/style.css";
 
 import ActorNode from "../nodes/ActorNode";
 import ConstraintNode from "../nodes/ConstraintNode";
+import DepartmentNode from "../nodes/DepartmentNode";
 import { useCanvasStore } from "../store/useCanvasStore";
 import type { ActorSubtype, NodeKind } from "../types";
 
-const nodeTypes = { actorNode: ActorNode, constraintNode: ConstraintNode };
+const nodeTypes = {
+  actorNode: ActorNode,
+  constraintNode: ConstraintNode,
+  departmentNode: DepartmentNode,
+};
 
 export default function Canvas() {
   const nodes = useCanvasStore((s) => s.nodes);
@@ -22,7 +27,9 @@ export default function Canvas() {
   const onConnect = useCanvasStore((s) => s.onConnect);
   const addActorNode = useCanvasStore((s) => s.addActorNode);
   const addConstraintNode = useCanvasStore((s) => s.addConstraintNode);
+  const addDepartmentNode = useCanvasStore((s) => s.addDepartmentNode);
   const setSelectedNode = useCanvasStore((s) => s.setSelectedNode);
+  const settleNodeParent = useCanvasStore((s) => s.settleNodeParent);
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const instanceRef = useRef<ReactFlowInstance | null>(null);
@@ -48,10 +55,17 @@ export default function Canvas() {
         y: event.clientY,
       });
 
-      if (payload.kind === "ACTOR") addActorNode(position, payload.subtype);
-      else if (payload.kind === "CONSTRAINT") addConstraintNode(position);
+      if (payload.kind === "ACTOR") {
+        addActorNode(position, payload.subtype);
+        const newId = useCanvasStore.getState().selectedNodeId;
+        if (newId) settleNodeParent(newId);
+      } else if (payload.kind === "CONSTRAINT") {
+        addConstraintNode(position);
+      } else if (payload.kind === "DEPARTMENT") {
+        addDepartmentNode(position);
+      }
     },
-    [addActorNode, addConstraintNode]
+    [addActorNode, addConstraintNode, addDepartmentNode, settleNodeParent]
   );
 
   const onPaneClick = useCallback(

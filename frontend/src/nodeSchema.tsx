@@ -8,6 +8,7 @@ import type {
   ActorNodeData,
   ConstraintCatalogueEntry,
   ConstraintNodeData,
+  DepartmentNodeData,
   NodeKind,
 } from "./types";
 import {
@@ -18,6 +19,7 @@ import {
 
 export interface RenderCtx {
   catalogue: ConstraintCatalogueEntry[];
+  departments: { id: string; name: string }[];
 }
 
 export type FieldDescriptor<D> =
@@ -48,6 +50,16 @@ export type FieldDescriptor<D> =
       options: readonly string[];
       optionLabels: Record<string, string>;
       variant: Record<string, string>;
+    }
+  | {
+      key: keyof D & string;
+      label: string;
+      kind: "dynamic-select";
+      emptyLabel: string;
+      dynamicOptions: (
+        ctx: RenderCtx,
+        selfNodeId: string
+      ) => { value: string; label: string }[];
     };
 
 export interface NodeTypeDescriptor<D> {
@@ -97,11 +109,50 @@ const actorDescriptor: NodeTypeDescriptor<ActorNodeData> = {
       kind: "text",
       placeholder: "e.g. Data Science ML Team",
     },
+    {
+      key: "departmentId",
+      label: "Department",
+      kind: "dynamic-select",
+      emptyLabel: "— None —",
+      dynamicOptions: (ctx) =>
+        ctx.departments.map((d) => ({ value: d.id, label: d.name })),
+    },
   ],
   footnote: (
     <>
-      Actor nodes show identity and department. Connect an actor to a
-      constraint to create an <code>on_dependency</code> edge.
+      Drag an actor onto a department box on the canvas to nest it, or set
+      its department here directly. Connect an actor to a constraint to
+      create an <code>on_dependency</code> edge.
+    </>
+  ),
+};
+
+const departmentDescriptor: NodeTypeDescriptor<DepartmentNodeData> = {
+  kickerClass: "department",
+  kicker: () => "Department",
+  heading: (d) => d.name || "(unnamed department)",
+  fields: [
+    {
+      key: "name",
+      label: "Name",
+      kind: "text",
+      placeholder: "e.g. Data Science",
+    },
+    {
+      key: "reportsToDepartmentId",
+      label: "Reports to",
+      kind: "dynamic-select",
+      emptyLabel: "— None (top-level) —",
+      dynamicOptions: (ctx, selfId) =>
+        ctx.departments
+          .filter((d) => d.id !== selfId)
+          .map((d) => ({ value: d.id, label: d.name })),
+    },
+  ],
+  footnote: (
+    <>
+      Departments become <code>registry.departments</code> entries. Drag
+      Actor nodes inside this box to set their department automatically.
     </>
   ),
 };
@@ -159,4 +210,5 @@ const constraintDescriptor: NodeTypeDescriptor<ConstraintNodeData> = {
 export const NODE_SCHEMA: Partial<Record<NodeKind, NodeTypeDescriptor<any>>> = {
   ACTOR: actorDescriptor,
   CONSTRAINT: constraintDescriptor,
+  DEPARTMENT: departmentDescriptor,
 };

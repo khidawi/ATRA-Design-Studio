@@ -6,14 +6,38 @@ import { useCanvasStore } from "../store/useCanvasStore";
 function Field({
   field,
   data,
+  nodeId,
+  ctx,
   onChange,
 }: {
   field: FieldDescriptor<any>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any;
+  nodeId: string;
+  ctx: RenderCtx;
   onChange: (patch: Record<string, string>) => void;
 }) {
   const value = data[field.key] ?? "";
+
+  if (field.kind === "dynamic-select") {
+    const options = field.dynamicOptions(ctx, nodeId);
+    return (
+      <label className="ai-field">
+        <span>{field.label}</span>
+        <select
+          value={value}
+          onChange={(e) => onChange({ [field.key]: e.target.value })}
+        >
+          <option value="">{field.emptyLabel}</option>
+          {options.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
 
   if (field.kind === "select") {
     return (
@@ -119,7 +143,14 @@ export default function Inspector() {
     );
   }
 
-  const ctx: RenderCtx = { catalogue };
+  const departments = nodes
+    .filter(
+      (n): n is typeof n & { data: { kind: "DEPARTMENT"; name: string } } =>
+        n.data.kind === "DEPARTMENT"
+    )
+    .map((n) => ({ id: n.id, name: n.data.name || "(unnamed department)" }));
+
+  const ctx: RenderCtx = { catalogue, departments };
 
   return (
     <aside className="ai-inspector">
@@ -140,6 +171,8 @@ export default function Inspector() {
           key={field.key}
           field={field}
           data={node.data}
+          nodeId={node.id}
+          ctx={ctx}
           onChange={(patch) => updateNodeData(node.id, patch)}
         />
       ))}

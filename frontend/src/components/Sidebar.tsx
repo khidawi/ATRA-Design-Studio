@@ -14,6 +14,7 @@ export default function Sidebar() {
   const nodes = useCanvasStore((s) => s.nodes);
   const addActorNode = useCanvasStore((s) => s.addActorNode);
   const addConstraintNode = useCanvasStore((s) => s.addConstraintNode);
+  const addDepartmentNode = useCanvasStore((s) => s.addDepartmentNode);
 
   const nextPosition = () => {
     const i = nodes.length;
@@ -39,9 +40,31 @@ export default function Sidebar() {
     event.dataTransfer.effectAllowed = "move";
   };
 
+  const onDepartmentDragStart = (event: DragEvent<HTMLButtonElement>) => {
+    event.dataTransfer.setData(
+      "application/stai-node-kind",
+      JSON.stringify({ kind: "DEPARTMENT" })
+    );
+    event.dataTransfer.effectAllowed = "move";
+  };
+
   return (
     <aside className="ai-sidebar">
-      <div className="ai-sidebar__title">Actors</div>
+      <div className="ai-sidebar__title">Organisation</div>
+      <button
+        type="button"
+        className="ai-palette-row"
+        draggable
+        onDragStart={onDepartmentDragStart}
+        onClick={() => addDepartmentNode(nextPosition())}
+      >
+        <span className="ai-palette-swatch ai-palette-swatch--department" />
+        Department
+      </button>
+
+      <div className="ai-sidebar__title" style={{ marginTop: 16 }}>
+        Actors
+      </div>
       {ACTOR_SUBTYPES.map((subtype) => (
         <button
           key={subtype}
@@ -79,8 +102,10 @@ export default function Sidebar() {
 
       <p className="ai-sidebar__note">
         Palette shown for reference. Drag onto the canvas, or click to add.
-        Connect nodes to create an <code>on_dependency</code> edge. More node
-        types (Department, AI Model, Dataset, …) land in a later pass.
+        Drop an actor inside a department to nest it — its Department field
+        updates automatically. Connect nodes to create an{" "}
+        <code>on_dependency</code> edge. More node types (AI Model, Dataset,
+        …) land in a later pass.
       </p>
     </aside>
   );
