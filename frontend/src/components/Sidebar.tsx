@@ -1,4 +1,5 @@
 import type { DragEvent } from "react";
+import { CONSTRAINT_BUNDLES } from "../constraintBundles";
 import { useCanvasStore } from "../store/useCanvasStore";
 import { ACTOR_SUBTYPES, type ActorSubtype, type NodeKind } from "../types";
 
@@ -29,6 +30,7 @@ export default function Sidebar() {
   const addDepartmentNode = useCanvasStore((s) => s.addDepartmentNode);
   const addAIModelNode = useCanvasStore((s) => s.addAIModelNode);
   const addSimpleNode = useCanvasStore((s) => s.addSimpleNode);
+  const addConstraintBundle = useCanvasStore((s) => s.addConstraintBundle);
 
   const nextPosition = () => {
     const i = nodes.length;
@@ -149,6 +151,20 @@ export default function Sidebar() {
         <span className="ai-palette-swatch ai-palette-swatch--diamond" />
         Constraint
       </button>
+      {CONSTRAINT_BUNDLES.map((bundle) => (
+        <button
+          key={bundle.id}
+          type="button"
+          className="ai-bundle-row"
+          title={bundle.description}
+          onClick={() => addConstraintBundle(bundle, nextPosition())}
+        >
+          <span className="ai-bundle-row__name">{bundle.name}</span>
+          <span className="ai-bundle-row__count">
+            +{bundle.constraintIds.length}
+          </span>
+        </button>
+      ))}
 
       <div className="ai-sidebar__title" style={{ marginTop: 16 }}>
         Consent &amp; Regulatory

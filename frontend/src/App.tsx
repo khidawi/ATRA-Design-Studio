@@ -6,6 +6,7 @@ import ChatPanel from "./components/ChatPanel";
 import Inspector from "./components/Inspector";
 import PCSBadge from "./components/PCSBadge";
 import Sidebar from "./components/Sidebar";
+import ValidationPanel from "./components/ValidationPanel";
 import { useCanvasStore } from "./store/useCanvasStore";
 import "./App.css";
 
@@ -15,6 +16,8 @@ function App() {
   const scoring = useCanvasStore((s) => s.scoring);
   const chatOpen = useCanvasStore((s) => s.chatOpen);
   const toggleChat = useCanvasStore((s) => s.toggleChat);
+  const runValidation = useCanvasStore((s) => s.runValidation);
+  const validationIssues = useCanvasStore((s) => s.validationIssues);
 
   useEffect(() => {
     loadCatalogue();
@@ -39,6 +42,18 @@ function App() {
           </button>
           <button
             type="button"
+            className="ai-validate-toggle"
+            onClick={runValidation}
+          >
+            Validate
+            {validationIssues.length > 0 && (
+              <span className="ai-validate-toggle__badge">
+                {validationIssues.length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
             className="ai-score-btn"
             onClick={() => runScore()}
             disabled={scoring}
@@ -57,6 +72,7 @@ function App() {
       </div>
 
       <ChatPanel />
+      <ValidationPanel />
     </div>
   );
 }

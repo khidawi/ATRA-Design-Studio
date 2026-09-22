@@ -86,6 +86,29 @@
   color: #a5b4fc;
 }
 
+.ai-validate-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid var(--border-input);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.ai-validate-toggle__badge {
+  background: var(--status-unmet);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
 /* ── Body layout ────────────────────────────────────────────────────── */
 
 .ai-body {
@@ -171,6 +194,34 @@
 
 .ai-palette-row:hover {
   background: rgba(148, 163, 184, 0.08);
+}
+
+.ai-bundle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  margin-bottom: 2px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px dashed var(--border-input);
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.ai-bundle-row:hover {
+  background: rgba(148, 163, 184, 0.08);
+  border-color: var(--status-pending);
+}
+
+.ai-bundle-row__count {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--status-pending-text);
 }
 
 .ai-palette-swatch {
@@ -832,4 +883,85 @@
 .ai-chat-panel__composer button:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+/* ── Validation panel ───────────────────────────────────────────────── */
+
+.ai-validation-panel {
+  position: fixed;
+  left: 236px;
+  bottom: 20px;
+  width: 340px;
+  max-height: 360px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 20;
+}
+
+.ai-validation-panel__header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.ai-validation-panel__header button {
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.ai-validation-panel__list {
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ai-validation-panel__empty {
+  font-size: 12px;
+  color: var(--text-faint);
+  line-height: 1.6;
+  margin: 4px 6px;
+}
+
+.ai-validation-issue {
+  text-align: left;
+  font-size: 11.5px;
+  line-height: 1.4;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: var(--bg-node);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.ai-validation-issue:disabled {
+  cursor: default;
+}
+
+.ai-validation-issue--warning {
+  border-color: rgba(245, 158, 11, 0.3);
+  color: var(--status-pending-text);
+}
+
+.ai-validation-issue--error {
+  border-color: rgba(239, 68, 68, 0.35);
+  color: var(--status-unmet-text);
 }

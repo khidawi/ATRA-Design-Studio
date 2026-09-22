@@ -16,7 +16,9 @@ import {
   scoreRegistry,
   sendChatMessage as apiSendChatMessage,
 } from "../api/client";
+import type { ConstraintBundle } from "../constraintBundles";
 import { resolveEdge } from "../edgeRules";
+import { validateGraph, type ValidationIssue } from "../validation";
 import {
   ALL_CONSTRAINT_IDS,
   type ActorNodeData,
@@ -151,6 +153,9 @@ interface CanvasState {
   chatLoading: boolean;
   chatError: string | null;
 
+  validationIssues: ValidationIssue[];
+  validationOpen: boolean;
+
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
   onConnect: (connection: Connection) => void;
@@ -160,6 +165,10 @@ interface CanvasState {
     subtype?: ActorSubtype
   ) => void;
   addConstraintNode: (position: { x: number; y: number }) => void;
+  addConstraintBundle: (
+    bundle: ConstraintBundle,
+    position: { x: number; y: number }
+  ) => void;
   addDepartmentNode: (position: { x: number; y: number }) => void;
   addAIModelNode: (position: { x: number; y: number }) => void;
   addSimpleNode: (kind: SimpleKind, position: { x: number; y: number }) => void;
@@ -173,6 +182,10 @@ interface CanvasState {
   toggleChat: () => void;
   sendChatMessage: (text: string) => Promise<void>;
   applyGeneratedGraph: (graph: GeneratedGraph) => void;
+
+  runValidation: () => void;
+  toggleValidation: () => void;
+  closeValidation: () => void;
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -189,6 +202,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   chatOpen: false,
   chatLoading: false,
   chatError: null,
+
+  validationIssues: [],
+  validationOpen: false,
 
   onNodesChange: (changes) => {
     set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) }));
@@ -296,6 +312,23 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       data,
     };
     set((s) => ({ nodes: [...s.nodes, node], selectedNodeId: id }));
+  },
+
+  addConstraintBundle: (bundle, position) => {
+    const newNodes: Node<CanvasNodeData>[] = bundle.constraintIds.map(
+      (constraintId, i): Node<CanvasNodeData> => ({
+        id: freshId("constraint"),
+        type: "constraintNode",
+        position: { x: position.x + i * 100, y: position.y },
+        data: {
+          kind: "CONSTRAINT",
+          constraintId,
+          status: "NOT_YET_DETERMINED",
+          evidence: "",
+        },
+      })
+    );
+    set((s) => ({ nodes: [...s.nodes, ...newNodes] }));
   },
 
   updateNodeData: (id, patch) =>
@@ -524,6 +557,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   toggleChat: () => set((s) => ({ chatOpen: !s.chatOpen })),
+
+  runValidation: () => {
+    const { nodes, edges } = get();
+    set({ validationIssues: validateGraph(nodes, edges), validationOpen: true });
+  },
+
+  toggleValidation: () => set((s) => ({ validationOpen: !s.validationOpen })),
+
+  closeValidation: () => set({ validationOpen: false }),
 
   sendChatMessage: async (text) => {
     const userMessage: ChatMessage = { role: "user", content: text };
