@@ -7,6 +7,7 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 
+import AIModelNode from "../nodes/AIModelNode";
 import ActorNode from "../nodes/ActorNode";
 import ConstraintNode from "../nodes/ConstraintNode";
 import DepartmentNode from "../nodes/DepartmentNode";
@@ -17,6 +18,7 @@ const nodeTypes = {
   actorNode: ActorNode,
   constraintNode: ConstraintNode,
   departmentNode: DepartmentNode,
+  aiModelNode: AIModelNode,
 };
 
 export default function Canvas() {
@@ -28,6 +30,7 @@ export default function Canvas() {
   const addActorNode = useCanvasStore((s) => s.addActorNode);
   const addConstraintNode = useCanvasStore((s) => s.addConstraintNode);
   const addDepartmentNode = useCanvasStore((s) => s.addDepartmentNode);
+  const addAIModelNode = useCanvasStore((s) => s.addAIModelNode);
   const setSelectedNode = useCanvasStore((s) => s.setSelectedNode);
   const settleNodeParent = useCanvasStore((s) => s.settleNodeParent);
 
@@ -63,9 +66,17 @@ export default function Canvas() {
         addConstraintNode(position);
       } else if (payload.kind === "DEPARTMENT") {
         addDepartmentNode(position);
+      } else if (payload.kind === "AI_MODEL") {
+        addAIModelNode(position);
       }
     },
-    [addActorNode, addConstraintNode, addDepartmentNode, settleNodeParent]
+    [
+      addActorNode,
+      addConstraintNode,
+      addDepartmentNode,
+      addAIModelNode,
+      settleNodeParent,
+    ]
   );
 
   const onPaneClick = useCallback(

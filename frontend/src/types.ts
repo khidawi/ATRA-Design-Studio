@@ -85,10 +85,70 @@ export interface DepartmentNodeData {
   reportsToDepartmentId: string;
 }
 
+// Backend enum values (framework/enums.py) — kept in sync by hand since
+// schema.py's DeploymentContext only types these as plain `str`.
+export type ModelType = "NN" | "RL" | "ENSEMBLE" | "PINN" | "LLM" | "CNN" | "HYBRID";
+export const MODEL_TYPES: ModelType[] = [
+  "LLM",
+  "NN",
+  "CNN",
+  "RL",
+  "ENSEMBLE",
+  "HYBRID",
+  "PINN",
+];
+
+export type AICriticality =
+  | "ADVISORY"
+  | "OPERATIONAL"
+  | "CRITICAL"
+  | "SAFETY_CRITICAL";
+export const AI_CRITICALITIES: AICriticality[] = [
+  "ADVISORY",
+  "OPERATIONAL",
+  "CRITICAL",
+  "SAFETY_CRITICAL",
+];
+
+export type DataSensitivity =
+  | "PUBLIC"
+  | "INTERNAL"
+  | "CONFIDENTIAL"
+  | "SENSITIVE_PERSONAL"
+  | "SPECIAL_CATEGORY";
+export const DATA_SENSITIVITIES: DataSensitivity[] = [
+  "PUBLIC",
+  "INTERNAL",
+  "CONFIDENTIAL",
+  "SENSITIVE_PERSONAL",
+  "SPECIAL_CATEGORY",
+];
+
+export type HostingEnvironment =
+  | "TYPE_1_INHOUSE"
+  | "TYPE_2_FINETUNED"
+  | "TYPE_3_THIRDPARTY_API";
+export const HOSTING_ENVIRONMENTS: HostingEnvironment[] = [
+  "TYPE_1_INHOUSE",
+  "TYPE_2_FINETUNED",
+  "TYPE_3_THIRDPARTY_API",
+];
+
+export interface AIModelNodeData {
+  kind: "AI_MODEL";
+  name: string;
+  modelType: ModelType;
+  aiCriticality: AICriticality;
+  domain: string;
+  dataSensitivity: DataSensitivity;
+  hostingEnvironment: HostingEnvironment;
+}
+
 export type CanvasNodeData =
   | ActorNodeData
   | ConstraintNodeData
-  | DepartmentNodeData;
+  | DepartmentNodeData
+  | AIModelNodeData;
 
 export interface ConstraintCatalogueEntry {
   constraint_id: string;
@@ -110,6 +170,13 @@ export interface RegistryBlockPayload {
     name: string;
     reports_to_department_id?: string;
   }[];
+  deployment_context?: {
+    model_type: ModelType;
+    ai_criticality: AICriticality;
+    data_sensitivity: DataSensitivity;
+    domain: string;
+  };
+  system_type?: HostingEnvironment;
   governance_state: {
     constraints_declared: Record<
       string,

@@ -177,6 +177,10 @@
   border-color: var(--dept-blue);
 }
 
+.ai-palette-swatch--ai-model {
+  border-color: var(--model-border);
+}
+
 /* ── Inspector fields ───────────────────────────────────────────────── */
 
 .ai-inspector__kicker {
@@ -197,6 +201,10 @@
 
 .ai-inspector__kicker--department {
   color: var(--dept-blue-text);
+}
+
+.ai-inspector__kicker--ai-model {
+  color: var(--model-border);
 }
 
 .ai-inspector__heading {
@@ -361,6 +369,45 @@
   padding: 4px 10px;
   border-radius: 20px;
   pointer-events: none;
+}
+
+.ai-model-node {
+  width: 210px;
+  min-height: 100px;
+  background: var(--model-bg);
+  border: 2px solid var(--model-border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+
+.ai-model-node--selected {
+  box-shadow: 0 0 0 3px var(--accent-blue);
+}
+
+.ai-model-node__label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #eef2ff;
+}
+
+.ai-model-node__sub {
+  font-size: 10.5px;
+  color: #a5b4fc;
+}
+
+.ai-model-node__tier {
+  font-size: 9.5px;
+  color: var(--model-tier-text);
+  background: var(--model-tier-bg);
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 10px;
+  width: fit-content;
+  margin-top: 2px;
 }
 
 .ai-constraint-node {

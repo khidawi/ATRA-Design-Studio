@@ -15,6 +15,7 @@ import {
   ALL_CONSTRAINT_IDS,
   type ActorNodeData,
   type ActorSubtype,
+  type AIModelNodeData,
   type CanvasNodeData,
   type ConstraintCatalogueEntry,
   type ConstraintNodeData,
@@ -81,6 +82,7 @@ interface CanvasState {
   ) => void;
   addConstraintNode: (position: { x: number; y: number }) => void;
   addDepartmentNode: (position: { x: number; y: number }) => void;
+  addAIModelNode: (position: { x: number; y: number }) => void;
   updateNodeData: (id: string, data: Partial<CanvasNodeData>) => void;
   setSelectedNode: (id: string | null) => void;
   settleNodeParent: (nodeId: string) => void;
@@ -157,6 +159,26 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     };
     // Department nodes must precede any node parented to them, and they
     // can never be parents of each other visually, so appending is safe.
+    set((s) => ({ nodes: [...s.nodes, node], selectedNodeId: id }));
+  },
+
+  addAIModelNode: (position) => {
+    const id = freshId("ai-model");
+    const data: AIModelNodeData = {
+      kind: "AI_MODEL",
+      name: "",
+      modelType: "LLM",
+      aiCriticality: "OPERATIONAL",
+      domain: "",
+      dataSensitivity: "INTERNAL",
+      hostingEnvironment: "TYPE_1_INHOUSE",
+    };
+    const node: Node<CanvasNodeData> = {
+      id,
+      type: "aiModelNode",
+      position,
+      data,
+    };
     set((s) => ({ nodes: [...s.nodes, node], selectedNodeId: id }));
   },
 
@@ -277,6 +299,21 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       }
     }
 
+    // Only one deployment context exists per registry — the first AI Model
+    // node on canvas wins if there happen to be several.
+    const aiModel = nodes.find((n) => n.data.kind === "AI_MODEL")?.data as
+      | AIModelNodeData
+      | undefined;
+    const deployment_context = aiModel
+      ? {
+          model_type: aiModel.modelType,
+          ai_criticality: aiModel.aiCriticality,
+          data_sensitivity: aiModel.dataSensitivity,
+          domain: aiModel.domain,
+        }
+      : undefined;
+    const system_type = aiModel?.hostingEnvironment;
+
     const constraints_declared: RegistryBlockPayload["governance_state"]["constraints_declared"] =
       {};
     for (const cid of ALL_CONSTRAINT_IDS) {
@@ -294,6 +331,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const registry: RegistryBlockPayload = {
       actors,
       departments,
+      deployment_context,
+      system_type,
       governance_state: { constraints_declared },
     };
 

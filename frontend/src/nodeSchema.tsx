@@ -6,6 +6,7 @@
 import type { ReactNode } from "react";
 import type {
   ActorNodeData,
+  AIModelNodeData,
   ConstraintCatalogueEntry,
   ConstraintNodeData,
   DepartmentNodeData,
@@ -13,8 +14,12 @@ import type {
 } from "./types";
 import {
   ACTOR_SUBTYPES,
+  AI_CRITICALITIES,
   ALL_CONSTRAINT_IDS,
   CONSTRAINT_STATUSES,
+  DATA_SENSITIVITIES,
+  HOSTING_ENVIRONMENTS,
+  MODEL_TYPES,
 } from "./types";
 
 export interface RenderCtx {
@@ -157,6 +162,92 @@ const departmentDescriptor: NodeTypeDescriptor<DepartmentNodeData> = {
   ),
 };
 
+const MODEL_TYPE_LABEL: Record<string, string> = {
+  LLM: "LLM",
+  NN: "Neural Network",
+  CNN: "CNN",
+  RL: "Reinforcement Learning",
+  ENSEMBLE: "Ensemble",
+  HYBRID: "Hybrid",
+  PINN: "Physics-Informed NN",
+};
+
+const AI_CRITICALITY_LABEL: Record<string, string> = {
+  ADVISORY: "Advisory",
+  OPERATIONAL: "Operational",
+  CRITICAL: "Critical",
+  SAFETY_CRITICAL: "Safety-Critical",
+};
+
+const DATA_SENSITIVITY_LABEL: Record<string, string> = {
+  PUBLIC: "Public",
+  INTERNAL: "Internal",
+  CONFIDENTIAL: "Confidential",
+  SENSITIVE_PERSONAL: "Sensitive Personal",
+  SPECIAL_CATEGORY: "Special Category",
+};
+
+const HOSTING_LABEL: Record<string, string> = {
+  TYPE_1_INHOUSE: "In-house",
+  TYPE_2_FINETUNED: "Fine-tuned",
+  TYPE_3_THIRDPARTY_API: "Third-party API",
+};
+
+const aiModelDescriptor: NodeTypeDescriptor<AIModelNodeData> = {
+  kickerClass: "ai-model",
+  kicker: (d) => `AI Model · ${MODEL_TYPE_LABEL[d.modelType]}`,
+  heading: (d) => d.name || "(unnamed model)",
+  fields: [
+    {
+      key: "name",
+      label: "Name",
+      kind: "text",
+      placeholder: "e.g. Clinical Triage LLM",
+    },
+    {
+      key: "modelType",
+      label: "Model Type",
+      kind: "select",
+      options: MODEL_TYPES,
+      optionLabels: MODEL_TYPE_LABEL,
+    },
+    {
+      key: "aiCriticality",
+      label: "Criticality",
+      kind: "select",
+      options: AI_CRITICALITIES,
+      optionLabels: AI_CRITICALITY_LABEL,
+    },
+    {
+      key: "domain",
+      label: "Domain",
+      kind: "text",
+      placeholder: "e.g. Healthcare, Finance, Employment",
+    },
+    {
+      key: "dataSensitivity",
+      label: "Data Sensitivity",
+      kind: "select",
+      options: DATA_SENSITIVITIES,
+      optionLabels: DATA_SENSITIVITY_LABEL,
+    },
+    {
+      key: "hostingEnvironment",
+      label: "Hosting Environment",
+      kind: "select",
+      options: HOSTING_ENVIRONMENTS,
+      optionLabels: HOSTING_LABEL,
+    },
+  ],
+  footnote: (
+    <>
+      Populates <code>registry.deployment_context</code> and{" "}
+      <code>registry.system_type</code>. Only the first AI Model node on
+      canvas feeds a score — the registry has one deployment context.
+    </>
+  ),
+};
+
 const constraintDescriptor: NodeTypeDescriptor<ConstraintNodeData> = {
   kickerClass: "constraint",
   kicker: () => "Security Constraint",
@@ -211,4 +302,5 @@ export const NODE_SCHEMA: Partial<Record<NodeKind, NodeTypeDescriptor<any>>> = {
   ACTOR: actorDescriptor,
   CONSTRAINT: constraintDescriptor,
   DEPARTMENT: departmentDescriptor,
+  AI_MODEL: aiModelDescriptor,
 };
