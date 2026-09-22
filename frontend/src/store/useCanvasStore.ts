@@ -11,6 +11,7 @@ import {
 import { create } from "zustand";
 
 import { ApiError, getConstraintCatalogue, scoreRegistry } from "../api/client";
+import { resolveEdge } from "../edgeRules";
 import {
   ALL_CONSTRAINT_IDS,
   type ActorNodeData,
@@ -114,17 +115,40 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set((s) => ({ edges: applyEdgeChanges(changes, s.edges) })),
 
   onConnect: (connection) =>
-    set((s) => ({
-      edges: addEdge(
-        {
-          ...connection,
-          type: "default",
-          label: "on_dependency",
-          data: { kind: "ON_DEPENDENCY" },
-        },
-        s.edges
-      ),
-    })),
+    set((s) => {
+      const { source, target } = connection;
+      if (!source || !target) return {};
+
+      const sourceNode = s.nodes.find((n) => n.id === source);
+      const targetNode = s.nodes.find((n) => n.id === target);
+      if (!sourceNode || !targetNode) return {};
+
+      const resolved = resolveEdge(sourceNode.data, targetNode.data);
+      // Canonical direction may run opposite to the way the user actually
+      // dragged (e.g. dragging from an AI Model to its Trainer still
+      // renders as Trainer --trains--> Model).
+      const finalConnection = resolved.swapped
+        ? {
+            ...connection,
+            source: target,
+            target: source,
+            sourceHandle: connection.targetHandle,
+            targetHandle: connection.sourceHandle,
+          }
+        : connection;
+
+      return {
+        edges: addEdge(
+          {
+            ...finalConnection,
+            type: "default",
+            label: resolved.label,
+            data: { kind: resolved.type },
+          },
+          s.edges
+        ),
+      };
+    }),
 
   addActorNode: (position, subtype = "TRAINER") => {
     const id = freshId("actor");
