@@ -1,25 +1,91 @@
+import type { FieldDescriptor, RenderCtx } from "../nodeSchema";
+import { NODE_SCHEMA } from "../nodeSchema";
 import { useCanvasStore } from "../store/useCanvasStore";
-import { ACTOR_SUBTYPES, ALL_CONSTRAINT_IDS, CONSTRAINT_STATUSES } from "../types";
 
-const TITLE_CASE: Record<string, string> = {
-  TRAINER: "Trainer",
-  VALIDATOR: "Validator",
-  DEPLOYER: "Deployer",
-  OPERATOR: "Operator",
-  CONSUMER: "Consumer",
-};
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function Field({
+  field,
+  data,
+  onChange,
+}: {
+  field: FieldDescriptor<any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: any;
+  onChange: (patch: Record<string, string>) => void;
+}) {
+  const value = data[field.key] ?? "";
 
-const STATUS_LABEL: Record<string, string> = {
-  NOT_YET_DETERMINED: "Not Yet Det.",
-  UNMET: "Unmet",
-  SATISFIED: "Satisfied",
-};
+  if (field.kind === "select") {
+    return (
+      <label className="ai-field">
+        <span>{field.label}</span>
+        <select
+          value={value}
+          onChange={(e) => onChange({ [field.key]: e.target.value })}
+        >
+          {field.options.map((opt) => (
+            <option key={opt} value={opt}>
+              {field.optionLabels?.[opt] ?? opt}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
 
-const STATUS_CLASS: Record<string, string> = {
-  NOT_YET_DETERMINED: "ai-status-btn--pending",
-  UNMET: "ai-status-btn--unmet",
-  SATISFIED: "ai-status-btn--satisfied",
-};
+  if (field.kind === "text") {
+    return (
+      <label className="ai-field">
+        <span>{field.label}</span>
+        <input
+          type="text"
+          value={value}
+          placeholder={field.placeholder}
+          onChange={(e) => onChange({ [field.key]: e.target.value })}
+        />
+      </label>
+    );
+  }
+
+  if (field.kind === "textarea") {
+    const helper = field.helper?.(data);
+    return (
+      <label className="ai-field">
+        <span>
+          {field.label}
+          {helper ? ` ${helper}` : ""}
+        </span>
+        <textarea
+          rows={4}
+          value={value}
+          placeholder={field.placeholder?.(data)}
+          onChange={(e) => onChange({ [field.key]: e.target.value })}
+        />
+      </label>
+    );
+  }
+
+  // status-buttons
+  return (
+    <div className="ai-field">
+      <span>{field.label}</span>
+      <div className="ai-status-row">
+        {field.options.map((opt) => (
+          <button
+            key={opt}
+            type="button"
+            className={`ai-status-btn ai-status-btn--${field.variant[opt]}${
+              value === opt ? " ai-status-btn--active" : ""
+            }`}
+            onClick={() => onChange({ [field.key]: opt })}
+          >
+            {field.optionLabels[opt]}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function Inspector() {
   const nodes = useCanvasStore((s) => s.nodes);
@@ -40,130 +106,45 @@ export default function Inspector() {
     );
   }
 
-  if (node.data.kind === "ACTOR") {
-    const d = node.data;
+  const descriptor = NODE_SCHEMA[node.data.kind];
+
+  if (!descriptor) {
     return (
       <aside className="ai-inspector">
         <div className="ai-inspector__title">Properties</div>
-        <div className="ai-inspector__kicker ai-inspector__kicker--actor">
-          Actor · {TITLE_CASE[d.subtype]}
-        </div>
-        <div className="ai-inspector__heading">{TITLE_CASE[d.subtype]}</div>
-
-        <label className="ai-field">
-          <span>Subtype</span>
-          <select
-            value={d.subtype}
-            onChange={(e) =>
-              updateNodeData(node.id, {
-                subtype: e.target.value as typeof d.subtype,
-              })
-            }
-          >
-            {ACTOR_SUBTYPES.map((s) => (
-              <option key={s} value={s}>
-                {TITLE_CASE[s]}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="ai-field">
-          <span>Identity</span>
-          <input
-            type="text"
-            value={d.identity}
-            placeholder="e.g. Data Science ML Team"
-            onChange={(e) =>
-              updateNodeData(node.id, { identity: e.target.value })
-            }
-          />
-        </label>
-
-        <div className="ai-inspector__footnote">
-          Actor nodes show identity and department. Connect an actor to a
-          constraint to create an <code>on_dependency</code> edge.
-        </div>
+        <p className="ai-inspector__empty">
+          No editor is defined yet for this node type.
+        </p>
       </aside>
     );
   }
 
-  const d = node.data;
-  const meta = catalogue.find((c) => c.constraint_id === d.constraintId);
-  const needsEvidence = d.status === "SATISFIED";
+  const ctx: RenderCtx = { catalogue };
 
   return (
     <aside className="ai-inspector">
       <div className="ai-inspector__title">Properties</div>
-      <div className="ai-inspector__kicker ai-inspector__kicker--constraint">
-        Security Constraint
+      <div
+        className={`ai-inspector__kicker ai-inspector__kicker--${descriptor.kickerClass}`}
+      >
+        {descriptor.kicker(node.data)}
       </div>
-      <div className="ai-inspector__heading">{d.constraintId}</div>
-
-      <label className="ai-field">
-        <span>Constraint ID</span>
-        <select
-          value={d.constraintId}
-          onChange={(e) =>
-            updateNodeData(node.id, { constraintId: e.target.value })
-          }
-        >
-          {ALL_CONSTRAINT_IDS.map((cid) => (
-            <option key={cid} value={cid}>
-              {cid}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      {meta && (
-        <p className="ai-field__meta">
-          <strong>{meta.class === "veto" ? "Veto class" : "Modulating"}</strong>
-          {meta.name ? ` — ${meta.name}` : ""}
-        </p>
-      )}
-
-      <div className="ai-field">
-        <span>Status</span>
-        <div className="ai-status-row">
-          {CONSTRAINT_STATUSES.map((s) => (
-            <button
-              key={s}
-              type="button"
-              className={`ai-status-btn ${STATUS_CLASS[s]}${
-                d.status === s ? " ai-status-btn--active" : ""
-              }`}
-              onClick={() => updateNodeData(node.id, { status: s })}
-            >
-              {STATUS_LABEL[s]}
-            </button>
-          ))}
-        </div>
+      <div className="ai-inspector__heading">
+        {descriptor.heading(node.data)}
       </div>
 
-      <label className="ai-field">
-        <span>
-          Evidence
-          {needsEvidence ? " (required to mark Satisfied)" : ""}
-        </span>
-        <textarea
-          rows={4}
-          value={d.evidence}
-          placeholder={
-            needsEvidence
-              ? "Required — SATISFIED status is rejected server-side without evidence"
-              : "Optional"
-          }
-          onChange={(e) =>
-            updateNodeData(node.id, { evidence: e.target.value })
-          }
+      {descriptor.renderMeta?.(node.data, ctx)}
+
+      {descriptor.fields.map((field) => (
+        <Field
+          key={field.key}
+          field={field}
+          data={node.data}
+          onChange={(patch) => updateNodeData(node.id, patch)}
         />
-      </label>
+      ))}
 
-      <div className="ai-inspector__footnote">
-        Veto-class constraints can only reach Satisfied with non-empty
-        evidence — enforced server-side on every <code>/score</code> call.
-      </div>
+      <div className="ai-inspector__footnote">{descriptor.footnote}</div>
     </aside>
   );
 }
