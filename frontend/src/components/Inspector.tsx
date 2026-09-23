@@ -9,6 +9,7 @@ function Field({
   nodeId,
   ctx,
   onChange,
+  onDepartmentSelect,
 }: {
   field: FieldDescriptor<any>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -16,6 +17,7 @@ function Field({
   nodeId: string;
   ctx: RenderCtx;
   onChange: (patch: Record<string, string>) => void;
+  onDepartmentSelect: (departmentId: string) => void;
 }) {
   const value = data[field.key] ?? "";
 
@@ -26,7 +28,11 @@ function Field({
         <span>{field.label}</span>
         <select
           value={value}
-          onChange={(e) => onChange({ [field.key]: e.target.value })}
+          onChange={(e) =>
+            field.affectsNesting
+              ? onDepartmentSelect(e.target.value)
+              : onChange({ [field.key]: e.target.value })
+          }
         >
           <option value="">{field.emptyLabel}</option>
           {options.map((opt) => (
@@ -115,6 +121,7 @@ export default function Inspector() {
   const nodes = useCanvasStore((s) => s.nodes);
   const selectedNodeId = useCanvasStore((s) => s.selectedNodeId);
   const updateNodeData = useCanvasStore((s) => s.updateNodeData);
+  const setNodeDepartment = useCanvasStore((s) => s.setNodeDepartment);
   const catalogue = useCanvasStore((s) => s.catalogue);
 
   const node = nodes.find((n) => n.id === selectedNodeId);
@@ -174,6 +181,9 @@ export default function Inspector() {
           nodeId={node.id}
           ctx={ctx}
           onChange={(patch) => updateNodeData(node.id, patch)}
+          onDepartmentSelect={(departmentId) =>
+            setNodeDepartment(node.id, departmentId)
+          }
         />
       ))}
 

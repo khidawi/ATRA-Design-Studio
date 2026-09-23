@@ -175,6 +175,7 @@ interface CanvasState {
   updateNodeData: (id: string, data: Partial<CanvasNodeData>) => void;
   setSelectedNode: (id: string | null) => void;
   settleNodeParent: (nodeId: string) => void;
+  setNodeDepartment: (nodeId: string, departmentId: string) => void;
 
   loadCatalogue: () => Promise<void>;
   runScore: () => Promise<void>;
@@ -392,6 +393,52 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
       if (department) nodes = reorderParentsFirst(nodes);
 
+      return { nodes };
+    }),
+
+  // The Inspector's Department dropdown needs the same visual nesting
+  // drag-to-nest produces — otherwise the canvas can show an actor sitting
+  // outside a department its data says it belongs to. No drag position to
+  // preserve here, so nested actors stack in department-relative order
+  // instead of by drop point.
+  setNodeDepartment: (nodeId, departmentId) =>
+    set((s) => {
+      const node = s.nodes.find((n) => n.id === nodeId);
+      if (!node || node.data.kind !== "ACTOR") return {};
+
+      const department = departmentId
+        ? s.nodes.find(
+            (n) => n.id === departmentId && n.data.kind === "DEPARTMENT"
+          )
+        : undefined;
+
+      let nodes = s.nodes.map((n): Node<CanvasNodeData> => {
+        if (n.id !== nodeId) return n;
+
+        if (department) {
+          const siblingCount = s.nodes.filter(
+            (x) => x.id !== nodeId && x.parentNode === department.id
+          ).length;
+          return {
+            ...n,
+            parentNode: department.id,
+            position: { x: 20, y: 50 + siblingCount * 70 },
+            data: { ...(n.data as ActorNodeData), departmentId: department.id },
+          };
+        }
+
+        // Detach — convert its current (possibly parent-relative) position
+        // to an absolute one first so it doesn't jump on screen.
+        const rect = absoluteRect(n);
+        const { parentNode: _parentNode, ...rest } = n;
+        return {
+          ...rest,
+          position: { x: rect.x, y: rect.y },
+          data: { ...(n.data as ActorNodeData), departmentId: "" },
+        };
+      });
+
+      nodes = reorderParentsFirst(nodes);
       return { nodes };
     }),
 

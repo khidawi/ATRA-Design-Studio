@@ -74,6 +74,11 @@ export type FieldDescriptor<D> =
         ctx: RenderCtx,
         selfNodeId: string
       ) => { value: string; label: string }[];
+      // True for fields whose value also has a canvas-nesting meaning
+      // (Actor.departmentId) — routes through setNodeDepartment() instead
+      // of a plain data patch, so picking a value here nests the node the
+      // same way dragging it into the department box does.
+      affectsNesting?: boolean;
     };
 
 export interface NodeTypeDescriptor<D> {
@@ -128,6 +133,7 @@ const actorDescriptor: NodeTypeDescriptor<ActorNodeData> = {
       label: "Department",
       kind: "dynamic-select",
       emptyLabel: "— None —",
+      affectsNesting: true,
       dynamicOptions: (ctx) =>
         ctx.departments.map((d) => ({ value: d.id, label: d.name })),
     },
