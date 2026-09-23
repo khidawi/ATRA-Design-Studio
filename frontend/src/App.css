@@ -86,6 +86,27 @@
   color: #a5b4fc;
 }
 
+.ai-clear-btn {
+  background: transparent;
+  border: 1px solid var(--border-input);
+  color: var(--text-faint);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.ai-clear-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ai-clear-btn:not(:disabled):hover {
+  color: var(--status-unmet-text);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
 .ai-validate-toggle {
   display: inline-flex;
   align-items: center;

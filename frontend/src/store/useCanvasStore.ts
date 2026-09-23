@@ -9,6 +9,7 @@ import {
   type NodeChange,
 } from "reactflow";
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 import {
   ApiError,
@@ -35,6 +36,18 @@ import {
 } from "../types";
 
 let nextId = 1;
+
+// freshId()'s counter lives outside persisted state (it's not something a
+// user edits), so after a reload it starts back at 1 — which would collide
+// with ids restored from localStorage. Bump it past whatever's loaded.
+function bumpNextIdPast(nodes: Node<CanvasNodeData>[]) {
+  let max = 0;
+  for (const n of nodes) {
+    const match = n.id.match(/-(\d+)$/);
+    if (match) max = Math.max(max, parseInt(match[1], 10));
+  }
+  nextId = Math.max(nextId, max + 1);
+}
 
 // The six "breadth" node types added in Phase 6 all share one component
 // (SimpleNode.tsx) and don't need bespoke add-actions like Actor/Constraint/
@@ -187,9 +200,13 @@ interface CanvasState {
   runValidation: () => void;
   toggleValidation: () => void;
   closeValidation: () => void;
+
+  clearCanvas: () => void;
 }
 
-export const useCanvasStore = create<CanvasState>((set, get) => ({
+export const useCanvasStore = create<CanvasState>()(
+  persist(
+    (set, get) => ({
   nodes: [],
   edges: [],
   selectedNodeId: null,
@@ -614,6 +631,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   closeValidation: () => set({ validationOpen: false }),
 
+  clearCanvas: () =>
+    set({
+      nodes: [],
+      edges: [],
+      selectedNodeId: null,
+      scoreResult: null,
+      scoreWarnings: [],
+      scoreError: null,
+      validationIssues: [],
+    }),
+
   sendChatMessage: async (text) => {
     const userMessage: ChatMessage = { role: "user", content: text };
     set((s) => ({
@@ -802,4 +830,18 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return { nodes: allNodes, edges: [...s.edges, ...newEdges] };
     });
   },
-}));
+    }),
+    {
+      name: "stai-canvas-storage",
+      version: 1,
+      // Only the actual canvas work persists — chat history, score
+      // results, and UI toggles (panels open, loading flags) all reset to
+      // their defaults on load. A stale score is worse than no score,
+      // since it silently stops reflecting the current graph.
+      partialize: (state) => ({ nodes: state.nodes, edges: state.edges }),
+      onRehydrateStorage: () => (state) => {
+        if (state) bumpNextIdPast(state.nodes);
+      },
+    }
+  )
+);

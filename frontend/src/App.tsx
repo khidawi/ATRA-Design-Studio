@@ -18,6 +18,19 @@ function App() {
   const toggleChat = useCanvasStore((s) => s.toggleChat);
   const runValidation = useCanvasStore((s) => s.runValidation);
   const validationIssues = useCanvasStore((s) => s.validationIssues);
+  const clearCanvas = useCanvasStore((s) => s.clearCanvas);
+  const nodeCount = useCanvasStore((s) => s.nodes.length);
+
+  const onClearCanvas = () => {
+    if (nodeCount === 0) return;
+    if (
+      window.confirm(
+        "Clear the canvas? This removes every node and edge — your browser won't have it anymore."
+      )
+    ) {
+      clearCanvas();
+    }
+  };
 
   useEffect(() => {
     loadCatalogue();
@@ -33,6 +46,15 @@ function App() {
         <div className="ai-header__spacer" />
         <div className="ai-header__actions">
           <PCSBadge />
+          <button
+            type="button"
+            className="ai-clear-btn"
+            onClick={onClearCanvas}
+            disabled={nodeCount === 0}
+            title="Clear the canvas and its saved copy in this browser"
+          >
+            New
+          </button>
           <button
             type="button"
             className={`ai-chat-toggle${chatOpen ? " ai-chat-toggle--active" : ""}`}
