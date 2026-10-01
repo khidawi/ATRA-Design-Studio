@@ -28,6 +28,7 @@ from schema import (
     VETO_CLASS_CONSTRAINTS, MODULATING_CLASS_CONSTRAINTS,
 )
 from scoring_bridge import score_registry
+from compliance_schema import ComplianceDomain, list_domains
 
 # Tropos catalogue for constraint metadata
 from framework.tropos_catalogue import CANONICAL_CONSTRAINTS
@@ -122,6 +123,15 @@ def get_constraints() -> List[Dict[str, Any]]:
             "actor_role":    sc.actor_role.value if hasattr(sc, "actor_role") and sc.actor_role else None,
         })
     return result
+
+
+# ── Compliance domain registry (Phase 0) ────────────────────────────────────
+# Read-only preview of the Phase 0 domain/regulation registry — Task 1.2's
+# domain selector will call this same endpoint once the canvas wiring lands.
+
+@app.get("/domains", response_model=List[ComplianceDomain])
+def domains() -> List[ComplianceDomain]:
+    return list_domains()
 
 
 # ── Chatbot integration point ───────────────────────────────────────────────
