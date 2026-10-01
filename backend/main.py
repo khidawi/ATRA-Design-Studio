@@ -7,6 +7,7 @@ Endpoints:
   POST /document/validate → validate a full DesignStudioDocument
   GET  /catalogue/constraints → return all 12 constraint IDs with metadata
   POST /api/designs/import → JSON deployment description → proposed canvas nodes/edges
+  POST /api/designs/{id}/assess → registry + domain → DesignRiskAssessment
   GET  /api/domains        → domain -> regulation rule-set registry
   POST /chat               → natural-language description → proposed canvas nodes/edges
 """
@@ -30,8 +31,9 @@ from schema import (
     VETO_CLASS_CONSTRAINTS, MODULATING_CLASS_CONSTRAINTS,
 )
 from scoring_bridge import score_registry
-from compliance_schema import ComplianceDomain, DeploymentDescription, list_domains
+from compliance_schema import ComplianceDomain, DeploymentDescription, DesignRiskAssessment, list_domains
 from design_import import json_to_canvas_graph
+from compliance_engine import AssessRequest, assess_design
 
 # Tropos catalogue for constraint metadata
 from framework.tropos_catalogue import CANONICAL_CONSTRAINTS
@@ -144,6 +146,26 @@ def import_design(desc: DeploymentDescription) -> GeneratedGraph:
         return json_to_canvas_graph(desc)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+
+
+# ── Design-time compliance/risk assessment (Task 1.3) ──────────────────────────
+
+@app.post("/api/designs/{design_id}/assess", response_model=DesignRiskAssessment)
+def assess(design_id: str, req: AssessRequest) -> DesignRiskAssessment:
+    """
+    Run compliance_engine.py's rule evaluation for the given domain against
+    the posted registry's existing GovernanceState (the same evidence-gate
+    /score already reads). There is no server-side design store yet, so
+    design_id is carried through to the response as deployment_id rather
+    than used to look anything up — the assessment itself is computed
+    fresh from the request body every call, same statelessness as /score.
+    """
+    try:
+        assessment = assess_design(req.registry, req.domain, req.constraint_node_ids)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    assessment.deployment_id = design_id
+    return assessment
 
 
 # ── Domain selector (Task 1.2) ────────────────────────────────────────────────
