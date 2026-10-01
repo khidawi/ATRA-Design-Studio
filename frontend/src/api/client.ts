@@ -1,8 +1,10 @@
 import type {
+  AssessRegistryPayload,
   ChatMessage,
   ComplianceDomain,
   ConstraintCatalogueEntry,
   DeploymentDescriptionPayload,
+  DesignRiskAssessment,
   GeneratedGraph,
   RegistryBlockPayload,
   ScoreResponse,
@@ -51,6 +53,18 @@ export function getConstraintCatalogue(): Promise<ConstraintCatalogueEntry[]> {
 
 export function getDomains(): Promise<ComplianceDomain[]> {
   return request("/api/domains");
+}
+
+export function assessDesign(
+  designId: string,
+  domain: string,
+  registry: AssessRegistryPayload,
+  constraintNodeIds: Record<string, string>
+): Promise<DesignRiskAssessment> {
+  return request(`/api/designs/${encodeURIComponent(designId)}/assess`, {
+    method: "POST",
+    body: JSON.stringify({ domain, registry, constraint_node_ids: constraintNodeIds }),
+  });
 }
 
 export function scoreRegistry(

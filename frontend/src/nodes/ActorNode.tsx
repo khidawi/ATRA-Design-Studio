@@ -1,4 +1,5 @@
 import { Handle, Position, type NodeProps } from "reactflow";
+import { useRiskRingClass } from "../riskStatus";
 import type { ActorNodeData } from "../types";
 
 const TITLE_CASE: Record<ActorNodeData["subtype"], string> = {
@@ -9,13 +10,14 @@ const TITLE_CASE: Record<ActorNodeData["subtype"], string> = {
   CONSUMER: "Consumer",
 };
 
-export default function ActorNode({ data, selected }: NodeProps<ActorNodeData>) {
+export default function ActorNode({ id, data, selected }: NodeProps<ActorNodeData>) {
   const isConsumer = data.subtype === "CONSUMER";
+  const riskClass = useRiskRingClass(id);
   return (
     <div
       className={`ai-actor-node${isConsumer ? " ai-actor-node--consumer" : ""}${
         selected ? " ai-actor-node--selected" : ""
-      }`}
+      }${riskClass}`}
     >
       <Handle type="target" position={Position.Top} />
       <div className="ai-actor-node__label">{TITLE_CASE[data.subtype]}</div>

@@ -6,6 +6,7 @@ import ChatPanel from "./components/ChatPanel";
 import ImportPanel from "./components/ImportPanel";
 import Inspector from "./components/Inspector";
 import PCSBadge from "./components/PCSBadge";
+import RiskPanel from "./components/RiskPanel";
 import Sidebar from "./components/Sidebar";
 import ValidationPanel from "./components/ValidationPanel";
 import { useCanvasStore } from "./store/useCanvasStore";
@@ -26,7 +27,13 @@ function App() {
   const runValidation = useCanvasStore((s) => s.runValidation);
   const validationIssues = useCanvasStore((s) => s.validationIssues);
   const clearCanvas = useCanvasStore((s) => s.clearCanvas);
-  const nodeCount = useCanvasStore((s) => s.nodes.length);
+  const nodes = useCanvasStore((s) => s.nodes);
+  const edges = useCanvasStore((s) => s.edges);
+  const nodeCount = nodes.length;
+  const riskOpen = useCanvasStore((s) => s.riskOpen);
+  const toggleRisk = useCanvasStore((s) => s.toggleRisk);
+  const riskAssessment = useCanvasStore((s) => s.riskAssessment);
+  const runAssessment = useCanvasStore((s) => s.runAssessment);
 
   const onClearCanvas = () => {
     if (nodeCount === 0) return;
@@ -43,6 +50,16 @@ function App() {
     loadCatalogue();
     loadDomains();
   }, [loadCatalogue, loadDomains]);
+
+  // Task 1.4: node colours and the Risk Assessment panel stay live on
+  // every graph/domain change, debounced so a drag or a burst of edits
+  // doesn't fire a request per intermediate frame.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      runAssessment();
+    }, 500);
+    return () => clearTimeout(t);
+  }, [nodes, edges, selectedDomain, runAssessment]);
 
   return (
     <div className="ai-app">
@@ -111,6 +128,23 @@ function App() {
           </button>
           <button
             type="button"
+            className={`ai-validate-toggle${riskOpen ? " ai-chat-toggle--active" : ""}`}
+            onClick={toggleRisk}
+            title="Risk Assessment: per-regulation breakdown against the selected domain"
+          >
+            Risk
+            {riskAssessment && riskAssessment.overall_status !== "GREEN" && (
+              <span
+                className={`ai-validate-toggle__badge${
+                  riskAssessment.overall_status === "AMBER" ? " ai-validate-toggle__badge--amber" : ""
+                }`}
+              >
+                {riskAssessment.element_verdicts.filter((v) => v.status !== "GREEN").length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
             className="ai-score-btn"
             onClick={() => runScore()}
             disabled={scoring}
@@ -120,12 +154,13 @@ function App() {
         </div>
       </header>
 
-      <div className="ai-body">
+      <div className={`ai-body${riskOpen ? " ai-body--risk-open" : ""}`}>
         <Sidebar />
         <ReactFlowProvider>
           <Canvas />
         </ReactFlowProvider>
         <Inspector />
+        <RiskPanel />
       </div>
 
       <ChatPanel />

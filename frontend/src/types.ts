@@ -254,6 +254,49 @@ export interface ComplianceDomain {
   rule_set: RegulationRule[];
 }
 
+// ── POST /api/designs/{id}/assess ───────────────────────────────────────────
+// Mirrors backend/compliance_schema.py's DesignRiskAssessment (Phase 0) and
+// compliance_engine.py's AssessRequest (Task 1.3).
+
+export type RiskStatus = "RED" | "AMBER" | "GREEN";
+
+export interface ElementVerdict {
+  node_id: string;
+  status: RiskStatus;
+  reason: string;
+  citation: string | null;
+  rule_id: string | null;
+}
+
+export interface ScoreBreakdownEntry {
+  category: string;
+  status: RiskStatus;
+  passed: number;
+  failed: number;
+  unknown: number;
+}
+
+export interface DesignRiskAssessment {
+  assessment_id: string;
+  deployment_id: string;
+  domain: string;
+  overall_status: RiskStatus;
+  score_breakdown: ScoreBreakdownEntry[];
+  element_verdicts: ElementVerdict[];
+  assessed_at: string | null;
+}
+
+// Minimal registry payload /assess actually reads (only governance_state —
+// compliance_engine.py grades every rule purely from constraint declarations).
+export interface AssessRegistryPayload {
+  governance_state: {
+    constraints_declared: Record<
+      string,
+      { status: ConstraintStatus; evidence?: string }
+    >;
+  };
+}
+
 export interface ConstraintCatalogueEntry {
   constraint_id: string;
   name: string;

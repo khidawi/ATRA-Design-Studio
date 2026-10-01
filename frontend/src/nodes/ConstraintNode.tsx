@@ -1,4 +1,5 @@
 import { Handle, Position, type NodeProps } from "reactflow";
+import { useRiskRingClass } from "../riskStatus";
 import type { ConstraintNodeData } from "../types";
 
 const statusClass: Record<ConstraintNodeData["status"], string> = {
@@ -8,16 +9,18 @@ const statusClass: Record<ConstraintNodeData["status"], string> = {
 };
 
 export default function ConstraintNode({
+  id,
   data,
   selected,
 }: NodeProps<ConstraintNodeData>) {
   const shortLabel = data.constraintId.replace(/^SC-|-\d+$/g, "");
+  const riskClass = useRiskRingClass(id);
 
   return (
     <div
       className={`ai-constraint-node ${statusClass[data.status]}${
         selected ? " ai-constraint-node--selected" : ""
-      }`}
+      }${riskClass}`}
     >
       <Handle type="target" position={Position.Top} />
       <div className="ai-constraint-node__diamond">

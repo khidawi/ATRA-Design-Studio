@@ -1,4 +1,5 @@
 import { Handle, Position, type NodeProps } from "reactflow";
+import { useRiskRingClass } from "../riskStatus";
 import type { CanvasNodeData } from "../types";
 
 const LEGAL_BASIS_LABEL: Record<string, string> = {
@@ -62,15 +63,16 @@ const PRESENTERS: Partial<Record<CanvasNodeData["kind"], Presenter>> = {
   },
 };
 
-export default function SimpleNode({ data, selected }: NodeProps<CanvasNodeData>) {
+export default function SimpleNode({ id, data, selected }: NodeProps<CanvasNodeData>) {
   const presenter = PRESENTERS[data.kind];
+  const riskClass = useRiskRingClass(id);
   if (!presenter) return null;
 
   return (
     <div
       className={`ai-simple-node ai-simple-node--${presenter.accent}${
         selected ? " ai-simple-node--selected" : ""
-      }`}
+      }${riskClass}`}
     >
       <Handle type="target" position={Position.Top} />
       <div className="ai-simple-node__kicker">{presenter.kicker}</div>

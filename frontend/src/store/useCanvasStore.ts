@@ -13,6 +13,7 @@ import { persist } from "zustand/middleware";
 
 import {
   ApiError,
+  assessDesign,
   getConstraintCatalogue,
   getDomains,
   importDeploymentDescription,
@@ -27,6 +28,7 @@ import {
   type ActorNodeData,
   type ActorSubtype,
   type AIModelNodeData,
+  type AssessRegistryPayload,
   type CanvasNodeData,
   type ChatMessage,
   type ComplianceDomain,
@@ -34,12 +36,15 @@ import {
   type ConstraintNodeData,
   type DeploymentDescriptionPayload,
   type DepartmentNodeData,
+  type DesignRiskAssessment,
   type GeneratedGraph,
   type PCSResultBlock,
   type RegistryBlockPayload,
+  type RiskStatus,
 } from "../types";
 
 const DEFAULT_DOMAIN_ID = "GENERAL";
+const RISK_RANK: Record<RiskStatus, number> = { GREEN: 0, AMBER: 1, RED: 2 };
 
 let nextId = 1;
 
@@ -181,6 +186,12 @@ interface CanvasState {
   importLoading: boolean;
   importError: string | null;
 
+  riskAssessment: DesignRiskAssessment | null;
+  riskLoading: boolean;
+  riskError: string | null;
+  riskOpen: boolean;
+  elementStatusByNodeId: Record<string, RiskStatus>;
+
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
   onConnect: (connection: Connection) => void;
@@ -206,6 +217,9 @@ interface CanvasState {
   loadDomains: () => Promise<void>;
   setSelectedDomain: (domainId: string) => void;
   runScore: () => Promise<void>;
+  runAssessment: () => Promise<void>;
+  toggleRisk: () => void;
+  closeRisk: () => void;
 
   toggleChat: () => void;
   sendChatMessage: (text: string) => Promise<void>;
@@ -247,6 +261,12 @@ export const useCanvasStore = create<CanvasState>()(
   importOpen: false,
   importLoading: false,
   importError: null,
+
+  riskAssessment: null,
+  riskLoading: false,
+  riskError: null,
+  riskOpen: false,
+  elementStatusByNodeId: {},
 
   onNodesChange: (changes) => {
     set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) }));
@@ -516,6 +536,64 @@ export const useCanvasStore = create<CanvasState>()(
   // Pure selection state — Task 1.3's compliance engine will read this to
   // pick a rule set, but switching it never touches nodes/edges.
   setSelectedDomain: (domainId) => set({ selectedDomain: domainId }),
+
+  toggleRisk: () => set((s) => ({ riskOpen: !s.riskOpen })),
+
+  closeRisk: () => set({ riskOpen: false }),
+
+  // Runs on every graph/domain change (debounced in App.tsx) so node
+  // colouring and the Risk Assessment panel stay live without a manual
+  // refresh (Task 1.4). Only governance_state is sent — compliance_engine.py
+  // grades every rule purely from constraint declarations, the same
+  // evidence gate /score already reads, so that's the only registry slice
+  // /assess actually looks at.
+  runAssessment: async () => {
+    const { nodes, selectedDomain } = get();
+    set({ riskLoading: true, riskError: null });
+
+    const constraints_declared: AssessRegistryPayload["governance_state"]["constraints_declared"] =
+      {};
+    for (const cid of ALL_CONSTRAINT_IDS) {
+      constraints_declared[cid] = { status: "NOT_YET_DETERMINED" };
+    }
+    const constraintNodeIds: Record<string, string> = {};
+    for (const n of nodes) {
+      if (n.data.kind === "CONSTRAINT" && n.data.constraintId) {
+        constraints_declared[n.data.constraintId] = {
+          status: n.data.status,
+          evidence: n.data.evidence || undefined,
+        };
+        constraintNodeIds[n.data.constraintId] = n.id;
+      }
+    }
+
+    try {
+      const assessment = await assessDesign(
+        "current",
+        selectedDomain,
+        { governance_state: { constraints_declared } },
+        constraintNodeIds
+      );
+      const elementStatusByNodeId: Record<string, RiskStatus> = {};
+      for (const v of assessment.element_verdicts) {
+        const prev = elementStatusByNodeId[v.node_id];
+        if (!prev || RISK_RANK[v.status] > RISK_RANK[prev]) {
+          elementStatusByNodeId[v.node_id] = v.status;
+        }
+      }
+      set({ riskAssessment: assessment, elementStatusByNodeId, riskLoading: false, riskError: null });
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? typeof err.detail === "string"
+            ? err.detail
+            : JSON.stringify(err.detail)
+          : err instanceof Error
+            ? err.message
+            : "Unknown error";
+      set({ riskLoading: false, riskError: message });
+    }
+  },
 
   runScore: async () => {
     const { nodes, edges } = get();
