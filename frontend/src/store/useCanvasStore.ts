@@ -14,6 +14,7 @@ import { persist } from "zustand/middleware";
 import {
   ApiError,
   getConstraintCatalogue,
+  getDomains,
   importDeploymentDescription,
   scoreRegistry,
   sendChatMessage as apiSendChatMessage,
@@ -28,6 +29,7 @@ import {
   type AIModelNodeData,
   type CanvasNodeData,
   type ChatMessage,
+  type ComplianceDomain,
   type ConstraintCatalogueEntry,
   type ConstraintNodeData,
   type DeploymentDescriptionPayload,
@@ -36,6 +38,8 @@ import {
   type PCSResultBlock,
   type RegistryBlockPayload,
 } from "../types";
+
+const DEFAULT_DOMAIN_ID = "GENERAL";
 
 let nextId = 1;
 
@@ -158,6 +162,8 @@ interface CanvasState {
   edges: Edge[];
   selectedNodeId: string | null;
   catalogue: ConstraintCatalogueEntry[];
+  domains: ComplianceDomain[];
+  selectedDomain: string;
   scoreResult: PCSResultBlock | null;
   scoreWarnings: string[];
   scoring: boolean;
@@ -197,6 +203,8 @@ interface CanvasState {
   setNodeDepartment: (nodeId: string, departmentId: string) => void;
 
   loadCatalogue: () => Promise<void>;
+  loadDomains: () => Promise<void>;
+  setSelectedDomain: (domainId: string) => void;
   runScore: () => Promise<void>;
 
   toggleChat: () => void;
@@ -221,6 +229,8 @@ export const useCanvasStore = create<CanvasState>()(
   edges: [],
   selectedNodeId: null,
   catalogue: [],
+  domains: [],
+  selectedDomain: DEFAULT_DOMAIN_ID,
   scoreResult: null,
   scoreWarnings: [],
   scoring: false,
@@ -482,6 +492,30 @@ export const useCanvasStore = create<CanvasState>()(
       // endpoint only supplies display metadata, not scoring behavior.
     }
   },
+
+  loadDomains: async () => {
+    try {
+      const domains = await getDomains();
+      set((s) => ({
+        domains,
+        // Keep the current selection if it's still valid (e.g. restored
+        // from localStorage); otherwise fall back to GENERAL once the
+        // registry is known, or the first domain if GENERAL is absent.
+        selectedDomain: domains.some((d) => d.domain_id === s.selectedDomain)
+          ? s.selectedDomain
+          : domains.find((d) => d.domain_id === DEFAULT_DOMAIN_ID)?.domain_id ??
+            domains[0]?.domain_id ??
+            s.selectedDomain,
+      }));
+    } catch {
+      // Dropdown just shows nothing to pick from; doesn't block the rest
+      // of the app, same failure posture as loadCatalogue above.
+    }
+  },
+
+  // Pure selection state — Task 1.3's compliance engine will read this to
+  // pick a rule set, but switching it never touches nodes/edges.
+  setSelectedDomain: (domainId) => set({ selectedDomain: domainId }),
 
   runScore: async () => {
     const { nodes, edges } = get();
@@ -894,11 +928,17 @@ export const useCanvasStore = create<CanvasState>()(
     {
       name: "stai-canvas-storage",
       version: 1,
-      // Only the actual canvas work persists — chat history, score
-      // results, and UI toggles (panels open, loading flags) all reset to
-      // their defaults on load. A stale score is worse than no score,
-      // since it silently stops reflecting the current graph.
-      partialize: (state) => ({ nodes: state.nodes, edges: state.edges }),
+      // Only the actual canvas work (plus the selected assessment domain,
+      // which is a property of the design, not transient UI chrome)
+      // persists — chat history, score results, and UI toggles (panels
+      // open, loading flags) all reset to their defaults on load. A stale
+      // score is worse than no score, since it silently stops reflecting
+      // the current graph.
+      partialize: (state) => ({
+        nodes: state.nodes,
+        edges: state.edges,
+        selectedDomain: state.selectedDomain,
+      }),
       onRehydrateStorage: () => (state) => {
         if (state) bumpNextIdPast(state.nodes);
       },

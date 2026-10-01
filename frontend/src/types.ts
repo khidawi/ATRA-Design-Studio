@@ -229,6 +229,31 @@ export type CanvasNodeData =
   | TrainingDatasetNodeData
   | DeploymentEnvNodeData;
 
+// ── GET /api/domains ────────────────────────────────────────────────────────
+// Mirrors backend/compliance_schema.py's ComplianceDomain/RegulationRule —
+// the Phase 0 domain/regulation registry Task 1.3's compliance engine will
+// run against. The dropdown only needs domain_id/name; rule_set is carried
+// through now so the (not-yet-built) risk breakdown panel can cite it later.
+
+export type RuleSeverity = "REQUIRED" | "RECOMMENDED";
+
+export interface RegulationRule {
+  rule_id: string;
+  instrument: string;
+  citation: string;
+  title: string;
+  description: string;
+  severity: RuleSeverity;
+  maps_to_constraint_id: string | null;
+}
+
+export interface ComplianceDomain {
+  domain_id: string;
+  name: string;
+  description: string;
+  rule_set: RegulationRule[];
+}
+
 export interface ConstraintCatalogueEntry {
   constraint_id: string;
   name: string;

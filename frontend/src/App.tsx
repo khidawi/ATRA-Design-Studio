@@ -13,6 +13,10 @@ import "./App.css";
 
 function App() {
   const loadCatalogue = useCanvasStore((s) => s.loadCatalogue);
+  const loadDomains = useCanvasStore((s) => s.loadDomains);
+  const domains = useCanvasStore((s) => s.domains);
+  const selectedDomain = useCanvasStore((s) => s.selectedDomain);
+  const setSelectedDomain = useCanvasStore((s) => s.setSelectedDomain);
   const runScore = useCanvasStore((s) => s.runScore);
   const scoring = useCanvasStore((s) => s.scoring);
   const chatOpen = useCanvasStore((s) => s.chatOpen);
@@ -37,7 +41,8 @@ function App() {
 
   useEffect(() => {
     loadCatalogue();
-  }, [loadCatalogue]);
+    loadDomains();
+  }, [loadCatalogue, loadDomains]);
 
   return (
     <div className="ai-app">
@@ -45,6 +50,25 @@ function App() {
         <div className="ai-header__brand">
           <div className="ai-header__mark">S</div>
           <span className="ai-header__title">ST-AI Design Studio</span>
+        </div>
+        <div className="ai-header__domain">
+          <label htmlFor="ai-domain-select" className="ai-header__domain-label">
+            Assessment Domain
+          </label>
+          <select
+            id="ai-domain-select"
+            className="ai-domain-select"
+            value={selectedDomain}
+            onChange={(e) => setSelectedDomain(e.target.value)}
+            disabled={domains.length === 0}
+          >
+            {domains.length === 0 && <option value={selectedDomain}>{selectedDomain}</option>}
+            {domains.map((d) => (
+              <option key={d.domain_id} value={d.domain_id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="ai-header__spacer" />
         <div className="ai-header__actions">

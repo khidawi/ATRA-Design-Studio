@@ -6,6 +6,8 @@ Endpoints:
   POST /score             → score a registry block, returns PCSResultBlock
   POST /document/validate → validate a full DesignStudioDocument
   GET  /catalogue/constraints → return all 12 constraint IDs with metadata
+  POST /api/designs/import → JSON deployment description → proposed canvas nodes/edges
+  GET  /api/domains        → domain -> regulation rule-set registry
   POST /chat               → natural-language description → proposed canvas nodes/edges
 """
 import sys, os
@@ -144,12 +146,16 @@ def import_design(desc: DeploymentDescription) -> GeneratedGraph:
         raise HTTPException(status_code=422, detail=str(exc))
 
 
-# ── Compliance domain registry (Phase 0) ────────────────────────────────────
-# Read-only preview of the Phase 0 domain/regulation registry — Task 1.2's
-# domain selector will call this same endpoint once the canvas wiring lands.
+# ── Domain selector (Task 1.2) ────────────────────────────────────────────────
 
-@app.get("/domains", response_model=List[ComplianceDomain])
+@app.get("/api/domains", response_model=List[ComplianceDomain])
 def domains() -> List[ComplianceDomain]:
+    """
+    The domain -> rule-set mapping from Phase 0. Switching the frontend's
+    Assessment Domain dropdown only changes which of these rule sets
+    Task 1.3's compliance engine will run against later — it never touches
+    the canvas graph itself.
+    """
     return list_domains()
 
 

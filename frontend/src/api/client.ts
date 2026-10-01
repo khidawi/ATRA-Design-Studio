@@ -1,5 +1,6 @@
 import type {
   ChatMessage,
+  ComplianceDomain,
   ConstraintCatalogueEntry,
   DeploymentDescriptionPayload,
   GeneratedGraph,
@@ -46,6 +47,10 @@ export function getHealth(): Promise<{ status: string; timestamp: string }> {
 
 export function getConstraintCatalogue(): Promise<ConstraintCatalogueEntry[]> {
   return request("/catalogue/constraints");
+}
+
+export function getDomains(): Promise<ComplianceDomain[]> {
+  return request("/api/domains");
 }
 
 export function scoreRegistry(
