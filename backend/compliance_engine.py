@@ -1,5 +1,5 @@
 """
-ST-AI Design Studio — design-time compliance/risk engine (Task 1.3).
+ST-AI Design Studio — design-time compliance/risk engine (Tasks 1.3 and 1.5).
 
 Given a RegistryBlock (the exact shape POST /score already consumes) and a
 selected ComplianceDomain (Phase 0's compliance_schema.py), runs the
@@ -16,19 +16,29 @@ NOT_YET_DETERMINED is graded RED for a REQUIRED-severity rule — the same
 "not explicitly satisfied with evidence = blocking" rule scoring_bridge.py
 already applies to veto-class constraints — and AMBER for a RECOMMENDED
 one, mirroring how modulating constraints don't block the PCS gate.
+
+compile_design() (Task 1.5) never trusts a client-supplied assessment — it
+always re-runs assess_design() itself and gates on that, so the "refuses
+unless all-green" rule holds even against a direct API call that skips
+/assess entirely or lies about the result.
 """
+import uuid
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, Field
 
 from compliance_schema import (
     ComplianceDomain,
+    CompiledContract,
+    ContractStatus,
     DesignRiskAssessment,
     ElementVerdict,
     RiskStatus,
     RuleSeverity,
     ScoreBreakdownEntry,
+    assert_compilable,
+    compute_contract_hash,
     get_domain,
 )
 from schema import ConstraintStatus, GovernanceState, RegistryBlock
@@ -41,6 +51,18 @@ class AssessRequest(BaseModel):
     # at the actual Constraint node on the canvas when one exists. Falls
     # back to the bare constraint_id (no real node to highlight) otherwise.
     constraint_node_ids: Dict[str, str] = Field(default_factory=dict)
+
+
+class CompileRequest(BaseModel):
+    domain: str
+    registry: RegistryBlock
+    # Raw nodes/edges, recorded as-is into the contract's design_snapshot —
+    # intentionally untyped (not GraphBlock) since this is an audit record,
+    # not something re-parsed; the only field compile_design() actually
+    # reads for its gate is registry.governance_state, same as /assess.
+    graph: Dict[str, Any] = Field(default_factory=dict)
+    constraint_node_ids: Dict[str, str] = Field(default_factory=dict)
+    issued_by: Optional[str] = None
 
 
 def _constraint_verdict(
@@ -135,3 +157,39 @@ def assess_design(
         element_verdicts=verdicts,
         assessed_at=datetime.now(tz=timezone.utc),
     )
+
+
+def compile_design(
+    registry: RegistryBlock,
+    domain_id: str,
+    graph: Dict[str, Any],
+    constraint_node_ids: Optional[Dict[str, str]],
+    deployment_id: str,
+    issued_by: Optional[str] = None,
+) -> CompiledContract:
+    """
+    Re-runs assess_design() (never trusts a caller-supplied assessment) and
+    refuses — via assert_compilable(), raising ValueError — unless
+    overall_status is GREEN, full stop. Only once that holds is the
+    contract built and hashed.
+    """
+    assessment = assess_design(registry, domain_id, constraint_node_ids)
+    assert_compilable(assessment)
+
+    contract = CompiledContract(
+        contract_id=str(uuid.uuid4()),
+        object_type="MODEL",
+        deployment_id=deployment_id,
+        domain=domain_id,
+        design_snapshot={
+            "registry": registry.model_dump(mode="json"),
+            "graph": graph,
+        },
+        risk_assessment=assessment,
+        issued_at=datetime.now(tz=timezone.utc),
+        issued_by=issued_by,
+        status=ContractStatus.ACTIVE,
+        contract_hash="",
+    )
+    contract.contract_hash = compute_contract_hash(contract)
+    return contract

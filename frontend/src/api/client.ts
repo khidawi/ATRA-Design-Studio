@@ -2,6 +2,7 @@ import type {
   AssessRegistryPayload,
   ChatMessage,
   ComplianceDomain,
+  CompiledContract,
   ConstraintCatalogueEntry,
   DeploymentDescriptionPayload,
   DesignRiskAssessment,
@@ -64,6 +65,26 @@ export function assessDesign(
   return request(`/api/designs/${encodeURIComponent(designId)}/assess`, {
     method: "POST",
     body: JSON.stringify({ domain, registry, constraint_node_ids: constraintNodeIds }),
+  });
+}
+
+export function compileDesign(
+  designId: string,
+  domain: string,
+  registry: AssessRegistryPayload,
+  graph: unknown,
+  constraintNodeIds: Record<string, string>,
+  issuedBy?: string
+): Promise<CompiledContract> {
+  return request(`/api/designs/${encodeURIComponent(designId)}/compile`, {
+    method: "POST",
+    body: JSON.stringify({
+      domain,
+      registry,
+      graph,
+      constraint_node_ids: constraintNodeIds,
+      issued_by: issuedBy ?? null,
+    }),
   });
 }
 

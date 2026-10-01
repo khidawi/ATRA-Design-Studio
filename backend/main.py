@@ -8,6 +8,7 @@ Endpoints:
   GET  /catalogue/constraints → return all 12 constraint IDs with metadata
   POST /api/designs/import → JSON deployment description → proposed canvas nodes/edges
   POST /api/designs/{id}/assess → registry + domain → DesignRiskAssessment
+  POST /api/designs/{id}/compile → registry + domain → CompiledContract (422 unless all-green)
   GET  /api/domains        → domain -> regulation rule-set registry
   POST /chat               → natural-language description → proposed canvas nodes/edges
 """
@@ -31,9 +32,11 @@ from schema import (
     VETO_CLASS_CONSTRAINTS, MODULATING_CLASS_CONSTRAINTS,
 )
 from scoring_bridge import score_registry
-from compliance_schema import ComplianceDomain, DeploymentDescription, DesignRiskAssessment, list_domains
+from compliance_schema import (
+    ComplianceDomain, CompiledContract, DeploymentDescription, DesignRiskAssessment, list_domains,
+)
 from design_import import json_to_canvas_graph
-from compliance_engine import AssessRequest, assess_design
+from compliance_engine import AssessRequest, CompileRequest, assess_design, compile_design
 
 # Tropos catalogue for constraint metadata
 from framework.tropos_catalogue import CANONICAL_CONSTRAINTS
@@ -166,6 +169,26 @@ def assess(design_id: str, req: AssessRequest) -> DesignRiskAssessment:
         raise HTTPException(status_code=422, detail=str(exc))
     assessment.deployment_id = design_id
     return assessment
+
+
+# ── Compile to contract (Task 1.5) ──────────────────────────────────────────────
+
+@app.post("/api/designs/{design_id}/compile", response_model=CompiledContract)
+def compile_design_endpoint(design_id: str, req: CompileRequest) -> CompiledContract:
+    """
+    Refuses server-side — not just client-side — unless the design is
+    all-green. compile_design() always re-runs the assessment itself, so
+    this cannot be bypassed by a direct API call that skips /assess or
+    sends a falsified overall_status; there is no overall_status field on
+    CompileRequest at all for a caller to lie with.
+    """
+    try:
+        contract = compile_design(
+            req.registry, req.domain, req.graph, req.constraint_node_ids, design_id, req.issued_by
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    return contract
 
 
 # ── Domain selector (Task 1.2) ────────────────────────────────────────────────

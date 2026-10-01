@@ -14,6 +14,7 @@ import { persist } from "zustand/middleware";
 import {
   ApiError,
   assessDesign,
+  compileDesign as apiCompileDesign,
   getConstraintCatalogue,
   getDomains,
   importDeploymentDescription,
@@ -32,6 +33,7 @@ import {
   type CanvasNodeData,
   type ChatMessage,
   type ComplianceDomain,
+  type CompiledContract,
   type ConstraintCatalogueEntry,
   type ConstraintNodeData,
   type DeploymentDescriptionPayload,
@@ -45,6 +47,32 @@ import {
 
 const DEFAULT_DOMAIN_ID = "GENERAL";
 const RISK_RANK: Record<RiskStatus, number> = { GREEN: 0, AMBER: 1, RED: 2 };
+
+// Shared by runAssessment (Task 1.4) and compileDesign (Task 1.5) — both
+// send the same minimal registry slice /assess and /compile actually read
+// (only governance_state), plus a constraint_id -> canvas node_id map so a
+// verdict can point at the real Constraint node when one exists.
+function buildGovernanceRegistry(nodes: Node<CanvasNodeData>[]): {
+  registry: AssessRegistryPayload;
+  constraintNodeIds: Record<string, string>;
+} {
+  const constraints_declared: AssessRegistryPayload["governance_state"]["constraints_declared"] =
+    {};
+  for (const cid of ALL_CONSTRAINT_IDS) {
+    constraints_declared[cid] = { status: "NOT_YET_DETERMINED" };
+  }
+  const constraintNodeIds: Record<string, string> = {};
+  for (const n of nodes) {
+    if (n.data.kind === "CONSTRAINT" && n.data.constraintId) {
+      constraints_declared[n.data.constraintId] = {
+        status: n.data.status,
+        evidence: n.data.evidence || undefined,
+      };
+      constraintNodeIds[n.data.constraintId] = n.id;
+    }
+  }
+  return { registry: { governance_state: { constraints_declared } }, constraintNodeIds };
+}
 
 let nextId = 1;
 
@@ -192,6 +220,10 @@ interface CanvasState {
   riskOpen: boolean;
   elementStatusByNodeId: Record<string, RiskStatus>;
 
+  compiling: boolean;
+  compileError: string | null;
+  compiledContract: CompiledContract | null;
+
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
   onConnect: (connection: Connection) => void;
@@ -220,6 +252,7 @@ interface CanvasState {
   runAssessment: () => Promise<void>;
   toggleRisk: () => void;
   closeRisk: () => void;
+  compileDesign: () => Promise<void>;
 
   toggleChat: () => void;
   sendChatMessage: (text: string) => Promise<void>;
@@ -267,6 +300,10 @@ export const useCanvasStore = create<CanvasState>()(
   riskError: null,
   riskOpen: false,
   elementStatusByNodeId: {},
+
+  compiling: false,
+  compileError: null,
+  compiledContract: null,
 
   onNodesChange: (changes) => {
     set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) }));
@@ -551,29 +588,10 @@ export const useCanvasStore = create<CanvasState>()(
     const { nodes, selectedDomain } = get();
     set({ riskLoading: true, riskError: null });
 
-    const constraints_declared: AssessRegistryPayload["governance_state"]["constraints_declared"] =
-      {};
-    for (const cid of ALL_CONSTRAINT_IDS) {
-      constraints_declared[cid] = { status: "NOT_YET_DETERMINED" };
-    }
-    const constraintNodeIds: Record<string, string> = {};
-    for (const n of nodes) {
-      if (n.data.kind === "CONSTRAINT" && n.data.constraintId) {
-        constraints_declared[n.data.constraintId] = {
-          status: n.data.status,
-          evidence: n.data.evidence || undefined,
-        };
-        constraintNodeIds[n.data.constraintId] = n.id;
-      }
-    }
+    const { registry, constraintNodeIds } = buildGovernanceRegistry(nodes);
 
     try {
-      const assessment = await assessDesign(
-        "current",
-        selectedDomain,
-        { governance_state: { constraints_declared } },
-        constraintNodeIds
-      );
+      const assessment = await assessDesign("current", selectedDomain, registry, constraintNodeIds);
       const elementStatusByNodeId: Record<string, RiskStatus> = {};
       for (const v of assessment.element_verdicts) {
         const prev = elementStatusByNodeId[v.node_id];
@@ -592,6 +610,42 @@ export const useCanvasStore = create<CanvasState>()(
             ? err.message
             : "Unknown error";
       set({ riskLoading: false, riskError: message });
+    }
+  },
+
+  // Client-side gate is just UX (disables the button) — the real refusal
+  // is server-side in compile_design(), which re-runs the assessment
+  // itself and cannot be bypassed by calling this with a stale/falsified
+  // riskAssessment (Task 1.5's acceptance test).
+  compileDesign: async () => {
+    const { nodes, edges, selectedDomain, riskAssessment } = get();
+    if (!riskAssessment || riskAssessment.overall_status !== "GREEN") {
+      set({ compileError: "Design is not all-green yet — cannot compile." });
+      return;
+    }
+    set({ compiling: true, compileError: null });
+
+    const { registry, constraintNodeIds } = buildGovernanceRegistry(nodes);
+
+    try {
+      const contract = await apiCompileDesign(
+        "current",
+        selectedDomain,
+        registry,
+        { nodes, edges },
+        constraintNodeIds
+      );
+      set({ compiling: false, compiledContract: contract, compileError: null });
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? typeof err.detail === "string"
+            ? err.detail
+            : JSON.stringify(err.detail)
+          : err instanceof Error
+            ? err.message
+            : "Unknown error";
+      set({ compiling: false, compileError: message });
     }
   },
 

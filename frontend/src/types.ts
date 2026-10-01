@@ -286,8 +286,9 @@ export interface DesignRiskAssessment {
   assessed_at: string | null;
 }
 
-// Minimal registry payload /assess actually reads (only governance_state —
-// compliance_engine.py grades every rule purely from constraint declarations).
+// Minimal registry payload /assess (and /compile) actually reads (only
+// governance_state — compliance_engine.py grades every rule purely from
+// constraint declarations).
 export interface AssessRegistryPayload {
   governance_state: {
     constraints_declared: Record<
@@ -295,6 +296,25 @@ export interface AssessRegistryPayload {
       { status: ConstraintStatus; evidence?: string }
     >;
   };
+}
+
+// ── POST /api/designs/{id}/compile ──────────────────────────────────────────
+// Mirrors backend/compliance_schema.py's CompiledContract (Phase 0).
+
+export type ContractStatus = "DRAFT" | "ACTIVE" | "SUPERSEDED" | "REVOKED";
+
+export interface CompiledContract {
+  contract_id: string;
+  version: string;
+  object_type: string;
+  deployment_id: string;
+  domain: string;
+  design_snapshot: Record<string, unknown>;
+  risk_assessment: DesignRiskAssessment;
+  issued_at: string;
+  issued_by: string | null;
+  status: ContractStatus;
+  contract_hash: string;
 }
 
 export interface ConstraintCatalogueEntry {
