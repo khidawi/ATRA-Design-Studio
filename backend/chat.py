@@ -59,6 +59,12 @@ class GeneratedAIModel(BaseModel):
     ] = "TYPE_1_INHOUSE"
 
 
+class GeneratedDeploymentEnv(BaseModel):
+    temp_id: str
+    name: str = ""
+    description: str = ""
+
+
 class GeneratedConstraint(BaseModel):
     temp_id: str
     constraint_id: Literal[
@@ -75,10 +81,17 @@ class GeneratedEdge(BaseModel):
 
 
 class GeneratedGraph(BaseModel):
-    reply: str = Field(description="One short sentence acknowledging what was added, shown in the chat.")
+    """
+    Shared "proposed graph" shape consumed by the frontend's
+    applyGeneratedGraph() — produced either by the chatbot (generate_graph
+    below) or by JSON deployment-description import (design_import.py).
+    `reply` is chat-specific and left empty by the importer.
+    """
+    reply: str = Field(default="", description="One short sentence acknowledging what was added, shown in the chat.")
     departments: List[GeneratedDepartment] = Field(default_factory=list)
     actors: List[GeneratedActor] = Field(default_factory=list)
     ai_models: List[GeneratedAIModel] = Field(default_factory=list)
+    deployment_environments: List[GeneratedDeploymentEnv] = Field(default_factory=list)
     constraints: List[GeneratedConstraint] = Field(default_factory=list)
     edges: List[GeneratedEdge] = Field(default_factory=list)
 

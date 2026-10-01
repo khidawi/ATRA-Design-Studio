@@ -336,6 +336,12 @@ export interface GeneratedAIModel {
   hosting_environment: HostingEnvironment;
 }
 
+export interface GeneratedDeploymentEnv {
+  temp_id: string;
+  name: string;
+  description: string;
+}
+
 export interface GeneratedConstraint {
   temp_id: string;
   constraint_id: string;
@@ -353,6 +359,44 @@ export interface GeneratedGraph {
   departments: GeneratedDepartment[];
   actors: GeneratedActor[];
   ai_models: GeneratedAIModel[];
+  deployment_environments: GeneratedDeploymentEnv[];
   constraints: GeneratedConstraint[];
   edges: GeneratedEdge[];
+}
+
+// ── POST /api/designs/import request body ──────────────────────────────────
+// Mirrors backend/compliance_schema.py's DeploymentDescription. Structural
+// fields only, on purpose — there is no field here for constraint/veto
+// status, so an imported JSON cannot claim DPIA/HITL/etc. are satisfied.
+
+export interface DeploymentDescriptionPayload {
+  schema_version?: string;
+  deployment_name?: string;
+  description?: string;
+  assessment_domain?: string | null;
+  departments: {
+    temp_id: string;
+    name: string;
+    reports_to_temp_id?: string | null;
+  }[];
+  actors: {
+    temp_id: string;
+    subtype: ActorSubtype;
+    identity?: string;
+    department_temp_id?: string | null;
+  }[];
+  ai_models: {
+    temp_id: string;
+    name: string;
+    model_type?: ModelType;
+    ai_criticality?: AICriticality;
+    data_sensitivity?: DataSensitivity;
+    hosting_environment?: HostingEnvironment;
+    domain?: string;
+  }[];
+  deployment_environments: {
+    temp_id: string;
+    name: string;
+    description?: string;
+  }[];
 }

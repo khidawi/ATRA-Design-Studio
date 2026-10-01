@@ -28,7 +28,8 @@ from schema import (
     VETO_CLASS_CONSTRAINTS, MODULATING_CLASS_CONSTRAINTS,
 )
 from scoring_bridge import score_registry
-from compliance_schema import ComplianceDomain, list_domains
+from compliance_schema import ComplianceDomain, DeploymentDescription, list_domains
+from design_import import json_to_canvas_graph
 
 # Tropos catalogue for constraint metadata
 from framework.tropos_catalogue import CANONICAL_CONSTRAINTS
@@ -123,6 +124,24 @@ def get_constraints() -> List[Dict[str, Any]]:
             "actor_role":    sc.actor_role.value if hasattr(sc, "actor_role") and sc.actor_role else None,
         })
     return result
+
+
+# ── Design import (Task 1.1) ─────────────────────────────────────────────────
+
+@app.post("/api/designs/import", response_model=GeneratedGraph)
+def import_design(desc: DeploymentDescription) -> GeneratedGraph:
+    """
+    Validate an uploaded JSON deployment description against the Phase 0
+    schema and map it to a proposed canvas graph. FastAPI validates the
+    request body against DeploymentDescription before this function ever
+    runs (422 on a malformed document); json_to_canvas_graph() raises
+    ValueError for a structurally valid document whose field values the
+    canvas node types don't recognise (e.g. an unknown model_type).
+    """
+    try:
+        return json_to_canvas_graph(desc)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
 
 # ── Compliance domain registry (Phase 0) ────────────────────────────────────

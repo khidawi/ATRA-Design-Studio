@@ -14,6 +14,7 @@ import { persist } from "zustand/middleware";
 import {
   ApiError,
   getConstraintCatalogue,
+  importDeploymentDescription,
   scoreRegistry,
   sendChatMessage as apiSendChatMessage,
 } from "../api/client";
@@ -29,6 +30,7 @@ import {
   type ChatMessage,
   type ConstraintCatalogueEntry,
   type ConstraintNodeData,
+  type DeploymentDescriptionPayload,
   type DepartmentNodeData,
   type GeneratedGraph,
   type PCSResultBlock,
@@ -169,6 +171,10 @@ interface CanvasState {
   validationIssues: ValidationIssue[];
   validationOpen: boolean;
 
+  importOpen: boolean;
+  importLoading: boolean;
+  importError: string | null;
+
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
   onConnect: (connection: Connection) => void;
@@ -197,6 +203,10 @@ interface CanvasState {
   sendChatMessage: (text: string) => Promise<void>;
   applyGeneratedGraph: (graph: GeneratedGraph) => void;
 
+  toggleImport: () => void;
+  closeImport: () => void;
+  importDeploymentJson: (jsonText: string) => Promise<boolean>;
+
   runValidation: () => void;
   toggleValidation: () => void;
   closeValidation: () => void;
@@ -223,6 +233,10 @@ export const useCanvasStore = create<CanvasState>()(
 
   validationIssues: [],
   validationOpen: false,
+
+  importOpen: false,
+  importLoading: false,
+  importError: null,
 
   onNodesChange: (changes) => {
     set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) }));
@@ -795,6 +809,20 @@ export const useCanvasStore = create<CanvasState>()(
       });
     });
 
+    // Deployment environments: a column to the right of the AI models,
+    // since RUNS_IN (AI_MODEL -> DEPLOYMENT_ENV) is their usual relation.
+    const envsX = modelsX + 260;
+    graph.deployment_environments.forEach((e, i) => {
+      const id = freshId("deployment-env");
+      tempIdToRealId.set(e.temp_id, id);
+      newNodes.push({
+        id,
+        type: "simpleNode",
+        position: { x: envsX, y: DEPT_BASE_Y + i * MODEL_GAP_Y },
+        data: { kind: "DEPLOYMENT_ENV", name: e.name, description: e.description },
+      });
+    });
+
     // Constraints: a row beneath everything else.
     const constraintsY = belowDeptsY + (looseActors.length > 0 ? 120 : 0);
     graph.constraints.forEach((c, i) => {
@@ -829,6 +857,38 @@ export const useCanvasStore = create<CanvasState>()(
 
       return { nodes: allNodes, edges: [...s.edges, ...newEdges] };
     });
+  },
+
+  toggleImport: () => set((s) => ({ importOpen: !s.importOpen, importError: null })),
+
+  closeImport: () => set({ importOpen: false, importError: null }),
+
+  importDeploymentJson: async (jsonText) => {
+    set({ importLoading: true, importError: null });
+    let parsed: DeploymentDescriptionPayload;
+    try {
+      parsed = JSON.parse(jsonText) as DeploymentDescriptionPayload;
+    } catch {
+      set({ importLoading: false, importError: "Not valid JSON — check for a missing comma or bracket." });
+      return false;
+    }
+    try {
+      const graph = await importDeploymentDescription(parsed);
+      get().applyGeneratedGraph(graph);
+      set({ importLoading: false, importOpen: false, importError: null });
+      return true;
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? typeof err.detail === "string"
+            ? err.detail
+            : JSON.stringify(err.detail)
+          : err instanceof Error
+            ? err.message
+            : "Unknown error";
+      set({ importLoading: false, importError: message });
+      return false;
+    }
   },
     }),
     {

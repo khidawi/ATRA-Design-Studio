@@ -1,6 +1,7 @@
 import type {
   ChatMessage,
   ConstraintCatalogueEntry,
+  DeploymentDescriptionPayload,
   GeneratedGraph,
   RegistryBlockPayload,
   ScoreResponse,
@@ -63,5 +64,14 @@ export function sendChatMessage(
   return request("/chat", {
     method: "POST",
     body: JSON.stringify({ message, history }),
+  });
+}
+
+export function importDeploymentDescription(
+  description: DeploymentDescriptionPayload
+): Promise<GeneratedGraph> {
+  return request("/api/designs/import", {
+    method: "POST",
+    body: JSON.stringify(description),
   });
 }

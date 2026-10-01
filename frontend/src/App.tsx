@@ -3,6 +3,7 @@ import { ReactFlowProvider } from "reactflow";
 
 import Canvas from "./components/Canvas";
 import ChatPanel from "./components/ChatPanel";
+import ImportPanel from "./components/ImportPanel";
 import Inspector from "./components/Inspector";
 import PCSBadge from "./components/PCSBadge";
 import Sidebar from "./components/Sidebar";
@@ -16,6 +17,8 @@ function App() {
   const scoring = useCanvasStore((s) => s.scoring);
   const chatOpen = useCanvasStore((s) => s.chatOpen);
   const toggleChat = useCanvasStore((s) => s.toggleChat);
+  const importOpen = useCanvasStore((s) => s.importOpen);
+  const toggleImport = useCanvasStore((s) => s.toggleImport);
   const runValidation = useCanvasStore((s) => s.runValidation);
   const validationIssues = useCanvasStore((s) => s.validationIssues);
   const clearCanvas = useCanvasStore((s) => s.clearCanvas);
@@ -57,6 +60,14 @@ function App() {
           </button>
           <button
             type="button"
+            className={`ai-chat-toggle${importOpen ? " ai-chat-toggle--active" : ""}`}
+            onClick={toggleImport}
+            title="Import a deployment description JSON to auto-populate the canvas"
+          >
+            Import JSON
+          </button>
+          <button
+            type="button"
             className={`ai-chat-toggle${chatOpen ? " ai-chat-toggle--active" : ""}`}
             onClick={toggleChat}
           >
@@ -94,6 +105,7 @@ function App() {
       </div>
 
       <ChatPanel />
+      <ImportPanel />
       <ValidationPanel />
     </div>
   );
