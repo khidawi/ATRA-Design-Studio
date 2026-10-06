@@ -86,7 +86,7 @@ def check_password_rules(password: str, email: str = "") -> None:
 
 PUBLIC = [("GET", r"^/health$"), ("GET", r"^/docs"), ("GET", r"^/redoc"), ("GET", r"^/openapi\.json$"),
           ("GET", r"^/api/auth/(status|me)$"), ("POST", r"^/api/auth/(login|bootstrap|logout)$")]
-PURE = [r"^/score$", r"^/document/validate$", r"^/api/rcr/score$", r"^/api/agents/analyse$", r"^/api/policies/test$", r"^/api/designs/[^/]+/assess$"]
+PURE = [r"^/score$", r"^/document/validate$", r"^/api/rcr/score$", r"^/api/agents/analyse$", r"^/api/policies/test$", r"^/api/designs/[^/]+/assess$", r"^/api/agents/import/preview$"]
 SIGNOFF = [r"^/api/agents/ratify$", r"^/api/drift/[^/]+/decide$", r"^/api/contracts/", r"^/api/designs/[^/]+/compile$",
            r"^/api/findings/[^/]+/(acknowledge|halt)$", r"^/api/coverage/", r"^/api/packs$", r"^/api/ingestion/candidates/",
            r"^/api/policies", r"^/api/rules/"]

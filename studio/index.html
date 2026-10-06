@@ -329,6 +329,9 @@ main.wide{max-width:none}
         const m = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '');
         return { blob: await res.blob(), name: m ? m[1] : fallback };
       },
+      agentImportFormats: () => call('/api/agents/import/formats'),
+      previewAgentImport: (body) => post('/api/agents/import/preview', body),
+      importAgent: (body) => post('/api/agents/import', body),
       listAgents: () => call('/api/agents'),
       registerAgent: (body) => post('/api/agents/register', body),
       setAgentOwner: (key, owner) => call('/api/agents/' + encodeURIComponent(key), { method: 'PATCH', body: JSON.stringify({ owner }) }),
@@ -373,7 +376,8 @@ main.wide{max-width:none}
     coverage: { sel: null },
     workspace: { role: 'comp' },
     add: { step: 1, src: 'code', confirmed: false, name: '', owner: '', framework: '', tools: '0', error: null, busy: false },
-    studio: { drafted: false, nodes: [], edges: [], sel: null, panel: 'analysis', policy: 'block', ratified: false, n: 100, domain: 'payments', req: {}, designKey: null, version: 0, saveState: 'saved', saveError: null, savedSig: '', ratifyError: null, ratifyInfo: null },
+    imp: { formats: null, format: 'auto', content: '', filename: '', name: '', primary: '', preview: null, busy: false, err: null, result: null },
+    studio: { drafted: false, nodes: [], edges: [], sel: null, panel: 'analysis', policy: 'block', ratified: false, n: 100, domain: 'payments', req: {}, designKey: null, version: 0, saveState: 'saved', saveError: null, savedSig: '', ratifyError: null, ratifyInfo: null, provenance: null },
     drift: { sel: null }
   };
 
@@ -563,12 +567,41 @@ main.wide{max-width:none}
     </div>`;
   }
 
-  /* ---------- Add agent: register by hand (discovery routes need connectors) ---------- */
+  /* ---------- Add agent: import a definition file, or register by hand ---------- */
+  async function loadImportFormats() {
+    if (S.imp.formats !== null) return;
+    S.imp.formats = [];
+    try { S.imp.formats = await STAI.api.agentImportFormats(); } catch (e) { S.imp.err = e.message; }
+    renderIfIdle('addagent');
+  }
+  const impBody = () => { const i = S.imp; return { content: i.content, filename: i.filename || null, format: i.format === 'auto' ? null : i.format, primary: i.primary || null, name: i.name || null }; };
+  function importPreviewHtml(p) {
+    const pill = { Covered: 'ok', Partial: 'warn', Gap: 'bad', 'Not applicable': 'muted' };
+    const list = (title, arr, tone) => (arr.length ? `<div class="stack" style="gap:4px"><span style="font-size:12px;font-weight:600;color:#4A5563">${title}</span>${arr.map((x) => `<span class="cap"${tone ? ` style="color:${tone}"` : ''}>${esc(x)}</span>`).join('')}</div>` : '');
+    const will = { create: 'A new draft design and an inventory entry will be created.', update: 'This agent already has a draft design; it will be replaced with the file\u2019s model.', drift: `This agent already has contract ${esc(p.existing.contract_version)}. Nothing is overwritten: the file becomes a proposed change in Drift review for compliance to approve or decline.` }[p.existing.will];
+    return `<div class="note plain" style="gap:12px"><strong>${esc(p.agent_name)} \u00b7 ${esc(p.format_label)}</strong>
+      <span class="cap">Owner ${esc(p.owner || 'not stated')} \u00b7 framework ${esc(p.framework || 'not stated')} \u00b7 autonomy ${esc(p.autonomy)} \u00b7 ${p.nodes.length} elements, ${p.edges.length} connections</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${p.nodes.map((n) => `<span class="pill muted" title="${esc(n.type)}">${esc(n.type)}: ${esc(n.name)}${n.type === 'tool' ? (n.p.write ? ' (write)' : ' (read)') : (n.type === 'mcp' ? (n.p.signed ? ' (signed)' : ' (unsigned)') : '')}</span>`).join('')}</div>
+      ${list('Recognised', p.recognised)}${list('Guessed from names: please confirm', p.inferred, '#B45309')}${list('Needs attention', p.warnings, '#B42318')}${list('Not used or not read', p.ignored)}
+      <div class="stack" style="gap:4px"><span style="font-size:12px;font-weight:600;color:#4A5563">OWASP Agentic checks on this model (${p.analysis.covered} of ${p.analysis.applicable} covered)</span>${p.analysis.rows.map((r) => `<span class="cap"><span class="pill ${pill[r.status]}">${esc(r.status)}</span> ${esc(r.id)} ${esc(r.name)}: ${esc(r.why)}</span>`).join('')}</div>
+      <span class="cap">${will} Every element is a proposal. Nothing here is verified against code; only the file\u2019s hash (sha256:${esc(p.sha256.slice(0, 12))}\u2026) is kept, not its content.</span></div>`;
+  }
   function addagent() {
-    const st = S.add;
+    loadImportFormats();
+    const st = S.add, im = S.imp, fm = im.formats || [], p = im.preview;
     const src = [['Connect a repository', 'Scans LangGraph, Agents SDK and CrewAI definitions plus MCP configs.'], ['From telemetry', 'Pick an agent already seen in OpenTelemetry spans.'], ['From identity provider', 'Start from a service account or OAuth client tagged as an agent.']];
+    const result = im.result ? `<div class="note good" role="status"><strong>${im.result.outcome === 'drift' ? 'Waiting in Drift review' : (im.result.outcome === 'updated' ? 'Draft design updated' : 'Draft design created')}</strong><span style="font-size:13px">${esc(im.result.summary)}</span><div class="prow">${im.result.outcome === 'drift' ? '<a class="btn" href="#/drift">Open Drift review</a>' : `<button class="btn" data-act="agOpenDesign" data-arg="${esc(im.result.design_key)}">Open the design</button>`}<a class="btn2" href="#/agents">Back to inventory</a><button class="btn2" data-act="impReset">Import another</button></div></div>` : '';
     return hdr('', 'Register an existing agent', '', ['newagent', 'Add agent']) +
-      `<section class="card" style="padding:24px;display:flex;flex-direction:column;gap:20px;max-width:820px"><div class="stack"><h3>Register by hand</h3><span class="cap">For an agent that already exists. It joins the inventory as unowned until you give it an owner, then waits for a model to be ratified. Partial provenance: nothing here is verified against code.</span></div>
+      `<section class="card" style="padding:24px;display:flex;flex-direction:column;gap:14px;max-width:920px"><div class="stack"><h3>Import a definition file</h3><span class="cap">Upload or paste an agent definition (JSON or YAML) and ASTRA generates its Secure Tropos model: tools, MCP servers, memory, data, delegations, approvals and guardrails, with the OWASP checks on it. Supported: ${fm.length ? fm.map((f) => esc(f.label)).join('; ') : 'loading\u2026'}. Environment values, headers, tokens and commands are never read or stored.</span></div>
+      <div class="prow" style="flex-wrap:wrap;gap:12px;align-items:flex-end"><label class="cap">Format<br><select class="reqsel" data-chg="impField" data-arg="format">${opt('auto', 'Detect automatically', im.format)}${fm.map((f) => opt(f.id, f.label, im.format)).join('')}</select></label>
+        <label class="cap">Upload a file<br><input class="reqsel" type="file" accept=".json,.yaml,.yml,.txt" data-chg="impFile"></label>
+        ${fm.length ? `<label class="cap">Or start from an example<br><select class="reqsel" data-chg="impExample"><option value="">Choose\u2026</option>${fm.map((f) => `<option value="${esc(f.id)}">${esc(f.filename)}</option>`).join('')}</select></label>` : ''}</div>
+      <label class="cap">${im.filename ? 'File: ' + esc(im.filename) + ' \u00b7 ' : ''}Definition (JSON or YAML)<br><textarea class="reqsel mono" style="width:100%;min-height:220px;font-size:12px" data-chg="impField" data-arg="content" placeholder="agent: payouts-agent&#10;owner: Payments eng&#10;tools:&#10;  - name: stripe.payouts.create&#10;    access: write">${esc(im.content)}</textarea></label>
+      <div class="prow" style="flex-wrap:wrap;gap:12px;align-items:flex-end"><label class="cap">Agent name (optional, to rename)<br><input class="reqsel" data-chg="impField" data-arg="name" value="${esc(im.name)}"></label>
+        ${p && p.agents_found.length > 1 ? `<label class="cap">Which agent in the file<br><select class="reqsel" data-chg="impPrimary">${p.agents_found.map((n) => opt(n, n, im.primary || p.agent_name)).join('')}</select></label>` : ''}
+        <button class="btn2"${im.busy || !im.content.trim() ? ' disabled' : ''} data-act="impPreview">Preview the model</button><button class="btn"${im.busy || !p ? ' disabled' : ''} data-act="impCreate">${p && p.existing.will === 'drift' ? 'Submit as a proposed change' : 'Create the agent design'}</button></div>
+      ${im.err ? `<div class="note alert" role="alert"><span style="font-size:13px;white-space:pre-wrap">${esc(im.err)}</span></div>` : ''}${p && !im.result ? importPreviewHtml(p) : ''}${result}</section>
+      <section class="card" style="padding:24px;display:flex;flex-direction:column;gap:20px;max-width:920px;margin-top:16px"><div class="stack"><h3>Or register by hand</h3><span class="cap">For an agent you have no file for. It joins the inventory as unowned until you give it an owner, then waits for a model to be ratified. Partial provenance: nothing here is verified against code.</span></div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">${src.map(([t, d]) => `<div class="opt" style="opacity:.6;cursor:not-allowed"><span style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600">${t}</span><span class="pill muted">Needs a connector</span></span><span class="cap">${d} Not built yet.</span></div>`).join('')}</div>
       <div class="prow" style="flex-wrap:wrap;gap:12px"><div class="fld" style="min-width:240px"><label for="rg-name">Agent name</label><input id="rg-name" class="inp mono" data-chg="aReg" data-arg="name" value="${esc(st.name)}" placeholder="payouts-agent"></div>
       <div class="fld" style="min-width:200px"><label for="rg-owner">Owner (optional)</label><input id="rg-owner" class="inp" data-chg="aReg" data-arg="owner" value="${esc(st.owner)}" placeholder="Payments eng"></div>
@@ -725,7 +758,7 @@ main.wide{max-width:none}
   /* ----- Agent design persistence: saved to the database a moment after each change ----- */
   const AGS = { timer: null, inflight: null };
   const agentDocSig = () => { const st = S.studio, p = st.nodes.find((x) => x.primary); return JSON.stringify([p ? p.name : '', st.nodes, st.edges, st.n, st.domain, st.req, st.policy, st.ratified]); };
-  const agentDesignBody = () => { const st = S.studio, p = st.nodes.find((x) => x.primary); return { name: (p && p.name) || 'Untitled agent design', domain: 'OWASP_AGENTIC', subject: 'AGENT', document: { nodes: st.nodes, edges: st.edges, n: st.n, profile: st.domain, req: st.req, policy: st.policy, ratified: st.ratified } }; };
+  const agentDesignBody = () => { const st = S.studio, p = st.nodes.find((x) => x.primary); return { name: (p && p.name) || 'Untitled agent design', domain: 'OWASP_AGENTIC', subject: 'AGENT', document: { nodes: st.nodes, edges: st.edges, n: st.n, profile: st.domain, req: st.req, policy: st.policy, ratified: st.ratified, provenance: st.provenance || undefined } }; };
   function agentSaveHtml() {
     const st = S.studio;
     if (st.saveState === 'conflict') return `<span id="s-savestate" class="cap" role="status" style="color:#B42318">${esc(st.saveError)} <button class="btn2 btn-s" data-act="sReloadDesign">Reload this design</button></span>`;
@@ -762,11 +795,11 @@ main.wide{max-width:none}
     await flushAgentSave();
     const d = await STAI.api.getDesign(key), doc = d.document;
     Object.assign(S.studio, { drafted: true, nodes: doc.nodes, edges: doc.edges, n: doc.n, domain: doc.profile || 'payments', req: doc.req || {}, policy: doc.policy || 'block', ratified: !!doc.ratified && ['DESIGNED', 'ASSURED'].includes(((AG.list.find((x) => x.design_key === d.design_key)) || {}).status),
-      designKey: d.design_key, version: d.version, sel: null, panel: doc.ratified ? 'yaml' : 'analysis', draftNote: '', draftError: '', ratifyError: null, ratifyInfo: null, saveState: 'saved', saveError: null });
+      designKey: d.design_key, version: d.version, sel: null, panel: doc.ratified ? 'yaml' : 'analysis', draftNote: '', draftError: '', ratifyError: null, ratifyInfo: null, provenance: doc.provenance || null, saveState: 'saved', saveError: null });
     S.studio.savedSig = agentDocSig(); lsSet(AG_LS, d.design_key);
   }
   function resetAgentStudio() {
-    Object.assign(S.studio, { drafted: false, nodes: [], edges: [], sel: null, panel: 'analysis', policy: 'block', ratified: false, n: 100, domain: 'payments', req: {}, designKey: null, version: 0, saveState: 'saved', saveError: null, savedSig: '', ratifyError: null, ratifyInfo: null, draftNote: '', draftError: '' });
+    Object.assign(S.studio, { drafted: false, nodes: [], edges: [], sel: null, panel: 'analysis', policy: 'block', ratified: false, n: 100, domain: 'payments', req: {}, designKey: null, version: 0, saveState: 'saved', saveError: null, savedSig: '', ratifyError: null, ratifyInfo: null, draftNote: '', draftError: '', provenance: null });
     lsSet(AG_LS, null);
   }
   function studio() {
@@ -778,6 +811,7 @@ main.wide{max-width:none}
     let out = hdr('', title, right, ['newagent', 'Add agent']);
     if (st.ratified) out += `<section class="note good" style="flex-direction:row;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;padding:16px 20px"><span class="stack"><strong>Design ratified${st.ratifyInfo ? ' \u00b7 contract ' + esc(st.ratifyInfo.version) + ' \u00b7 sha256:' + esc(st.ratifyInfo.hash.slice(0, 12)) + '\u2026' : ''} \u00b7 status Designed</strong><span style="font-size:13px">Hand the file to engineering. At implementation, astra init adds it to the repo and every code change is checked against it.</span></span><span style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn2" href="#/agents">View in inventory</a>${(AG.list.find((x) => x.design_key === st.designKey) || {}).agent_key ? `<a class="btn2" href="#/contract?agent=${esc(AG.list.find((x) => x.design_key === st.designKey).agent_key)}">View contract</a>` : ''}<a class="btn" href="#/drift">Simulate code drift</a></span></section>`;
     if (st.ratifyError) out += `<section class="note alert" role="alert"><strong>Not ratified</strong><span style="font-size:13px;white-space:pre-wrap">${esc(st.ratifyError)}</span></section>`;
+    if (st.drafted && st.provenance) out += `<section class="note plain" role="status"><strong>Generated from ${esc(st.provenance.filename)} (${esc(st.provenance.format)})</strong><span style="font-size:13px">Imported by ${esc(st.provenance.imported_by)} \u00b7 sha256:${esc(String(st.provenance.sha256).slice(0, 12))}\u2026 \u00b7 every element is a proposal and nothing is verified against code. Check the tool read/write flags and untrusted inputs the importer had to guess, then add what a file cannot say (approvals, guardrails, sign-offs).</span></section>`;
     if (st.drafted && st.draftNote) out += `<section class="note plain" role="status"><strong>Drafted by the local model</strong><span style="font-size:13px">${esc(st.draftNote)}</span></section>`;
     if (!st.drafted) {
       return out + `<section class="card" style="padding:24px;display:flex;flex-direction:column;gap:16px;max-width:820px"><div class="stack"><h2>Start a new agent design</h2><span class="cap">Describe the agent in plain English, start from a pattern, or begin blank. Every drafted element is marked proposed until you ratify.</span></div>
@@ -2321,6 +2355,35 @@ kill_switch:
     pkDownload: (key) => { saveFile('/api/export/packs/' + key + '.json'); },
     acDownload: (id) => { saveFile('/api/export/contracts/' + id + '.json'); },
     mDownload: (id) => { saveFile('/api/export/contracts/' + id + '.json'); }
+  });
+
+
+  Object.assign(H, {
+    impReset: () => { Object.assign(S.imp, { content: '', filename: '', name: '', primary: '', preview: null, err: null, result: null, format: 'auto' }); },
+    impPreview: async () => {
+      const im = S.imp; if (im.busy) return; im.busy = true; im.err = null; im.result = null; render(true);
+      try { im.preview = await STAI.api.previewAgentImport(impBody()); } catch (e) { im.preview = null; im.err = e.message; }
+      im.busy = false; render(true);
+    },
+    impCreate: async () => {
+      const im = S.imp; if (im.busy || !im.preview) return; im.busy = true; im.err = null; render(true);
+      try { im.result = await STAI.api.importAgent(impBody()); im.preview = null; await Promise.all([loadAgents(), loadFD()]); }
+      catch (e) { im.err = e.message; }
+      im.busy = false; render(true);
+    }
+  });
+  Object.assign(C, {
+    impField: (v, key) => { S.imp[key] = v; if (key === 'content' || key === 'format') { S.imp.preview = null; S.imp.result = null; S.imp.primary = ''; } S.imp.err = null; },
+    impPrimary: (v) => { S.imp.primary = v; S.imp.preview = null; },
+    impExample: (id) => { const f = (S.imp.formats || []).find((x) => x.id === id); if (f) Object.assign(S.imp, { content: f.example, filename: f.filename, format: 'auto', preview: null, result: null, err: null, primary: '', name: '' }); },
+    impFile: (v, arg, el) => {
+      const file = el && el.files && el.files[0]; if (!file) return;
+      if (file.size > 512000) { S.imp.err = 'That file is larger than 512 KB; an agent definition should not be.'; return; }
+      const rd = new FileReader();
+      rd.onload = () => { Object.assign(S.imp, { content: String(rd.result), filename: file.name, preview: null, result: null, err: null, primary: '' }); renderIfIdle('addagent'); };
+      rd.onerror = () => { S.imp.err = 'The file could not be read.'; renderIfIdle('addagent'); };
+      rd.readAsText(file);
+    }
   });
 
 

@@ -340,3 +340,31 @@ docker compose exec backend python -m tests.e2e --with-ollama   # also drafts an
 
 Run it on a stack that has no agent designs, agents, findings or packs of its own: it asserts exact counts, and its cleanup clears those
 tables. The unit and API suites (`python -m tests.<name>`) run the same way.
+
+## Importing an agent from a definition file
+
+On **Add agent → Register an existing agent**, upload or paste a JSON or YAML file and ASTRA generates the agent's Secure Tropos
+model from it (`backend/agent_import.py`). Choose **Preview the model** to see the elements, the OWASP checks on them and what the
+importer guessed, then **Create the agent design**. The result is a draft design (and an inventory entry) to review, complete and ratify
+in the design studio; the studio shows where it came from.
+
+Supported formats (the screen has an example for each, and the format is detected automatically):
+
+| Format | What it provides |
+|---|---|
+| ASTRA agent manifest (`agent.model.yaml`/`.json`) | everything: owner, autonomy, goal, actors, inputs, tools (read/write), MCP servers, memory, data, delegations, approvals, guardrails, constraints |
+| CrewAI `agents.yaml` | the chosen agent's goal and tools; other agents as delegation targets when `allow_delegation` is true |
+| MCP client config (`mcpServers`) | the MCP servers (unsigned; commands, arguments, env and headers are never read) |
+| A2A agent card | name, description, provider as owner, skills as tools |
+| `langgraph.json` | the graph names only (it carries no tools); a warning says so |
+
+How it behaves: a fixed rulebook converts the file, with no language model and no code execution. Anything the file does not say is
+left out rather than assumed (a server is never marked signed, a guardrail is never invented). What it had to guess (whether a tool
+writes, whether an input is untrusted, a guardrail's kind) is listed as "Guessed from names: please confirm". Keys it did not use, and
+anything that could hold a secret, are listed as ignored and never stored; only the file's SHA-256 is kept as provenance, not its content.
+Anchors/aliases, files over 512 KB and models over 60 elements are refused with a reason.
+
+An agent that already has an active contract is **not overwritten**: importing a new file for it creates a proposed change in
+Drift review (source "Imported from <file>"), which compliance approves or declines like any other change. That makes the importer usable
+from a pipeline once collectors get API keys; today a call needs a signed-in session (`POST /api/agents/import/preview`, `POST /api/agents/import`).
+Tests: `python -m tests.test_agent_import`.

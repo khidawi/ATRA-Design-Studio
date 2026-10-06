@@ -206,6 +206,21 @@ def s_inventory(base):
     assert S["engineer"].patch(f"/api/agents/e2e-sandbox-{RUN}", json={"owner": "Platform"}).json()["status"] == "TO_RATIFY"
 
 
+@step("A definition file becomes a draft agent model; nothing in it is trusted blindly")
+def s_import(base):
+    name = f"e2e-import-{RUN}"
+    text = "\n".join([f"agent: {name}", 'owner: Payments eng', 'tools:', '  - name: stripe.payouts.create', '    access: write', '  - list_orders', 'mcp_servers:', '  - name: mcp://erp', '    signed: true', 'api_key: never-read']) + "\n"
+    pv = S["auditor"].post("/api/agents/import/preview", json={"content": text, "filename": "agent.model.yaml"})
+    assert pv.status_code == 200 and pv.json()["existing"]["will"] == "create" and any("api_key" in x for x in pv.json()["ignored"])
+    assert S["auditor"].post("/api/agents/import", json={"content": text}).status_code == 403
+    assert S["engineer"].post("/api/agents/import", json={"content": "not: an agent"}).status_code == 422
+    r = S["engineer"].post("/api/agents/import", json={"content": text, "filename": "agent.model.yaml"})
+    assert r.status_code == 201 and r.json()["outcome"] == "created" and r.json()["agent"]["status"] == "TO_RATIFY"
+    doc = S["engineer"].get(f"/api/designs/{r.json()['design_key']}").json()["document"]
+    assert doc["provenance"]["imported_by"] == PEOPLE["engineer"] and "never-read" not in str(doc)
+    assert [n["p"] for n in doc["nodes"] if n["type"] == "mcp"] == [{"signed": True}]
+
+
 @step("Observed events become findings only when they diverge from the contract")
 def s_findings(base):
     ok = S["engineer"].post("/api/findings/ingest", json={"agent": AGENT, "event": {"type": "tool_call", "name": "ehr.records.read"}}).json()
