@@ -6,6 +6,23 @@ services:
     volumes:
       - ollama_data:/root/.ollama
 
+  # Everything that has to survive a restart lives here (organisation now;
+  # regulations, rules, designs and contracts in the next tasks). The data is in
+  # the pg_data volume: `docker compose down` keeps it, `down -v` deletes it.
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: stai
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stai}
+      POSTGRES_DB: stai
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stai -d stai"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
   backend:
     build: ./backend
     ports:
@@ -13,20 +30,21 @@ services:
     environment:
       OLLAMA_BASE_URL: http://ollama:11434
       OLLAMA_MODEL: llama3.1
+      OLLAMA_TIMEOUT_SECONDS: "280"
+      DATABASE_URL: postgresql+psycopg://stai:${POSTGRES_PASSWORD:-stai}@db:5432/stai
     depends_on:
-      - ollama
+      ollama:
+        condition: service_started
+      db:
+        condition: service_healthy
 
-  frontend:
-    build: ./frontend
+  studio:
+    build: ./studio
     ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    environment:
-      VITE_API_BASE_URL: http://localhost:8765
+      - "5173:80"
     depends_on:
       - backend
 
 volumes:
   ollama_data:
+  pg_data:

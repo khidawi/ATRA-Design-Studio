@@ -2,57 +2,112 @@
 ST-AI Design Studio — FastAPI backend
 ======================================
 Endpoints:
-  GET  /health            → liveness check
+  GET  /health            → liveness check (includes database status)
+  GET/PATCH /api/organisation → the organisation this instance belongs to
   POST /score             → score a registry block, returns PCSResultBlock
   POST /document/validate → validate a full DesignStudioDocument
   GET  /catalogue/constraints → return all 12 constraint IDs with metadata
   POST /api/designs/import → JSON deployment description → proposed canvas nodes/edges
   POST /api/designs/{id}/assess → registry + domain → DesignRiskAssessment
   POST /api/designs/{id}/compile → registry + domain → CompiledContract (422 unless all-green)
-  GET  /api/domains        → domain -> regulation rule-set registry
+  GET/POST/PUT/PATCH/DELETE /api/policies, POST /api/policies/test → organisation policies
+  GET /api/rcr/profiles, POST /api/rcr/score → agent design-time RCR score
+  POST /api/agents/analyse → agent design -> OWASP Agentic Top 10 rows and flags (rules from PostgreSQL)
+  GET  /api/domains        → domain -> approved rule sets (PostgreSQL)
+  GET  /api/regulations, GET /api/rules, PATCH /api/rules/{rule_key} → regulations and rules
   POST /chat               → natural-language description → proposed canvas nodes/edges
+  POST /api/agents/draft   → plain-English agent description → Agent design studio graph (Ollama)
 """
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
 
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 from pydantic import ValidationError
 
 from chat import ChatRequest, GeneratedGraph, generate_graph
+from agent_chat import AgentDesign, AgentDraftRequest, generate_agent_design
 from schema import (
     ScoreRequest, ScoreResponse,
     DesignStudioDocument,
     VETO_CLASS_CONSTRAINTS, MODULATING_CLASS_CONSTRAINTS,
 )
 from scoring_bridge import score_registry
-from compliance_schema import (
-    ComplianceDomain, CompiledContract, DeploymentDescription, DesignRiskAssessment, list_domains,
-)
+from compliance_schema import CompiledContract, DeploymentDescription, DesignRiskAssessment
 from design_import import json_to_canvas_graph
-from compliance_engine import AssessRequest, CompileRequest, assess_design, compile_design
+from db.bootstrap import init_database
+from db.session import SessionLocal, engine, get_session
+from organisation import router as organisation_router
+from regulations import require_domain, router as regulations_router
+from compliance_engine import AssessRequest, CompileRequest, assess_design, compile_design, to_design_graph
+from agent_analysis import router as agent_analysis_router
+from policies import router as policies_router
+from rcr import router as rcr_router
+from agent_registry import router as agent_registry_router
+from coverage_scorecard import router as coverage_router
+from drift import router as drift_router
+from auth import AuthMiddleware, AuthUser, current_user, router as auth_router, users_router
+from audit import router as audit_router
+from exports import router as exports_router
+from overview import router as overview_router
+from packs import router as packs_router
+from findings import router as findings_router
+from design_store import router as design_store_router, store_contract
+from ingestion import fail_interrupted_runs, router as ingestion_router
 
 # Tropos catalogue for constraint metadata
 from framework.tropos_catalogue import CANONICAL_CONSTRAINTS
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    init_database()  # wait for PostgreSQL, apply migrations, ensure the default organisation
+    with SessionLocal() as session:
+        fail_interrupted_runs(session)
+    yield
+
+
 app = FastAPI(
     title="ST-AI Design Studio API",
     version="1.0.0",
+    lifespan=lifespan,
     description=(
         "FastAPI backend wrapping the validated ST-AI PCS engine. "
         "The scoring engine (Algorithms 1-3) is used completely unchanged."
     ),
 )
 
+app.include_router(organisation_router)
+app.include_router(regulations_router)
+app.include_router(agent_analysis_router)
+app.include_router(policies_router)
+app.include_router(rcr_router)
+app.include_router(ingestion_router)
+app.include_router(design_store_router)
+app.include_router(agent_registry_router)
+app.include_router(findings_router)
+app.include_router(drift_router)
+app.include_router(coverage_router)
+app.include_router(packs_router)
+app.include_router(overview_router)
+app.include_router(exports_router)
+app.include_router(auth_router)
+app.include_router(users_router)
+app.include_router(audit_router)
+
+app.add_middleware(AuthMiddleware)      # added first, so CORS (below) wraps it and answers preflight requests itself
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],        # tightened once frontend origin is known
+    # The session cookie is sent only to these origins; "*" with credentials would let any site act as the signed-in user.
+    allow_origins=[o.strip() for o in os.environ.get("ASTRA_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8765,http://127.0.0.1:8765").split(",") if o.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -63,7 +118,17 @@ app.add_middleware(
 
 @app.get("/health")
 def health() -> Dict[str, Any]:
-    return {"status": "ok", "timestamp": datetime.now(tz=timezone.utc).isoformat()}
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        database = "ok"
+    except Exception:
+        database = "unavailable"
+    return {
+        "status": "ok" if database == "ok" else "degraded",
+        "database": database,
+        "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+    }
 
 
 # ── Scoring ───────────────────────────────────────────────────────────────────
@@ -154,7 +219,7 @@ def import_design(desc: DeploymentDescription) -> GeneratedGraph:
 # ── Design-time compliance/risk assessment (Task 1.3) ──────────────────────────
 
 @app.post("/api/designs/{design_id}/assess", response_model=DesignRiskAssessment)
-def assess(design_id: str, req: AssessRequest) -> DesignRiskAssessment:
+def assess(design_id: str, req: AssessRequest, session: Session = Depends(get_session)) -> DesignRiskAssessment:
     """
     Run compliance_engine.py's rule evaluation for the given domain against
     the posted registry's existing GovernanceState (the same evidence-gate
@@ -164,7 +229,10 @@ def assess(design_id: str, req: AssessRequest) -> DesignRiskAssessment:
     fresh from the request body every call, same statelessness as /score.
     """
     try:
-        assessment = assess_design(req.registry, req.domain, req.constraint_node_ids)
+        assessment = assess_design(
+            req.registry, require_domain(session, req.domain), req.constraint_node_ids,
+            to_design_graph(req.design_graph),
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     assessment.deployment_id = design_id
@@ -174,7 +242,9 @@ def assess(design_id: str, req: AssessRequest) -> DesignRiskAssessment:
 # ── Compile to contract (Task 1.5) ──────────────────────────────────────────────
 
 @app.post("/api/designs/{design_id}/compile", response_model=CompiledContract)
-def compile_design_endpoint(design_id: str, req: CompileRequest) -> CompiledContract:
+def compile_design_endpoint(
+    design_id: str, req: CompileRequest, session: Session = Depends(get_session), user: AuthUser = Depends(current_user)
+) -> CompiledContract:
     """
     Refuses server-side — not just client-side — unless the design is
     all-green. compile_design() always re-runs the assessment itself, so
@@ -184,24 +254,13 @@ def compile_design_endpoint(design_id: str, req: CompileRequest) -> CompiledCont
     """
     try:
         contract = compile_design(
-            req.registry, req.domain, req.graph, req.constraint_node_ids, design_id, req.issued_by
+            req.registry, require_domain(session, req.domain), req.graph,
+            req.constraint_node_ids, design_id, user.name, to_design_graph(req.design_graph),
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+    store_contract(session, contract, design_id)
     return contract
-
-
-# ── Domain selector (Task 1.2) ────────────────────────────────────────────────
-
-@app.get("/api/domains", response_model=List[ComplianceDomain])
-def domains() -> List[ComplianceDomain]:
-    """
-    The domain -> rule-set mapping from Phase 0. Switching the frontend's
-    Assessment Domain dropdown only changes which of these rule sets
-    Task 1.3's compliance engine will run against later — it never touches
-    the canvas graph itself.
-    """
-    return list_domains()
 
 
 # ── Chatbot integration point ───────────────────────────────────────────────
@@ -214,3 +273,15 @@ def chat(req: ChatRequest) -> GeneratedGraph:
     state, only the conversation history it is given.
     """
     return generate_graph(req)
+
+
+# ── Agent design studio: draft a design from a plain-English description (Ollama) ──────────────
+
+@app.post("/api/agents/draft", response_model=AgentDesign)
+def draft_agent(req: AgentDraftRequest) -> AgentDesign:
+    """
+    Turn a plain-English description of an agent into a proposed design for the Agent design studio.
+    Everything it returns is a proposal until a person ratifies the design; controls the description
+    did not mention are left out rather than invented.
+    """
+    return generate_agent_design(req)

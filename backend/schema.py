@@ -117,6 +117,9 @@ class RegulatoryRequirement(BaseModel):
     clause:    str  = ""
     risk_tier: Optional[str] = None
     status:    ConstraintStatus = ConstraintStatus.NOT_YET_DETERMINED
+    # Needed for the requirement to attest a rule (Task 3). Not enforced here, so /score
+    # behaves as before; the compliance engine treats Satisfied-without-evidence as not attested.
+    evidence:  Optional[str] = None
 
 
 class DataCategory(BaseModel):

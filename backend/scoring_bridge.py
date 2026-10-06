@@ -1,3 +1,6 @@
+
+
+
 """
 Translates a DesignStudio RegistryBlock → RegistryState,
 calls the existing rule engine unchanged, returns PCSResultBlock.
@@ -163,8 +166,14 @@ def score_registry(rb: RegistryBlock) -> tuple[PCSResultBlock, list[str]]:
             "Dm": dt.Dm, "Wr": dt.Wr, "Ws": dt.Ws, "Wf": dt.Wf, "Wh": dt.Wh,
             "rcf_adj": dt.rcf_adj, "eps_b": dt.eps_b, "eps_ia": dt.eps_ia,
             "blockers": dt.blockers,
+            "warnings": list(dt.warnings),
             "recommendations": dt.recommendations,
             "derivation_log": dt.derivation_log,
+            "risk_vector": {
+                "composite": rv.composite if rv else None,
+                "gate_blocked": bool(rv.gate_blocked) if rv else False,
+                "blocking_dimension": rv.blocking_dimension if rv else "",
+            },
         },
     )
 

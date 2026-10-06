@@ -4,7 +4,11 @@ A canvas tool for visually constructing ST-AI deployment registries: actors,
 departments, AI models, and security/compliance constraints, wired together
 and scored against the ST-AI PCS (Pre-deployment Compliance Score) engine.
 
-- **Frontend**: React + TypeScript + Vite + React Flow + Zustand
+- **Frontend**: the ASTRA Model studio (`studio/`) — a single static page served by nginx.
+  Every score, risk assessment, import and contract compile is a call to the backend;
+  nothing is computed in the browser. In the Agent module, "Draft model with AI" in the Design
+  studio also runs through the backend and Ollama; the rest of the Agent module (inventory, drift,
+  findings, packs, workspace) is still demo data.
 - **Backend**: FastAPI wrapping the unmodified ST-AI PCS scoring engine (`backend/framework/`)
 - **Chatbot**: natural-language → canvas nodes, powered by a locally-run
   [Ollama](https://ollama.com) model — no API key, no per-call cost
@@ -27,6 +31,7 @@ Once it's up:
 - Frontend: <http://localhost:5173>
 - Backend: <http://localhost:8765> (docs at `/docs`)
 - Ollama: <http://localhost:11434>
+- PostgreSQL: runs inside Docker (no host port); inspect with `docker compose exec db psql -U stai -d stai`
 
 **One-time step — pull the chatbot's model** (it isn't baked into the image;
 the download is ~4.7GB so it's a separate, visible step rather than a silent
@@ -39,6 +44,10 @@ docker compose exec ollama ollama pull llama3.1
 The chatbot (the "Chat" button in the app header) works once that finishes.
 Everything else works immediately without it.
 
+**Your data lives in PostgreSQL** (the `pg_data` volume). `docker compose down` keeps it;
+`docker compose down -v` deletes it, along with the downloaded Ollama model.
+The backend applies database migrations itself on every start.
+
 **Day-to-day use:**
 
 ```bash
@@ -46,10 +55,31 @@ docker compose up        # start everything again (model + images already cached
 docker compose down      # stop everything
 ```
 
-The frontend container mounts your local `frontend/` folder, so editing code
-on your machine hot-reloads in the browser exactly like running `npm run dev`
-directly — Docker here is just a consistent, zero-setup way to get the same
-Node/Python/Ollama versions everyone else has, not a black box.
+The studio is baked into its image, so after editing `studio/index.html` run
+`docker compose up --build -d` and refresh. nginx in that container proxies
+`/api`, `/chat`, `/score`, `/health` and `/catalogue` to the backend, which is why
+the page needs no CORS setup or hard-coded backend URL.
+
+## How rules are checked
+
+Every rule is a row in PostgreSQL with a `check_type`:
+
+- `CONSTRAINT`: graded from the Security Constraint it names.
+- `ATTESTATION`: satisfied by a *Regulatory requirement* node for that regulation and clause, marked
+  Satisfied **with evidence**. Satisfied without evidence does not count.
+- `GRAPH`: a JSON condition on the design itself (for example "a write-capable tool needs an approval
+  step"). The language is in `backend/rule_checks.py`; the OWASP agent rules in `backend/db/seed.py` are examples.
+
+Only `APPROVED` rules are evaluated. See `GET /api/rules`.
+
+## Organisation policies
+
+Open **Policies** in either studio's sidebar to add rules of your own, for example "a write-capable tool needs a
+human approval step" or "no third-party hosted models". A policy is a small form (an optional *when*, then a
+requirement) that the backend validates against what a design can contain, then stores as a rule. It is checked
+in every design it applies to, shows up as `ORG_POLICY: <title>` in the risk panel, and a violated policy stops a
+model contract from compiling. **Test on the current design** shows what a policy would do before you save it, and
+**Pause** keeps a policy without enforcing it.
 
 ## Running without Docker
 
@@ -72,11 +102,10 @@ see that file for the two variables it reads).
 
 ### Frontend
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+The Model studio expects `/api`, `/chat` and `/score` on its own origin (nginx
+does this in Docker), so Docker is the supported way to run it. The previous
+React frontend is still in `frontend/` and can be run against the backend with
+`npm install && npm run dev`, but it is no longer part of `docker compose`.
 
 ### Chatbot (optional)
 
@@ -95,13 +124,23 @@ backend/
   framework/        the unmodified ST-AI PCS scoring engine
   main.py            FastAPI app — /health, /score, /chat, /catalogue/constraints
   schema.py          Pydantic schema for the registry/graph/score contract
-  chat.py            chatbot: NL description -> canvas nodes, via Ollama
-frontend/
-  src/nodeSchema.tsx  declarative per-node-type field descriptors
-  src/edgeRules.ts    which relation type applies between which node pair
-  src/store/          the whole app's state (zustand), persisted to localStorage
-  src/components/     Canvas, Sidebar, Inspector, Chat/Validation panels
-docker-compose.yml    all three services together
+  db/                SQLAlchemy engine, models and start-up (PostgreSQL)
+  migrations/        Alembic migrations (one per task that adds tables)
+  organisation.py    GET/PATCH /api/organisation
+  regulations.py     domains, regulations and rules from PostgreSQL (GET /api/domains, /regulations, /rules; PATCH /rules/{key})
+  db/seed.py         the reference regulations/rules loaded on first start; edits made later are never overwritten
+  rule_checks.py     the safe, data-driven condition language that GRAPH rules are written in (no eval)
+  agent_analysis.py  POST /api/agents/analyse: the OWASP Agentic Top 10 checks, read from the database
+  policies.py        organisation policies: vocabulary, validation, compiler and API (/api/policies)
+  tests/             `docker compose exec backend python -m tests.test_rule_checks` and `... tests.test_policies`
+  chat.py            Model studio assistant: NL description -> canvas nodes, via Ollama
+  agent_chat.py      Agent design studio: NL description -> agent graph, via Ollama
+  ollama_client.py   shared Ollama structured-output client used by both
+studio/
+  index.html          the ASTRA Model studio (single page, no build step)
+  nginx.conf          serves the page and proxies API calls to the backend
+frontend/             previous React frontend (not part of docker compose)
+docker-compose.yml    ollama + postgres + backend + studio together
 ```
 
 ## Contributing
@@ -109,3 +148,195 @@ docker-compose.yml    all three services together
 Standard flow: branch, commit, open a PR. The `.gitignore` already excludes
 `node_modules/`, `.venv/`, and `.env` — never commit real secrets (there
 shouldn't be any to commit, since the chatbot runs locally with no API key).
+
+## Agent design-time risk score (RCR)
+
+The Agent design studio scores an agent design with the Regulatory Compliance Risk method in
+`RCR_Algorithm_Step_by_Step.docx`: `RCR = 100 · max(G, F)`, where G is breadth (worst regulation's uncovered
+weight share) and F is depth (worst open veto-class requirement's floor). It is separate from the PCS score used
+for AI models and from any future runtime assessment; the three share no code.
+
+- Engine: `backend/rcr_engine.py` (pure functions); API: `backend/rcr.py` (`GET /api/rcr/profiles`, `POST /api/rcr/score`).
+- Requirement registries (weights, floors, design checks) are rows in `rcr_profiles` / `rcr_requirements`.
+- A veto requirement counts as Covered only with evidence and a reviewer sign-off (a typed name until sign-in exists);
+  evidence alone is Partial; a claim with no evidence is a Gap.
+- Weights, floors and partial credit are judgement values, not yet calibrated. Tests: `python -m tests.test_rcr_engine`.
+
+## Regulation ingestion
+
+The **Regulations** screen reads a source page (or pasted text) with the local Ollama model and proposes
+candidate rules, each with a quote. The backend checks that every quote appears in the source word for word and
+drops any that does not, so a candidate always points at real text. Candidates are stored as pending and are never
+evaluated: a person reviews each one, edits its name, clause and strength, chooses where it applies, and approves
+it into an attestation rule (the design must hold a Regulatory requirement for that clause with evidence) or rejects it.
+The model never writes a check that runs against a design.
+
+- Code: `backend/ingestion.py` (`/api/ingestion/runs`, `/candidates`); tables `ingestion_runs`, `rule_candidates`; approved rules keep `source_url` and `source_quote`.
+- A run reads a few passages at a time in the background (CPU-only Ollama needs minutes per passage); `Start at passage` continues a long page.
+- Plain requests work for gdpr-info.eu, artificialintelligenceact.eu and OWASP. EUR-Lex answers HTTP 202 and ISO returns 403, so for those paste the text. Addresses on private networks are refused.
+- Tests: `python -m tests.test_ingestion`.
+
+## Saved designs and contracts (Model studio)
+
+The Model studio saves the design you are editing to PostgreSQL a moment after each change (`designs` table), so it
+survives a browser reset or a different browser. The header has a **Saved design** list, **New** and **Delete design**,
+and shows Saved / Saving / Not saved.
+
+- Each save names the version it is based on; a save based on an older version is refused (HTTP 409), so a second
+  tab cannot overwrite the first. The page then offers to reload the design.
+- **Compile contract** saves the design first, and the backend stores the contract exactly as issued (`contracts` table).
+  Contracts are never edited and outlive the design they came from. **Verify hash** on the contracts screen re-hashes
+  the stored contract (`GET /api/contracts/{id}/verify`).
+- Designs and contracts that earlier versions kept in the browser are moved once on first load. A moved contract is
+  marked IMPORTED (the server did not issue it); it is accepted only if its hash matches its content.
+- Code: `backend/design_store.py`; tests: `python -m tests.test_design_store`. Agent designs are persisted in Task 7.
+
+## Agent inventory and ratification
+
+The **Agents** screen lists the agents in the database. An agent gets there in three ways: a design ratified in the Agent
+design studio (status Designed), a manual registration (**Add agent → Register by hand**; unowned until it has an owner),
+or the demo set (**Load demo agents**: sample data from the prototype, marked `demo`, removable).
+Discovery from a repository, telemetry or an identity provider needs connectors and is not built yet.
+
+- The design studio saves each agent design to PostgreSQL (`designs`, subject AGENT) and reopens the last one.
+- **Ratify** runs on the server against the stored design: it re-runs the OWASP analysis and the design-time RCR score,
+  refuses a Blocked design, stores an agent contract (version 1.0.0, 2.0.0, …) whose snapshot holds the design, the score
+  and the analysis, and creates or updates the inventory row. The reviewer is a typed name until sign-in exists (Task 8).
+- Code: `backend/agent_registry.py`; tests: `python -m tests.test_agent_registry`.
+- Not yet database-backed: the drift, contract-review, findings, coverage, packs, workspace and overview screens (Task 7b onward).
+
+## Contract status and the agent contract screen
+
+An issued contract is never edited, so its hash always verifies. What is true of it now (Active, Superseded, Revoked,
+who, when, why) is stored beside it in the `contracts` table.
+
+- Compiling or ratifying a new contract for the same model design or agent **supersedes** the earlier active one.
+  A person can **revoke** an active contract with a recorded reason (`POST /api/contracts/{id}/revoke`). If an agent's
+  last active contract is revoked, the agent goes back to To ratify.
+- Each agent contract records what the new version **widens or narrows** compared with the previous active one
+  (`backend/agent_contract.py`): a new tool, MCP server, data store, memory, input or delegation, higher autonomy or a
+  removed safeguard widens; the reverse narrows. A widening version needs its own review. Scoring still runs on every
+  version (it is cheap); the flag says whether the earlier approval can be read as covering the new one.
+- `#/contract?agent=<name>` shows the contract: what it allows, change from the previous version, clause mappings, the
+  risk score and sign-offs at ratification, the versions with their status, the generated agent.contract.yaml, and
+  Verify hash / Download / Open design / Revoke. `#/contract` without a name is still the prototype's demo contract.
+- Not built: dual sign-off or accepting contract fields one by one (the prototype's demo flow), and real sign-in (Task 8).
+
+## Findings and drift review
+
+Neither screen invents data, and neither pretends something was observed. Nothing in this repository reads code,
+telemetry or an identity provider yet (that needs collectors), so each screen has a clearly labelled simulator.
+
+**Findings** (`backend/findings.py`, `backend/divergence.py`). An observed event is checked against the agent's *active
+contract* by deterministic comparisons: a tool, delegation, MCP server, memory write or data store the contract does not
+allow becomes a finding with its divergence class, the threat it maps to, the permitted value, and an evidence hash.
+A conforming event produces nothing. A real collector sends events to `POST /api/findings/ingest`
+(`{"agent": "...", "event": {"type": "tool_call", "name": "..."}}`); the simulator produces events and sends them through the
+same check, so what it shows is what a real event would produce. Severities are judgement values. A finding can be
+acknowledged, turned into a drafted regression test, or have a halt requested; the halt is only recorded as evidence,
+because nothing can stop a running agent yet.
+
+**Drift review** (`backend/drift.py`, `backend/drift_engine.py`). A proposed change to an agent compared with its ratified
+contract, item by item (widening, narrowing, needs review), with the threat checks and risk score before and after.
+Real source: **Submit change for review** in the design studio, shown instead of Ratify once an agent has an active contract.
+Simulated source: the simulator edits a copy of the ratified design. **Approve and ratify** writes the proposed design into
+the agent's design and ratifies it, which issues a new contract version and supersedes the old one; it is refused, and the
+item stays open, if the proposed design's risk score is Blocked. Declining only records the decision.
+
+Demo agents come with sample findings and drift items, all marked demo and removed with them.
+Tests: `python -m tests.test_findings_drift`. Not built: real collectors, enforcement, issue-tracker and pull-request links.
+
+## Coverage scorecard
+
+The **Coverage** screen is computed on request from the agents that have an *active contract* (demo agents are never counted).
+Each agent's design held in its contract is re-checked against today's OWASP Agentic rules, so a changed rule or a new
+organisation policy shows up. A check's status across agents is the **worst** one (Gap, else Partial, else Covered; No data
+if no agent it applies to), so one gap is never averaged away. ASI10 also counts unowned agents in the inventory. Open
+findings are counted per check from their threat mapping, and the detail shows each agent's result and reason.
+
+Only the **owner, due date and note** for a check are stored (`coverage_assignments`); status is never stored, so it cannot go
+stale. The due label is "Met" once covered, otherwise the date or "Overdue by N days".
+Code: `backend/coverage_scorecard.py`; tests: `python -m tests.test_coverage`.
+Not built: the prototype's control counts and evidence-item totals (they need collectors), and checks from runtime telemetry.
+
+## Trust reports and Assurance Packs
+
+**Generate** on the Trust and packs screen builds a pack from real data at that moment (`backend/packs.py`): the agents with an
+active contract (and each contract's hash), the coverage scorecard, findings and drift decisions in the chosen period,
+each agent's design-time risk and regulatory requirements, the claims made and the evidence behind each, and the **gaps**
+(checks that fail, partly pass or cannot be assessed, agents with no contract or no owner) with owner and due date.
+It is refused if no agent has an active contract.
+
+- A **Trust report** is the short, shareable form: agents are "Agent 1, Agent 2…", with no owners, finding details or per-agent results.
+  An **Assurance Pack** is the full form for an auditor. **Open report** shows it readably, and Print or save as PDF prints it.
+- Every pack states what it does *not* claim: nothing was observed from a running agent unless a finding's source is COLLECTED, how many
+  findings came from the simulator, that sign-off is a typed name, and that risk weights are uncalibrated.
+- Packs are stored exactly as hashed and **chained**: each pack's hash covers its content and the previous pack's hash.
+  **Verify hash chain** re-hashes the pack, walks the chain back to the first pack, and re-hashes every contract the pack cites
+  (and notes any that have since been superseded or revoked). Editing an earlier pack breaks it and every later one.
+- Download JSON gives the pack with its hashes. Frameworks offered are the ones with real data (OWASP Agentic, design-time
+  regulatory risk); ISO/IEC 42001 stays disabled until rules are loaded for it.
+- Not built: the security-questionnaire answering, PDF generation on the server, and publishing to a trust centre.
+  Tests: `python -m tests.test_packs`.
+
+## Overview and Compliance workspace
+
+Both screens are computed on request from what the other screens keep; nothing new is stored (`backend/overview.py`).
+Demo agents and their sample findings and drift are never counted, and the overview says when they are loaded.
+
+- **Overview:** agents with an active contract, OWASP coverage, open findings and drift waiting, a "Needs your attention" list
+  (open drift, high findings, coverage gaps, unowned or unratified agents), and an evidence activity feed (contracts issued or
+  revoked, findings, drift proposed and decided, packs generated), newest first.
+- **Workspace:** *Compliance* (sign-off queue of open drift, gap owners from the coverage assignments, drift policies in force from
+  the contracts, recent packs), *Engineering* (drift, unowned agents and unratified designs waiting, tests drafted from findings)
+  and *Auditor* (every pack re-verified on load, contract history, drift decisions and approvers on record).
+- The three tabs are views, not permissions: there is no sign-in until Task 8.
+- Dropped because nothing backs them: scheduled packs, break-glass uses, kill-switch drills, assessor access dates, CI status.
+Tests: `python -m tests.test_overview`.
+
+Note on tests: the suites assume no other agent designs, agents, findings or packs exist in the database; run them on a clean
+stack (the regression script also compiles contracts for a design called `x`, which are safe to delete).
+
+## Sign-in, roles and the audit log
+
+Nobody can use the platform without signing in. The first visit shows **Create the first administrator** (possible only while
+no account exists); that person adds everyone else on the **Users** screen. Accounts are local: a password is kept only as a
+scrypt hash (at least 10 characters), a sign-in creates a server-side session whose token is stored hashed and sent in an
+HttpOnly SameSite cookie (12 hours), five failed attempts lock an email out for 15 minutes, and writes must carry a custom
+header a page on another site cannot add. CORS only allows the studio's own origins (`ASTRA_ALLOWED_ORIGINS` to change them).
+
+| Role | Can |
+|---|---|
+| Administrator | everything, including users |
+| Compliance | design, and **sign off**: ratify, decide drift, revoke contracts, acknowledge findings, generate packs, approve regulation rules and policies, set coverage owners |
+| Engineer | design and propose (including submitting a change for review); cannot sign anything off |
+| Auditor | read-only everywhere, plus the audit log |
+
+Every endpoint is protected by default (`required_permission` in `backend/auth.py`): a write needs the write permission unless it
+is listed as a sign-off or a pure computation. The names on contracts, drift decisions, findings, packs and revocations are the
+signed-in person's, whatever the request says. A sign-off on a design requirement is the signed-in compliance user's own name; an
+engineer cannot add, change or drop one by editing the design, and nobody can sign for someone else.
+
+The **Audit log** (`backend/audit.py`) records every state-changing request, sign-in, failed sign-in and refused action (who,
+what, when, outcome; never request bodies). Each event's hash covers the previous event's, so an event edited or removed from
+the middle is detected by **Verify the chain**; dropping the newest events cannot be seen from inside the log, so keep the head hash elsewhere if that matters.
+
+Not built: single sign-on, a second factor, email-based password recovery (an administrator resets passwords), per-agent
+permissions, and API keys for collectors (events sent to `/api/findings/ingest` need a signed-in session for now).
+Tests: `python -m tests.test_auth`. The tests sign in with throwaway users and remove them and their audit events afterwards.
+
+## End-to-end test
+
+`python -m tests.e2e` drives the whole platform over HTTP as four people (administrator, compliance, engineer, auditor) with real
+sign-ins: users and roles, regulations and an organisation policy, a model deployment, an agent from design to a ratified contract
+(including the Blocked refusal and the sign-off rules), findings, drift approval and decline, contract versions and revocation,
+coverage, Trust and Assurance packs with hash verification, every PDF/JSON/CSV/YAML download, the overview and workspace, and the
+audit log with its chain. It prints one PASS/FAIL line per step and removes everything it created, including its audit events.
+
+```bash
+docker compose exec backend python -m tests.e2e                 # about 5 seconds, no language model needed
+docker compose exec backend python -m tests.e2e --with-ollama   # also drafts an agent with the local model
+```
+
+Run it on a stack that has no agent designs, agents, findings or packs of its own: it asserts exact counts, and its cleanup clears those
+tables. The unit and API suites (`python -m tests.<name>`) run the same way.

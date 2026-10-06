@@ -32,9 +32,9 @@ import hashlib
 import json as _json
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from schema import ActorSubtype, PillarVector
 
@@ -53,6 +53,8 @@ class ElementVerdict(BaseModel):
     reason:   str           = ""
     citation: Optional[str] = None   # e.g. "GDPR Art. 35"
     rule_id:  Optional[str] = None   # RegulationRule.rule_id, when sourced from a domain rule
+    # Every element a GRAPH rule flagged (node_id is the first); lets a studio ring them all.
+    flagged_node_ids: List[str] = Field(default_factory=list)
 
 
 class ScoreBreakdownEntry(BaseModel):
@@ -178,86 +180,49 @@ class RegulationRule(BaseModel):
     # wearing a regulation's citation, link it instead of duplicating the
     # evidence-gate logic — Task 1.3's "one evidence-gate system" rule.
     maps_to_constraint_id:   Optional[str]    = None
+    # CONSTRAINT: graded from maps_to_constraint_id. ATTESTATION: satisfied by a Regulatory
+    # requirement node for this instrument + citation, Satisfied with evidence.
+    # GRAPH: a data-driven condition on the design (see rule_checks.py).
+    check_type:              Literal["CONSTRAINT", "ATTESTATION", "GRAPH"] = "CONSTRAINT"
+    check_config:            Dict[str, Any] = Field(default_factory=dict)
+    # How the rule is cited on a verdict. Defaults to "<instrument> <citation>"; an organisation
+    # policy is cited as "ORG_POLICY: <title>".
+    citation_label:          Optional[str] = None
 
 
 class ComplianceDomain(BaseModel):
     domain_id:   str          # "HEALTHCARE" | "FINANCIAL_SERVICES" | "GENERAL" | ...
     name:        str
     description: str          = ""
+    subject:     Literal["MODEL", "AGENT"] = "MODEL"   # what the domain assesses
     rule_set:    List[RegulationRule] = Field(default_factory=list)
 
 
-def _org_policy_rule(rule_id: str, title: str, maps_to: str) -> RegulationRule:
-    return RegulationRule(
-        rule_id=rule_id, instrument="ORG_POLICY", citation="Internal Policy",
-        title=title, severity=RuleSeverity.REQUIRED, maps_to_constraint_id=maps_to,
-    )
+# ── The design a GRAPH rule inspects (the same shape for models and agents) ────
+
+class DesignNodeIn(BaseModel):
+    id:      str
+    type:    str                                  # e.g. "AI_MODEL" (model design) or "tool" (agent design)
+    props:   Dict[str, Any] = Field(default_factory=dict)
+    primary: bool = False
 
 
-# Baseline rule set every domain inherits: GDPR + EU AI Act citations for the
-# six existing veto-class constraints, taken from framework/crosswalk.py's
-# BLOCK_REASON_CROSSWALK so the citation shown to a user matches the one the
-# PCS engine's own blockers already reference.
-_BASE_RULES: List[RegulationRule] = [
-    RegulationRule(rule_id="GDPR-ART35-DPIA", instrument="GDPR", citation="Art. 35",
-                    title="Data protection impact assessment", maps_to_constraint_id="SC-DPIA-1"),
-    RegulationRule(rule_id="EUAI-ART27-FRIA", instrument="EU AI Act", citation="Art. 27",
-                    title="Fundamental rights impact assessment for high-risk AI", maps_to_constraint_id="SC-DPIA-1"),
-    RegulationRule(rule_id="EUAI-ART14-HITL", instrument="EU AI Act", citation="Art. 14",
-                    title="Human oversight for high-risk AI", maps_to_constraint_id="SC-HITL-1"),
-    RegulationRule(rule_id="EUAI-ART50-HALLU", instrument="EU AI Act", citation="Art. 50",
-                    title="Transparency obligations / disclosure of generated content", maps_to_constraint_id="SC-HALLU-1"),
-    RegulationRule(rule_id="EUAI-ART15-MAP", instrument="EU AI Act", citation="Art. 15(4)",
-                    title="Accuracy levels relevant to intended purpose", maps_to_constraint_id="SC-MAP-1"),
-    RegulationRule(rule_id="EUAI-ART86-CHALL", instrument="EU AI Act", citation="Art. 86",
-                    title="Right to explanation of individual decision-making", maps_to_constraint_id="SC-CHALL-1"),
-    RegulationRule(rule_id="GDPR-ART22-CHALL", instrument="GDPR", citation="Art. 22",
-                    title="Automated individual decision-making, including profiling", maps_to_constraint_id="SC-CHALL-1"),
-    RegulationRule(rule_id="EUAI-ART25-LIAB", instrument="EU AI Act", citation="Art. 25",
-                    title="Responsibilities along the AI value chain", maps_to_constraint_id="SC-LIAB-1"),
-    RegulationRule(rule_id="GDPR-ART6-CONSENT", instrument="GDPR", citation="Art. 6",
-                    title="Lawfulness of processing", maps_to_constraint_id="SC-CONSENT-1"),
-    _org_policy_rule("ORG-RCF", "Role-concentration segregation of duties", "SC-RCF-1"),
-]
+class DesignEdgeIn(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
 
-DOMAIN_REGISTRY: Dict[str, ComplianceDomain] = {
-    "GENERAL": ComplianceDomain(
-        domain_id="GENERAL", name="General / Org Policy",
-        description="GDPR + EU AI Act + org policy — applies when no sector-specific domain fits.",
-        rule_set=list(_BASE_RULES),
-    ),
-    "HEALTHCARE": ComplianceDomain(
-        domain_id="HEALTHCARE", name="Healthcare",
-        description="GDPR + EU AI Act + org policy, with the special-category-data bar raised for clinical data.",
-        rule_set=[
-            *_BASE_RULES,
-            RegulationRule(rule_id="GDPR-ART9-SPECIAL", instrument="GDPR", citation="Art. 9",
-                            title="Processing of special categories of personal data (health data)",
-                            maps_to_constraint_id="SC-CONSENT-1"),
-            RegulationRule(rule_id="EUAI-ANNEXIII-HEALTH", instrument="EU AI Act", citation="Annex III",
-                            title="High-risk classification for AI used in healthcare/essential services",
-                            severity=RuleSeverity.RECOMMENDED),
-        ],
-    ),
-    "FINANCIAL_SERVICES": ComplianceDomain(
-        domain_id="FINANCIAL_SERVICES", name="Financial Services",
-        description="GDPR + EU AI Act + OWASP + org policy.",
-        rule_set=[
-            *_BASE_RULES,
-            RegulationRule(rule_id="OWASP-LLM-TOP10", instrument="OWASP", citation="LLM Top 10",
-                            title="OWASP Top 10 for LLM Applications — security baseline",
-                            severity=RuleSeverity.RECOMMENDED),
-        ],
-    ),
-}
+    from_id: str = Field(alias="from")
+    to_id:   str = Field(alias="to")
+    label:   str = ""
 
 
-def get_domain(domain_id: str) -> Optional[ComplianceDomain]:
-    return DOMAIN_REGISTRY.get(domain_id)
+class DesignGraphIn(BaseModel):
+    nodes: List[DesignNodeIn] = Field(default_factory=list)
+    edges: List[DesignEdgeIn] = Field(default_factory=list)
 
 
-def list_domains() -> List[ComplianceDomain]:
-    return list(DOMAIN_REGISTRY.values())
+# The domain/rule data itself is no longer defined here: it lives in PostgreSQL
+# (seeded from db/seed.py) and is read by regulations.py, which hands the engine
+# a ComplianceDomain built from approved rules.
 
 
 # ── 4. Contract file format (Task 1.5 artefact) ────────────────────────────

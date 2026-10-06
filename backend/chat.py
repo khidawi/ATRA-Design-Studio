@@ -18,16 +18,12 @@ Runs against a locally-hosted model via Ollama (https://ollama.com) —
 no per-call API cost, no API key. Requires Ollama running locally with
 a model pulled; see backend/.env.example.
 """
-import json
-import os
 from typing import List, Literal, Optional
 
-import httpx
 from fastapi import HTTPException
 from pydantic import BaseModel, Field, ValidationError
 
-OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1")
+from ollama_client import chat_json
 
 
 # ── Target shape — mirrors frontend/src/nodeSchema.tsx field-for-field ───────
@@ -136,68 +132,12 @@ lists for every array and use `reply` to answer or ask a clarifying question ins
 """
 
 
-def _extract_json_object(text: str) -> dict:
-    """Best-effort extraction of a JSON object from a local model's raw
-    output, which — unlike a provider with native structured-output
-    support — may still wrap it in prose or a markdown fence despite
-    instructions."""
-    text = text.strip()
-    if text.startswith("```"):
-        text = text.strip("`")
-        if text.lower().startswith("json"):
-            text = text[4:]
-        text = text.strip()
-    start = text.find("{")
-    end = text.rfind("}")
-    if start == -1 or end == -1 or end < start:
-        raise ValueError("No JSON object found in model output")
-    return json.loads(text[start : end + 1])
-
-
 def generate_graph(req: ChatRequest) -> GeneratedGraph:
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     messages += [{"role": m.role, "content": m.content} for m in req.history]
     messages.append({"role": "user", "content": req.message})
 
-    payload = {
-        "model": OLLAMA_MODEL,
-        "messages": messages,
-        "stream": False,
-        "format": GeneratedGraph.model_json_schema(),
-        "options": {"temperature": 0.2},
-    }
-
-    try:
-        resp = httpx.post(
-            f"{OLLAMA_BASE_URL}/api/chat", json=payload, timeout=120.0
-        )
-        resp.raise_for_status()
-    except httpx.ConnectError as exc:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Could not reach Ollama at {OLLAMA_BASE_URL}. "
-                    "Is it installed and running? See backend/.env.example.",
-        ) from exc
-    except httpx.HTTPStatusError as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Ollama returned an error: {exc.response.status_code} {exc.response.text}",
-        ) from exc
-    except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"Could not reach Ollama: {exc}") from exc
-
-    content = resp.json().get("message", {}).get("content", "")
-
-    try:
-        raw = json.loads(content)
-    except json.JSONDecodeError:
-        try:
-            raw = _extract_json_object(content)
-        except (ValueError, json.JSONDecodeError) as exc:
-            raise HTTPException(
-                status_code=502,
-                detail=f"Model did not return valid JSON: {exc}",
-            ) from exc
+    raw = chat_json(messages, GeneratedGraph.model_json_schema())
 
     try:
         return GeneratedGraph.model_validate(raw)
