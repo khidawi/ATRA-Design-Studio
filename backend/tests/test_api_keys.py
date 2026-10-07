@@ -66,7 +66,7 @@ def test_a_key_authenticates_with_limited_power_and_is_audited():
         try:
             pipeline, reader = keyed(eng["key"]), keyed(aud["key"])
             me = pipeline.get("/api/auth/me").json()
-            assert me["user"]["full_name"] == "API key: zz-test-eng key" and me["user"]["role"] == "engineer" and set(me["permissions"]) == {"read", "write"}
+            assert me["user"]["full_name"] == "API key: zz-test-eng key" and me["user"]["role"] == "engineer" and set(me["permissions"]) == {"read", "write", "ingest"}
             assert pipeline.get("/api/agents").status_code == 200
 
             r = pipeline.post("/api/agents/register", json={"name": NAME})                     # a write works without a cookie or CSRF header

@@ -93,7 +93,7 @@ def s_open(base):
 
 @step("Each role signs in and sees its own permissions")
 def s_roles(base):
-    expect = {"admin": {"admin", "audit", "read", "signoff", "write"}, "compliance": {"audit", "read", "signoff", "write"}, "engineer": {"read", "write"}, "auditor": {"audit", "read"}}
+    expect = {"admin": {"admin", "audit", "read", "signoff", "write", "ingest"}, "compliance": {"audit", "read", "signoff", "write", "ingest"}, "engineer": {"read", "write", "ingest"}, "auditor": {"audit", "read"}}
     for role in PEOPLE:
         S[role] = person(base, role)
         me = S[role].get("/api/auth/me").json()
@@ -349,6 +349,49 @@ def s_audit(base):
     assert v["ok"] and v["events"] >= len(events) and v["head_hash"]
 
 
+@step("The runtime SDK reports a running agent: conforming events pass, a new capability becomes a finding and runtime drift, an unknown agent is discovered")
+def s_runtime(base):
+    try:
+        import astra_runtime
+        from astra_runtime.client import Client
+    except ImportError:
+        raise Skip("the SDK is not importable (copy sdk/python into the container and set PYTHONPATH)")
+    name = f"e2e-runtime-{RUN}"
+    req = {"dpia": {"status": "Covered", "evidence": "DPIA report DOC-9", "signed_off_by": PEOPLE["compliance"]}}
+    d = S["engineer"].post("/api/designs", json={"name": name, "domain": "OWASP_AGENTIC", "subject": "AGENT", "document": design_doc(name, req={"dpia": {**req["dpia"], "signed_off_by": ""}})}).json()
+    cur = S["compliance"].get(f"/api/designs/{d['design_key']}").json()
+    assert S["compliance"].put(f"/api/designs/{d['design_key']}", json={"name": name, "domain": "OWASP_AGENTIC", "subject": "AGENT", "document": design_doc(name, req=req), "version": cur["version"]}).status_code == 200
+    assert S["compliance"].post("/api/agents/ratify", json={"design_key": d["design_key"]}).status_code == 200
+    key = S["admin"].post("/api/keys", json={"name": f"e2e collector {RUN}", "role": "collector"}).json()
+    c = Client(base, key["key"], name, flush_interval=0.05)
+    try:
+        assert c.check() == {"ok": True, "key": f"API key: e2e collector {RUN}", "role": "collector"}
+        c.tool_call("ehr.records.read", write=False)                                   # allowed by the contract
+        c.heartbeat()
+        c.tool_call("payments.transfer.create", write=True)                            # not in the contract
+        with c.as_agent(f"e2e-ghost-{RUN}"):
+            c.tool_call("shell.exec", write=True)                                      # an agent the platform has never seen
+        assert c.flush(5)
+        for _ in range(40):
+            if S["auditor"].get(f"/api/runtime/overview?agent={name}").json()["events"] and len(S["auditor"].get(f"/api/runtime/overview?agent={name}").json()["events"]) >= 3:
+                break
+            time.sleep(0.1)
+    finally:
+        c.close()
+    ov = S["auditor"].get("/api/runtime/overview").json()
+    live = {a["agent_key"]: a for a in ov["agents"]}
+    mine = live[name]
+    assert mine["status"] == "live" and mine["divergent_1h"] == 1 and mine["open_findings"] == 1 and mine["open_drift"] and mine["contract_version"] == "1.0.0"
+    ghost = live[f"e2e-ghost-{RUN}"]
+    assert ghost["origin"] == "DISCOVERED" and ghost["status"] == "live" and ghost["owner"] is None
+    item = [x for x in S["auditor"].get("/api/drift").json() if x["id"] == mine["open_drift"]][0]
+    assert item["source"] == "RUNTIME" and item["kind"] == "Widening" and any("payments.transfer.create" in ch["text"] for ch in item["changes"])
+    verdicts = [e["verdict"] for e in S["auditor"].get(f"/api/runtime/overview?agent={name}").json()["events"]]
+    assert verdicts.count("DIVERGENT") == 1 and "CONFORMING" in verdicts
+    assert [a for a in S["auditor"].get("/api/agents").json() if a["agent_key"] == f"e2e-ghost-{RUN}"][0]["status"] == "UNOWNED"
+    assert S["compliance"].post(f"/api/drift/{item['id']}/decide", json={"decision": "decline", "note": "e2e"}).json()["status"] == "DECLINED"
+
+
 @step("(optional) The local model drafts an agent from plain English")
 def s_ollama(base):
     if not ARGS.with_ollama:
@@ -384,6 +427,11 @@ def teardown():
         s.commit()
         for c in s.query(Contract).filter(Contract.deployment_id == AGENT).all():
             s.delete(c)
+        for c in s.query(Contract).filter(Contract.deployment_id.like(f"%{RUN}")).all():
+            s.delete(c)
+        from db.models import ApiKey, RuntimeEvent
+        s.query(RuntimeEvent).filter(RuntimeEvent.agent_key.like(f"%{RUN}")).delete(synchronize_session=False)
+        s.query(ApiKey).filter(ApiKey.name.like(f"e2e collector {RUN}")).delete(synchronize_session=False)
         for a in s.query(Agent).filter(Agent.agent_key.like(f"%{RUN}")).all():
             s.delete(a)
         for a in s.query(Agent).filter(Agent.agent_key == AGENT).all():

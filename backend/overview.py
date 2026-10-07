@@ -21,6 +21,8 @@ from packs import verify as verify_pack
 
 router = APIRouter(prefix="/api", tags=["overview"])
 
+SOURCE_WORDS = {"SIMULATED": "simulated", "DESIGN": "from the design studio", "IMPORT": "imported from a file", "RUNTIME": "observed at runtime", "DEMO": "sample data"}
+
 
 class AttentionItem(BaseModel):
     title: str
@@ -79,7 +81,7 @@ def overview(session: Session = Depends(get_session)) -> OverviewOut:
     for d in drift:
         attention.append(AttentionItem(
             title=f"{d.agent_key}: proposed change {('widens' if d.kind == 'Widening' else 'differs from')} the ratified contract",
-            detail=f"{d.title} · {'simulated' if d.source == 'SIMULATED' else 'from the design studio'} · policy {d.policy}"
+            detail=f"{d.title} · {SOURCE_WORDS.get(d.source, d.source.lower())} · policy {d.policy}"
                    + (" · the proposed design is Blocked" if d.gate_after == "BLOCK" else ""),
             label="Drift", tone="bad" if d.gate_after == "BLOCK" or d.kind == "Widening" else "warn", link="drift"))
     for f in [f for f in findings if f.severity == "High"][:3]:
@@ -144,7 +146,7 @@ def workspace(session: Session = Depends(get_session)) -> WorkspaceOut:
 
     compliance = {
         "queue": [{"agent": d.agent_key, "from_version": d.from_version, "kind": d.kind, "title": d.title,
-                   "source": "Simulated" if d.source == "SIMULATED" else "Design studio", "gate_after": d.gate_after, "policy": d.policy} for d in drift],
+                   "source": SOURCE_WORDS.get(d.source, d.source.lower()).capitalize(), "gate_after": d.gate_after, "policy": d.policy} for d in drift],
         "gap_owners": [{"code": r.code, "name": r.name, "status": r.status, "owner": r.owner, "due": r.due_label, "note": r.note}
                        for r in cov.rows if r.group == "OWASP" and r.status in ("Gap", "Partial")],
         "policies": [{"policy": p, "agents": names} for p, names in sorted(policy_of.items())],

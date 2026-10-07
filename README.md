@@ -396,3 +396,21 @@ For an agent that already has an active contract, the file becomes a proposed ch
 The API and end-to-end suites create data and then clear whole tables (every drift item, finding and pack), because they assert exact counts.
 They therefore refuse to start unless the database name ends in `_test`, or you set `ASTRA_TESTS_ON_THIS_DB=1` to accept that data in it may be
 deleted. Do not do that against a database with real work in it.
+
+## Runtime SDK: see an agent's drift in real time
+
+`sdk/python` is `astra-runtime`, a dependency-free Python package an agent runs with. It reports what the agent does (tool calls, handoffs, MCP
+connections, data access, memory writes: names only, never arguments or results) and ASTRA compares each event with the agent's active contract as
+it arrives. See `sdk/python/README.md` for installation, the OpenAI Agents SDK and LangChain/LangGraph adapters, optional enforcement and the wire format.
+
+* **Collector keys:** the API key role for the SDK. It can only send events and read the contract summary of an agent; nothing else.
+* **Discovery:** an agent the platform has never seen is registered unowned (origin "discovered") the first time it reports, and counts against ASI10.
+* **Findings and runtime drift:** an event outside the contract becomes a finding (de-duplicated for ten minutes), and a new capability also opens a
+  *runtime drift* item (the ratified design plus what was observed) for compliance to approve or decline.
+* **Live runtime** screen: agents live / silent / never seen, events and divergences, a feed that updates every few seconds, and contract permissions
+  that were never used in 30 days. Events are kept 14 days.
+* Limits: 200 events per call and 1,200 a minute per key (429 with Retry-After beyond that); the SDK's clock is only believed within a day of the server's.
+
+Tests: `python -m tests.test_runtime` (platform side) and `cd sdk/python && python -m unittest discover -s tests` (the SDK); the end-to-end script runs the
+real SDK against the platform when `sdk/python` is on `PYTHONPATH`. Run the platform suites against a scratch database
+(`CREATE DATABASE stai_test;` then `docker compose exec -e DATABASE_URL=postgresql+psycopg://stai:stai@db:5432/stai_test backend python -m tests.<name>`).

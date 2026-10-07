@@ -43,10 +43,11 @@ MAX_FAILURES, FAILURE_WINDOW_MINUTES = 5, 15
 MIN_PASSWORD = 10
 ROLES = ("admin", "compliance", "engineer", "auditor")
 PERMISSIONS = {
-    "admin": {"read", "write", "signoff", "admin", "audit"},
-    "compliance": {"read", "write", "signoff", "audit"},
-    "engineer": {"read", "write"},
+    "admin": {"read", "write", "signoff", "admin", "audit", "ingest"},
+    "compliance": {"read", "write", "signoff", "audit", "ingest"},
+    "engineer": {"read", "write", "ingest"},
     "auditor": {"read", "audit"},
+    "collector": {"ingest"},           # only a key can be a collector: it sends runtime events and reads the contract summary it needs
 }
 SAFE = {"GET", "HEAD", "OPTIONS"}
 
@@ -97,6 +98,8 @@ def is_public(method: str, path: str) -> bool:
 
 
 def required_permission(method: str, path: str) -> str:
+    if (method == "POST" and path == "/api/runtime/events") or (method == "GET" and path.startswith("/api/runtime/contract/")):
+        return "ingest"
     if method in SAFE:
         if path.startswith(("/api/users", "/api/keys")):
             return "admin"
@@ -137,7 +140,7 @@ def authenticate(token: Optional[str]) -> Optional[AuthUser]:
 
 
 KEY_PREFIX = "astra_"
-KEY_ROLES = ("engineer", "auditor")      # a key never signs anything off, so it can never be compliance or admin
+KEY_ROLES = ("engineer", "auditor", "collector")      # a key never signs anything off, so it can never be compliance or admin
 
 
 def bearer_token(request: Request) -> Optional[str]:

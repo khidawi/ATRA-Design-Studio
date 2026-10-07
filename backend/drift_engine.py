@@ -152,3 +152,24 @@ def apply_scenario(scenario: str, doc: Dict[str, Any]) -> Dict[str, Any]:
         raise ValueError(f"Unknown scenario {scenario!r}.")
     d["ratified"] = False
     return d
+
+
+def apply_observed(doc: Dict[str, Any], observed: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """A copy of a design document with what was seen at runtime added: the capabilities the agent used that its contract does not allow."""
+    out = copy.deepcopy(doc)
+    nodes, edges = out["nodes"], out["edges"]
+    primary = next((n for n in nodes if n.get("primary")), None)
+    if primary is None:
+        raise ValueError("The design has no primary agent.")
+    rel = {"tool": "uses", "mcp": "connects", "agent": "delegates", "data": "reads", "memory": "stores"}
+    for o in observed:
+        if any(n.get("type") == o["type"] and n.get("name") == o["name"] for n in nodes):
+            for n in nodes:                                      # the element exists: apply what was seen to it (a tool that wrote, a server that was unsigned)
+                if n.get("type") == o["type"] and n.get("name") == o["name"]:
+                    n["p"] = {**(n.get("p") or {}), **o["p"]}
+            continue
+        nid = f"rt{len(nodes) + 1}"
+        nodes.append({"id": nid, "type": o["type"], "name": o["name"], "p": dict(o["p"])})
+        edges.append({"from": primary["id"], "to": nid, "label": rel[o["type"]]})
+    out["ratified"] = False
+    return out

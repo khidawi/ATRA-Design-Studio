@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "astra-runtime"
+version = "0.1.0"
+description = "Report what an AI agent does while it runs to an ASTRA platform, and compare it with the agent's ratified contract in real time."
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = []                       # standard library only, on purpose
+classifiers = ["Programming Language :: Python :: 3", "Topic :: Security"]
+
+[project.optional-dependencies]
+openai-agents = ["openai-agents"]
+langchain = ["langchain-core"]
+
+[tool.setuptools.packages.find]
+include = ["astra_runtime*"]

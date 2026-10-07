@@ -56,6 +56,7 @@ class AgentOut(BaseModel):
     origin: str
     design_key: Optional[str]
     note: Optional[str]
+    last_seen_at: Optional[datetime] = None
     last_finding: Optional[str]
     contract_count: int
     updated_at: datetime
@@ -68,7 +69,7 @@ def _out(session: Session, a: Agent) -> AgentOut:
     latest = session.scalar(select(Finding).where(Finding.agent_key == a.agent_key).order_by(Finding.created_at.desc(), Finding.seq.desc()))
     last = f"{latest.severity} \u00b7 {latest.created_at.strftime('%d %b %H:%M')}" if latest and a.origin != "DEMO" else None
     return AgentOut(agent_key=a.agent_key, name=a.name, owner=a.owner, framework=a.framework, tools_count=a.tools_count,
-                    status=a.status, mode=a.mode, origin=a.origin, design_key=design_key, note=a.note, last_finding=last,
+                    status=a.status, mode=a.mode, origin=a.origin, design_key=design_key, note=a.note, last_seen_at=a.last_seen_at, last_finding=last,
                     contract_count=contracts, updated_at=a.updated_at)
 
 

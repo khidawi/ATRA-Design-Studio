@@ -15,7 +15,7 @@ from typing import Optional
 
 from typing import Any, Dict, List
 
-from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Float, ForeignKey, Identity, Integer, String, Text, UniqueConstraint, Uuid, func, text
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, Date, DateTime, Float, ForeignKey, Identity, Integer, String, Text, UniqueConstraint, Uuid, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -283,6 +283,7 @@ class Agent(Base):
     origin: Mapped[str] = mapped_column(String(10), nullable=False)
     design_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("designs.id", ondelete="SET NULL"))
     note: Mapped[Optional[str]] = mapped_column(String(200))
+    last_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))   # last time the runtime SDK reported it (Task 12)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
@@ -450,3 +451,23 @@ class ApiKey(Base):
     revoked: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     revoked_by: Mapped[Optional[str]] = mapped_column(String(200))
     revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
+
+class RuntimeEvent(Base):
+    """One thing an agent did, as reported by the runtime SDK, with how it compared with its active contract (Task 12)."""
+
+    __tablename__ = "runtime_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    seq: Mapped[int] = mapped_column(BigInteger, Identity(start=1), unique=True)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    agent_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    type: Mapped[str] = mapped_column(String(16), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False, server_default="")
+    attrs: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    verdict: Mapped[str] = mapped_column(String(14), nullable=False)
+    contract_version: Mapped[Optional[str]] = mapped_column(String(16))
+    finding_key: Mapped[Optional[str]] = mapped_column(String(12))
+    reported_by: Mapped[str] = mapped_column(String(200), nullable=False)
