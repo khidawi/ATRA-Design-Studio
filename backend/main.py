@@ -56,7 +56,7 @@ from agent_import import router as agent_import_router
 from agent_registry import router as agent_registry_router
 from coverage_scorecard import router as coverage_router
 from drift import router as drift_router
-from auth import AuthMiddleware, AuthUser, current_user, router as auth_router, users_router
+from auth import AuthMiddleware, AuthUser, current_user, keys_router, router as auth_router, users_router
 from audit import router as audit_router
 from exports import router as exports_router
 from overview import router as overview_router
@@ -103,6 +103,7 @@ app.include_router(overview_router)
 app.include_router(exports_router)
 app.include_router(auth_router)
 app.include_router(users_router)
+app.include_router(keys_router)
 app.include_router(audit_router)
 
 app.add_middleware(AuthMiddleware)      # added first, so CORS (below) wraps it and answers preflight requests itself

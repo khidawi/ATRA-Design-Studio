@@ -33,7 +33,7 @@ from starlette.responses import JSONResponse
 
 import audit
 from db.bootstrap import DEFAULT_ORG_SLUG
-from db.models import AuditEvent, Organisation, User, UserSession
+from db.models import ApiKey, AuditEvent, Organisation, User, UserSession
 from db.session import SessionLocal, get_session
 
 COOKIE = "astra_session"
@@ -86,7 +86,7 @@ def check_password_rules(password: str, email: str = "") -> None:
 
 PUBLIC = [("GET", r"^/health$"), ("GET", r"^/docs"), ("GET", r"^/redoc"), ("GET", r"^/openapi\.json$"),
           ("GET", r"^/api/auth/(status|me)$"), ("POST", r"^/api/auth/(login|bootstrap|logout)$")]
-PURE = [r"^/score$", r"^/document/validate$", r"^/api/rcr/score$", r"^/api/agents/analyse$", r"^/api/policies/test$", r"^/api/designs/[^/]+/assess$", r"^/api/agents/import/preview$"]
+PURE = [r"^/score$", r"^/document/validate$", r"^/api/rcr/score$", r"^/api/agents/analyse$", r"^/api/policies/test$", r"^/api/designs/[^/]+/assess$", r"^/api/agents/import/(preview|file-preview)$"]
 SIGNOFF = [r"^/api/agents/ratify$", r"^/api/drift/[^/]+/decide$", r"^/api/contracts/", r"^/api/designs/[^/]+/compile$",
            r"^/api/findings/[^/]+/(acknowledge|halt)$", r"^/api/coverage/", r"^/api/packs$", r"^/api/ingestion/candidates/",
            r"^/api/policies", r"^/api/rules/"]
@@ -98,10 +98,10 @@ def is_public(method: str, path: str) -> bool:
 
 def required_permission(method: str, path: str) -> str:
     if method in SAFE:
-        if path.startswith("/api/users"):
+        if path.startswith(("/api/users", "/api/keys")):
             return "admin"
         return "audit" if path.startswith(("/api/audit", "/api/export/audit")) else "read"
-    if path.startswith("/api/users") or path == "/api/organisation":
+    if path.startswith(("/api/users", "/api/keys")) or path == "/api/organisation":
         return "admin"
     if any(re.search(p, path) for p in PURE):
         return "read"
@@ -136,6 +136,31 @@ def authenticate(token: Optional[str]) -> Optional[AuthUser]:
         return AuthUser(id=row[1].id, email=row[1].email, name=row[1].full_name, role=row[1].role)
 
 
+KEY_PREFIX = "astra_"
+KEY_ROLES = ("engineer", "auditor")      # a key never signs anything off, so it can never be compliance or admin
+
+
+def bearer_token(request: Request) -> Optional[str]:
+    header = request.headers.get("authorization", "")
+    if header.lower().startswith("bearer "):
+        return header[7:].strip() or None
+    return request.headers.get("x-api-key") or None
+
+
+def authenticate_key(token: Optional[str]) -> Optional[AuthUser]:
+    if not token or not token.startswith(KEY_PREFIX):
+        return None
+    now = datetime.now(timezone.utc)
+    with SessionLocal() as s:
+        row = s.scalar(select(ApiKey).where(ApiKey.key_hash == _token_hash(token), ApiKey.revoked.is_(False)))
+        if row is None or (row.expires_at is not None and row.expires_at <= now):
+            return None
+        if row.last_used_at is None or now - row.last_used_at > timedelta(minutes=1):      # not a write on every request
+            row.last_used_at = now
+            s.commit()
+        return AuthUser(id=row.id, email=f"api-key:{row.prefix}", name=f"API key: {row.name}", role=row.role)
+
+
 def current_user(request: Request) -> AuthUser:
     user = getattr(request.state, "user", None)
     if user is None:
@@ -155,14 +180,21 @@ class AuthMiddleware(BaseHTTPMiddleware):
         method, path = request.method, request.url.path
         if method == "OPTIONS" or is_public(method, path):
             return await call_next(request)
-        user = await run_in_threadpool(authenticate, request.cookies.get(COOKIE))
-        if user is None:
-            return JSONResponse({"detail": "Sign in to continue."}, status_code=401)
+        token = bearer_token(request)
+        via_key = token is not None
+        if via_key:
+            user = await run_in_threadpool(authenticate_key, token)
+            if user is None:
+                return JSONResponse({"detail": "The API key is not valid, has expired or was revoked."}, status_code=401)
+        else:
+            user = await run_in_threadpool(authenticate, request.cookies.get(COOKIE))
+            if user is None:
+                return JSONResponse({"detail": "Sign in to continue."}, status_code=401)
         need = required_permission(method, path)
         if not has(user.role, need):
             await run_in_threadpool(audit.record, user.name, user.role, f"{method} {path}", "denied", {"needs": need, "status": 403})
             return JSONResponse({"detail": f"Your role ({user.role}) cannot do this. It needs the {need} permission."}, status_code=403)
-        if method not in SAFE and request.headers.get(CSRF_HEADER) != "1":
+        if method not in SAFE and not via_key and request.headers.get(CSRF_HEADER) != "1":     # a key is not sent by the browser on its own, so there is nothing to forge
             return JSONResponse({"detail": "Missing the request header that proves this came from the studio."}, status_code=403)
         request.state.user = user
         response = await call_next(request)
@@ -207,6 +239,14 @@ class MeOut(BaseModel):
 
 @router.get("/me", response_model=MeOut)
 def me(request: Request, session: Session = Depends(get_session)) -> MeOut:
+    token = bearer_token(request)
+    if token is not None:
+        key_user = authenticate_key(token)
+        if key_user is None:
+            raise HTTPException(status_code=401, detail="The API key is not valid, has expired or was revoked.")
+        row = session.get(ApiKey, key_user.id)
+        return MeOut(user=UserOut(id=str(row.id), email=key_user.email, full_name=key_user.name, role=row.role, active=True, created_at=row.created_at, last_login_at=row.last_used_at),
+                     permissions=sorted(PERMISSIONS[row.role]))
     user = authenticate(request.cookies.get(COOKIE))
     if user is None:
         raise HTTPException(status_code=401, detail="Sign in to continue.")
@@ -381,3 +421,76 @@ def reset_password(user_id: uuid.UUID, body: PasswordReset, session: Session = D
     for row in session.scalars(select(UserSession).where(UserSession.user_id == u.id, UserSession.revoked.is_(False))):
         row.revoked = True
     session.commit()
+
+
+# ── API keys (admin, signed in) ─────────────────────────────────────────────
+
+keys_router = APIRouter(prefix="/api/keys", tags=["api-keys"])
+
+
+class KeyOut(BaseModel):
+    id: str
+    name: str
+    prefix: str
+    role: str
+    created_by: str
+    created_at: datetime
+    expires_at: Optional[datetime]
+    last_used_at: Optional[datetime]
+    revoked: bool
+    revoked_by: Optional[str]
+    revoked_at: Optional[datetime]
+    status: str                       # active | expired | revoked
+
+
+def _key_out(k: ApiKey) -> KeyOut:
+    expired = k.expires_at is not None and k.expires_at <= datetime.now(timezone.utc)
+    return KeyOut(id=str(k.id), name=k.name, prefix=k.prefix, role=k.role, created_by=k.created_by, created_at=k.created_at, expires_at=k.expires_at,
+                  last_used_at=k.last_used_at, revoked=k.revoked, revoked_by=k.revoked_by, revoked_at=k.revoked_at,
+                  status="revoked" if k.revoked else ("expired" if expired else "active"))
+
+
+@keys_router.get("", response_model=List[KeyOut])
+def list_keys(session: Session = Depends(get_session)) -> List[KeyOut]:
+    return [_key_out(k) for k in session.scalars(select(ApiKey).order_by(ApiKey.created_at.desc()))]
+
+
+class NewKey(BaseModel):
+    name: str = Field(min_length=3, max_length=60)
+    role: str = "engineer"
+    expires_in_days: Optional[int] = Field(None, ge=1, le=730)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def strip(cls, v):
+        return v.strip() if isinstance(v, str) else v
+
+
+class CreatedKey(KeyOut):
+    key: str                          # shown once; only its hash is kept
+
+
+@keys_router.post("", response_model=CreatedKey, status_code=201)
+def create_key(body: NewKey, who: AuthUser = Depends(current_user), session: Session = Depends(get_session)) -> CreatedKey:
+    if body.role not in KEY_ROLES:
+        raise HTTPException(status_code=422, detail=f"A key's role must be one of {', '.join(KEY_ROLES)}: sign-offs belong to people, so a key cannot be compliance or admin.")
+    org = session.scalar(select(Organisation).where(Organisation.slug == DEFAULT_ORG_SLUG))
+    prefix = secrets.token_hex(4)
+    key = f"{KEY_PREFIX}{prefix}_{secrets.token_urlsafe(32)}"
+    row = ApiKey(organisation_id=org.id, name=body.name, prefix=prefix, key_hash=_token_hash(key), role=body.role, created_by=who.name,
+                 expires_at=datetime.now(timezone.utc) + timedelta(days=body.expires_in_days) if body.expires_in_days else None)
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return CreatedKey(**_key_out(row).model_dump(), key=key)
+
+
+@keys_router.post("/{key_id}/revoke", response_model=KeyOut)
+def revoke_key(key_id: uuid.UUID, who: AuthUser = Depends(current_user), session: Session = Depends(get_session)) -> KeyOut:
+    row = session.get(ApiKey, key_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="No such key.")
+    if not row.revoked:
+        row.revoked, row.revoked_by, row.revoked_at = True, who.name, datetime.now(timezone.utc)
+        session.commit()
+    return _key_out(row)

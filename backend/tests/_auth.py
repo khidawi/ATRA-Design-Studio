@@ -17,6 +17,9 @@ from db.bootstrap import DEFAULT_ORG_SLUG
 from db.models import AuditEvent, Organisation, User, UserSession
 from db.session import SessionLocal
 from main import app
+from tests._guard import require_scratch_database
+
+require_scratch_database()
 
 
 @contextmanager

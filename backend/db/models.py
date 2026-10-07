@@ -429,3 +429,24 @@ class AuditEvent(Base):
     payload: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
     prev_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     event_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class ApiKey(Base):
+    """A credential for a pipeline or collector (Task 11). Only a hash is stored; the key is shown once, at creation."""
+
+    __tablename__ = "api_keys"
+    __table_args__ = (CheckConstraint("role IN ('engineer', 'auditor')", name="ck_api_keys_role"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String(60), nullable=False)
+    prefix: Mapped[str] = mapped_column(String(8), nullable=False)
+    key_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    role: Mapped[str] = mapped_column(String(12), nullable=False)
+    created_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    last_used_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    revoked: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    revoked_by: Mapped[Optional[str]] = mapped_column(String(200))
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))

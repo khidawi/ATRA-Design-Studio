@@ -315,6 +315,9 @@ main.wide{max-width:none}
       bootstrap: (email, full_name, password) => post('/api/auth/bootstrap', { email, full_name, password }),
       logout: () => call('/api/auth/logout', { method: 'POST' }),
       changePassword: (current_password, new_password) => post('/api/auth/change-password', { current_password, new_password }),
+      listKeys: () => call('/api/keys'),
+      createKey: (body) => post('/api/keys', body),
+      revokeKey: (id) => call('/api/keys/' + encodeURIComponent(id) + '/revoke', { method: 'POST' }),
       listUsers: () => call('/api/users'),
       createUser: (body) => post('/api/users', body),
       updateUser: (id, body) => call('/api/users/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(body) }),
@@ -415,9 +418,16 @@ main.wide{max-width:none}
       <button class="btn" type="submit">${boot ? 'Create administrator' : 'Sign in'}</button></form></div></div>`;
   }
   document.addEventListener('submit', async (e) => {
-    const f = e.target.closest('#auth-form'), uf = e.target.closest('#user-form');
-    if (!f && !uf) return;
+    const f = e.target.closest('#auth-form'), uf = e.target.closest('#user-form'), kf = e.target.closest('#key-form');
+    if (!f && !uf && !kf) return;
     e.preventDefault();
+    if (kf) {
+      const v = new FormData(kf), btn = kf.querySelector('button'), days = parseInt(String(v.get('days')), 10);
+      btn.disabled = true; KS.err = null; KS.created = null;
+      try { KS.created = await STAI.api.createKey({ name: String(v.get('name')), role: String(v.get('role')), expires_in_days: Number.isFinite(days) && days > 0 ? days : null }); kf.reset(); KS.list = await STAI.api.listKeys(); }
+      catch (err) { KS.err = err.message; }
+      render(true); return;
+    }
     if (f) {
       const v = new FormData(f), box = document.getElementById('auth-error'), btn = f.querySelector('button');
       btn.disabled = true; box.style.display = 'none';
@@ -451,6 +461,22 @@ main.wide{max-width:none}
   }
   const dlBtn = (path, label, cls) => `<button class="${cls || 'btn2'}" data-act="dl" data-arg="${esc(path)}">${label}</button>`;
   const US = { loaded: false, loading: false, error: null, list: [], err: null };
+  const KS = { loaded: false, loading: false, list: [], err: null, created: null, copied: false };
+  async function loadKeys() {
+    KS.loading = true;
+    try { KS.list = await STAI.api.listKeys(); KS.loaded = true; } catch (e) { KS.err = e.message; }
+    KS.loading = false; renderIfIdle('users');
+  }
+  function keysSection() {
+    if (!KS.loaded && !KS.loading && !KS.err) loadKeys();
+    const origin = location.origin, tone = { active: 'ok', expired: 'muted', revoked: 'bad' };
+    const created = KS.created ? `<div class="note good" role="status" style="gap:8px"><strong>Key created: copy it now, it is not shown again</strong><code class="mono" style="font-size:13px;overflow-wrap:anywhere;user-select:all">${esc(KS.created.key)}</code><div class="prow"><button class="btn2 btn-s" data-act="keyCopy">${KS.copied ? 'Copied' : 'Copy the key'}</button><button class="btn2 btn-s" data-act="keyDone">I have stored it</button></div><span class="cap">Only a hash is kept. If it is lost, revoke it and make another.</span></div>` : '';
+    return `<section class="card" style="padding:20px;display:flex;flex-direction:column;gap:12px"><h2>API keys</h2><span class="cap" style="max-width:860px">For a pipeline or collector that calls the platform without a person. A key acts with the role you give it: <b>Engineer</b> (design, import agent files, send events; never signs anything off) or <b>Auditor</b> (read-only). It can never be compliance or administrator, because sign-offs belong to people. Everything a key does is in the audit log under its name. No keys exist until you make one.</span>
+      ${created}${KS.list.length ? KS.list.map((k) => `<div class="lrow"><span class="stack"><span style="font-weight:500">${esc(k.name)} <span class="pill ${tone[k.status]}">${esc(k.status)}</span></span><span class="cap mono">astra_${esc(k.prefix)}_\u2026 \u00b7 ${esc(k.role)} \u00b7 made by ${esc(k.created_by)} ${esc(cwhen(k.created_at))} \u00b7 ${k.expires_at ? 'expires ' + esc(cwhen(k.expires_at)) : 'does not expire'} \u00b7 ${k.last_used_at ? 'last used ' + esc(cwhen(k.last_used_at)) : 'never used'}</span></span>${k.status === 'active' ? `<button class="btn2 btn-s" data-act="keyRevoke" data-arg="${esc(k.id)}">Revoke</button>` : ''}</div>`).join('') : '<p class="cap" style="margin:0">No keys yet.</p>'}
+      <form id="key-form" class="prow" style="flex-wrap:wrap;gap:8px;align-items:flex-end"><label class="cap">Name<br><input class="reqsel" name="name" required minlength="3" maxlength="60" placeholder="CI: agent manifests"></label><label class="cap">Role<br><select class="reqsel" name="role"><option value="engineer">Engineer</option><option value="auditor">Auditor (read-only)</option></select></label><label class="cap">Expires after (days, optional)<br><input class="reqsel" type="number" name="days" min="1" max="730" placeholder="90"></label><button class="btn" type="submit">Create a key</button></form>
+      ${KS.err ? `<div class="note alert" role="alert"><span style="font-size:13px;white-space:pre-wrap">${esc(KS.err)}</span></div>` : ''}
+      <div class="stack" style="gap:6px"><span style="font-size:12px;font-weight:600;color:#4A5563">Import an agent file from a pipeline</span><pre class="code" style="font-size:12px">curl -X POST "${esc(origin)}/api/agents/import/file?filename=agent.model.yaml" \\\n  -H "Authorization: Bearer $ASTRA_KEY" \\\n  --data-binary @agent.model.yaml</pre><span class="cap">Add <span class="mono">/file-preview</span> instead of <span class="mono">/file</span> to check a file without saving anything. For an agent that already has a contract, the file becomes a proposed change in Drift review.</span></div></section>`;
+  }
   async function loadUsers() {
     US.loading = true; US.error = null;
     try { US.list = await STAI.api.listUsers(); US.loaded = true; } catch (e) { US.error = e.message; }
@@ -466,7 +492,7 @@ main.wide{max-width:none}
       <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><select class="reqsel" data-chg="usRole" data-arg="${esc(u.id)}" aria-label="Role of ${esc(u.full_name)}">${roles.map((r) => opt(r, ROLE_LABEL[r], u.role)).join('')}</select><button class="btn2 btn-s" data-act="usActive" data-arg="${esc(u.id)}">${u.active ? 'Disable' : 'Enable'}</button><button class="btn2 btn-s" data-act="usReset" data-arg="${esc(u.id)}">Reset password</button></span></div>`).join('')}</section>
       <section class="card" style="padding:20px;display:flex;flex-direction:column;gap:12px"><h2>Add a person</h2><span class="cap">${roles.map((r) => ROLE_LABEL[r] + ': ' + ROLE_HELP[r]).join(' \u00b7 ')}. A new password is at least 10 characters; share it through another channel.</span>
       <form id="user-form" class="prow" style="flex-wrap:wrap;gap:8px;align-items:flex-end"><label class="cap">Full name<br><input class="reqsel" name="name" required minlength="2"></label><label class="cap">Email<br><input class="reqsel" type="email" name="email" required></label><label class="cap">Role<br><select class="reqsel" name="role">${roles.map((r) => opt(r, ROLE_LABEL[r], 'engineer')).join('')}</select></label><label class="cap">Initial password<br><input class="reqsel" type="password" name="password" required minlength="10" autocomplete="new-password"></label><button class="btn" type="submit">Add</button></form>
-      ${US.err ? `<div class="note alert" role="alert"><span style="font-size:13px;white-space:pre-wrap">${esc(US.err)}</span></div>` : ''}</section>`;
+      ${US.err ? `<div class="note alert" role="alert"><span style="font-size:13px;white-space:pre-wrap">${esc(US.err)}</span></div>` : ''}</section>` + keysSection();
   }
   const AU = { loaded: false, loading: false, error: null, events: [], verify: null, more: true };
   async function loadAudit(older) {
@@ -2383,6 +2409,16 @@ kill_switch:
       rd.onload = () => { Object.assign(S.imp, { content: String(rd.result), filename: file.name, preview: null, result: null, err: null, primary: '' }); renderIfIdle('addagent'); };
       rd.onerror = () => { S.imp.err = 'The file could not be read.'; renderIfIdle('addagent'); };
       rd.readAsText(file);
+    }
+  });
+
+
+  Object.assign(H, {
+    keyCopy: async () => { try { await navigator.clipboard.writeText(KS.created.key); KS.copied = true; } catch (e) { window.prompt('Copy the key:', KS.created.key); } },
+    keyDone: () => { KS.created = null; KS.copied = false; },
+    keyRevoke: async (id) => {
+      if (!window.confirm('Revoke this key? Anything using it stops working immediately.')) return;
+      try { await STAI.api.revokeKey(id); KS.list = await STAI.api.listKeys(); KS.err = null; } catch (e) { KS.err = e.message; }
     }
   });
 

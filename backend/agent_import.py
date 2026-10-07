@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -548,3 +548,29 @@ def import_agent(body: ImportRequest, session: Session = Depends(get_session), u
     session.commit()
     session.refresh(agent)
     return ImportOut(outcome=outcome, agent=_out(session, agent), design_key=design.design_key, drift_id=None, summary=summary)
+
+
+# ── Raw file bodies, for pipelines ──────────────────────────────────────────
+#   curl -X POST "$ASTRA/api/agents/import/file?filename=agent.model.yaml" -H "Authorization: Bearer $KEY" --data-binary @agent.model.yaml
+
+async def _raw(request: Request, filename: Optional[str], format: Optional[str], primary: Optional[str], name: Optional[str], profile: Optional[str]) -> ImportRequest:
+    raw = await request.body()
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=422, detail="The file must be UTF-8 text.")
+    if not text.strip():
+        raise HTTPException(status_code=422, detail="The request body is empty: send the file's content as the body.")
+    return ImportRequest(content=text, filename=filename, format=format, primary=primary, name=name, profile=profile)
+
+
+@router.post("/file-preview", response_model=PreviewOut)
+async def preview_file(request: Request, filename: Optional[str] = None, format: Optional[str] = None, primary: Optional[str] = None, name: Optional[str] = None,
+                       session: Session = Depends(get_session)) -> PreviewOut:
+    return preview(await _raw(request, filename, format, primary, name, None), session)
+
+
+@router.post("/file", response_model=ImportOut, status_code=201)
+async def import_file(request: Request, filename: Optional[str] = None, format: Optional[str] = None, primary: Optional[str] = None, name: Optional[str] = None,
+                      profile: Optional[str] = None, session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> ImportOut:
+    return import_agent(await _raw(request, filename, format, primary, name, profile), session, user)

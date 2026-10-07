@@ -368,3 +368,30 @@ An agent that already has an active contract is **not overwritten**: importing a
 Drift review (source "Imported from <file>"), which compliance approves or declines like any other change. That makes the importer usable
 from a pipeline once collectors get API keys; today a call needs a signed-in session (`POST /api/agents/import/preview`, `POST /api/agents/import`).
 Tests: `python -m tests.test_agent_import`.
+
+## API keys (pipelines and collectors)
+
+An administrator makes keys on the **Users** screen (**API keys**), or with `POST /api/keys`. No key exists until one is made. A key is
+shown once, at creation; only its SHA-256 is stored, so a lost key is revoked and replaced, never recovered. A key has a name, an optional
+expiry, and a role:
+
+- **Engineer**: design, import agent files, send events to `/api/findings/ingest`; it can never sign anything off.
+- **Auditor**: read-only.
+
+A key can never be compliance or administrator (sign-offs belong to people) and cannot make keys or read users. Send it as
+`Authorization: Bearer astra_...` (or `X-API-Key`). Calls with a key need no cookie or CSRF header, and everything a key does is in the audit
+log under "API key: <name>", never with the key itself. Revoking a key takes effect on the next request.
+
+```bash
+# import an agent definition from a pipeline (add /file-preview instead of /file to check it without saving)
+curl -X POST "$ASTRA/api/agents/import/file?filename=agent.model.yaml" \
+  -H "Authorization: Bearer $ASTRA_KEY" --data-binary @agent.model.yaml
+```
+
+For an agent that already has an active contract, the file becomes a proposed change in Drift review for compliance to decide. Tests: `python -m tests.test_api_keys`.
+
+## Running the tests safely
+
+The API and end-to-end suites create data and then clear whole tables (every drift item, finding and pack), because they assert exact counts.
+They therefore refuse to start unless the database name ends in `_test`, or you set `ASTRA_TESTS_ON_THIS_DB=1` to accept that data in it may be
+deleted. Do not do that against a database with real work in it.

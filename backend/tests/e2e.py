@@ -23,6 +23,7 @@ from auth import CSRF_HEADER, hash_password
 from db.bootstrap import DEFAULT_ORG_SLUG
 from db.models import (Agent, AuditEvent, Contract, CoverageAssignment, Design, DriftItem, EvidencePack, Finding, Organisation, User, UserSession)
 from db.session import SessionLocal
+from tests._guard import require_scratch_database
 
 PASSWORD = "e2e-Password-" + uuid.uuid4().hex[:8]
 RUN = uuid.uuid4().hex[:6]
@@ -408,6 +409,7 @@ def main():
     p.add_argument("--base", default="http://localhost:8765")
     p.add_argument("--with-ollama", action="store_true")
     ARGS = p.parse_args()
+    require_scratch_database()
     setup()
     failed = skipped = 0
     started = time.time()
