@@ -85,6 +85,7 @@ FORMATS = {
     "mcp-config": "MCP client configuration (mcpServers)",
     "agent-card": "A2A agent card",
     "langgraph": "langgraph.json",
+    "openai-agents": "OpenAI Agents SDK agent definition",
 }
 
 
@@ -96,6 +97,9 @@ def detect(doc: Any) -> str:
             return "langgraph"
         if "skills" in doc and "name" in doc and ("capabilities" in doc or "url" in doc or "protocolVersion" in doc):
             return "agent-card"
+        listed = doc.get("agents")
+        if ("instructions" in doc and "name" in doc) or (isinstance(listed, list) and listed and isinstance(listed[0], dict) and "instructions" in listed[0]):
+            return "openai-agents"
         if doc and all(isinstance(v, dict) for v in doc.values()) and all("role" in v or "goal" in v for v in doc.values()) and "agent" not in doc and "name" not in doc:
             return "crewai"
         if "agent" in doc or "name" in doc or isinstance(doc.get("agents"), list):
@@ -244,7 +248,99 @@ def _from_langgraph(doc: Dict[str, Any], pick: Optional[str]) -> Tuple[Dict[str,
     return m, names
 
 
-CONVERTERS = {"astra": _from_astra, "crewai": _from_crewai, "mcp-config": _from_mcp, "agent-card": _from_card, "langgraph": _from_langgraph}
+# The OpenAI Agents SDK is configured in Python, not in a file, so there is no standard file to read. This converter reads the declarative
+# form of an agent that mirrors the SDK's Agent(...) fields (name, instructions, tools, handoffs, guardrails, mcp_servers), written as YAML
+# or JSON: for example a dump of an Agent's settings that a team keeps beside the code.
+OPENAI_TOOL_TYPES = {"web_search", "web_search_preview", "file_search", "code_interpreter", "computer", "computer_use_preview", "image_generation", "mcp", "function",
+                     "local_shell", "shell"}
+
+
+def _first_sentence(text: str, limit: int = 160) -> str:
+    one = re.sub(r"\s+", " ", _clean(text, 600))
+    m = re.match(r"(.+?[.!?])(\s|$)", one)
+    return (m.group(1) if m else one)[:limit]
+
+
+def _from_openai(doc: Dict[str, Any], pick: Optional[str]) -> Tuple[Dict[str, Any], List[str]]:
+    agents = doc["agents"] if isinstance(doc.get("agents"), list) else [doc]
+    names = [_clean(a.get("name")) for a in agents if isinstance(a, dict)]
+    if not names or not all(names):
+        raise ImportProblem("Every agent in the file needs a name.")
+    a = agents[names.index(pick) if pick in names else 0]
+    m = _manifest(_clean(a.get("name")))
+    m["framework"] = "OpenAI Agents SDK"
+    m["owner"] = _clean(a.get("owner") or (a.get("metadata") or {}).get("owner") or "", 120) or None
+    goal = a.get("handoff_description") or a.get("instructions")
+    if goal:
+        m["goal"] = _first_sentence(goal, 200)
+        m["inferred"].append("goal: taken from the " + ("handoff description" if a.get("handoff_description") else "first sentence of the instructions") + "; confirm it. The instructions (the prompt) themselves are not stored")
+    for t in _items(a.get("tools")):
+        if isinstance(t, str):
+            _tool(m, t)
+            continue
+        if not isinstance(t, dict):
+            continue
+        kind = str(t.get("type", "function")).lower()
+        if kind not in OPENAI_TOOL_TYPES:
+            m["warnings"].append(f"tool of type '{kind}' is not one this importer knows, so it was left out")
+            continue
+        if kind == "function":
+            fn = t.get("function") if isinstance(t.get("function"), dict) else t
+            _tool(m, {"name": _name_of(fn), **({"write": t["write"]} if isinstance(t.get("write"), bool) else {})})
+        elif kind in ("web_search", "web_search_preview"):
+            m["tools"].append({"name": "web_search", "write": False})
+            m["inputs"].append({"name": "web-search-results", "untrusted": True})
+            m["inferred"].append("web search: its results are treated as an untrusted input")
+        elif kind == "file_search":
+            m["tools"].append({"name": "file_search", "write": False})
+            for vs in _items(t.get("vector_store_ids")):
+                m["data"].append(f"vector-store:{_clean(vs, 40)}")
+        elif kind == "code_interpreter":
+            m["tools"].append({"name": "code_interpreter", "write": True})
+            m["inferred"].append("code_interpreter: treated as write-capable because it executes code")
+        elif kind in ("computer", "computer_use_preview", "local_shell", "shell"):
+            m["tools"].append({"name": {"computer": "computer-use", "computer_use_preview": "computer-use", "local_shell": "local-shell", "shell": "shell"}[kind], "write": True})
+            m["inferred"].append(f"{kind}: treated as write-capable because it acts on a machine")
+        elif kind == "image_generation":
+            m["tools"].append({"name": "image_generation", "write": False})
+        elif kind == "mcp":
+            label = _clean(t.get("server_label") or t.get("name") or "server")
+            m["mcp"].append({"name": f"mcp://{label}", "signed": False})
+            if str(t.get("require_approval", "")).lower() == "always":
+                m["approvals"].append(f"{label}-tool-approval")
+                m["recognised"].append(f"mcp {label}: require_approval is 'always', so a human approval step was added")
+            hidden = [k for k in t if SECRET_KEYS.search(k) or k in ("server_url", "allowed_tools")]
+            if hidden:
+                m["ignored"].append(f"mcp {label}: {', '.join(sorted(hidden))} (addresses, tool lists and credentials are not read or stored)")
+    for srv in _items(a.get("mcp_servers")):
+        label = _name_of(srv)
+        if label:
+            m["mcp"].append({"name": f"mcp://{label}", "signed": False})
+            if isinstance(srv, dict):
+                hidden = [k for k in srv if SECRET_KEYS.search(k) or k in ("command", "args", "url", "params")]
+                if hidden:
+                    m["ignored"].append(f"mcp {label}: {', '.join(sorted(hidden))} (commands, arguments and credentials are never read or stored)")
+    for h in _items(a.get("handoffs")):
+        target = _name_of(h.get("agent") if isinstance(h, dict) and isinstance(h.get("agent"), dict) else h) or (_clean(h.get("agent_name")) if isinstance(h, dict) else "")
+        if target:
+            m["delegates"].append(target)
+    for key in ("input_guardrails", "output_guardrails"):
+        for g in _items(a.get(key)):
+            n = _name_of(g)
+            if n:
+                m["guardrails"].append({"name": n, "kind": None})
+    others = [n for n in names if n != m["name"]]
+    if others:
+        m["ignored"].append(f"other agents in the file ({', '.join(others)}) are separate agents; import each one on its own, or pick one with the 'which agent' choice")
+    m["inferred"].append("autonomy: the SDK does not say; acts_with_approval was assumed")
+    used = {"name", "instructions", "handoff_description", "tools", "mcp_servers", "handoffs", "input_guardrails", "output_guardrails", "owner", "metadata", "model", "agents"}
+    m["ignored"] += [f"{k} ({'could hold a secret; not read' if SECRET_KEYS.search(k) else 'not used by the converter'})" for k in a if k not in used]
+    if a.get("model"):
+        m["recognised"].append(f"model: {_clean(a['model'], 60)} (not part of the agent model)")
+    return m, names
+
+
+CONVERTERS = {"astra": _from_astra, "crewai": _from_crewai, "mcp-config": _from_mcp, "agent-card": _from_card, "langgraph": _from_langgraph, "openai-agents": _from_openai}
 
 
 # ── The model: manifest -> design nodes and edges ───────────────────────────
@@ -428,6 +524,34 @@ writer:
   "capabilities": {"streaming": true},
   "skills": [{"id": "read-invoice", "name": "invoices.read"}, {"id": "prepare-payment", "name": "payments.create"}]
 }
+"""),
+    "openai-agents": ("openai-agent.yaml", """name: Refund agent
+handoff_description: Handles customer refund requests within policy
+instructions: |
+  You resolve refund requests. Check the order first, then refund only within policy.
+model: gpt-4.1
+tools:
+  - type: function
+    name: lookup_order
+    description: Look up an order by id
+  - type: function
+    name: issue_refund
+    description: Refund an order through the payments provider
+  - type: web_search
+  - type: file_search
+    vector_store_ids: [vs_policy_docs]
+  - type: mcp
+    server_label: orders
+    server_url: https://example.test/mcp
+    require_approval: always
+handoffs:
+  - Notification agent
+input_guardrails:
+  - name: prompt_injection_check
+output_guardrails:
+  - name: pii_redaction
+owner: Payments eng
+api_key: never-read
 """),
     "langgraph": ("langgraph.json", """{
   "graphs": {"refund_agent": "./agents/refund.py:graph"},

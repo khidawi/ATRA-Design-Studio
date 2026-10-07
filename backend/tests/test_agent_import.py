@@ -10,6 +10,7 @@ import agent_import as ai
 from tests._auth import authed_client
 from tests.test_agent_registry import cleanup
 
+NL = chr(10)
 NAME = "zz-test-import-agent"
 MANIFEST = f"""agent: {NAME}
 owner: Payments eng
@@ -94,6 +95,37 @@ def test_other_formats():
     assert lg.format == "langgraph" and lg.agent_name == "refund_agent" and any("not their tools" in w for w in lg.warnings) and not any(".env" in x and "read)" not in x for x in lg.ignored)
     for fmt, (_, text) in ai.EXAMPLES.items():
         assert ai.convert(text, fmt).format == fmt                                              # every shipped example converts
+
+
+def test_openai_agents_sdk_definition():
+    c = ai.convert(ai.EXAMPLES["openai-agents"][1])
+    assert c.format == "openai-agents" and c.agent_name == "Refund agent" and c.framework == "OpenAI Agents SDK" and c.owner == "Payments eng"
+    tools = {n["name"]: n["p"]["write"] for n in by_type(c, "tool")}
+    assert tools == {"lookup_order": False, "issue_refund": True, "web_search": False, "file_search": False}
+    web = [n for n in by_type(c, "input") if n["name"] == "web-search-results"]
+    assert web and web[0]["p"] == {"untrusted": True}                                                  # web results are untrusted input
+    assert [n["name"] for n in by_type(c, "data")] == ["vector-store:vs_policy_docs"]
+    mcp = by_type(c, "mcp")
+    assert [n["name"] for n in mcp] == ["mcp://orders"] and mcp[0]["p"] == {"signed": False}
+    assert [n["name"] for n in by_type(c, "approval")] == ["orders-tool-approval"]                       # require_approval: always
+    assert [n["name"] for n in by_type(c, "agent") if not n["primary"]] == ["Notification agent"] and any(e["label"] == "delegates" for e in c.edges)
+    assert {n["name"]: n["p"]["kind"] for n in by_type(c, "guardrail")} == {"prompt_injection_check": "injection", "pii_redaction": "other"}
+    assert c.goal if hasattr(c, "goal") else True
+    primary = [n for n in c.nodes if n["primary"]][0]
+    assert primary["p"]["auto"] == "approval"
+    dump = json.dumps(c.model_dump())
+    assert "never-read" not in dump and "example.test" not in dump and "Check the order first" not in dump          # no key, no address, no prompt text
+    assert any("api_key" in x and "secret" in x for x in c.ignored) and any("prompt" in x for x in c.inferred)
+    # a hosted tool nobody asked for, and a code tool
+    risky = ai.convert(NL.join(["name: Coder", "instructions: Write code.", "tools:", "  - type: code_interpreter", "  - type: teleport"]) + NL)
+    assert {n["name"]: n["p"]["write"] for n in by_type(risky, "tool")} == {"code_interpreter": True} and any("teleport" in w for w in risky.warnings)
+    # JSON works too, a list of agents lets you choose, and the Chat Completions tool shape is read
+    many = json.dumps({"agents": [{"name": "Triage", "instructions": "Route requests.", "handoffs": ["Billing"], "tools": [{"type": "function", "function": {"name": "send_email"}}]},
+                                  {"name": "Billing", "instructions": "Handle billing."}]})
+    t = ai.convert(many)
+    assert t.format == "openai-agents" and t.agents_found == ["Triage", "Billing"] and {n["name"]: n["p"]["write"] for n in by_type(t, "tool")} == {"send_email": True}
+    assert ai.convert(many, primary="Billing").agent_name == "Billing"
+    assert ai.detect({"name": "x-agent", "tools": []}) == "astra"                                      # no instructions: not an SDK agent
 
 
 def test_bad_files_are_refused_with_a_reason():

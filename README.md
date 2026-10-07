@@ -357,6 +357,7 @@ Supported formats (the screen has an example for each, and the format is detecte
 | MCP client config (`mcpServers`) | the MCP servers (unsigned; commands, arguments, env and headers are never read) |
 | A2A agent card | name, description, provider as owner, skills as tools |
 | `langgraph.json` | the graph names only (it carries no tools); a warning says so |
+| OpenAI Agents SDK agent definition (YAML/JSON) | the SDK itself is configured in Python, so this reads a declarative form of an agent that mirrors its `Agent(...)` fields: function tools, hosted tools (web search becomes an untrusted input; code interpreter, computer and shell are treated as write-capable; file search adds its vector stores as data), MCP tools (`require_approval: always` adds an approval step), handoffs as delegations, input and output guardrails. The instructions are not stored (only a one-sentence goal is taken, and flagged for confirmation); model settings, addresses and credentials are not read. A file may list several agents, and you choose which one to import |
 
 How it behaves: a fixed rulebook converts the file, with no language model and no code execution. Anything the file does not say is
 left out rather than assumed (a server is never marked signed, a guardrail is never invented). What it had to guess (whether a tool
