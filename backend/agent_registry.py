@@ -176,7 +176,7 @@ def ratify_design(session: Session, design: Design, reviewer: str) -> RatifyOut:
     rcr = score_agent(RcrRequest(profile=profile, graph=graph, declarations=declarations), session)
     if rcr.gate == "BLOCK":
         raise HTTPException(status_code=422, detail=(
-            f"The design is Blocked (risk score {rcr.score:g}). Close the veto-class gaps first"
+            f"The design is Blocked (risk score {rcr.score:g}). Close the critical gaps first"
             + (f", starting with {rcr.floor_name}." if rcr.floor_name else ".")))
     analysis = analyse_agent(AgentAnalyseRequest(graph=graph, domain=AGENT_DOMAIN), session)
 

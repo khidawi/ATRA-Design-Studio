@@ -108,12 +108,12 @@ def validate_registry(reqs: List[Requirement], cp: float) -> None:
         if r.w not in (1, 2, 3):
             raise RcrError(f"{r.key}: weight must be 1, 2 or 3")
         if r.cls == "veto" and not (r.phi is not None and 0 < r.phi <= 1):
-            raise RcrError(f"{r.key}: a veto requirement needs a floor phi between 0 and 1")
+            raise RcrError(f"{r.key}: a critical requirement needs a floor between 0 and 1")
     floors = [r.phi for r in reqs if r.cls == "veto"]
     if floors and not (1 - cp) * max(floors) < min(floors):
         raise RcrError(
             f"Registry rejected: (1 - c_p) x phi_max = {(1 - cp) * max(floors):.3f} must be below phi_min = "
-            f"{min(floors):.3f}, otherwise a half-handled veto could reach the Blocked line."
+            f"{min(floors):.3f}, otherwise a half-handled critical requirement could reach the Blocked line."
         )
 
 
@@ -187,7 +187,7 @@ def score(reqs: List[Requirement], cp: float = DEFAULT_PARTIAL_CREDIT) -> RcrRes
 
     notes = []
     if not derived:
-        notes.append("No veto-class requirement, so the band lines use the 40 / 80 convention instead of being derived.")
+        notes.append("No critical requirement, so the band lines use the 40 / 80 convention instead of being derived.")
     return RcrResult(
         rows=rows, instruments=instruments, G=G, F=F, floor_key=floor_key,
         worst_instrument=worst.instrument if worst else None, score=raw, blocked_line=blocked, watch_line=watch,

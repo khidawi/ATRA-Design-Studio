@@ -153,12 +153,12 @@ shouldn't be any to commit, since the chatbot runs locally with no API key).
 
 The Agent design studio scores an agent design with the Regulatory Compliance Risk method in
 `RCR_Algorithm_Step_by_Step.docx`: `RCR = 100 · max(G, F)`, where G is breadth (worst regulation's uncovered
-weight share) and F is depth (worst open veto-class requirement's floor). It is separate from the PCS score used
+weight share) and F is depth (worst open critical requirement's floor). It is separate from the PCS score used
 for AI models and from any future runtime assessment; the three share no code.
 
 - Engine: `backend/rcr_engine.py` (pure functions); API: `backend/rcr.py` (`GET /api/rcr/profiles`, `POST /api/rcr/score`).
 - Requirement registries (weights, floors, design checks) are rows in `rcr_profiles` / `rcr_requirements`.
-- A veto requirement counts as Covered only with evidence and a reviewer sign-off (a typed name until sign-in exists);
+- A critical requirement counts as Covered only with evidence and a reviewer sign-off (a typed name until sign-in exists);
   evidence alone is Partial; a claim with no evidence is a Gap.
 - Weights, floors and partial credit are judgement values, not yet calibrated. Tests: `python -m tests.test_rcr_engine`.
 

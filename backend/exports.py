@@ -115,6 +115,10 @@ def render_pdf(title: str, subtitle: str, blocks: Sequence[Block], footer: str) 
     return buf.getvalue()
 
 
+def cls_label(c: Any) -> str:
+    return {"veto": "critical", "ordinary": "standard"}.get(str(c), str(c))
+
+
 def stamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
@@ -170,7 +174,7 @@ def pack_blocks(p: EvidencePack) -> List[Block]:
     for a in x["agents"]:
         if a.get("requirements"):
             blocks += [("h", f"Design-time regulatory requirements: {a['agent']}"), ("table", (["Requirement", "Instrument", "Class", "Counted as", "Signed off by"],
-                       [[r["name"], r["instrument"], r["class"], r["counted"], r.get("signed_off_by") or ""] for r in a["requirements"]], [34, 16, 10, 14, 26]))]
+                       [[r["name"], r["instrument"], cls_label(r["class"]), r["counted"], r.get("signed_off_by") or ""] for r in a["requirements"]], [34, 16, 10, 14, 26]))]
     blocks += [("h", "Findings in the period"), ("p", f"{c['total']} in total: {c['high']} high, {c['medium']} medium, {c['low']} low; {c['open']} open, {c['acknowledged']} acknowledged; "
                                                   f"{c['from_simulated_events']} from simulated events, {c['from_collected_events']} from collected events.")]
     if x["findings"].get("items"):
@@ -258,7 +262,7 @@ def contract_blocks(c: Contract) -> List[Block]:
         if rcr:
             blocks += [("h", "Design-time risk at ratification"),
                        ("p", f"Score {rcr.get('score')} - {rcr.get('band')} - gate {rcr.get('gate')}" + (f" - worst regulation {rcr['worst_instrument']}" if rcr.get("worst_instrument") else "") + ". Weights and floors are judgement values and have not been calibrated."),
-                       ("table", (["Requirement", "Instrument", "Class", "Counted as", "Signed off by"], [[r["name"], r["instrument"], r["cls"], r["counted"], r.get("signed_off_by") or ""] for r in rcr.get("rows", [])], [34, 16, 10, 14, 26]))]
+                       ("table", (["Requirement", "Instrument", "Class", "Counted as", "Signed off by"], [[r["name"], r["instrument"], cls_label(r["cls"]), r["counted"], r.get("signed_off_by") or ""] for r in rcr.get("rows", [])], [34, 16, 10, 14, 26]))]
         blocks += [("h", "agent.contract.yaml"), ("code", v["yaml"])]
     else:
         graph = snap.get("graph") or {}
