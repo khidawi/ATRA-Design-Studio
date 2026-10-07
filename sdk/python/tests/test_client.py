@@ -165,6 +165,8 @@ class ClientTests(unittest.TestCase):
         with self.assertRaises(AstraBlocked):
             shell("rm -rf")
         self.assertEqual(calls, [1])                                              # the forbidden function never ran
+        c.flush()
+        self.assertTrue(wait_for(lambda: any(e["name"] == "shell.exec" for e in self.p.events())))      # the refused attempt was still reported
         self.assertTrue(c.is_allowed("delegation", "notify-agent") and not c.is_allowed("delegation", "stranger"))
         self.assertTrue(c.is_allowed("mcp", "mcp://orders") and not c.is_allowed("mcp", "mcp://other"))
         self.assertTrue(c.is_allowed("data", "order-store") and not c.is_allowed("data", "customers"))

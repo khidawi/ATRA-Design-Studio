@@ -100,3 +100,20 @@ Event types: `tool_call`, `delegation`, `mcp_connect`, `memory_write`, `data_acc
 
 `python -m unittest discover -s tests` runs the SDK against a local server that behaves like the platform (delivery, retry order, 401/429 handling,
 bounded queue, enforcement, async decorator, multi-agent batching, the OpenAI adapter's span handling).
+
+## Try it
+
+`examples/refund-agent.yaml` is an agent definition and `examples/demo_agent.py` is a pretend agent that reports to ASTRA (no model, no real payments):
+
+1. In ASTRA, **Add agent → Register an existing agent**, load `refund-agent.yaml`, and create the design. Open it, sign off the DPIA in the compliance panel as a compliance user, and **Ratify**.
+2. On **Users → API keys**, create a **Collector** key.
+3. Run it:
+   ```bash
+   export ASTRA_URL=http://localhost:5173 ASTRA_KEY=astra_...
+   python sdk/python/examples/demo_agent.py              # reports everything
+   python sdk/python/examples/demo_agent.py --enforce    # also refuses the shell call
+   ```
+4. Open **Live runtime** (the agent goes live, with a feed of nine events), **Findings** (four: a shell tool, an unsigned MCP server, an undeclared handoff and a long-term memory write)
+   and **Drift review** (one runtime item listing those four capabilities, for compliance to approve or decline).
+
+With `--enforce`, the wrapped shell tool is refused before it runs, and the attempt is still reported. Only `@astra.tool` functions are refused: delegations, server connections and memory writes are reported, not blocked.

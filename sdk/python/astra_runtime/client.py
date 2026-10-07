@@ -160,15 +160,15 @@ class Client:
             if inspect.iscoroutinefunction(fn):
                 @functools.wraps(fn)
                 async def awrapper(*a, **k):
+                    self.tool_call(label, write=write)          # the attempt is reported first, so a refused call is still visible
                     self.guard("tool", label)
-                    self.tool_call(label, write=write)
                     return await fn(*a, **k)
                 return awrapper
 
             @functools.wraps(fn)
             def wrapper(*a, **k):
+                self.tool_call(label, write=write)              # the attempt is reported first, so a refused call is still visible
                 self.guard("tool", label)
-                self.tool_call(label, write=write)
                 return fn(*a, **k)
             return wrapper
         return wrap

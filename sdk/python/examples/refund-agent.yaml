@@ -1,0 +1,31 @@
+agent: refund-agent
+owner: Payments eng
+framework: LangGraph
+autonomy: acts_with_approval
+goal: Resolve customer refund requests within policy
+inputs:
+  - name: support-inbox
+    untrusted: true
+tools:
+  - name: lookup_order
+    access: read
+  - name: stripe.refunds.create
+    access: write
+mcp_servers:
+  - name: mcp://orders
+    signed: true
+memory:
+  - name: case-memory
+    retention: session
+delegates_to:
+  - notify-agent
+human_approval:
+  - refund-approval
+guardrails:
+  - name: prompt-injection-filter
+    kind: injection
+  - name: ai-disclosure
+    kind: disclosure
+constraints:
+  - name: case-retention-30d
+    kind: retention
