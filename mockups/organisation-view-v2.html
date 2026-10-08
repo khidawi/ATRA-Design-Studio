@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ASTRA · Organisation and modelling (mockup v3, merged)</title>
+<title>ASTRA · Organisation and modelling (mockup v2)</title>
 <style>
 :root{--bg:#F7F8FA;--card:#fff;--line:#DDE1E7;--soft:#EDF0F3;--ink:#141A22;--mut:#4A5563;--blue:#1E4FCB;--blueBg:#E3EBFB;--green:#1E7F4F;--greenBg:#E1F3E8;--amber:#B45309;--amberBg:#FBE9D3;--red:#B42318;--redBg:#FBE3E0;--agent:#0E7490;--agentBg:#DDF3F8;--model:#4C1D95;--modelBg:#EDE7FB}
 *{box-sizing:border-box}
@@ -72,11 +72,11 @@ td.c{text-align:center;font-weight:600;white-space:nowrap}.c.ok{background:#F2FA
     <div class="navgroup">Model studio · ST-AI</div>
     <a href="#"><span>Model studio</span><small>27</small></a><a href="#"><span>Compiled contracts</span><small>2</small></a>
   </div>
-  <div class="note-side">Mockup v3 (v1 + v2 merged). Nothing here is saved or connected yet.</div>
+  <div class="note-side">Mockup v2. Nothing here is saved or connected yet.</div>
 </nav>
 
 <main>
-  <div class="mock-flag"><b>Design mockup v3: v1 and v2 merged.</b> Describe the company (file, assistant or by hand), then model it in Sectro-style views, with agents linked to other agents through tasks across departments. Sample data. Click things, switch views, open the “Add Model Component” palette. Tell me what to change before anything is built. The earlier versions are kept as organisation-view-v1.html and -v2.html.</div>
+  <div class="mock-flag"><b>Design mockup v2.</b> New: Sectro-style modelling views, and agents connected to other agents through tasks, across departments. Click things, switch views, open the “Add Model Component” palette. Tell me what to change before anything is built.</div>
 
   <header class="hdr">
     <div class="stack" style="gap:2px"><span class="cap">One organisation, used by Agent assurance and the Model studio</span>
@@ -102,27 +102,23 @@ td.c{text-align:center;font-weight:600;white-space:nowrap}.c.ok{background:#F2FA
 
     <div id="in-chat" class="grid2" style="display:none">
       <div class="chat card pad" style="background:#FBFCFD">
-        <div class="bub me">We're Acme Payments. Engineering builds the payments platform; Customer Experience runs support; Compliance reports to the CTO. Jonas leads CX and approves big refunds.</div>
-        <div class="bub bot">Drafted <b>6 departments</b> and <b>4 people</b> from that. I left the IDs blank and did not invent anyone's surname. Tell me who else is in Compliance and who runs Finance Operations.</div>
-        <div class="bub me">Priya Nair is our compliance lead. Finance ops is run by Daniel Kim. Our refund agent sits in Customer Experience; after a refund it asks notify-agent, which Platform runs, to email the customer, and it checks risk flags with kyc-agent in Compliance.</div>
-        <div class="bub bot">Added Priya Nair and Daniel Kim, plus <b>3 agents</b> and <b>2 task links</b>: refund-agent → notify-agent (send confirmation) and refund-agent → kyc-agent (check risk flag). Both cross a department boundary. Who owns notify-agent and kyc-agent? Review the changes on the right, then accept.</div>
+        <div class="bub me">We're Acme Payments. Our refund agent sits in Customer Experience. After a refund it asks notify-agent, which Platform runs, to email the customer, and it checks risk flags with kyc-agent in Compliance.</div>
+        <div class="bub bot">Drafted <b>3 agents</b> and <b>2 task links</b>: refund-agent → notify-agent (send confirmation) and refund-agent → kyc-agent (check risk flag). Both cross a department boundary. Who owns notify-agent and kyc-agent?</div>
+        <div class="bub me">Lena Fischer owns notify-agent, Priya Nair owns kyc-agent.</div>
+        <div class="bub bot">Set both owners. Review the changes on the right, then accept.</div>
         <div class="row"><input class="inp" placeholder="Describe your company, an agent, or how agents work together…"><button class="btn">Send</button></div>
         <span class="cap">Runs on your local model; it can take a couple of minutes on a CPU. Everything it drafts is a proposal.</span>
       </div>
       <div class="stack"><h3>Proposed changes</h3>
-        <div class="prop"><span><b>+ Department</b> Risk &amp; Compliance <span class="cap">reports to Executive</span></span><span class="row"><button class="btn2 btn-s">Edit</button><button class="btn btn-s">Accept</button></span></div>
-        <div class="prop"><span><b>+ Person</b> Priya Nair <span class="cap">Compliance lead · no ID yet</span></span><span class="row"><button class="btn2 btn-s">Edit</button><button class="btn btn-s">Accept</button></span></div>
-        <div class="prop"><span><b>+ Person</b> Daniel Kim <span class="cap">Head of Finance Operations</span></span><span class="row"><button class="btn2 btn-s">Edit</button><button class="btn btn-s">Accept</button></span></div>
-        <div class="prop"><span><b>+ Role link</b> Jonas Weber approves refunds over €100 <span class="cap">applies to AI systems he works with</span></span><span class="row"><button class="btn2 btn-s">Edit</button><button class="btn btn-s">Accept</button></span></div>
-        <div class="prop"><span><b>+ Agent</b> notify-agent <span class="cap">Platform &amp; Security · owner not set</span></span><span class="row"><button class="btn2 btn-s">Edit</button><button class="btn btn-s">Accept</button></span></div>
-        <div class="prop"><span><b>+ Agent</b> kyc-agent <span class="cap">Risk &amp; Compliance · owner not set</span></span><span class="row"><button class="btn2 btn-s">Edit</button><button class="btn btn-s">Accept</button></span></div>
-        <div class="prop"><span><b>+ Task link</b> refund-agent → notify-agent <span class="cap">“Send confirmation email” · crosses a department</span></span><span class="row"><button class="btn2 btn-s">Edit</button><button class="btn btn-s">Accept</button></span></div>
-        <div class="prop"><span><b>+ Task link</b> refund-agent → kyc-agent <span class="cap">“Check customer risk flag” · crosses a department</span></span><span class="row"><button class="btn2 btn-s">Edit</button><button class="btn btn-s">Accept</button></span></div>
+        <div class="prop"><span><b>+ Agent</b> notify-agent <span class="cap">Platform &amp; Security · owner Lena Fischer</span></span><span class="row"><button class="btn2 btn-s">Edit</button><button class="btn btn-s">Accept</button></span></div>
+        <div class="prop"><span><b>+ Agent</b> kyc-agent <span class="cap">Risk &amp; Compliance · owner Priya Nair</span></span><span class="row"><button class="btn2 btn-s">Edit</button><button class="btn btn-s">Accept</button></span></div>
+        <div class="prop"><span><b>+ Task link</b> refund-agent → notify-agent <span class="cap">“Send confirmation email”</span></span><span class="row"><button class="btn2 btn-s">Edit</button><button class="btn btn-s">Accept</button></span></div>
+        <div class="prop"><span><b>+ Task link</b> refund-agent → kyc-agent <span class="cap">“Check customer risk flag”</span></span><span class="row"><button class="btn2 btn-s">Edit</button><button class="btn btn-s">Accept</button></span></div>
         <button class="btn2" style="align-self:flex-start">Accept all</button></div>
     </div>
 
     <div id="in-hand" style="display:none" class="stack">
-      <div class="row"><button class="btn2">+ Department</button><button class="btn2">+ Person or role</button><button class="btn2">+ Outside party</button><button class="btn2">+ AI system</button><span class="cap">Then click an item on the canvas to fill in its details on the right; drag a person onto another department to move them. Or use <b>Add Model Component</b> in a modelling view, as in Sectro.</span></div>
+      <div class="row"><button class="btn2">+ Department</button><button class="btn2">+ Person or role</button><button class="btn2">+ Outside party</button><button class="btn2">+ AI system</button><span class="cap">Or open a modelling view below and use <b>Add Model Component</b>, as in Sectro.</span></div>
       <div class="cap">Start from: <a href="#" onclick="return false">an empty company</a> · <a href="#" onclick="return false">a small software company</a> · <a href="#" onclick="return false">a bank</a> · <a href="#" onclick="return false">a hospital</a></div>
     </div>
   </section>
@@ -157,13 +153,12 @@ td.c{text-align:center;font-weight:600;white-space:nowrap}.c.ok{background:#F2FA
   <section class="grid2">
     <div class="card pad stack"><h2>3 · AI systems, people and who they work with</h2><span class="cap">Each AI system belongs to a department, has people in named roles, and may hand tasks to other agents.</span>
       <table id="asg"><thead><tr><th>AI system</th><th>Department</th><th>Owner</th><th>People and roles</th><th>Hands tasks to</th></tr></thead><tbody></tbody></table>
-      <div class="row"><button class="btn2 btn-s">+ Link a person</button><button class="btn2 btn-s">+ Link another agent</button><span class="cap">Roles: owner, requester, approver, operator; and for models: trainer, validator, deployer, operator, consumer.</span></div></div>
-    <div class="card pad stack"><h2>Checks across the organisation</h2><span class="cap">Found while mapping: the same role-separation rules the studios use, plus cross-department links, where responsibility is least clear.</span>
+      <div class="row"><button class="btn2 btn-s">+ Link a person</button><button class="btn2 btn-s">+ Link another agent</button></div></div>
+    <div class="card pad stack"><h2>Checks across the organisation</h2><span class="cap">Found while mapping. Cross-department links are where responsibility is least clear.</span>
       <div class="prop"><span><span class="pill warn">Crosses departments</span> <b>refund-agent → notify-agent</b><div class="cap">Customer Experience → Platform &amp; Security. Passes the customer's email address; no data-sharing policy covers it yet.</div></span><button class="btn2 btn-s">Add policy</button></div>
       <div class="prop"><span><span class="pill bad">Not in the contract</span> <b>refund-agent → payouts-agent</b><div class="cap">Seen at runtime (task “Pay out refund”), not declared in contract v1.0.0. Customer Experience → Finance Operations.</div></span><button class="btn2 btn-s">Review drift</button></div>
-      <div class="prop"><span><span class="pill bad">Role concentration</span> <b>clinical-triage-llm</b>: Omar Haddad is both validator and deployer.<div class="cap">Separate duties: someone else should deploy (rule SC-RCF-1).</div></span><button class="btn2 btn-s">Fix</button></div>
-      <div class="prop"><span><span class="pill warn">No owner</span> <b>payouts-agent</b> has no accountable person.<div class="cap">An agent without an owner counts against ASI10.</div></span><button class="btn2 btn-s">Assign</button></div>
-      <div class="prop"><span><span class="pill warn">No head</span> Department <b>Finance Operations</b> has no head.</span><button class="btn2 btn-s">Assign</button></div>
+      <div class="prop"><span><span class="pill bad">Role concentration</span> <b>clinical-triage-llm</b>: Omar Haddad is both validator and deployer.</span><button class="btn2 btn-s">Fix</button></div>
+      <div class="prop"><span><span class="pill warn">No owner</span> <b>payouts-agent</b> has no accountable person (Finance Operations has no head).</span><button class="btn2 btn-s">Assign</button></div>
       <div class="prop"><span><span class="pill">Duplicate ID</span> <span class="mono">EMP-4410</span> is used by two people.</span><button class="btn2 btn-s">Fix</button></div></div>
   </section>
 
@@ -183,7 +178,6 @@ td.c{text-align:center;font-weight:600;white-space:nowrap}.c.ok{background:#F2FA
     <ol class="cap" style="margin:0;padding-left:18px;line-height:1.7">
       <li>One organisation per ASTRA install, or several (for a consultancy managing client companies)?</li>
       <li>People: named individuals, roles ("Support agents"), or both? The mockup allows both.</li>
-      <li>Is "reports to" enough for departments, or do you need teams inside departments?</li>
       <li><b>Task links between agents:</b> declared in the Agent studio (as today's delegations) and shown here, or drawn here and pushed into the studio? The mockup assumes one model, edited from either side.</li>
       <li><b>Cross-department links:</b> should one need acceptance by the other agent's owner before a contract can be ratified? Should the data passed be modelled and checked against a policy?</li>
       <li>Which Sectro views do you want: Organisational view, Data mapping, Privacy by design, Data breach response plan? The mockup shows the first two and adds Agents &amp; tasks and Models; Privacy by design (threats, mechanisms, measures) and breach response could follow.</li>
