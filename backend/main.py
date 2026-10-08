@@ -17,6 +17,7 @@ Endpoints:
   GET  /api/regulations, GET /api/rules, PATCH /api/rules/{rule_key} → regulations and rules
   POST /chat               → natural-language description → proposed canvas nodes/edges
   POST /api/agents/draft   → plain-English agent description → Agent design studio graph (Ollama)
+  GET/POST/PATCH/DELETE /api/company → the organisation model (departments, people, AI systems, tasks, data, views)
 """
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
@@ -61,6 +62,7 @@ from audit import router as audit_router
 from exports import router as exports_router
 from overview import router as overview_router
 from runtime import router as runtime_router
+from company import router as company_router
 from packs import router as packs_router
 from findings import router as findings_router
 from design_store import router as design_store_router, store_contract
@@ -102,6 +104,7 @@ app.include_router(coverage_router)
 app.include_router(packs_router)
 app.include_router(overview_router)
 app.include_router(runtime_router)
+app.include_router(company_router)
 app.include_router(exports_router)
 app.include_router(auth_router)
 app.include_router(users_router)

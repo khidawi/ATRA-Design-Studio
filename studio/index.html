@@ -206,6 +206,36 @@ main.wide{max-width:none}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 @media print{nav.side,.noprint{display:none !important}main{max-width:none !important;padding:0 !important}.shell{display:block !important}body{background:#fff !important}}
 .navbtn{background:none;border:1px solid #3A4553;color:#C9D1DA;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;text-decoration:none}.navbtn:hover{background:#232C38}
+
+/* ---------- Organisation (Task 13) ---------- */
+.og-pad{padding:18px 20px}
+.og-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:1000px){.og-two{grid-template-columns:minmax(0,1fr)}}
+.og-views{display:flex;gap:2px;background:#F0F1F3;border-bottom:1px solid #DDE1E7;border-radius:10px 10px 0 0;padding:6px 8px;flex-wrap:wrap}
+.og-views button{border:0;background:none;padding:8px 12px;border-radius:6px;cursor:pointer;color:#2A3441;font-size:14px}.og-views button.on{background:#DADDE2;font-weight:600}
+.og-tools{display:flex;gap:16px;align-items:center;padding:10px 14px;border-bottom:1px solid #DDE1E7;flex-wrap:wrap;position:relative}
+.og-tool{display:flex;align-items:center;gap:8px;border:0;background:none;cursor:pointer;color:#141A22;font-size:14px;min-height:36px;border-radius:8px;padding:0 6px}.og-tool.on{background:#E3EBFB}.og-tool:disabled{opacity:.45;cursor:not-allowed}
+.og-ico{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px;line-height:1}
+.og-sep{width:1px;height:26px;background:#DDE1E7}
+.og-pal{position:absolute;top:50px;left:10px;z-index:5;background:#fff;border:1px solid #DDE1E7;border-radius:10px;box-shadow:0 8px 24px rgba(20,26,34,.15);padding:10px;display:grid;grid-template-columns:repeat(3,120px);gap:8px}
+.og-pal button{border:1px solid #EDF0F3;background:#fff;border-radius:8px;padding:8px 6px;font-size:12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px}.og-pal button:hover{background:#F3F7FF}
+.og-grp{grid-column:1/-1;font-size:11px;letter-spacing:.06em;color:#7D8896;text-transform:uppercase}
+.og-wrap{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start;padding:12px}
+@media (max-width:1100px){.og-wrap{grid-template-columns:minmax(0,1fr)}}
+.og-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:#4A5563;padding:8px 10px}.og-legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-2px}
+.og-kv{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid #EDF0F3;font-size:13px}
+.og-link{border:0;background:none;color:#1E4FCB;cursor:pointer;font-size:13px;padding:0;text-align:right}.og-link:hover{text-decoration:underline}
+.og-x{border:1px solid #DDE1E7;background:#fff;border-radius:6px;width:22px;height:22px;cursor:pointer;color:#8C1F17;line-height:1}
+.og-t{border-collapse:collapse;width:100%;font-size:13px}.og-t th{text-align:left;font-size:12px;color:#4A5563;font-weight:600;padding:8px 10px;border-bottom:1px solid #DDE1E7}.og-t td{padding:9px 10px;border-bottom:1px solid #EDF0F3;vertical-align:top}
+.og-t tr.sel td{background:#F3F7FF}.og-row{cursor:pointer}.og-row:hover td{background:#F8F9FB}
+td.og-c{text-align:center;font-weight:600;white-space:nowrap}.og-c.ok{background:#F2FAF5;color:#1E7F4F}.og-c.xd{background:#FBE9D3;color:#7F3905}.og-c.un{background:#F9DEDB;color:#8C1F17}
+.og-prop{border:1px solid #DDE1E7;border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;gap:10px;align-items:center;background:#fff}
+.og-chat{display:flex;flex-direction:column;gap:8px;max-height:300px;overflow:auto;padding:10px;border:1px solid #EDF0F3;border-radius:10px;background:#FBFCFD}
+.og-drop{border:2px dashed #AEB8C5;border-radius:12px;padding:18px;text-align:center;background:#FBFCFD}
+.og-chain{display:flex;gap:6px;align-items:stretch;flex-wrap:wrap;padding:10px}
+.og-st{border:1px solid #DDE1E7;border-radius:10px;padding:8px 10px;min-width:150px;background:#fff;font-size:12.5px}
+.og-ar{align-self:center;color:#8793A3;font-size:18px}
+svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
 </style>
 </head>
 <body>
@@ -335,6 +365,19 @@ main.wide{max-width:none}
       agentImportFormats: () => call('/api/agents/import/formats'),
       previewAgentImport: (body) => post('/api/agents/import/preview', body),
       importAgent: (body) => post('/api/agents/import', body),
+      companyGet: () => call('/api/company'),
+      companyPreview: (content, filename, skip) => post('/api/company/import/preview', { content, filename, skip }),
+      companyImport: (content, filename, skip) => post('/api/company/import', { content, filename, skip }),
+      companyDraft: (description) => post('/api/company/draft', { description }),
+      companySample: () => call('/api/company/sample'),
+      companyStarters: () => call('/api/company/starters'),
+      companyStarter: (name) => call('/api/company/starters/' + encodeURIComponent(name)),
+      companyAddNode: (body) => post('/api/company/nodes', body),
+      companyPatchNode: (id, body) => call('/api/company/nodes/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(body) }),
+      companyDeleteNode: (id) => call('/api/company/nodes/' + encodeURIComponent(id), { method: 'DELETE' }),
+      companyAddEdge: (body) => post('/api/company/edges', body),
+      companyPatchEdge: (id, body) => call('/api/company/edges/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(body) }),
+      companyDeleteEdge: (id) => call('/api/company/edges/' + encodeURIComponent(id), { method: 'DELETE' }),
       runtimeOverview: (agent) => call('/api/runtime/overview?limit=80' + (agent ? '&agent=' + encodeURIComponent(agent) : '')),
       listAgents: () => call('/api/agents'),
       registerAgent: (body) => post('/api/agents/register', body),
@@ -385,7 +428,7 @@ main.wide{max-width:none}
     drift: { sel: null }
   };
 
-  const NAV = [['overview', 'Overview', ''], ['agents', 'Agents', '12'], ['studio', 'Design studio', ''], ['drift', 'Drift review', '3'], ['findings', 'Findings', '4'], ['coverage', 'Coverage', '7/10'], ['packs', 'Trust and packs', ''], ['runtime', 'Live runtime', ''], ['workspace', 'Compliance workspace', '2'], ['policies', 'Policies', ''], ['regulations', 'Regulations', '']];
+  const NAV = [['overview', 'Overview', ''], ['organisation', 'Organisation', ''], ['agents', 'Agents', '12'], ['studio', 'Design studio', ''], ['drift', 'Drift review', '3'], ['findings', 'Findings', '4'], ['coverage', 'Coverage', '7/10'], ['packs', 'Trust and packs', ''], ['runtime', 'Live runtime', ''], ['workspace', 'Compliance workspace', '2'], ['policies', 'Policies', ''], ['regulations', 'Regulations', '']];
   const PARENT = { newagent: 'agents', addagent: 'agents', contract: 'agents', pack: 'packs' };
 
   function nav(active) {
@@ -1682,7 +1725,7 @@ kill_switch:
     return `<nav class="side" aria-label="Model module">
       <a class="brand" href="#/" style="text-decoration:none"><b>ASTRA</b><span>Model studio \u00b7 ST-AI</span></a>
       <button type="button" class="tenant" data-act="orgRename" title="Rename organisation"><strong>${esc(ORG.name)}</strong><small>Organisation · click to rename</small></button>
-      <div class="navlinks"><a href="#/model"${active === 'model' ? ' class="on" aria-current="page"' : ''}><span>Model studio</span><small>${M.nodes.length || ''}</small></a><a href="#/model/contracts"${active === 'contracts' ? ' class="on" aria-current="page"' : ''}><span>Compiled contracts</span><small>${M.contracts.length || ''}</small></a><a href="#/policies?from=model"${active === 'policies' ? ' class="on" aria-current="page"' : ''}><span>Policies</span><small></small></a><a href="#/regulations?from=model"${active === 'regulations' ? ' class="on" aria-current="page"' : ''}><span>Regulations</span><small></small></a><a href="#/"><span>Switch module</span><small>\u21c4</small></a></div>
+      <div class="navlinks"><a href="#/model"${active === 'model' ? ' class="on" aria-current="page"' : ''}><span>Model studio</span><small>${M.nodes.length || ''}</small></a><a href="#/model/contracts"${active === 'contracts' ? ' class="on" aria-current="page"' : ''}><span>Compiled contracts</span><small>${M.contracts.length || ''}</small></a><a href="#/organisation?from=model"${active === 'organisation' ? ' class="on" aria-current="page"' : ''}><span>Organisation</span><small></small></a><a href="#/policies?from=model"${active === 'policies' ? ' class="on" aria-current="page"' : ''}><span>Policies</span><small></small></a><a href="#/regulations?from=model"${active === 'regulations' ? ' class="on" aria-current="page"' : ''}><span>Regulations</span><small></small></a><a href="#/"><span>Switch module</span><small>\u21c4</small></a></div>
       ${whoBox()}
       <div class="demo">Connected to the ST-AI backend</div></nav>`;
   }
@@ -2468,6 +2511,582 @@ kill_switch:
 
   Object.assign(C, { rtAgent: (v) => { RT.agent = v; loadRuntime(); } });
 
+  /* ---------- Organisation (Task 13): one model of the company, drawn as several views, linked read-only to the agent inventory ---------- */
+  const CO = { loaded: false, loading: false, error: null, data: null, view: 'org', filter: 'all', sel: null, selEdge: null, palette: false, mode: null, conn: null, form: null, tab: 'file', model: null, err: null, notice: null, starters: null,
+    imp: { content: '', filename: '', preview: null, skip: [], busy: false, err: null, result: null },
+    chat: { text: '', busy: false, err: null, log: [], doc: null, plan: null, skip: [] } };
+  const orgFrom = () => (new URLSearchParams(location.hash.split('?')[1] || '').get('from') === 'model' ? 'model' : 'agent');
+  async function loadCompany() {
+    CO.loading = true;
+    try { CO.data = await STAI.api.companyGet(); CO.loaded = true; CO.error = null; } catch (e) { CO.error = e.message; }
+    CO.loading = false; renderIfIdle('organisation');
+  }
+  async function coAfter(fn, keep) {
+    CO.err = null;
+    try { const r = await fn(); await loadCompanyQuiet(); return r; } catch (e) { CO.err = e.message; } finally { renderIfIdle('organisation'); }
+    return null;
+  }
+  async function loadCompanyQuiet() { CO.data = await STAI.api.companyGet(); CO.loaded = true; CO.error = null; }
+
+  const OG_TYPE = { department: 'Department', person: 'Person', role: 'Role (a group)', external: 'Outside party', agent: 'AI agent', model: 'AI model', data_store: 'Data store', goal: 'Goal', operation: 'Operation', policy: 'Policy', threat: 'Threat', protection: 'Protection', rule: 'Rule', environment: 'Environment', step: 'Step', decision: 'Decision' };
+  const OG_VIEWS = [['org', 'Organisation map'], ['organisational', 'Organisational view'], ['agents', 'Agents & tasks'], ['data', 'Data mapping'], ['privacy', 'Privacy by design'], ['breach', 'Breach response plan'], ['models', 'Models · ST-AI']];
+  const OG_HINT = { org: 'Departments, people and the AI systems that work for them. Arcs under the departments: tasks handed to agents in other departments.', organisational: 'Actors, what they do, the goals those serve and the policies that govern them. AI agents are actors.',
+    agents: 'Agents grouped by department. Click a task arrow to see what is passed and whether the agent’s contract declares it.', data: 'Which agents and models touch which data, and whose data it is.',
+    privacy: 'Data, the threats against it, and the protections in place. A dashed red frame marks a threat with no protection yet.', breach: 'Who does what, in which order and by when, if an agent leaks or misuses data. Amber dot: a gap in the plan.',
+    models: 'The people and rules around an AI model: who trains, checks, deploys and operates it, what it reads, who is affected, and which rules apply.' };
+  const OG_PALETTE = { org: ['department', 'person', 'role', 'external', 'agent', 'model'], organisational: ['operation', 'goal', 'policy', 'person', 'role', 'external'], agents: ['agent', 'person', 'role', 'policy', 'department'], data: ['data_store', 'agent', 'model'],
+    privacy: ['data_store', 'threat', 'protection', 'policy'], breach: ['step', 'decision', 'person', 'department'], models: ['model', 'person', 'role', 'data_store', 'environment', 'rule'] };
+  const OG_F = (() => {
+    const note = [['sub', 'Note', 'text']], sys = [['department', 'Department', 'dept'], ['owner', 'Owner (accountable person)', 'person'], ['purpose', 'Purpose', 'text']], step = [['lane', 'Department', 'dept'], ['order', 'Order', 'int'], ['who', 'Responsible', 'person'], ['deputy', 'Deputy', 'person'], ['when', 'Deadline', 'text'], ['sub', 'Detail', 'text'], ['astra', 'How ASTRA helps', 'text'], ['legal_deadline', 'Has a legal deadline', 'bool']];
+    return { department: [['parent', 'Reports to', 'dept'], ['head', 'Head', 'person']], person: [['title', 'Title', 'text'], ['department', 'Department', 'dept']], role: [['title', 'Title', 'text'], ['department', 'Department', 'dept'], ['headcount', 'People in it', 'int']], external: [['title', 'What they are', 'text']],
+      agent: sys, model: sys.concat([['version', 'Version', 'text'], ['risk_class', 'Risk class', 'text'], ['origin', 'Origin', 'text'], ['data_note', 'Data', 'text']]), data_store: [['department', 'Owned by', 'dept'], ['sensitivity', 'Sensitivity', 'text'], ['sub', 'Note', 'text']],
+      goal: note, operation: note, policy: note, threat: note, protection: note, rule: [['sub', 'Note', 'text'], ['status', 'Status (in_place or broken)', 'text']], environment: [['department', 'Department', 'dept'], ['sub', 'Note', 'text']], step, decision: step };
+  })();
+  const OG_EDGE = { works_with: [['agent', 'model'], ['person', 'role', 'external']], task: [['agent'], ['agent']], access: [['agent', 'model'], ['data_store']], performs: [['person', 'role', 'external', 'agent', 'model'], ['operation']], triggers: [['operation'], ['operation']], gates: [['operation'], ['operation']],
+    achieves: [['operation'], ['goal']], governs: [['policy'], ['operation', 'agent', 'model', 'data_store']], targets: [['threat'], ['data_store', 'agent', 'model']], mitigates: [['protection', 'policy', 'rule'], ['threat']], applies_to: [['rule'], null], next: [['step', 'decision'], ['step', 'decision']], hosts: [['environment'], ['agent', 'model']], relates: [null, null] };
+  const OG_KIND = { works_with: 'works with', task: 'hands a task to', access: 'uses data', performs: 'performs', triggers: 'triggers', gates: 'gates', achieves: 'achieves', governs: 'governs', targets: 'targets', mitigates: 'mitigates', applies_to: 'applies to', next: 'next step', hosts: 'hosts', relates: 'relates to' };
+  const ogKinds = (a, b) => Object.keys(OG_EDGE).filter((k) => (OG_EDGE[k][0] === null || OG_EDGE[k][0].includes(a)) && (OG_EDGE[k][1] === null || OG_EDGE[k][1].includes(b)));
+  const ogSlug = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+  function coIx() {
+    const d = CO.data, N = {}, out = {}, inn = {};
+    d.nodes.forEach((n) => { N[n.id] = n; });
+    d.edges.forEach((e) => { (out[e.from] = out[e.from] || []).push(e); (inn[e.to] = inn[e.to] || []).push(e); });
+    return { d, N, out, inn, T: (t) => d.nodes.filter((n) => (Array.isArray(t) ? t : [t]).includes(n.type)), nm: (id) => (N[id] ? N[id].name : id), dep: (id) => (N[id] && N[id].props.department) || null, touching: (id) => d.edges.filter((e) => e.from === id || e.to === id), live: d.live };
+  }
+
+  /* --- drawing helpers: SVG is built as strings, because the studio re-renders the whole page --- */
+  const ogA = (o) => Object.keys(o).filter((k) => o[k] !== undefined && o[k] !== null).map((k) => `${k}="${esc(o[k])}"`).join(' ');
+  const ogE = (tag, a, txt) => `<${tag} ${ogA(a)}>${txt === undefined ? '' : esc(txt)}</${tag}>`;
+  const ogG = (a, inner) => `<g ${ogA(a)}>${inner}</g>`;
+  const ogT = (s, n) => (String(s).length > n ? String(s).slice(0, n - 1) + '…' : String(s));
+  const ogWrap = (label, n) => { let l1 = '', l2 = ''; String(label).split(' ').forEach((x) => { if ((l1 + ' ' + x).trim().length <= n && !l2) l1 = (l1 + ' ' + x).trim(); else l2 = (l2 + ' ' + x).trim(); }); return [l1, ogT(l2, n + 8)]; };
+  const OG_DEFS = '<defs>' + [['ogw', '#8793A3'], ['ogb', '#1E4FCB'], ['ogr', '#B42318'], ['ogg', '#1E7F4F'], ['oga', '#B45309']].map(([id, c]) => `<marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="${c}"></path></marker>`).join('') + '</defs>';
+  const ogDim = (set, id) => (set && !set.has(id) ? ' og-dim' : '');
+  const ogAct = (id) => ({ 'data-act': 'coSel', 'data-arg': id });
+  const OGS = {
+    organisation: (x, y) => ogE('rect', { x: x - 24, y: y - 30, width: 48, height: 60, fill: '#fff', stroke: '#222', 'stroke-width': 1.6 }) + ogE('path', { d: `M${x - 24} ${y - 30} h14 l-14 10 z`, fill: '#ccc', stroke: '#222', 'stroke-width': 1 }),
+    actor: (x, y, ai) => ogE('rect', { x: x - 34, y: y - 24, width: 68, height: 48, rx: 8, fill: ai ? '#E8F7FA' : '#fff', stroke: ai ? '#0E7490' : '#E58AA0', 'stroke-width': 2, 'stroke-dasharray': '2 3' }) + ogE('circle', { cx: x - 34, cy: y - 24, r: 6, fill: ai ? '#0E7490' : '#F4A6B8', stroke: '#444', 'stroke-width': 1 }),
+    goal: (x, y) => ogE('rect', { x: x - 38, y: y - 26, width: 76, height: 52, rx: 8, fill: '#D4E157', stroke: '#111', 'stroke-width': 2.4 }),
+    operation: (x, y) => ogE('rect', { x: x - 42, y: y - 24, width: 84, height: 48, rx: 8, fill: '#B07FD8', stroke: '#444', 'stroke-width': 1.6 }),
+    policy: (x, y, bad) => ogE('path', { d: `M${x - 26} ${y - 24} h46 q8 0 8 8 v22 q0 8 -8 8 h-46 q-8 0 -8 -8 v-22 q0 -8 8 -8 z`, fill: '#A8E6B8', stroke: bad ? '#B42318' : '#2B7A3F', 'stroke-width': bad ? 2.4 : 1.8 }),
+    asset: (x, y) => ogE('rect', { x: x - 30, y: y - 22, width: 60, height: 44, rx: 10, fill: '#FFF3C4', stroke: '#9A7B00', 'stroke-width': 1.8 }) + ogE('path', { d: `M${x - 30} ${y - 10} q30 12 60 0`, fill: 'none', stroke: '#9A7B00', 'stroke-width': 1.4 }),
+    threat: (x, y) => ogE('path', { d: `M${x - 22} ${y - 26} h44 l16 26 l-16 26 h-44 l-16 -26 z`, fill: '#FBD0CB', stroke: '#B42318', 'stroke-width': 2 }),
+    protection: (x, y) => ogE('path', { d: `M${x - 28} ${y - 24} h56 v22 q0 22 -28 28 q-28 -6 -28 -28 z`, fill: '#CDEFD8', stroke: '#1E7F4F', 'stroke-width': 2 }),
+    step: (x, y) => ogE('rect', { x: x - 42, y: y - 24, width: 84, height: 48, rx: 8, fill: '#E3EBFB', stroke: '#1E4FCB', 'stroke-width': 1.8 }),
+    decision: (x, y) => ogE('path', { d: `M${x} ${y - 28} l42 28 l-42 28 l-42 -28 z`, fill: '#FBE9D3', stroke: '#B45309', 'stroke-width': 1.8 }),
+    model: (x, y) => ogE('rect', { x: x - 72, y: y - 36, width: 144, height: 72, rx: 36, fill: '#EDE7FB', stroke: '#4C1D95', 'stroke-width': 2.4 }),
+    env: (x, y) => ogE('rect', { x: x - 52, y: y - 26, width: 104, height: 52, rx: 10, fill: '#F4F7FB', stroke: '#8793A3', 'stroke-width': 1.6, 'stroke-dasharray': '6 4' })
+  };
+  const OG_SHAPE = { person: 'actor', role: 'actor', external: 'actor', agent: 'actor', department: 'env', data_store: 'asset', goal: 'goal', operation: 'operation', policy: 'policy', rule: 'policy', threat: 'threat', protection: 'protection', step: 'step', decision: 'decision', model: 'model', environment: 'env' };
+  const ogShape = (n, x, y, bad) => OGS[OG_SHAPE[n.type]](x, y, n.type === 'agent' || n.type === 'model' ? true : bad);
+  function ogLine(a, b, ra, rb, col, w, dash, marker, cls) {
+    const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
+    return ogE('path', { d: `M${a.x + ux * ra} ${a.y + uy * ra} L${b.x - ux * (rb + 4)} ${b.y - uy * (rb + 4)}`, stroke: col, 'stroke-width': w, 'stroke-dasharray': dash || '0', fill: 'none', 'marker-end': marker ? `url(#${marker})` : undefined, class: cls || undefined });
+  }
+  const ogLbl = (x, y, txt, col, cls) => ogE('text', { x, y, 'font-size': 9.5, 'text-anchor': 'middle', fill: col || '#4A5563', stroke: '#fff', 'stroke-width': 3, 'paint-order': 'stroke', class: cls || undefined }, txt);
+  const ogEmpty = (msg) => `<div style="padding:40px 20px;text-align:center" class="cap">${msg}</div>`;
+  const ogRel = (ix, id) => { if (!id || !ix.N[id]) return null; const s = new Set([id]); ix.touching(id).forEach((e) => { s.add(e.from); s.add(e.to); }); const n = ix.N[id]; if (n.type === 'department') { ix.d.nodes.forEach((m) => { if (m.props.department === id || m.props.lane === id) s.add(m.id); }); } if (n.props.department) s.add(n.props.department); if (n.props.owner) s.add(n.props.owner); return s; };
+  const ogRowX = (n, i, W) => (n === 1 ? W / 2 : 70 + i * ((W - 140) / (n - 1)));
+
+  /* view 1: organisation map */
+  function ogOrgMap(ix) {
+    const depts = ix.T('department'), people = ix.T(['person', 'role']), exts = ix.T('external'), flt = CO.filter;
+    const systems = ix.T(['agent', 'model']).filter((s) => flt === 'all' || s.type === flt);
+    if (!ix.d.nodes.length) return { w: 1000, h: 120, body: '' };
+    const depth = {}, kids = (pid) => depts.filter((d) => (d.props.parent || null) === pid);
+    const dfs = (d, lv) => { depth[d.id] = lv; kids(d.id).forEach((c) => dfs(c, lv + 1)); };
+    depts.filter((d) => !d.props.parent || !ix.N[d.props.parent]).forEach((d) => dfs(d, 0));
+    depts.forEach((d) => { if (depth[d.id] === undefined) depth[d.id] = 0; });
+    const pos = {}, CH = 34, COLW = 156, GAP = 8;
+    const members = (d) => people.filter((p) => p.props.department === d.id), sysOf = (d) => systems.filter((s) => s.props.department === d.id);
+    const levels = Array.from(new Set(depts.map((d) => depth[d.id]))).sort((a, b) => a - b);
+    let y = 8, rows = [];
+    levels.forEach((lv) => {
+      const ds = depts.filter((d) => depth[d.id] === lv);
+      const wide = lv === 0 && ds.length === 1;
+      for (let i = 0; i < ds.length; i += 6) rows.push({ ds: ds.slice(i, i + 6), wide: wide && i === 0 });
+    });
+    rows.forEach((row) => {
+      if (row.wide) {
+        const d = row.ds[0], ms = members(d), w = 360, h = Math.max(70, 44 + Math.ceil(ms.length / 2) * (CH + 8) + 6);
+        pos[d.id] = { x: 320, y, w, h, cx: 500, cy: y + h / 2 };
+        ms.forEach((m, i) => { pos[m.id] = { x: 332 + (i % 2) * 172, y: y + 40 + Math.floor(i / 2) * (CH + 8), w: 162, h: CH + 2 }; });
+        y += h + 36;
+      } else {
+        const n = row.ds.length, x0 = (1000 - (n * COLW + (n - 1) * GAP)) / 2;
+        const hs = row.ds.map((d) => Math.max(96, 44 + members(d).length * (CH + 8) + 6)), H = Math.max.apply(null, hs), ns = Math.max.apply(null, row.ds.map((d) => sysOf(d).length));
+        row.ds.forEach((d, i) => {
+          pos[d.id] = { x: x0 + i * (COLW + GAP), y, w: COLW, h: H, cx: x0 + i * (COLW + GAP) + COLW / 2, cy: y + H / 2 };
+          members(d).forEach((m, k) => { pos[m.id] = { x: pos[d.id].x + 8, y: y + 40 + k * (CH + 8), w: COLW - 16, h: CH + 2 }; });
+          sysOf(d).forEach((s, k) => { pos[s.id] = { x: pos[d.id].x + 4, y: y + H + 30 + k * 56, w: COLW - 8, h: 46 }; });
+        });
+        y += H + (ns ? 30 + ns * 56 : 0) + 40;
+      }
+    });
+    const loose = exts.concat(people.filter((p) => !p.props.department || !ix.N[p.props.department]), systems.filter((s) => !s.props.department || !ix.N[s.props.department]));
+    loose.forEach((m, i) => { pos[m.id] = { x: 8 + (i % 4) * 246, y: y + Math.floor(i / 4) * 52, w: 232, h: 42 }; });
+    const H = y + (loose.length ? Math.ceil(loose.length / 4) * 52 : 0) + 8;
+    Object.values(pos).forEach((p) => { p.cx = p.x + p.w / 2; p.cy = p.y + p.h / 2; });
+    const rel = ogRel(ix, CO.sel);
+    let s = '';
+    depts.filter((d) => d.props.parent && pos[d.props.parent] && pos[d.id]).forEach((d) => { const a = pos[d.props.parent], b = pos[d.id], my = (a.y + a.h + b.y) / 2; s += ogE('path', { d: `M${a.cx} ${a.y + a.h} V${my} H${b.cx} V${b.y}`, fill: 'none', stroke: '#AEB8C5', 'stroke-width': 1.5, class: rel && !(rel.has(d.id) && rel.has(d.props.parent)) ? 'og-dim' : undefined }); });
+    depts.forEach((d) => {
+      const p = pos[d.id], bad = !d.props.head;
+      s += ogG({ ...ogAct(d.id), class: 'og-hit' + ogDim(rel, d.id) }, ogE('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx: 10, fill: '#fff', stroke: CO.sel === d.id ? '#1E4FCB' : '#8793A3', 'stroke-width': CO.sel === d.id ? 2.5 : 1.5 }) + ogE('text', { x: p.x + 10, y: p.y + 22, 'font-size': 13, 'font-weight': 700, fill: '#141A22' }, ogT(d.name, p.w > 200 ? 36 : 19)) + (bad ? ogE('text', { x: p.x + p.w - 10, y: p.y + 36, 'font-size': 10.5, 'text-anchor': 'end', fill: '#B45309' }, 'no head') : ''));
+    });
+    people.concat(exts).forEach((m) => {
+      const p = pos[m.id]; if (!p) return; const ext = m.type === 'external';
+      s += ogG({ ...ogAct(m.id), class: 'og-hit' + ogDim(rel, m.id) }, ogE('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx: 8, fill: ext ? '#F1F3F6' : '#E3EBFB', stroke: ext ? '#8793A3' : (CO.sel === m.id ? '#1E4FCB' : '#9DB4EC'), 'stroke-dasharray': ext ? '4 3' : (m.type === 'role' ? '3 2' : '0'), 'stroke-width': CO.sel === m.id ? 2.5 : 1.2 }) +
+        ogE('text', { x: p.x + 8, y: p.y + 15, 'font-size': 11.5, 'font-weight': 600, fill: '#141A22' }, ogT(m.name, Math.floor(p.w / 7.6))) + ogE('text', { x: p.x + 8, y: p.y + 28, 'font-size': 10, fill: '#4A5563' }, ogT((m.props.title || (m.type === 'role' ? 'Role' : '')) + (m.type === 'role' && m.props.headcount ? ' · ' + m.props.headcount + ' people' : ''), Math.floor(p.w / 6.4))));
+    });
+    systems.forEach((sy) => {
+      const p = pos[sy.id], isA = sy.type === 'agent', dp = pos[sy.props.department]; if (!p) return;
+      if (dp) s += ogE('path', { d: `M${p.cx} ${p.y} V${dp.y + dp.h}`, stroke: isA ? '#0E7490' : '#4C1D95', 'stroke-width': 1.5, 'stroke-dasharray': '4 3', fill: 'none', class: rel && !rel.has(sy.id) ? 'og-dim' : undefined });
+      const lv = ix.live.agents[sy.id];
+      s += ogG({ ...ogAct(sy.id), class: 'og-hit' + ogDim(rel, sy.id) }, ogE('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx: isA ? 10 : 23, fill: isA ? '#DDF3F8' : '#EDE7FB', stroke: isA ? '#0E7490' : '#4C1D95', 'stroke-width': CO.sel === sy.id ? 3 : 1.6 }) +
+        ogE('text', { x: p.cx, y: p.y + 19, 'font-size': 12, 'font-weight': 700, 'text-anchor': 'middle', fill: isA ? '#0E7490' : '#4C1D95' }, ogT(sy.name, Math.floor(p.w / 7.4))) + ogE('text', { x: p.cx, y: p.y + 34, 'font-size': 10, 'text-anchor': 'middle', fill: '#4A5563' }, isA ? (lv && lv.registered ? 'AI agent · registered' : 'AI agent') : 'AI model · ST-AI') +
+        (!sy.props.owner ? ogE('circle', { cx: p.x + p.w - 8, cy: p.y + 8, r: 6, fill: '#B45309' }) : ''));
+    });
+    if (flt !== 'model') ix.d.edges.filter((e) => e.kind === 'task' && pos[e.from] && pos[e.to]).forEach((e, i) => {
+      const a = pos[e.from], b = pos[e.to], yy = a.y + a.h, h = 34 + i * 14, lv = ix.d.live.tasks[e.id] || {}, col = lv.declared === false ? '#B42318' : '#B45309';
+      s += ogE('path', { d: `M${a.cx + 10} ${yy} C ${a.cx + 10} ${yy + h}, ${b.cx - 6} ${yy + h}, ${b.cx - 6} ${b.y + b.h + 1}`, fill: 'none', stroke: col, 'stroke-width': CO.selEdge === e.id ? 3.2 : 2, 'stroke-dasharray': lv.declared === false ? '5 3' : '0', 'marker-end': `url(#${lv.declared === false ? 'ogr' : 'oga'})`, class: 'og-hit' + (rel && !(rel.has(e.from) && rel.has(e.to)) ? ' og-dim' : ''), 'data-act': 'coSelEdge', 'data-arg': e.id });
+    });
+    const sy = ix.N[CO.sel];
+    if (sy && (sy.type === 'agent' || sy.type === 'model') && pos[sy.id]) {
+      const a = pos[sy.id], col = sy.type === 'agent' ? '#0E7490' : '#4C1D95';
+      (ix.out[sy.id] || []).filter((e) => e.kind === 'works_with' && pos[e.to]).forEach((e, i) => {
+        const b = pos[e.to], toY = b.y < a.y ? b.y + b.h : b.y, my = (a.y + b.cy) / 2 - 6;
+        s += ogE('path', { d: `M${a.cx} ${a.y + (b.y < a.y ? 0 : a.h)} C ${a.cx} ${my}, ${b.cx} ${my}, ${b.cx} ${toY}`, fill: 'none', stroke: col, 'stroke-width': 2 }) + ogE('text', { x: (a.cx + b.cx) / 2, y: my + (i % 2 ? -4 : 12), 'font-size': 10.5, 'font-weight': 600, 'text-anchor': 'middle', fill: col, stroke: '#fff', 'stroke-width': 3, 'paint-order': 'stroke' }, e.label);
+      });
+    }
+    return { w: 1000, h: H, body: s };
+  }
+
+  /* view 2: organisational view (Sectro style) */
+  function ogOrganisational(ix) {
+    const ops = ix.T('operation'), goals = ix.T('goal'), pols = ix.T('policy').filter((p) => (ix.out[p.id] || []).some((e) => e.kind === 'governs' && ix.N[e.to] && ix.N[e.to].type === 'operation'));
+    const actors = ix.T(['person', 'role', 'external', 'agent', 'model']).filter((a) => (ix.out[a.id] || []).some((e) => e.kind === 'performs'));
+    if (!ops.length) return { w: 1000, h: 140, body: '', empty: 'No operations yet. Add an <b>Operation</b> with Add Model Component, or import a file with <span class="mono">elements</span> and <span class="mono">links</span>.' };
+    const bottom = goals.concat(pols), rowsN = Math.max(actors.length, ops.length, bottom.length), W = Math.max(1000, rowsN * 96 + 60);
+    const pos = { __org: { x: W / 2, y: 48 } };
+    actors.forEach((a, i) => { pos[a.id] = { x: ogRowX(actors.length, i, W), y: 170 }; });
+    ops.forEach((o, i) => { pos[o.id] = { x: ogRowX(ops.length, i, W), y: 325 }; });
+    bottom.forEach((b, i) => { pos[b.id] = { x: ogRowX(bottom.length, i, W), y: 480 }; });
+    const rel = ogRel(ix, CO.sel), edges = ix.d.edges.filter((e) => ['performs', 'triggers', 'gates', 'achieves', 'governs'].includes(e.kind) && pos[e.from] && pos[e.to]);
+    let s = '';
+    actors.forEach((a) => { s += ogLine(pos.__org, pos[a.id], 30, 26, '#C5CCD6', 1.1, '0', 'ogw', rel && !rel.has(a.id) ? 'og-dim' : ''); });
+    edges.forEach((e) => {
+      const dd = rel && !(rel.has(e.from) && rel.has(e.to)) ? 'og-dim' : '', hand = e.kind === 'triggers' && /hand/i.test(e.label);
+      s += ogLine(pos[e.from], pos[e.to], 28, 28, hand ? '#B45309' : '#8793A3', hand ? 2 : 1.2, '0', 'ogw', dd);
+      s += ogLbl((pos[e.from].x + pos[e.to].x) / 2, (pos[e.from].y + pos[e.to].y) / 2, e.label || OG_KIND[e.kind], hand ? '#B45309' : '#4A5563', dd);
+    });
+    s += ogG({}, OGS.organisation(pos.__org.x, pos.__org.y) + ogE('text', { x: pos.__org.x, y: pos.__org.y + 44, 'font-size': 11, 'text-anchor': 'middle', fill: '#222' }, ogT(CO.data.organisation.name, 26)));
+    actors.concat(ops, bottom).forEach((n) => {
+      const p = pos[n.id], [l1, l2] = ogWrap(n.name, 17);
+      s += ogG({ ...ogAct(n.id), class: 'og-hit' + ogDim(rel, n.id) }, (['operation', 'goal', 'policy'].includes(n.type) ? ogShape(n, p.x, p.y) : OGS.actor(p.x, p.y, n.type === 'agent' || n.type === 'model')) + (CO.sel === n.id ? ogE('rect', { x: p.x - 48, y: p.y - 34, width: 96, height: 68, rx: 10, fill: 'none', stroke: '#1E4FCB', 'stroke-width': 2, 'stroke-dasharray': '4 3' }) : '') + ogE('text', { x: p.x, y: p.y + 40, 'font-size': 10.5, 'text-anchor': 'middle', fill: '#222' }, l1) + (l2 ? ogE('text', { x: p.x, y: p.y + 52, 'font-size': 10.5, 'text-anchor': 'middle', fill: '#222' }, l2) : ''));
+    });
+    return { w: W, h: 560, body: s };
+  }
+
+  /* view 3: agents and tasks (one lane per department) */
+  function ogAgents(ix) {
+    const agents = ix.T('agent'); if (!agents.length) return { w: 1000, h: 140, body: '', empty: 'No AI agents yet. Add one with Add Model Component, or import a file.' };
+    const laneIds = [];
+    agents.forEach((a) => { const d = a.props.department || '__none'; if (!laneIds.includes(d)) laneIds.push(d); });
+    const LW = 240, tasks = ix.d.edges.filter((e) => e.kind === 'task' && ix.N[e.from] && ix.N[e.to]), AY = 150 + Math.min(tasks.length, 6) * 34, W = Math.max(1000, laneIds.length * 248 + 8);
+    const pos = {}, humans = {}, rel0 = null;
+    let maxY = 0;
+    laneIds.forEach((l, li) => {
+      const x = 8 + li * 248, as = agents.filter((a) => (a.props.department || '__none') === l);
+      as.forEach((a, k) => { pos[a.id] = { x: x + 30, y: AY + k * 78, w: LW - 60, h: 60 }; });
+      const hy = AY + as.length * 78 + 14, hs = [];
+      const add = (id) => { if (id && ix.N[id] && ['person', 'role'].includes(ix.N[id].type) && ix.N[id].props.department === l && !hs.includes(id)) hs.push(id); };
+      add(ix.N[l] && ix.N[l].props.head); as.forEach((a) => (ix.out[a.id] || []).filter((e) => e.kind === 'works_with').forEach((e) => add(e.to)));
+      hs.slice(0, 5).forEach((id, k) => { pos[id] = { x: x + 30, y: hy + k * 50, w: LW - 60, h: 42, human: true }; maxY = Math.max(maxY, hy + k * 50 + 42); });
+      maxY = Math.max(maxY, AY + as.length * 78);
+    });
+    Object.values(pos).forEach((p) => { p.cx = p.x + p.w / 2; p.cy = p.y + p.h / 2; });
+    const H = maxY + 40, rel = selRel();
+    function selRel() { if (CO.selEdge) { const e = ix.d.edges.find((x) => x.id === CO.selEdge); return e ? new Set([e.from, e.to]) : null; } return ogRel(ix, CO.sel); }
+    let s = '';
+    laneIds.forEach((l, li) => { const x = 8 + li * 248, d = ix.N[l]; s += ogE('rect', { x, y: 8, width: LW, height: H - 8, rx: 12, fill: '#FBFCFD', stroke: '#C5CCD6' }) + ogE('text', { x: x + 12, y: 30, 'font-size': 13, 'font-weight': 700, fill: '#141A22' }, d ? ogT(d.name, 28) : 'No department') + ogE('text', { x: x + 12, y: 46, 'font-size': 10.5, fill: d && d.props.head ? '#4A5563' : '#B45309' }, d ? (d.props.head ? 'Head: ' + ix.nm(d.props.head) : 'no head') : ''); });
+    Object.keys(pos).forEach((id) => {
+      const p = pos[id], n = ix.N[id], lv = ix.live.agents[id];
+      if (p.human) s += ogG({ ...ogAct(id), class: 'og-hit' + ogDim(rel, id) }, ogE('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx: 8, fill: '#E3EBFB', stroke: CO.sel === id ? '#1E4FCB' : '#9DB4EC', 'stroke-width': CO.sel === id ? 2.5 : 1 }) + ogE('text', { x: p.x + 8, y: p.y + 17, 'font-size': 11.5, 'font-weight': 600, fill: '#141A22' }, ogT(n.name, 24)) + ogE('text', { x: p.x + 8, y: p.y + 31, 'font-size': 10, fill: '#4A5563' }, ogT(n.props.title || '', 28)));
+      else s += ogG({ ...ogAct(id), class: 'og-hit' + ogDim(rel, id) }, ogE('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx: 10, fill: '#DDF3F8', stroke: '#0E7490', 'stroke-width': CO.sel === id ? 3 : 1.8 }) + ogE('text', { x: p.cx, y: p.y + 23, 'font-size': 12.5, 'font-weight': 700, 'text-anchor': 'middle', fill: '#0E7490' }, ogT(n.name, 22)) +
+        ogE('text', { x: p.cx, y: p.y + 40, 'font-size': 10, 'text-anchor': 'middle', fill: n.props.owner ? '#4A5563' : '#B45309' }, n.props.owner ? 'owner: ' + ogT(ix.nm(n.props.owner), 18) : 'no owner') + (lv && lv.registered ? ogE('circle', { cx: p.x + p.w - 9, cy: p.y + 9, r: 4, fill: lv.contract_version ? '#1E7F4F' : '#B45309' }) : ''));
+    });
+    tasks.forEach((e, i) => {
+      const a = pos[e.from], b = pos[e.to]; if (!a || !b) return;
+      const lv = ix.d.live.tasks[e.id] || {}, hgt = 60 + i * 34, bad = lv.declared === false, col = bad ? '#B42318' : '#B45309', act = CO.selEdge === e.id, sx = a.cx + 14 * (i % 3 - 1);
+      const mx = (sx + b.cx) / 2, my = a.y - hgt * 0.75 - 2, lbl = (e.label || 'task') + (bad ? ' · not in contract' : ''), w = lbl.length * 5.7 + 16;
+      s += ogG({ 'data-act': 'coSelEdge', 'data-arg': e.id, class: 'og-hit' + (rel && !(rel.has(e.from) && rel.has(e.to)) ? ' og-dim' : '') },
+        ogE('path', { d: `M${sx} ${a.y} C ${sx} ${a.y - hgt}, ${b.cx} ${b.y - hgt}, ${b.cx} ${b.y - 2}`, fill: 'none', stroke: col, 'stroke-width': act ? 3.4 : 2.2, 'stroke-dasharray': bad ? '6 4' : '0', 'marker-end': `url(#${bad ? 'ogr' : 'oga'})` }) +
+        ogE('rect', { x: mx - w / 2, y: my - 12, width: w, height: 18, rx: 9, fill: bad ? '#FBE3E0' : '#FBE9D3', stroke: col }) + ogE('text', { x: mx, y: my + 1, 'font-size': 10.5, 'font-weight': 600, 'text-anchor': 'middle', fill: col }, lbl));
+    });
+    agents.forEach((a) => (ix.out[a.id] || []).filter((e) => e.kind === 'works_with' && /approv/i.test(e.label) && pos[e.to] && pos[e.to].human).forEach((e) => {
+      const j = pos[e.to], r = pos[a.id]; s += ogE('path', { d: `M${j.cx} ${j.y} V${r.y + r.h + 2}`, stroke: '#1E4FCB', 'stroke-width': 1.6, fill: 'none', 'marker-end': 'url(#ogb)' }) + ogE('text', { x: j.cx + 8, y: (j.y + r.y + r.h) / 2 + 4, 'font-size': 10, fill: '#1E4FCB', stroke: '#fff', 'stroke-width': 3, 'paint-order': 'stroke' }, ogT(e.label, 26));
+    }));
+    return { w: W, h: H + 8, body: s };
+  }
+  function ogChain(ix) {
+    const agents = ix.T('agent'), tasks = ix.d.edges.filter((e) => e.kind === 'task' && ix.N[e.from] && ix.N[e.to]); if (!tasks.length) return '';
+    const hasIn = new Set(tasks.map((e) => e.to)), roots = agents.filter((a) => !hasIn.has(a.id) && tasks.some((e) => e.from === a.id)), seen = new Set(), steps = [];
+    const walk = (a, via) => {
+      if (seen.has(a.id)) return; seen.add(a.id);
+      (ix.out[a.id] || []).filter((e) => e.kind === 'works_with' && /request/i.test(e.label) && ix.N[e.to]).slice(0, 1).forEach((e) => steps.push({ t: ix.nm(e.to), s: e.label, d: ix.N[e.to].props.department || null, ext: true }));
+      steps.push({ t: a.name, s: via || 'Starts the work', d: a.props.department || null });
+      (ix.out[a.id] || []).filter((e) => e.kind === 'works_with' && /approv/i.test(e.label) && ix.N[e.to]).forEach((e) => steps.push({ t: ix.nm(e.to), s: e.label, d: ix.N[e.to].props.department || null }));
+      tasks.filter((e) => e.from === a.id).forEach((e) => walk(ix.N[e.to], e.label));
+    };
+    (roots.length ? roots : [ix.N[tasks[0].from]]).forEach((a) => walk(a, ''));
+    return steps.map((st, i) => { const prev = i ? steps[i - 1] : null, cross = prev && st.d && prev.d && st.d !== prev.d; return (i ? '<span class="og-ar">→</span>' : '') + `<div class="og-st"${cross ? ' style="border-color:#E5B67A;background:#FFFAF2"' : ''}><b>${esc(st.t)}</b><div>${esc(st.s || '')}</div><div class="cap">${esc(st.ext ? 'Outside' : (st.d && ix.N[st.d] ? ix.N[st.d].name : ''))}${cross ? ' · <span style="color:#B45309">crosses a department</span>' : ''}</div></div>`; }).join('');
+  }
+
+  /* view 4: data mapping */
+  function ogData(ix) {
+    const stores = ix.T('data_store'), sys = ix.T(['agent', 'model']).filter((s) => (ix.out[s.id] || []).some((e) => e.kind === 'access'));
+    if (!stores.length || !sys.length) return '<div class="cap" style="padding:30px;text-align:center">No data mapped yet. Add a <b>Data store</b>, then connect an agent or model to it (Add Connection → uses data).</div>';
+    const rows = stores.map((st) => `<tr><td><b>${esc(st.name)}</b><div class="cap">${esc(st.props.sensitivity || '')}</div></td><td>${esc(st.props.department && ix.N[st.props.department] ? ix.N[st.props.department].name : '—')}</td>${sys.map((sy) => {
+      const e = (ix.out[sy.id] || []).find((x) => x.kind === 'access' && x.to === st.id); if (!e) return '<td class="og-c"></td>';
+      const lv = ix.live.agents[sy.id], und = lv && lv.declares_data && !lv.declares_data.includes(ogSlug(st.name)), x = sy.props.department && st.props.department && sy.props.department !== st.props.department;
+      return `<td class="og-c ${und ? 'un' : (x ? 'xd' : 'ok')}" title="${und ? 'Not in the agent’s contract' : (x ? 'Another department' : 'Same department')}">${esc(/write|rw/i.test(e.label) ? 'read / write' : (e.label && !/^read$/i.test(e.label) ? e.label : 'read'))}${und ? ' · not in contract' : (x ? ' ⚠' : '')}</td>`;
+    }).join('')}</tr>`).join('');
+    return `<div style="padding:10px;overflow:auto"><table class="og-t"><thead><tr><th>Data store</th><th>Owned by</th>${sys.map((sy) => `<th><span class="pill ${sy.type === 'agent' ? 'ok' : ''}" style="${sy.type === 'model' ? 'background:#EDE7FB;color:#4C1D95' : ''}">${sy.type}</span><br>${esc(sy.name)}<div class="cap" style="font-weight:400">${esc(sy.props.department && ix.N[sy.props.department] ? ix.N[sy.props.department].name : '')}</div></th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+
+  /* view 5: privacy by design */
+  function ogPrivacy(ix) {
+    const threats = ix.T('threat'); if (!threats.length) return { w: 1000, h: 140, body: '', empty: 'No threats modelled yet. Add a <b>Threat</b>, connect it to the data it targets, then add a <b>Protection</b> that mitigates it.' };
+    const stores = ix.T('data_store').filter((d) => threats.some((t) => (ix.out[t.id] || []).some((e) => e.kind === 'targets' && e.to === d.id)));
+    const prot = ix.d.nodes.filter((n) => ['protection', 'policy', 'rule'].includes(n.type) && (ix.out[n.id] || []).some((e) => e.kind === 'mitigates'));
+    const W = Math.max(1000, Math.max(stores.length, threats.length, prot.length) * 110 + 60), pos = {};
+    stores.forEach((n, i) => { pos[n.id] = { x: ogRowX(stores.length, i, W), y: 70 }; }); threats.forEach((n, i) => { pos[n.id] = { x: ogRowX(threats.length, i, W), y: 250 }; }); prot.forEach((n, i) => { pos[n.id] = { x: ogRowX(prot.length, i, W), y: 430 }; });
+    const rel = ogRel(ix, CO.sel), edges = ix.d.edges.filter((e) => ['targets', 'mitigates'].includes(e.kind) && pos[e.from] && pos[e.to]);
+    let s = [['Data', 70], ['Threats', 250], ['Protections', 430]].map(([t, y]) => ogE('text', { x: 8, y: y - 38, 'font-size': 10.5, 'font-weight': 700, fill: '#7D8896', 'letter-spacing': '.06em' }, t.toUpperCase())).join('');
+    edges.forEach((e) => { const mit = e.kind === 'mitigates', dd = rel && !(rel.has(e.from) && rel.has(e.to)) ? 'og-dim' : ''; s += ogLine(pos[e.from], pos[e.to], 28, 28, mit ? '#1E7F4F' : '#B42318', 1.5, '0', mit ? 'ogg' : 'ogr', dd) + ogLbl((pos[e.from].x + pos[e.to].x) / 2, (pos[e.from].y + pos[e.to].y) / 2 + 4, e.kind === 'targets' ? 'targets' : 'mitigates', mit ? '#1E7F4F' : '#B42318', dd); });
+    stores.concat(threats, prot).forEach((n) => {
+      const p = pos[n.id], open = n.type === 'threat' && !(ix.inn[n.id] || []).some((e) => e.kind === 'mitigates'), [l1, l2] = ogWrap(n.name, 17);
+      s += ogG({ ...ogAct(n.id), class: 'og-hit' + ogDim(rel, n.id) }, ogShape(n, p.x, p.y) + (open ? ogE('rect', { x: p.x - 46, y: p.y - 34, width: 92, height: 68, rx: 12, fill: 'none', stroke: '#B42318', 'stroke-width': 1.6, 'stroke-dasharray': '5 3' }) : '') +
+        (CO.sel === n.id ? ogE('rect', { x: p.x - 50, y: p.y - 38, width: 100, height: 76, rx: 12, fill: 'none', stroke: '#1E4FCB', 'stroke-width': 2, 'stroke-dasharray': '4 3' }) : '') + ogE('text', { x: p.x, y: p.y + 44, 'font-size': 10.5, 'text-anchor': 'middle', fill: '#222' }, l1) + (l2 ? ogE('text', { x: p.x, y: p.y + 57, 'font-size': 10.5, 'text-anchor': 'middle', fill: '#222' }, l2) : '') + (open ? ogE('text', { x: p.x, y: p.y + 71, 'font-size': 9.5, 'font-weight': 700, 'text-anchor': 'middle', fill: '#B42318' }, 'no protection yet') : ''));
+    });
+    return { w: W, h: 540, body: s };
+  }
+
+  /* view 6: breach response plan */
+  function ogBreach(ix) {
+    const steps = ix.T(['step', 'decision']).slice().sort((a, b) => (a.props.order || 999) - (b.props.order || 999)); if (!steps.length) return { w: 1000, h: 140, body: '', empty: 'No breach response plan yet. Add a <b>Step</b> (what to do first), then connect steps with <b>Add Connection → next step</b>.' };
+    const lanes = []; steps.forEach((st) => { const l = st.props.lane || '__none'; if (!lanes.includes(l)) lanes.push(l); });
+    const W = Math.max(1000, 215 + steps.length * 148), pos = {}, rel = ogRel(ix, CO.sel), bx = (i) => 215 + i * 148, LY = (l) => 40 + lanes.indexOf(l) * 110;
+    steps.forEach((st, i) => { pos[st.id] = { x: bx(i), y: LY(st.props.lane || '__none') + 40 }; });
+    let s = '';
+    lanes.forEach((l) => { const d = ix.N[l]; s += ogE('rect', { x: 8, y: LY(l), width: W - 16, height: 98, rx: 10, fill: '#FBFCFD', stroke: '#C5CCD6' }) + ogE('text', { x: 18, y: LY(l) + 24, 'font-size': 11.5, 'font-weight': 700, fill: '#141A22' }, d ? ogT(d.name, 22) : 'No department') + ogE('text', { x: 18, y: LY(l) + 40, 'font-size': 10.5, fill: '#4A5563' }, d ? 'Lead: ' + (d.props.head ? ix.nm(d.props.head) : 'none') : ''); });
+    ix.d.edges.filter((e) => e.kind === 'next' && pos[e.from] && pos[e.to]).forEach((e) => {
+      const a = pos[e.from], b = pos[e.to], A = ix.N[e.from], B = ix.N[e.to], skip = Math.abs(steps.indexOf(B) - steps.indexOf(A)) > 1 && b.x - a.x > 160, dd = rel && !(rel.has(e.from) && rel.has(e.to)) ? 'og-dim' : '';
+      const x1 = a.x + (A.type === 'decision' ? 42 : 44), x2 = b.x - (B.type === 'decision' ? 42 : 44), mid = (x1 + x2) / 2;
+      s += ogE('path', { d: skip ? `M${a.x} ${a.y + 28} V${a.y + 68} H${b.x - 70} V${b.y} H${x2}` : `M${x1} ${a.y} H${mid} V${b.y} H${x2}`, fill: 'none', stroke: skip ? '#8793A3' : '#1E4FCB', 'stroke-width': 1.6, 'stroke-dasharray': skip ? '5 3' : '0', 'marker-end': 'url(#ogw)', class: dd || undefined });
+      if (e.label) s += ogLbl(skip ? a.x + 60 : mid + 4, skip ? a.y + 64 : (a.y + b.y) / 2 - 4, e.label, '#4A5563', dd);
+    });
+    steps.forEach((st) => {
+      const p = pos[st.id], gap = !st.props.who || (!st.props.deputy && (st.type === 'decision' || st.props.legal_deadline));
+      s += ogG({ ...ogAct(st.id), class: 'og-hit' + ogDim(rel, st.id) }, ogShape(st, p.x, p.y) + (gap ? ogE('circle', { cx: p.x + (st.type === 'decision' ? 34 : 40), cy: p.y - 24, r: 6, fill: '#B45309' }) : '') + (CO.sel === st.id ? ogE('rect', { x: p.x - 50, y: p.y - 34, width: 100, height: 68, rx: 10, fill: 'none', stroke: '#1E4FCB', 'stroke-width': 2, 'stroke-dasharray': '4 3' }) : '') +
+        ogE('text', { x: p.x, y: p.y + 3, 'font-size': st.type === 'decision' ? 9.5 : 10.5, 'font-weight': 700, 'text-anchor': 'middle', fill: '#141A22' }, ogT(st.name, st.type === 'decision' ? 14 : 16)) + ogE('text', { x: p.x, y: p.y + 43, 'font-size': 9.5, 'text-anchor': 'middle', fill: '#4A5563' }, ogT(st.props.sub || '', 26)) + ogE('text', { x: p.x, y: p.y + 55, 'font-size': 9.5, 'font-weight': 600, 'text-anchor': 'middle', fill: '#B45309' }, ogT(st.props.when || '', 26)));
+    });
+    return { w: W, h: 40 + lanes.length * 110 + 10, body: s };
+  }
+
+  /* view 7: models */
+  const OG_ROLE = /train|validat|deploy|approv|own|review/i, OG_OUT = /decid|consum|affect|about/i;
+  function ogModels(ix) {
+    const models = ix.T('model'); if (!models.length) return { w: 1000, h: 140, body: '', empty: 'No AI models yet. Add one with Add Model Component, or import a file with an <span class="mono">ai_systems</span> entry of type model.' };
+    if (!CO.model || !ix.N[CO.model]) CO.model = models[0].id;
+    const m = ix.N[CO.model], pos = { [m.id]: { x: 500, y: 300 } };
+    const works = (ix.out[m.id] || []).filter((e) => e.kind === 'works_with' && ix.N[e.to]), top = works.filter((e) => OG_ROLE.test(e.label)), bottom = works.filter((e) => !OG_ROLE.test(e.label));
+    const data = (ix.out[m.id] || []).filter((e) => e.kind === 'access' && ix.N[e.to]), env = (ix.inn[m.id] || []).filter((e) => e.kind === 'hosts' && ix.N[e.from]);
+    const rules = ix.T('rule').filter((r) => (ix.out[r.id] || []).some((e) => e.kind === 'applies_to' && ix.N[e.to] && works.some((w) => w.to === e.to)));
+    const ruleTop = rules.filter((r) => (ix.out[r.id] || []).some((e) => top.some((t) => t.to === e.to))), ruleBottom = rules.filter((r) => !ruleTop.includes(r));
+    const topNodes = [], seenTop = new Set(); top.forEach((e) => { if (!seenTop.has(e.to)) { seenTop.add(e.to); topNodes.push({ id: e.to }); } });
+    const topRow = topNodes.map((t) => t.id).concat(ruleTop.map((r) => r.id)), botIds = []; bottom.forEach((e) => { if (!botIds.includes(e.to)) botIds.push(e.to); });
+    const botRow = ruleBottom.map((r) => r.id).concat(botIds), W = Math.max(1000, Math.max(topRow.length, botRow.length) * 150 + 60);
+    topRow.forEach((id, i) => { pos[id] = { x: ogRowX(topRow.length, i, W), y: 70 }; }); botRow.forEach((id, i) => { pos[id] = { x: ogRowX(botRow.length, i, W), y: 470 }; });
+    const dIds = []; data.forEach((e) => { if (!dIds.includes(e.to)) dIds.push(e.to); }); dIds.forEach((id, i) => { pos[id] = { x: 110, y: 150 + i * 120 }; });
+    const eIds = []; env.forEach((e) => { if (!eIds.includes(e.from)) eIds.push(e.from); }); eIds.forEach((id, i) => { pos[id] = { x: W - 120, y: 300 + i * 100 }; });
+    const rel = ogRel(ix, CO.sel), rad = (id) => (id === m.id ? 64 : (ix.N[id].type === 'environment' ? 50 : 34)), viol = (r) => r.props.status === 'broken' || (r.props.rule_id && CO.data.violations[r.props.rule_id]);
+    let s = '';
+    const seenE = new Set(), draw = (a, b, label, col, dash, marker) => { const k = a + '>' + b + label; if (seenE.has(k) || !pos[a] || !pos[b]) return; seenE.add(k); const dd = rel && !(rel.has(a) && rel.has(b)) ? 'og-dim' : ''; s += ogLine(pos[a], pos[b], rad(a), rad(b), col, 1.4, dash, marker, dd) + ogLbl((pos[a].x + pos[b].x) / 2, (pos[a].y + pos[b].y) / 2 - 3, label, col === '#8793A3' ? '#4A5563' : col, dd); };
+    const byP = {}; works.forEach((e) => { (byP[e.to] = byP[e.to] || []).push(e.label); });
+    Object.keys(byP).forEach((pid) => { const lb = byP[pid].join(' / '); if (OG_OUT.test(byP[pid][0])) draw(m.id, pid, lb, '#8793A3', '0', 'ogw'); else draw(pid, m.id, lb, '#8793A3', '0', 'ogw'); });
+    data.forEach((e) => draw(e.to, m.id, e.label || 'reads', '#8793A3', '0', 'ogw')); env.forEach((e) => draw(e.from, m.id, 'hosts', '#8793A3', '0', 'ogw'));
+    rules.forEach((r) => (ix.out[r.id] || []).filter((e) => e.kind === 'applies_to' && pos[e.to]).forEach((e) => draw(r.id, e.to, 'applies to', viol(r) ? '#B42318' : '#2B7A3F', '4 3', 'ogw')));
+    Object.keys(pos).forEach((id) => {
+      const n = ix.N[id], p = pos[id], bad = n.type === 'rule' && viol(n), [l1, l2] = ogWrap(n.name, 17), g = n.type === 'model' || n.type === 'environment';
+      const sel = CO.sel === id ? (() => { const w = n.type === 'model' ? 82 : 50, h = n.type === 'model' ? 46 : 38; return ogE('rect', { x: p.x - w, y: p.y - h, width: 2 * w, height: 2 * h, rx: 14, fill: 'none', stroke: '#1E4FCB', 'stroke-width': 2, 'stroke-dasharray': '4 3' }); })() : '';
+      let lab; if (n.type === 'model') lab = ogE('text', { x: p.x, y: p.y - 2, 'font-size': 12.5, 'font-weight': 700, 'text-anchor': 'middle', fill: '#4C1D95' }, ogT(n.name, 22)) + ogE('text', { x: p.x, y: p.y + 14, 'font-size': 10, 'text-anchor': 'middle', fill: '#4A5563' }, ogT([n.props.origin, n.props.risk_class ? n.props.risk_class + ' risk' : ''].filter(Boolean).join(' · ') || 'AI model', 26));
+      else if (n.type === 'environment') lab = ogE('text', { x: p.x, y: p.y - 2, 'font-size': 11, 'font-weight': 700, 'text-anchor': 'middle', fill: '#141A22' }, ogT(n.name, 18)) + ogE('text', { x: p.x, y: p.y + 13, 'font-size': 9.5, 'text-anchor': 'middle', fill: '#4A5563' }, ogT(n.props.sub || '', 20));
+      else { const role = (byP[id] || []).join(' / ') || n.props.sub || ''; lab = ogE('text', { x: p.x, y: p.y + 42, 'font-size': 10.5, 'font-weight': 600, 'text-anchor': 'middle', fill: '#222' }, l1) + (l2 ? ogE('text', { x: p.x, y: p.y + 54, 'font-size': 10.5, 'font-weight': 600, 'text-anchor': 'middle', fill: '#222' }, l2) : '') + ogE('text', { x: p.x, y: p.y + (l2 ? 66 : 54), 'font-size': 9.5, 'text-anchor': 'middle', fill: bad ? '#B42318' : '#4A5563' }, bad ? 'broken' : ogT(role, 24)); }
+      s += ogG({ ...ogAct(id), class: 'og-hit' + ogDim(rel, id) }, ogShape(n, p.x, p.y, bad) + (bad ? ogE('rect', { x: p.x - 46, y: p.y - 34, width: 92, height: 68, rx: 12, fill: 'none', stroke: '#B42318', 'stroke-width': 1.6, 'stroke-dasharray': '5 3' }) : '') + sel + lab);
+    });
+    return { w: W, h: 580, body: s, models };
+  }
+  function ogModelCard(ix) {
+    const m = ix.N[CO.model]; if (!m) return '';
+    const works = (ix.out[m.id] || []).filter((e) => e.kind === 'works_with'), open = CO.data.checks.filter((c) => c.refs.includes(m.id) && c.level !== 'info');
+    const lv = ix.live.agents[m.id];
+    const kv = (k, v) => `<div class="og-kv"><span>${k}</span><b style="text-align:right">${v}</b></div>`;
+    return `<div class="card" style="margin-top:10px"><div class="stack" style="padding:12px 14px 0"><h2>Model card</h2><span class="cap">What the organisation knows about ${esc(m.name)}. The Model studio holds its assessment and contract.</span></div><div class="og-two" style="padding:6px 14px 12px"><div>${kv('Purpose', esc(m.props.purpose || '—'))}${kv('Version', esc(m.props.version || '—') + (m.props.origin ? ' · ' + esc(m.props.origin) : ''))}${kv('Data', esc(m.props.data_note || '—'))}${kv('Risk class', m.props.risk_class ? `<span class="pill ${/high/i.test(m.props.risk_class) ? 'bad' : 'muted'}">${esc(m.props.risk_class)}</span>` : '—')}</div>
+      <div>${kv('Department', esc(m.props.department && ix.N[m.props.department] ? ix.N[m.props.department].name : '—'))}${kv('Owner', esc(m.props.owner ? ix.nm(m.props.owner) : 'none'))}${kv('People and rules around it', works.length + ' people · ' + ix.T('rule').filter((r) => (ix.out[r.id] || []).some((e) => works.some((w) => w.to === e.to))).length + ' rules')}${kv('Open checks', open.length ? open.map((c) => `<span class="pill bad">${esc(c.title)}</span>`).join(' ') : '<span class="pill ok">none</span>')}</div></div></div>`;
+  }
+
+  /* --- the panel on the right of the canvas --- */
+  function ogField(id, key, label, kind, val, ix, editable) {
+    const arg = `${esc(id)}|${esc(key)}`, dis = editable ? '' : ' disabled';
+    let ctl;
+    if (kind === 'dept') ctl = `<select class="reqsel" data-chg="coField" data-arg="${arg}"${dis}>${opt('', '— none —', val || '')}${ix.T('department').map((d) => opt(d.id, d.name, val)).join('')}</select>`;
+    else if (kind === 'person') ctl = `<select class="reqsel" data-chg="coField" data-arg="${arg}"${dis}>${opt('', '— none —', val || '')}${ix.T(['person', 'role']).map((d) => opt(d.id, d.name + (d.type === 'role' ? ' (role)' : ''), val)).join('')}</select>`;
+    else if (kind === 'bool') return `<label class="chk"><input type="checkbox" data-chg="coField" data-arg="${arg}"${val ? ' checked' : ''}${dis}> ${esc(label)}</label>`;
+    else ctl = `<input class="inp" style="min-height:38px" ${kind === 'int' ? 'type="number" min="0"' : ''} value="${esc(val == null ? '' : val)}" data-chg="coField" data-arg="${arg}"${dis}>`;
+    return `<div class="fld"><label>${esc(label)}</label>${ctl}</div>`;
+  }
+  function ogEdgeRows(ix, id, editable) {
+    const es = ix.touching(id); if (!es.length) return '<span class="cap">No connections yet.</span>';
+    return es.map((e) => { const outgoing = e.from === id, o = outgoing ? e.to : e.from; return `<div class="og-kv"><span>${outgoing ? '' : '← '}${esc(e.label || OG_KIND[e.kind])}${outgoing ? ' →' : ''}</span><span style="display:flex;gap:6px;align-items:center"><button class="og-link" data-act="coSel" data-arg="${esc(o)}">${esc(ix.nm(o))}</button>${editable ? `<button class="og-x" title="Remove this connection" data-act="coDelEdge" data-arg="${esc(e.id)}">×</button>` : ''}</span></div>`; }).join('');
+  }
+  function ogInspector(ix) {
+    const ed = can('write'), err = CO.err ? `<div class="note alert" role="alert" style="font-size:13px">${esc(CO.err)}</div>` : '';
+    if (CO.form) {
+      const f = CO.form, fields = OG_F[f.type] || [];
+      return err + `<div class="stack" style="gap:10px"><h2>New ${esc(OG_TYPE[f.type].toLowerCase())}</h2><div class="fld"><label>Name</label><input class="inp" style="min-height:38px" value="${esc(f.name)}" data-chg="coFormName" placeholder="Name"></div>${fields.filter((x) => x[2] !== 'bool').map(([k, l, kd]) => ogField('', k, l, kd, f.props[k], ix, true).replace(/data-chg="coField" data-arg="\|/g, 'data-chg="coFormProp" data-arg="')).join('')}<div style="display:flex;gap:8px"><button class="btn btn-s" data-act="coCreate"${f.name.trim() ? '' : ' disabled'}>Create</button><button class="btn2 btn-s" data-act="coCancel">Cancel</button></div></div>`;
+    }
+    if (CO.conn) {
+      const c = CO.conn, a = ix.N[c.from], b = c.to ? ix.N[c.to] : null, kinds = b ? ogKinds(a.type, b.type) : [];
+      return err + `<div class="stack" style="gap:10px"><h2>New connection</h2><div class="og-kv"><span>From</span><b>${esc(a.name)}</b></div><div class="og-kv"><span>To</span><b>${b ? esc(b.name) : '<span class="cap">Click the second item on the canvas</span>'}</b></div>
+        ${b ? (kinds.length ? `<div class="fld"><label>What it means</label><select class="reqsel" data-chg="coConnKind">${kinds.map((k) => opt(k, OG_KIND[k], c.kind)).join('')}</select></div><div class="fld"><label>${c.kind === 'task' ? 'Task' : (c.kind === 'works_with' ? 'Role' : 'Label (optional)')}</label><input class="inp" style="min-height:38px" value="${esc(c.label)}" data-chg="coConnLabel" placeholder="${c.kind === 'works_with' ? 'e.g. approves refunds' : ''}"></div>${c.kind === 'task' ? `<div class="fld"><label>Data passed (comma separated)</label><input class="inp" style="min-height:38px" value="${esc(c.data)}" data-chg="coConnData"></div>` : ''}` : `<div class="note alert" style="font-size:13px">A ${esc(OG_TYPE[a.type].toLowerCase())} cannot be connected to a ${esc(OG_TYPE[b.type].toLowerCase())}.</div>`) : ''}
+        <div style="display:flex;gap:8px">${b && kinds.length ? '<button class="btn btn-s" data-act="coConnCreate">Connect</button>' : ''}<button class="btn2 btn-s" data-act="coCancel">Cancel</button></div></div>`;
+    }
+    if (CO.selEdge) {
+      const e = ix.d.edges.find((x) => x.id === CO.selEdge);
+      if (e) {
+        const a = ix.N[e.from], b = ix.N[e.to], lv = ix.d.live.tasks[e.id], x = ix.dep(e.from) && ix.dep(e.to) && ix.dep(e.from) !== ix.dep(e.to), det = e.kind === 'task';
+        return err + `<div class="stack" style="gap:8px"><div style="display:flex;gap:8px;align-items:center"><span class="pill ok">${esc(OG_KIND[e.kind])}</span><b>${esc(e.label || '')}</b></div>
+          ${det ? `<div class="fld"><label>Task</label><input class="inp" style="min-height:38px" value="${esc(e.label)}" data-chg="coEdgeLabel" data-arg="${esc(e.id)}"${ed ? '' : ' disabled'}></div>` : ''}
+          <div class="og-kv"><span>From</span><b style="text-align:right">${esc(a.name)}<br><span class="cap">${esc(ix.N[ix.dep(e.from)] ? ix.N[ix.dep(e.from)].name : '')}</span></b></div>
+          <div class="og-kv"><span>To</span><b style="text-align:right">${esc(b.name)}<br><span class="cap">${esc(ix.N[ix.dep(e.to)] ? ix.N[ix.dep(e.to)].name : '')}${b.type === 'agent' && !b.props.owner ? ' · <span style="color:#B45309">no owner</span>' : ''}</span></b></div>
+          ${det ? `<div class="fld"><label>Data passed (comma separated)</label><input class="inp" style="min-height:38px" value="${esc((e.props.data || []).join(', '))}" data-chg="coEdgeData" data-arg="${esc(e.id)}"${ed ? '' : ' disabled'}></div><div class="fld"><label>Policy that covers it</label><input class="inp" style="min-height:38px" value="${esc(e.props.policy || '')}" data-chg="coEdgePolicy" data-arg="${esc(e.id)}"${ed ? '' : ' disabled'}></div>
+          <div class="og-kv"><span>Crosses departments</span><b>${x ? '<span class="pill warn">Yes</span>' : 'No'}</b></div>
+          <div class="og-kv"><span>In ${esc(a.name)}’s contract</span><b>${!lv || lv.declared === null ? '<span class="pill muted">No active contract</span>' : (lv.declared ? `<span class="pill ok">Declared in v${esc(lv.contract_version)}</span>` : `<span class="pill bad">Not declared in v${esc(lv.contract_version)}</span>`)}</b></div>
+          <div class="og-kv"><span>Seen by the runtime SDK</span><span>${lv && lv.observed ? `${lv.observed} time(s), last ${esc(String(lv.last_seen).slice(0, 16).replace('T', ' '))}` : 'not in the last 30 days'}</span></div>` : ''}
+          <div style="display:flex;gap:8px;flex-wrap:wrap">${det ? '<a class="btn2 btn-s" href="#/agents">Open in Agent assurance</a>' : ''}${ed ? '<button class="btn3 btn-s" data-act="coDelEdge" data-arg="' + esc(e.id) + '">Delete connection</button>' : ''}</div></div>`;
+      }
+    }
+    const n = ix.N[CO.sel];
+    if (!n) {
+      const c = CO.data.counts, t = ix.d.edges.filter((e) => e.kind === 'task'), xt = t.filter((e) => ix.dep(e.from) && ix.dep(e.to) && ix.dep(e.from) !== ix.dep(e.to));
+      return err + `<h2>Details</h2><span class="cap">Click anything on the canvas. Changes here update every view.</span><div class="og-kv"><span>Departments</span><b>${c.department || 0}</b></div><div class="og-kv"><span>People and roles</span><b>${(c.person || 0) + (c.role || 0)}</b></div><div class="og-kv"><span>Outside parties</span><b>${c.external || 0}</b></div><div class="og-kv"><span>AI systems</span><b>${(c.agent || 0) + (c.model || 0)}</b></div><div class="og-kv"><span>Task links between agents</span><b>${t.length} (${xt.length} cross a department)</b></div>`;
+    }
+    const sysLive = ix.live.agents[n.id], fields = OG_F[n.type] || [], bad = n.type === 'rule' && (n.props.status === 'broken' || (n.props.rule_id && CO.data.violations[n.props.rule_id]));
+    const chk = CO.data.checks.filter((c) => c.refs.includes(n.id) && c.level !== 'info');
+    return err + `<div class="stack" style="gap:8px"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="pill ${n.type === 'agent' ? 'ok' : (n.type === 'model' ? '' : 'muted')}" style="${n.type === 'model' ? 'background:#EDE7FB;color:#4C1D95' : ''}">${esc(OG_TYPE[n.type])}</span><b>${esc(n.name)}</b></div><span class="cap mono">${esc(n.id)}</span>
+      <div class="fld"><label>Name</label><input class="inp" style="min-height:38px" value="${esc(n.name)}" data-chg="coField" data-arg="${esc(n.id)}|name"${ed ? '' : ' disabled'}></div>${fields.map(([k, l, kd]) => ogField(n.id, 'props.' + k, l, kd, n.props[k], ix, ed)).join('')}
+      ${bad ? `<div class="note alert" style="font-size:13px"><strong>Broken rule</strong>${esc((n.props.rule_id && CO.data.violations[n.props.rule_id]) || 'Marked as broken.')}</div>` : ''}
+      ${chk.map((c) => `<div class="note ${c.level === 'bad' ? 'alert' : 'plain'}" style="font-size:13px"><strong>${esc(c.title)}</strong>${esc(c.detail)}</div>`).join('')}
+      ${n.type === 'agent' || n.type === 'model' ? `<h3 style="font-size:14px;margin-top:4px">Agent assurance</h3>${sysLive ? (sysLive.registered ? `<div class="og-kv"><span>Registered</span><b>${esc(sysLive.agent_key)}</b></div><div class="og-kv"><span>Active contract</span><b>${sysLive.contract_version ? 'v' + esc(sysLive.contract_version) : 'none'}</b></div><div class="og-kv"><span>Last seen by the SDK</span><span>${sysLive.last_seen_at ? esc(String(sysLive.last_seen_at).slice(0, 16).replace('T', ' ')) : 'never'}</span></div>` : '<span class="cap">Not registered in Agent assurance. A registered agent with the same name is linked automatically.</span>') : '<span class="cap">AI models are assessed in the Model studio.</span>'}` : ''}
+      <h3 style="font-size:14px;margin-top:4px">Connections</h3>${ogEdgeRows(ix, n.id, ed)}${n.type === 'department' ? '' : ''}
+      ${ed ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px"><button class="btn2 btn-s" data-act="coConnectFrom" data-arg="${esc(n.id)}">+ Connection</button><button class="btn3 btn-s" data-act="coDelete">Delete</button></div>` : ''}</div>`;
+  }
+
+  /* --- section 1: describe the company --- */
+  const OG_EX = JSON.stringify({ company: { name: 'Acme Payments' }, departments: [{ id: 'D-CX', name: 'Customer Experience', reports_to: 'D-EXEC', head: 'EMP-3105' }], people: [{ id: 'EMP-3105', name: 'Jonas Weber', title: 'CX lead', department: 'D-CX' }, { id: 'ROLE-SUP', name: 'Support agents', kind: 'role', headcount: 24, department: 'D-CX' }], external: [{ id: 'EXT-CUST', name: 'Customers', kind: 'customer' }], ai_systems: [{ id: 'AG-REFUND', type: 'agent', name: 'refund-agent', department: 'D-CX', owner: 'EMP-3105', people: [{ id: 'EXT-CUST', role: 'requests refunds' }], hands_tasks_to: [{ agent: 'AG-NOTIFY', task: 'Send confirmation email', data: ['customer email'] }], uses_data: [{ store: 'DS-EMAIL', access: 'read' }] }], data_stores: [{ id: 'DS-EMAIL', name: 'Customer email addresses', department: 'D-CX', sensitivity: 'Personal data' }] }, null, 2);
+  function ogPlan(plan, skip, key) {
+    const nodes = plan.items.filter((i) => i.what === 'node'), edges = plan.items.filter((i) => i.what === 'edge'), s = plan.summary;
+    const pills = `<div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pill ok">${s.departments} departments</span><span class="pill ok">${s.people} people and roles</span><span class="pill ok">${s.agents} agents</span><span class="pill" style="background:#EDE7FB;color:#4C1D95">${s.models} models</span><span class="pill warn">${s.task_links} task links</span><span class="pill muted">${s.create} new · ${s.update} changed · ${s.unchanged} unchanged</span></div>`;
+    return `<div class="card og-pad stack" style="background:#F8FAFC;gap:8px"><h3 style="font-size:15px">Preview of what was found</h3>${pills}
+      ${plan.errors.map((e) => `<div class="note alert" style="font-size:13px">${esc(e)}</div>`).join('')}${plan.warnings.slice(0, 6).map((w) => `<div class="cap" style="color:#7F3905">⚠ ${esc(w)}</div>`).join('')}
+      ${plan.company_name && plan.company_name !== plan.organisation_name ? `<div class="cap">The file names the company “${esc(plan.company_name)}”; this organisation is “${esc(plan.organisation_name)}”. ${ME.role === 'admin' ? 'Importing renames it.' : 'Only an administrator can rename it.'}</div>` : ''}
+      <details${nodes.length <= 14 ? ' open' : ''}><summary class="cap" style="cursor:pointer">${nodes.length} items (untick one to leave it out)</summary>${nodes.map((i) => `<label class="chk" style="min-height:32px"><input type="checkbox" data-chg="${key}" data-arg="${esc(i.key)}"${skip.includes(i.key) ? '' : ' checked'}> <span class="pill ${i.action === 'create' ? 'ok' : (i.action === 'update' ? 'warn' : 'muted')}">${i.action}</span> ${esc(OG_TYPE[i.type] || i.type)} <b>${esc(i.name)}</b> <span class="cap mono">${esc(i.id)}</span></label>`).join('')}</details>
+      <details><summary class="cap" style="cursor:pointer">${edges.length} connections</summary>${edges.map((i) => `<div class="cap" style="padding:2px 0">${esc(i.from_name)} → <b>${esc(i.label || OG_KIND[i.kind])}</b> → ${esc(i.to_name)} <span class="pill ${i.action === 'create' ? 'ok' : 'muted'}">${i.action}</span></div>`).join('')}</details>
+      <div class="cap">An import adds and updates by id. It never deletes anything.</div></div>`;
+  }
+  function ogDescribe() {
+    const ed = can('write'), im = CO.imp, ch = CO.chat;
+    const tabs = `<div class="seg" role="tablist" style="align-self:flex-start">${[['file', 'Import a file'], ['chat', 'Describe it to the assistant'], ['hand', 'Build by hand']].map(([k, l]) => `<button class="tab${CO.tab === k ? ' on' : ''}" data-act="coTab" data-arg="${k}">${l}</button>`).join('')}</div>`;
+    let body = '';
+    if (!ed) body = '<p class="cap">Your role can view the organisation but not change it.</p>';
+    else if (CO.tab === 'file') body = `<div class="og-two"><div class="stack" style="gap:10px">
+        <div class="og-drop"><b>Choose a JSON or YAML file</b><div class="cap">up to 512 KB · ${im.filename ? 'loaded: <span class="mono">' + esc(im.filename) + '</span>' : 'or paste it below'}</div><input type="file" accept=".json,.yaml,.yml,application/json,text/yaml" data-chg="coFile" style="margin-top:8px"></div>
+        <textarea class="inp" rows="6" style="padding:10px;font-family:'IBM Plex Mono',monospace;font-size:12px" placeholder="…or paste the file here" data-chg="coContent">${esc(im.content)}</textarea>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-s" data-act="coPreview"${im.content.trim() && !im.busy ? '' : ' disabled'}>${im.busy ? 'Checking…' : 'Preview'}</button><button class="btn2 btn-s" data-act="coSample">Use the sample company</button><button class="btn2 btn-s" data-act="coTemplate">Download a template</button></div>
+        ${im.err ? `<div class="note alert" role="alert" style="font-size:13px">${esc(im.err)}</div>` : ''}${im.result ? `<div class="note good" role="status" style="font-size:13px"><strong>Imported</strong>${im.result.created} new, ${im.result.updated} changed, ${im.result.connections} new connections.${im.result.renamed ? ' The organisation is now called ' + esc(im.result.renamed) + '.' : ''}</div>` : ''}
+        ${im.preview ? ogPlan(im.preview, im.skip, 'coSkip') + `<button class="btn" style="align-self:flex-start" data-act="coApply"${im.preview.ok && im.preview.summary.create + im.preview.summary.update > 0 && !im.busy ? '' : ' disabled'}>Import ${im.preview.summary.create + im.preview.summary.update} items</button>` : ''}</div>
+        <div class="stack"><h3 style="font-size:15px">What the file looks like</h3><pre class="code" style="max-height:340px;font-size:12px">${esc(OG_EX)}</pre><span class="cap">Only departments are needed. People, outside parties, AI systems (with <span class="mono">hands_tasks_to</span> and <span class="mono">uses_data</span>), data stores, and modelling <span class="mono">elements</span> and <span class="mono">links</span> are optional. Ids keep a person the same person when a file is imported again, so a re-import updates instead of duplicating.</span></div></div>`;
+    else if (CO.tab === 'chat') body = `<div class="og-two"><div class="stack" style="gap:10px">
+        <div class="og-chat">${ch.log.map((m) => `<div class="m-msg ${m.who === 'me' ? 'user' : (m.err ? 'err' : 'bot')}">${esc(m.text)}</div>`).join('') || '<div class="cap">Describe the company, its departments, who works where, and how your AI agents hand work to each other. The assistant drafts; nothing is saved until you accept.</div>'}${ch.busy ? '<div class="m-msg bot">Thinking… a local model on a CPU can take a couple of minutes.</div>' : ''}</div>
+        <textarea class="inp" rows="4" style="padding:10px" placeholder="e.g. We’re Acme Payments. Customer Experience runs support; Jonas Weber leads it. Our refund agent sits there and asks notify-agent in Platform to email the customer." data-chg="coChatText">${esc(ch.text)}</textarea>
+        <div style="display:flex;gap:8px"><button class="btn btn-s" data-act="coDraft"${ch.text.trim().length >= 10 && !ch.busy ? '' : ' disabled'}>Send</button></div><span class="cap">Runs on your local model. It only lists what you wrote; it never invents a person, department or agent.</span></div>
+        <div class="stack"><h3 style="font-size:15px">Proposed changes</h3>${ch.plan ? ogPlan(ch.plan, ch.skip, 'coChatSkip') + `<button class="btn" style="align-self:flex-start" data-act="coApplyDraft"${ch.plan.ok && ch.plan.summary.create + ch.plan.summary.update > 0 ? '' : ' disabled'}>Accept ${ch.plan.summary.create + ch.plan.summary.update} items</button>` : '<span class="cap">Nothing proposed yet.</span>'}</div></div>`;
+    else body = `<div class="stack" style="gap:10px"><div style="display:flex;gap:8px;flex-wrap:wrap">${['department', 'person', 'role', 'external', 'agent', 'model'].map((t) => `<button class="btn2" data-act="coAddType" data-arg="${t}">+ ${esc(OG_TYPE[t])}</button>`).join('')}</div><span class="cap">Fill in the details in the panel next to the canvas below. Or open a view and use <b>Add Model Component</b>, as in Sectro.</span>
+        <label class="fld" style="max-width:360px"><span class="cap">Start from a template (opens in Import a file, nothing is saved until you import)</span><select class="reqsel" data-chg="coStarter"><option value="">Choose…</option>${(CO.starters || []).map((s) => opt(s.id, s.name, '')).join('')}</select></label></div>`;
+    return `<section class="card og-pad stack" style="gap:14px"><div><h2>1 · Describe the company</h2><span class="cap">Three ways in, same result: departments, people and roles, and the AI systems that work with them. Tasks, goals, policies, data and the breach plan are added in the views below.</span></div>${tabs}${body}</section>`;
+  }
+
+  /* --- section 3 and 4: systems table, checks, and the live link --- */
+  function ogChecks(ix) {
+    const cs = CO.data.checks, tone = { bad: 'bad', warn: 'warn', info: 'muted' };
+    return `<div class="card og-pad stack" style="gap:8px"><h2>Checks across the organisation</h2><span class="cap">Role separation, ownership, cross-department handoffs, missing protections and gaps in the breach plan.</span>${cs.length ? cs.map((c) => `<div class="og-prop"><span><span class="pill ${tone[c.level]}">${esc(c.title)}</span><div class="cap" style="margin-top:4px">${esc(c.detail)}</div></span>${c.refs.length ? `<button class="btn2 btn-s" data-act="coFocus" data-arg="${esc(c.refs[0])}">Show</button>` : ''}</div>`).join('') : '<div class="note good" style="font-size:13px"><strong>Nothing to fix</strong>No checks are open.</div>'}</div>`;
+  }
+  function ogTable(ix) {
+    const sys = ix.T(['agent', 'model']); if (!sys.length) return '<div class="card og-pad stack"><h2>3 · AI systems, people and who they work with</h2><span class="cap">No AI systems yet.</span></div>';
+    return `<div class="card og-pad stack" style="gap:8px"><h2>3 · AI systems, people and who they work with</h2><span class="cap">Each AI system belongs to a department, has people in named roles, and may hand tasks to other agents.</span><div class="tbl"><table class="og-t"><thead><tr><th>AI system</th><th>Department</th><th>Owner</th><th>People and roles</th><th>Hands tasks to</th></tr></thead><tbody>${sys.map((s) => {
+      const out = (ix.out[s.id] || []);
+      return `<tr class="og-row${CO.sel === s.id ? ' sel' : ''}" data-act="coSel" data-arg="${esc(s.id)}"><td><span class="pill ${s.type === 'agent' ? 'ok' : ''}" style="${s.type === 'model' ? 'background:#EDE7FB;color:#4C1D95' : ''}">${s.type}</span><br><b>${esc(s.name)}</b></td><td>${esc(ix.N[s.props.department] ? ix.N[s.props.department].name : '—')}</td><td>${s.props.owner ? esc(ix.nm(s.props.owner)) : '<span class="pill warn">none</span>'}</td><td>${out.filter((e) => e.kind === 'works_with').map((e) => `<div>${esc(ix.nm(e.to))} <span class="cap">· ${esc(e.label)}</span></div>`).join('') || '—'}</td><td>${out.filter((e) => e.kind === 'task').map((e) => { const lv = ix.d.live.tasks[e.id] || {}; return `<div>${esc(ix.nm(e.to))} <span class="cap">· ${esc(e.label)}</span>${ix.dep(e.from) && ix.dep(e.to) && ix.dep(e.from) !== ix.dep(e.to) ? ' <span class="pill warn">other dept</span>' : ''}${lv.declared === false ? ' <span class="pill bad">not in contract</span>' : ''}</div>`; }).join('') || '—'}</td></tr>`;
+    }).join('')}</tbody></table></div></div>`;
+  }
+  function ogLive(ix) {
+    const L = CO.data.live, ed = can('write'), agents = ix.T('agent');
+    const rows = agents.map((a) => { const lv = L.agents[a.id]; return `<div class="og-kv" style="align-items:center"><span><b>${esc(a.name)}</b><br><span class="cap">${esc(ix.N[a.props.department] ? ix.N[a.props.department].name : 'no department')}</span></span><span style="text-align:right">${lv && lv.registered ? `<span class="pill ${lv.contract_version ? 'ok' : 'warn'}">${lv.contract_version ? 'contract v' + esc(lv.contract_version) : 'registered, no contract'}</span><br><span class="cap">seen ${lv.last_seen_at ? esc(String(lv.last_seen_at).slice(0, 16).replace('T', ' ')) : 'never'}</span>` : '<span class="pill muted">not registered</span>'}</span></div>`; }).join('');
+    const un = L.unmapped_agents, hs = L.unmodelled;
+    return `<section class="stack" style="gap:10px"><div><h2>4 · Linked to Agent assurance</h2><span class="cap">The organisation reads the agent inventory, contracts and runtime reports and never changes them. An agent in the organisation is matched to the registered agent with the same name.</span></div>
+      <div class="cols"><div class="card og-pad stack" style="gap:6px"><h3 style="font-size:15px">Agents in the organisation</h3>${rows || '<span class="cap">No agents yet.</span>'}</div>
+      <div class="card og-pad stack" style="gap:8px"><h3 style="font-size:15px">Registered agents not in the organisation</h3>${un.length ? un.map((a) => `<div class="og-kv" style="align-items:center"><span><b>${esc(a.name)}</b><br><span class="cap">${esc(a.origin.toLowerCase())}${a.owner ? ' · ' + esc(a.owner) : ''}</span></span>${ed ? `<button class="btn2 btn-s" data-act="coAddUnmapped" data-arg="${esc(a.agent_key)}">Add to the organisation</button>` : ''}</div>`).join('') : '<span class="cap">Every registered agent has a place in the organisation.</span>'}
+        <h3 style="font-size:15px;margin-top:8px">Handoffs seen at runtime, not drawn here</h3>${hs.length ? hs.map((h, i) => `<div class="og-kv" style="align-items:center"><span><b>${esc(ix.nm(h.from))} → ${esc(h.to_name)}</b><br><span class="cap">${h.count} time(s) in 30 days${h.declared === false ? ' · <span style="color:#B42318">not in its contract</span>' : ''}</span></span>${ed ? `<button class="btn2 btn-s" data-act="coAddHandoff" data-arg="${i}">Add the task link</button>` : ''}</div>`).join('') : '<span class="cap">None: everything the SDK has seen is drawn.</span>'}</div></div></section>`;
+  }
+
+  /* --- the screen --- */
+  function organisation() {
+    if (!CO.loaded && !CO.loading && !CO.error) loadCompany();
+    if (!CO.starters) { CO.starters = []; STAI.api.companyStarters().then((r) => { CO.starters = r; renderIfIdle('organisation'); }).catch(() => {}); }
+    const eyebrow = 'One organisation, used by Agent assurance and the Model studio';
+    if (CO.error && !CO.loaded) return hdr(eyebrow, 'Organisation') + `<div class="note alert" role="alert"><strong>Could not load the organisation</strong><span style="font-size:13px">${esc(CO.error)}</span><button class="btn2 btn-s" data-act="coReload" style="align-self:flex-start">Retry</button></div>`;
+    if (!CO.loaded) return hdr(eyebrow, 'Organisation') + '<p class="cap">Loading…</p>';
+    const ix = coIx(), c = CO.data.counts, ed = can('write');
+    const head = hdr(eyebrow, `Organisation <span class="mono" style="font-size:15px;font-weight:500;color:#4A5563">· ${esc(CO.data.organisation.name)}</span>`, `<span class="pill ok">${c.department || 0} departments · ${(c.person || 0) + (c.role || 0)} people and roles · ${(c.agent || 0) + (c.model || 0)} AI systems</span>${dlBtn('/api/company/export', 'Export JSON')}`);
+    let view = '', side = ogInspector(ix);
+    const R = { org: ogOrgMap, organisational: ogOrganisational, agents: ogAgents, privacy: ogPrivacy, breach: ogBreach, models: ogModels }[CO.view];
+    let canvas, extra = '';
+    if (CO.view === 'data') canvas = ogData(ix);
+    else {
+      const r = R(ix);
+      canvas = r.empty ? ogEmpty(r.empty) : `<svg class="og-svg" viewBox="0 0 ${r.w} ${r.h}" width="100%" role="img" aria-label="${esc(OG_VIEWS.find((v) => v[0] === CO.view)[1])}">${OG_DEFS}${r.body}</svg>`;
+      if (CO.view === 'agents') { const ch = ogChain(ix); if (ch) extra = `<div class="card" style="margin-top:10px"><div class="stack" style="padding:10px 12px 0"><h3 style="font-size:15px">Task chain</h3><span class="cap">The same connections as a sequence: who does what, in which department.</span></div><div class="og-chain">${ch}</div></div>`; }
+      if (CO.view === 'models') extra = ogModelCard(ix);
+    }
+    const modelPick = CO.view === 'models' && ix.T('model').length > 1 ? `<div style="padding:0 2px 8px;display:flex;gap:8px;align-items:center"><span class="cap">Model</span><select class="reqsel" data-chg="coModel">${ix.T('model').map((m) => opt(m.id, m.name, CO.model)).join('')}</select></div>` : '';
+    const filt = CO.view === 'org' ? `<div style="padding:0 2px 8px;display:flex;gap:8px;align-items:center"><span class="cap">Show</span><div class="seg">${[['all', 'Everything'], ['agent', 'Agents'], ['model', 'Models']].map(([k, l]) => `<button class="tab${CO.filter === k ? ' on' : ''}" data-act="coFilter" data-arg="${k}">${l}</button>`).join('')}</div></div>` : '';
+    const pal = ed && CO.palette ? `<div class="og-pal"><div class="og-grp">Add to this view</div>${OG_PALETTE[CO.view].map((t) => `<button data-act="coAddType" data-arg="${t}"><svg width="44" height="32" viewBox="-50 -34 100 68">${ogShape({ type: t, props: {} }, 0, 0)}</svg>${esc(OG_TYPE[t])}</button>`).join('')}</div>` : '';
+    const legend = { org: '<span><i style="background:#fff;border:1.5px solid #8793A3"></i>Department</span><span><i style="background:#E3EBFB"></i>Person or role</span><span><i style="background:#F1F3F6;border:1px dashed #8793A3"></i>Outside the company</span><span><i style="background:#DDF3F8;border:1.5px solid #0E7490"></i>AI agent</span><span><i style="background:#EDE7FB;border:1.5px solid #4C1D95"></i>AI model</span><span><i style="background:#FBE9D3;border:1.5px solid #B45309"></i>Task link to another agent</span><span><i style="background:#FBE3E0;border:1.5px dashed #B42318"></i>Not in the contract</span>',
+      organisational: '<span><i style="background:#fff;border:1.5px dotted #E58AA0"></i>Actor</span><span><i style="background:#D4E157;border:1.5px solid #111"></i>Goal</span><span><i style="background:#B07FD8"></i>Operation (task)</span><span><i style="background:#A8E6B8;border:1px solid #2B7A3F"></i>Policy</span>',
+      agents: '<span><i style="background:#DDF3F8;border:1.5px solid #0E7490"></i>AI agent (green dot: has an active contract)</span><span><i style="background:#E3EBFB"></i>Person or role</span><span><i style="background:#FBE9D3;border:1.5px solid #B45309"></i>Task link</span><span><i style="background:#FBE3E0;border:1.5px dashed #B42318"></i>Not in the sender’s contract</span>',
+      data: '<span><i style="background:#F2FAF5"></i>Same department</span><span><i style="background:#FBE9D3"></i>Another department</span><span><i style="background:#FBE3E0"></i>Not in the agent’s contract</span>',
+      privacy: '<span><i style="background:#FFF3C4;border:1.5px solid #9A7B00"></i>Data</span><span><i style="background:#FBD0CB;border:1.5px solid #B42318"></i>Threat</span><span><i style="background:#CDEFD8;border:1.5px solid #1E7F4F"></i>Protection</span><span><i style="border:1.5px dashed #B42318"></i>Threat with no protection yet</span>',
+      breach: '<span><i style="background:#E3EBFB;border:1.5px solid #1E4FCB"></i>Step</span><span><i style="background:#FBE9D3;border:1.5px solid #B45309"></i>Decision</span><span><i style="background:#B45309;border-radius:50%"></i>Gap in the plan</span>',
+      models: '<span><i style="background:#EDE7FB;border:1.5px solid #4C1D95"></i>AI model</span><span><i style="background:#fff;border:1.5px dotted #E58AA0"></i>Person or role</span><span><i style="background:#FFF3C4;border:1.5px solid #9A7B00"></i>Data</span><span><i style="background:#A8E6B8;border:1px solid #2B7A3F"></i>Rule</span><span><i style="border:1.5px dashed #B42318"></i>Broken rule</span>' }[CO.view];
+    const tools = `<div class="og-tools"><button class="og-tool${CO.palette ? ' on' : ''}" data-act="coPalette"${ed ? '' : ' disabled'}><span class="og-ico" style="background:#2FB344">+</span>Add Model Component</button><span class="og-sep"></span><button class="og-tool${CO.mode === 'connect' ? ' on' : ''}" data-act="coConnectMode"${ed ? '' : ' disabled'}><span class="og-ico" style="background:#3BA1E6;font-size:13px">⇢</span>${CO.mode === 'connect' ? (CO.conn ? 'Pick the second item…' : 'Pick the first item…') : 'Add Connection'}</button><span class="og-sep"></span><button class="og-tool" data-act="coDelete"${ed && (CO.sel || CO.selEdge) ? '' : ' disabled'}><span class="og-ico" style="background:#F2994A;font-size:14px">✕</span>Delete selected</button><span style="flex:1"></span><span class="cap">${esc(OG_HINT[CO.view])}</span>${pal}</div>`;
+    const modelling = `<section class="stack" style="gap:10px"><div><h2>2 · Modelling</h2><span class="cap">One model, several views of it. A change in one view appears in the others.</span></div><div class="card" style="overflow:visible"><div class="og-views" role="tablist">${OG_VIEWS.map(([k, l]) => `<button class="${CO.view === k ? 'on' : ''}" data-act="coView" data-arg="${k}">${l}</button>`).join('')}</div>${tools}<div class="og-wrap"><div style="min-width:0">${filt}${modelPick}<div class="card" style="padding:6px;overflow:auto">${canvas}</div>${extra}<div class="og-legend">${legend}</div></div><aside class="card og-pad stack" style="position:sticky;top:16px;gap:8px">${side}</aside></div></div></section>`;
+    return head + (CO.notice ? `<div class="note good" role="status" style="font-size:13px">${esc(CO.notice)}</div>` : '') + ogDescribe() + modelling + `<section class="og-two">${ogTable(ix)}${ogChecks(ix)}</section>` + ogLive(ix);
+  }
+  SCREENS.organisation = organisation;
+
+  /* --- handlers --- */
+  const coClear = () => { CO.sel = null; CO.selEdge = null; CO.conn = null; CO.form = null; CO.mode = null; CO.err = null; };
+  Object.assign(H, {
+    coReload: () => { CO.error = null; CO.loaded = false; },
+    coView: (v) => { CO.view = v; CO.palette = false; coClear(); },
+    coFilter: (v) => { CO.filter = v; },
+    coTab: (v) => { CO.tab = v; },
+    coPalette: () => { CO.palette = !CO.palette; },
+    coAddType: (t) => { coClear(); CO.palette = false; CO.form = { type: t, name: '', props: {} }; },
+    coCancel: () => { CO.form = null; CO.conn = null; CO.mode = null; CO.err = null; },
+    coSel: (id) => {
+      if (CO.mode === 'connect') {
+        if (!CO.conn) CO.conn = { from: id, to: null, kind: '', label: '', data: '' };
+        else if (id !== CO.conn.from) { const ix = coIx(), ks = ogKinds(ix.N[CO.conn.from].type, ix.N[id].type); CO.conn.to = id; CO.conn.kind = ks[0] || ''; CO.mode = null; }
+        return;
+      }
+      CO.sel = id; CO.selEdge = null; CO.form = null; CO.conn = null; CO.err = null;
+    },
+    coSelEdge: (id) => { if (CO.mode === 'connect') return; CO.selEdge = id; CO.sel = null; CO.form = null; CO.conn = null; CO.err = null; },
+    coConnectMode: () => { coClear(); CO.palette = false; CO.mode = 'connect'; },
+    coConnectFrom: (id) => { coClear(); CO.mode = 'connect'; CO.conn = { from: id, to: null, kind: '', label: '', data: '' }; },
+    coFocus: (id) => { coClear(); CO.sel = id; const n = CO.data.nodes.find((x) => x.id === id); if (n) CO.view = { agent: 'org', model: 'models', threat: 'privacy', step: 'breach', decision: 'breach', data_store: 'privacy' }[n.type] || CO.view; },
+    coModel: () => {},
+    coDelete: async () => {
+      const ix = coIx();
+      if (CO.selEdge) { if (!window.confirm('Delete this connection?')) return; const id = CO.selEdge; CO.selEdge = null; await coAfter(() => STAI.api.companyDeleteEdge(id)); render(true); return; }
+      const n = ix.N[CO.sel]; if (!n) return;
+      if (!window.confirm(`Delete ${n.name}? Its connections go with it.`)) return;
+      CO.sel = null; await coAfter(() => STAI.api.companyDeleteNode(n.id)); render(true);
+    },
+    coDelEdge: async (id) => { if (!window.confirm('Remove this connection?')) return; if (CO.selEdge === id) CO.selEdge = null; await coAfter(() => STAI.api.companyDeleteEdge(id)); render(true); },
+    coCreate: async () => {
+      const f = CO.form; if (!f || !f.name.trim()) return;
+      const props = Object.assign({}, f.props); if ((f.type === 'step' || f.type === 'decision') && !props.order) props.order = CO.data.nodes.filter((n) => n.type === 'step' || n.type === 'decision').length + 1;
+      const r = await coAfter(() => STAI.api.companyAddNode({ type: f.type, name: f.name.trim(), props }));
+      if (r) { CO.form = null; CO.sel = r.id; } render(true);
+    },
+    coConnCreate: async () => {
+      const c = CO.conn; if (!c || !c.to || !c.kind) return;
+      const body = { from: c.from, to: c.to, kind: c.kind, label: c.label.trim(), props: c.kind === 'task' ? { data: c.data.split(',').map((x) => x.trim()).filter(Boolean) } : {} };
+      const r = await coAfter(() => STAI.api.companyAddEdge(body));
+      if (r) { CO.conn = null; CO.selEdge = c.kind === 'task' ? r.id : null; CO.sel = c.kind === 'task' ? null : c.from; } render(true);
+    },
+    coPreview: async () => { const im = CO.imp; if (im.busy) return; im.busy = true; im.err = null; im.result = null; render(true); try { im.preview = await STAI.api.companyPreview(im.content, im.filename, im.skip); } catch (e) { im.preview = null; im.err = e.message; } im.busy = false; render(true); },
+    coApply: async () => {
+      const im = CO.imp; if (im.busy || !im.preview) return; im.busy = true; im.err = null; render(true);
+      try { const r = await STAI.api.companyImport(im.content, im.filename, im.skip); im.result = r; im.preview = null; im.content = ''; im.filename = ''; im.skip = []; CO.data = r.company; } catch (e) { im.err = e.message; }
+      im.busy = false; render(true);
+    },
+    coSample: async () => { try { const d = await STAI.api.companySample(); Object.assign(CO.imp, { content: JSON.stringify(d, null, 2), filename: 'sample-company.json', skip: [], result: null, err: null, preview: null }); await H.coPreview(); } catch (e) { CO.imp.err = e.message; } },
+    coTemplate: () => { saveFile('/api/company/template'); },
+    coDraft: async () => {
+      const ch = CO.chat, text = ch.text.trim(); if (ch.busy || text.length < 10) return;
+      ch.busy = true; ch.err = null; ch.log.push({ who: 'me', text }); ch.text = ''; render(true);
+      try { const r = await STAI.api.companyDraft(text); ch.doc = r.doc; ch.plan = r.plan; ch.skip = []; ch.log.push({ who: 'bot', text: r.plan ? `Drafted ${r.plan.summary.nodes} items and ${r.plan.summary.edges} connections. Review them on the right, untick anything wrong, then accept.${r.plan.ok ? '' : ' Some references do not resolve yet: see the notes.'}` : 'I could not find anything to draft in that. Try naming departments, people or agents.' }); }
+      catch (e) { ch.log.push({ who: 'bot', text: e.message, err: true }); }
+      ch.busy = false; render(true);
+    },
+    coApplyDraft: async () => {
+      const ch = CO.chat; if (!ch.doc) return;
+      try { const r = await STAI.api.companyImport(JSON.stringify(ch.doc), 'assistant-draft.json', ch.skip); CO.data = r.company; ch.log.push({ who: 'bot', text: `Added ${r.created} items and ${r.connections} connections.` }); ch.doc = null; ch.plan = null; CO.notice = null; } catch (e) { ch.log.push({ who: 'bot', text: e.message, err: true }); }
+      render(true);
+    },
+    coAddUnmapped: async (key) => { const a = CO.data.live.unmapped_agents.find((x) => x.agent_key === key); if (!a) return; await coAfter(() => STAI.api.companyAddNode({ type: 'agent', name: a.name, props: { agent_key: a.agent_key } })); render(true); },
+    coAddHandoff: async (i) => {
+      const h = CO.data.live.unmodelled[+i]; if (!h) return; let to = h.to;
+      if (!to) { const r = await coAfter(() => STAI.api.companyAddNode({ type: 'agent', name: h.to_name })); if (!r) { render(true); return; } to = r.id; }
+      await coAfter(() => STAI.api.companyAddEdge({ from: h.from, to, kind: 'task', label: 'Handoff seen at runtime', props: {} })); render(true);
+    }
+  });
+  const coPatch = async (id, body) => { await coAfter(() => STAI.api.companyPatchNode(id, body)); };
+  Object.assign(C, {
+    coFile: (v, arg, el) => {
+      const f = el && el.files && el.files[0]; if (!f) return;
+      if (f.size > 512000) { CO.imp.err = 'That file is larger than 512 KB.'; return; }
+      const rd = new FileReader();
+      rd.onload = () => { Object.assign(CO.imp, { content: String(rd.result), filename: f.name, preview: null, result: null, err: null, skip: [] }); renderIfIdle('organisation'); };
+      rd.onerror = () => { CO.imp.err = 'The file could not be read.'; renderIfIdle('organisation'); };
+      rd.readAsText(f);
+    },
+    coContent: (v) => { Object.assign(CO.imp, { content: v, preview: null, result: null, err: null, skip: [], filename: CO.imp.filename }); },
+    coSkip: (on, key) => { const s = CO.imp.skip; const i = s.indexOf(key); if (on && i >= 0) s.splice(i, 1); if (!on && i < 0) s.push(key); CO.imp.preview = null; STAI.api.companyPreview(CO.imp.content, CO.imp.filename, s).then((p) => { CO.imp.preview = p; renderIfIdle('organisation'); }).catch((e) => { CO.imp.err = e.message; renderIfIdle('organisation'); }); },
+    coChatText: (v) => { CO.chat.text = v; },
+    coChatSkip: (on, key) => { const s = CO.chat.skip; const i = s.indexOf(key); if (on && i >= 0) s.splice(i, 1); if (!on && i < 0) s.push(key); STAI.api.companyPreview(JSON.stringify(CO.chat.doc), 'assistant-draft.json', s).then((p) => { CO.chat.plan = p; renderIfIdle('organisation'); }).catch(() => {}); },
+    coStarter: async (v) => { if (!v) return; try { const d = await STAI.api.companyStarter(v); Object.assign(CO.imp, { content: JSON.stringify(d, null, 2), filename: v + '.json', skip: [], result: null, err: null, preview: null }); CO.tab = 'file'; await H.coPreview(); } catch (e) { CO.imp.err = e.message; } },
+    coFormName: (v) => { if (CO.form) CO.form.name = v; },
+    coFormProp: (v, key) => { if (CO.form) CO.form.props[key.replace(/^props\./, '')] = (OG_F[CO.form.type].find((x) => x[0] === key.replace(/^props\./, '')) || [])[2] === 'int' ? (v === '' ? '' : Number(v)) : v; },
+    coConnKind: (v) => { if (CO.conn) CO.conn.kind = v; },
+    coConnLabel: (v) => { if (CO.conn) CO.conn.label = v; },
+    coConnData: (v) => { if (CO.conn) CO.conn.data = v; },
+    coField: async (v, arg) => {
+      const [id, key] = arg.split('|'); if (key === 'name') { if (v.trim()) await coPatch(id, { name: v.trim() }); return; }
+      const k = key.replace(/^props\./, ''), kind = ((OG_F[(CO.data.nodes.find((n) => n.id === id) || {}).type] || []).find((x) => x[0] === k) || [])[2];
+      await coPatch(id, { props: { [k]: kind === 'int' ? (v === '' ? '' : Number(v)) : v } });
+    },
+    coEdgeLabel: async (v, id) => { await coAfter(() => STAI.api.companyPatchEdge(id, { label: v })); },
+    coEdgeData: async (v, id) => { await coAfter(() => STAI.api.companyPatchEdge(id, { props: { data: v.split(',').map((x) => x.trim()).filter(Boolean) } })); },
+    coEdgePolicy: async (v, id) => { await coAfter(() => STAI.api.companyPatchEdge(id, { props: { policy: v } })); }
+  });
+  C.coModel = (v) => { CO.model = v; };
+
   function route() {
     const r = location.hash.replace(/^#\/?/, '').split('?')[0];
     if (r === '') return 'home';
@@ -2488,13 +3107,14 @@ kill_switch:
     else if (r === 'modelcontracts') html = `<div class="shell">${modelNav('contracts')}<main id="main">${modelContracts()}</main></div>`;
     else if (r === 'policies') html = `<div class="shell">${policiesFrom() === 'model' ? modelNav('policies') : nav('policies')}<main id="main">${policiesScreen()}</main></div>`;
     else if (r === 'regulations') html = `<div class="shell">${policiesFrom() === 'model' ? modelNav('regulations') : nav('regulations')}<main id="main">${regulationsScreen()}</main></div>`;
+    else if (r === 'organisation' && orgFrom() === 'model') html = `<div class="shell">${modelNav('organisation')}<main id="main">${organisation()}</main></div>`;
     else html = `<div class="shell">${nav(PARENT[r] || r)}<main id="main">${SCREENS[r]()}</main></div>`;
     document.getElementById('app').innerHTML = html;
     const mainEl = document.getElementById('main');
     if (mainEl && ME.role === 'auditor') mainEl.insertAdjacentHTML('afterbegin', '<div class="note plain" role="status"><strong>Read-only</strong><span style="font-size:13px">Your role is auditor: you can view everything and the audit log, but not change anything.</span></div>');
     if (keepScroll) Object.keys(keep).forEach((q) => { const el = document.querySelector(q); if (el) { el.scrollLeft = keep[q][0]; el.scrollTop = keep[q][1]; } });
     window.scrollTo(0, keepScroll ? y : 0);
-    const titles = { home: 'ASTRA \u00b7 Choose a module', model: 'ASTRA \u00b7 Model studio', modelcontracts: 'ASTRA \u00b7 Compiled contracts', policies: 'ASTRA \u00b7 Policies', regulations: 'ASTRA \u00b7 Regulations', users: 'ASTRA \u00b7 Users', audit: 'ASTRA \u00b7 Audit log' };
+    const titles = { home: 'ASTRA \u00b7 Choose a module', model: 'ASTRA \u00b7 Model studio', modelcontracts: 'ASTRA \u00b7 Compiled contracts', policies: 'ASTRA \u00b7 Policies', regulations: 'ASTRA \u00b7 Regulations', organisation: 'ASTRA \u00b7 Organisation', users: 'ASTRA \u00b7 Users', audit: 'ASTRA \u00b7 Audit log' };
     document.title = titles[r] || 'ASTRA \u00b7 Agent assurance prototype';
     agentAutosaveCheck();
   }

@@ -471,3 +471,36 @@ class RuntimeEvent(Base):
     contract_version: Mapped[Optional[str]] = mapped_column(String(16))
     finding_key: Mapped[Optional[str]] = mapped_column(String(12))
     reported_by: Mapped[str] = mapped_column(String(200), nullable=False)
+
+
+class CompanyNode(Base):
+    """One thing in the organisation model: a department, person, role, outside party, AI agent or model, data store, or a
+    modelling element (goal, operation, policy, threat, protection, rule, environment, breach-plan step). The views are drawn from these."""
+
+    __tablename__ = "company_nodes"
+    __table_args__ = (UniqueConstraint("organisation_id", "ext_id", name="uq_company_nodes_org_ext"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    ext_id: Mapped[str] = mapped_column(String(64), nullable=False)          # the company's own id (EMP-1042, D-CX): what an import matches on
+    type: Mapped[str] = mapped_column(String(16), nullable=False)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    props: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class CompanyEdge(Base):
+    """A connection between two nodes (identified by ext_id): works with, hands a task to, reads, performs, targets, mitigates, and so on."""
+
+    __tablename__ = "company_edges"
+    __table_args__ = (UniqueConstraint("organisation_id", "from_ext", "to_ext", "kind", "label", name="uq_company_edges"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    from_ext: Mapped[str] = mapped_column(String(64), nullable=False)
+    to_ext: Mapped[str] = mapped_column(String(64), nullable=False)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    label: Mapped[str] = mapped_column(String(80), nullable=False, server_default="")
+    props: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

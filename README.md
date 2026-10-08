@@ -397,6 +397,19 @@ The API and end-to-end suites create data and then clear whole tables (every dri
 They therefore refuse to start unless the database name ends in `_test`, or you set `ASTRA_TESTS_ON_THIS_DB=1` to accept that data in it may be
 deleted. Do not do that against a database with real work in it.
 
+## Organisation (departments, people, AI systems and how they connect)
+
+The **Organisation** screen (in both modules' sidebars) holds one model of the company and draws it as seven views, designed in `mockups/organisation-view.html`:
+organisation map, organisational view (goals, operations, policies), agents and tasks, data mapping, privacy by design (threats and protections), breach response plan, and models (ST-AI roles and rules).
+Nothing in the other screens changes: the organisation only **reads** the agent inventory, active contracts and runtime reports.
+
+* **Describe the company**: import a JSON or YAML file (`GET /api/company/template`, `/sample` and `/starters` give examples), describe it to the local model (proposals only, nothing invented, nothing saved until accepted), or build it by hand with **Add Model Component / Add Connection / Delete selected**.
+  An import adds and updates by the company's own ids (EMP-1042, D-CX) and never deletes; duplicate ids, unknown references and wrong connection types are refused with reasons, and any item can be left out of an import.
+* **Linked to Agent assurance**: an agent in the organisation is matched to the registered agent of the same name. A task link drawn between two agents shows whether the sender's active contract declares the handoff and whether the runtime SDK has seen it; handoffs seen at runtime but not drawn, and registered agents not yet in the organisation, are offered with one click.
+* **Checks** (deterministic): role separation (validator is also deployer), missing owners and heads, handoffs across departments with no policy, handoffs not in the contract, threats with no protection, and gaps in the breach plan (no responsible person, no deputy for a decision or a legal deadline).
+* API: `/api/company` (read), `/import/preview` and `/import`, `/nodes` and `/edges` (create, edit, delete), `/export`, `/draft`. Reading needs the read permission, editing the write permission; edits are in the audit log.
+* Tests: `docker compose exec -e DATABASE_URL=...stai_test backend python -m tests.test_company`.
+
 ## Runtime SDK: see an agent's drift in real time
 
 `sdk/python` is `astra-runtime`, a dependency-free Python package an agent runs with. It reports what the agent does (tool calls, handoffs, MCP
