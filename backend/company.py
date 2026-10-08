@@ -955,3 +955,138 @@ def draft(body: DraftIn, session: Session = Depends(get_session)) -> Dict[str, A
     org, ns, es = load(session)
     doc = proposal_to_doc(prop, {n.ext_id: n for n in ns})
     return {"doc": doc, "plan": public_plan(plan(session, doc, [])) if doc else None}
+
+
+# ── Starting points for the two studios (read only: the organisation is not changed) ──
+
+VENDOR = re.compile(r"vendor|supplier|provider|processor|partner", re.I)
+APPROVES = re.compile(r"approv", re.I)
+WRITES = re.compile(r"write|rw|read\s*/\s*write", re.I)
+MODEL_ROLES = [(re.compile(r"train", re.I), "TRAINER"), (re.compile(r"validat|review", re.I), "VALIDATOR"), (re.compile(r"deploy", re.I), "DEPLOYER"),
+               (re.compile(r"operat", re.I), "OPERATOR"), (re.compile(r"decid|consum|affect|about", re.I), "CONSUMER")]
+SENSITIVITY = [("PUBLIC", re.compile(r"public", re.I)), ("INTERNAL", re.compile(r"internal", re.I)), ("CONFIDENTIAL", re.compile(r"confidential", re.I)),
+               ("SENSITIVE_PERSONAL", re.compile(r"personal|patient|health", re.I)), ("SPECIAL_CATEGORY", re.compile(r"special", re.I))]
+
+
+def _graph(session: Session) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+    _, ns, es = load(session)
+    return {n.ext_id: node_out(n) for n in ns}, [edge_out(e) for e in es]
+
+
+def _system(N: Dict[str, Dict[str, Any]], ext_id: str, kind: str) -> Dict[str, Any]:
+    n = N.get(ext_id)
+    if n is None or n["type"] != kind:
+        raise HTTPException(status_code=404, detail=f"That {kind} is not in the organisation.")
+    return n
+
+
+def _dept_name(N: Dict[str, Dict[str, Any]], i: Optional[str]) -> str:
+    d = N.get(N[i]["props"].get("department", "")) if i and i in N else None
+    return d["name"] if d else ""
+
+
+def _crosses(N: Dict[str, Dict[str, Any]], a: str, b: str) -> bool:
+    da, db = N[a]["props"].get("department"), N[b]["props"].get("department")
+    return bool(da and db and da != db)
+
+
+def agent_seed(session: Session, ext_id: str) -> Dict[str, Any]:
+    """What the organisation already knows about one agent, as the starting point of its design. Names only; the design studio decides what to do with them."""
+    N, edges = _graph(session)
+    a = _system(N, ext_id, "agent")
+    owner = a["props"].get("owner")
+    humans: List[Dict[str, Any]] = []
+    approvals: List[Dict[str, Any]] = []
+    externals: List[Dict[str, Any]] = []
+    delegates: List[Dict[str, Any]] = []
+    inputs: List[Dict[str, Any]] = []
+    data: List[Dict[str, Any]] = []
+    goals: List[str] = []
+    for e in edges:
+        if e["kind"] == "works_with" and e["from"] == ext_id and e["to"] in N:
+            t = N[e["to"]]
+            if APPROVES.search(e["label"]):
+                approvals.append({"name": f"Approval: {t['name']}", "person": t["name"], "label": e["label"]})
+            elif e["to"] == owner:
+                continue                                                 # the owner is the owner, not a user of the agent
+            elif t["type"] == "external" and VENDOR.search(t["props"].get("title", "")):
+                externals.append({"name": t["name"], "label": e["label"]})
+            else:
+                humans.append({"name": t["name"], "label": e["label"], "kind": t["type"]})
+        elif e["kind"] == "task" and e["from"] == ext_id and e["to"] in N:
+            t = N[e["to"]]
+            delegates.append({"name": t["name"], "owner": N[t["props"]["owner"]]["name"] if t["props"].get("owner") in N else "", "department": _dept_name(N, e["to"]),
+                              "task": e["label"], "data": e["props"].get("data") or [], "cross_department": _crosses(N, ext_id, e["to"])})
+        elif e["kind"] == "task" and e["to"] == ext_id and e["from"] in N:
+            s = N[e["from"]]
+            inputs.append({"name": f"{s['name']}: {e['label']}" if e["label"] else s["name"], "from": s["name"], "department": _dept_name(N, e["from"]), "cross_department": _crosses(N, ext_id, e["from"])})
+        elif e["kind"] == "access" and e["from"] == ext_id and e["to"] in N:
+            data.append({"name": N[e["to"]]["name"], "write": bool(WRITES.search(e["label"]))})
+        elif e["kind"] == "performs" and e["from"] == ext_id and e["to"] in N and N[e["to"]]["type"] == "operation":
+            achieved = [N[x["to"]]["name"] for x in edges if x["kind"] == "achieves" and x["from"] == e["to"] and x["to"] in N]
+            for g in achieved or [N[e["to"]]["name"]]:
+                if g not in goals:
+                    goals.append(g)
+    return {"id": ext_id, "name": a["name"], "department": _dept_name(N, ext_id), "owner": N[owner]["name"] if owner in N else "", "purpose": a["props"].get("purpose", ""),
+            "humans": humans, "approvals": approvals, "externals": externals, "delegates": delegates, "inputs": inputs, "data": data, "goals": goals[:3],
+            "notes": ["Tools, MCP servers, memory and guardrails are not in the organisation: add them in the design studio."]}
+
+
+def model_description(session: Session, ext_id: str) -> Dict[str, Any]:
+    """A deployment description (the format the Model studio already imports) for one model: its departments, the people in each lifecycle role, and where it runs."""
+    from compliance_schema import DeploymentDescription
+    N, edges = _graph(session)
+    m = _system(N, ext_id, "model")
+    depts: Dict[str, str] = {}
+
+    def add_dept(i: Optional[str]) -> Optional[str]:
+        first, hops = None, 0
+        while i and i in N and N[i]["type"] == "department" and hops < 10:
+            first = first or f"dep-{i}"
+            depts.setdefault(i, N[i]["name"])
+            i, hops = N[i]["props"].get("parent"), hops + 1
+        return first
+
+    add_dept(m["props"].get("department"))
+    actors: List[Dict[str, Any]] = []
+    skipped: List[str] = []
+    for e in edges:
+        if e["kind"] != "works_with" or e["from"] != ext_id or e["to"] not in N:
+            continue
+        t = N[e["to"]]
+        sub = next((s for rx, s in MODEL_ROLES if rx.search(e["label"])), None)
+        if sub is None:
+            skipped.append(f"{t['name']} ({e['label'] or 'no role'}): the model studio has no place for this role")
+            continue
+        actors.append({"temp_id": f"act-{len(actors) + 1}", "subtype": sub, "identity": t["name"], "department_temp_id": add_dept(t["props"].get("department")) if t["type"] in PEOPLE else None})
+    envs = [{"temp_id": f"env-{e['from']}", "name": N[e["from"]]["name"], "description": N[e["from"]]["props"].get("sub", "")} for e in edges if e["kind"] == "hosts" and e["to"] == ext_id and e["from"] in N]
+    p = m["props"]
+    risk = (p.get("risk_class") or "").lower()
+    criticality = "SAFETY_CRITICAL" if re.search(r"safety|very high|unacceptable", risk) else "CRITICAL" if "high" in risk else "ADVISORY" if re.search(r"low|minimal", risk) else "OPERATIONAL"
+    texts = [p.get("data_note", "")] + [N[e["to"]]["props"].get("sensitivity", "") for e in edges if e["kind"] == "access" and e["from"] == ext_id and e["to"] in N]
+    sens = max((i for t in texts for i, (_, rx) in enumerate(SENSITIVITY) if rx.search(t or "")), default=1)
+    origin = (p.get("origin") or "").lower()
+    hosting = "TYPE_3_THIRDPARTY_API" if re.search(r"third|api|vendor|saas", origin) else "TYPE_2_FINETUNED" if "fine" in origin else "TYPE_1_INHOUSE"
+    dep_list = [{"temp_id": f"dep-{i}", "name": n, "reports_to_temp_id": (f"dep-{N[i]['props']['parent']}" if N[i]["props"].get("parent") in depts else None)} for i, n in depts.items()]
+    desc = {"schema_version": "1.0", "deployment_name": m["name"], "description": p.get("purpose", ""), "departments": dep_list, "actors": actors,
+            "ai_models": [{"temp_id": "mdl-1", "name": m["name"], "model_type": "LLM", "ai_criticality": criticality, "data_sensitivity": SENSITIVITY[sens][0], "hosting_environment": hosting, "domain": p.get("purpose", "")[:120]}],
+            "deployment_environments": envs}
+    try:
+        DeploymentDescription(**desc)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"The organisation's description of this model cannot be used as it is: {exc}")
+    trained = [N[e["to"]]["name"] for e in edges if e["kind"] == "access" and e["from"] == ext_id and e["to"] in N and re.search(r"train", e["label"], re.I)]
+    notes = ["Constraints and their status are not in the organisation: every constraint starts as not yet determined."]
+    if trained:
+        notes.append(f"Training data ({', '.join(trained)}) is not carried over; add it in the studio if the assessment needs it.")
+    return {"id": ext_id, "name": m["name"], "description": desc, "skipped": skipped, "notes": notes}
+
+
+@router.get("/systems/{ext_id}/agent-seed")
+def get_agent_seed(ext_id: str, session: Session = Depends(get_session)) -> Dict[str, Any]:
+    return agent_seed(session, ext_id)
+
+
+@router.get("/systems/{ext_id}/deployment-description")
+def get_deployment_description(ext_id: str, session: Session = Depends(get_session)) -> Dict[str, Any]:
+    return model_description(session, ext_id)

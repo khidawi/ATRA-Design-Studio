@@ -366,6 +366,8 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       previewAgentImport: (body) => post('/api/agents/import/preview', body),
       importAgent: (body) => post('/api/agents/import', body),
       companyGet: () => call('/api/company'),
+      companyAgentSeed: (id) => call('/api/company/systems/' + encodeURIComponent(id) + '/agent-seed'),
+      companyDeployment: (id) => call('/api/company/systems/' + encodeURIComponent(id) + '/deployment-description'),
       companyPreview: (content, filename, skip) => post('/api/company/import/preview', { content, filename, skip }),
       companyImport: (content, filename, skip) => post('/api/company/import', { content, filename, skip }),
       companyDraft: (description) => post('/api/company/draft', { description }),
@@ -871,8 +873,8 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
   }
   /* ----- Agent design persistence: saved to the database a moment after each change ----- */
   const AGS = { timer: null, inflight: null };
-  const agentDocSig = () => { const st = S.studio, p = st.nodes.find((x) => x.primary); return JSON.stringify([p ? p.name : '', st.nodes, st.edges, st.n, st.domain, st.req, st.policy, st.ratified]); };
-  const agentDesignBody = () => { const st = S.studio, p = st.nodes.find((x) => x.primary); return { name: (p && p.name) || 'Untitled agent design', domain: 'OWASP_AGENTIC', subject: 'AGENT', document: { nodes: st.nodes, edges: st.edges, n: st.n, profile: st.domain, req: st.req, policy: st.policy, ratified: st.ratified, provenance: st.provenance || undefined } }; };
+  const agentDocSig = () => { const st = S.studio, p = st.nodes.find((x) => x.primary); return JSON.stringify([p ? p.name : '', st.nodes, st.edges, st.n, st.domain, st.req, st.policy, st.ratified, st.org || null]); };
+  const agentDesignBody = () => { const st = S.studio, p = st.nodes.find((x) => x.primary); return { name: (p && p.name) || 'Untitled agent design', domain: 'OWASP_AGENTIC', subject: 'AGENT', document: { nodes: st.nodes, edges: st.edges, n: st.n, profile: st.domain, req: st.req, policy: st.policy, ratified: st.ratified, provenance: st.provenance || undefined, org: st.org || undefined } }; };
   function agentSaveHtml() {
     const st = S.studio;
     if (st.saveState === 'conflict') return `<span id="s-savestate" class="cap" role="status" style="color:#B42318">${esc(st.saveError)} <button class="btn2 btn-s" data-act="sReloadDesign">Reload this design</button></span>`;
@@ -909,11 +911,11 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     await flushAgentSave();
     const d = await STAI.api.getDesign(key), doc = d.document;
     Object.assign(S.studio, { drafted: true, nodes: doc.nodes, edges: doc.edges, n: doc.n, domain: doc.profile || 'payments', req: doc.req || {}, policy: doc.policy || 'block', ratified: !!doc.ratified && ['DESIGNED', 'ASSURED'].includes(((AG.list.find((x) => x.design_key === d.design_key)) || {}).status),
-      designKey: d.design_key, version: d.version, sel: null, panel: doc.ratified ? 'yaml' : 'analysis', draftNote: '', draftError: '', ratifyError: null, ratifyInfo: null, provenance: doc.provenance || null, saveState: 'saved', saveError: null });
+      designKey: d.design_key, version: d.version, sel: null, panel: doc.ratified ? 'yaml' : 'analysis', draftNote: '', draftError: '', ratifyError: null, ratifyInfo: null, provenance: doc.provenance || null, org: doc.org || null, saveState: 'saved', saveError: null });
     S.studio.savedSig = agentDocSig(); lsSet(AG_LS, d.design_key);
   }
   function resetAgentStudio() {
-    Object.assign(S.studio, { drafted: false, nodes: [], edges: [], sel: null, panel: 'analysis', policy: 'block', ratified: false, n: 100, domain: 'payments', req: {}, designKey: null, version: 0, saveState: 'saved', saveError: null, savedSig: '', ratifyError: null, ratifyInfo: null, draftNote: '', draftError: '', provenance: null });
+    Object.assign(S.studio, { drafted: false, nodes: [], edges: [], sel: null, panel: 'analysis', policy: 'block', ratified: false, n: 100, domain: 'payments', req: {}, designKey: null, version: 0, saveState: 'saved', saveError: null, savedSig: '', ratifyError: null, ratifyInfo: null, draftNote: '', draftError: '', provenance: null, org: null });
     lsSet(AG_LS, null);
   }
   function studio() {
@@ -926,9 +928,10 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     if (st.ratified) out += `<section class="note good" style="flex-direction:row;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;padding:16px 20px"><span class="stack"><strong>Design ratified${st.ratifyInfo ? ' \u00b7 contract ' + esc(st.ratifyInfo.version) + ' \u00b7 sha256:' + esc(st.ratifyInfo.hash.slice(0, 12)) + '\u2026' : ''} \u00b7 status Designed</strong><span style="font-size:13px">Hand the file to engineering. At implementation, astra init adds it to the repo and every code change is checked against it.</span></span><span style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn2" href="#/agents">View in inventory</a>${(AG.list.find((x) => x.design_key === st.designKey) || {}).agent_key ? `<a class="btn2" href="#/contract?agent=${esc(AG.list.find((x) => x.design_key === st.designKey).agent_key)}">View contract</a>` : ''}<a class="btn" href="#/drift">Simulate code drift</a></span></section>`;
     if (st.ratifyError) out += `<section class="note alert" role="alert"><strong>Not ratified</strong><span style="font-size:13px;white-space:pre-wrap">${esc(st.ratifyError)}</span></section>`;
     if (st.drafted && st.provenance) out += `<section class="note plain" role="status"><strong>Generated from ${esc(st.provenance.filename)} (${esc(st.provenance.format)})</strong><span style="font-size:13px">Imported by ${esc(st.provenance.imported_by)} \u00b7 sha256:${esc(String(st.provenance.sha256).slice(0, 12))}\u2026 \u00b7 every element is a proposal and nothing is verified against code. Check the tool read/write flags and untrusted inputs the importer had to guess, then add what a file cannot say (approvals, guardrails, sign-offs).</span></section>`;
+    if (st.drafted && st.org) out += `<section class="note plain" role="status"><strong>Started from the organisation: ${esc(st.org.name)}${st.org.department ? ' \u00b7 ' + esc(st.org.department) : ''}</strong><span style="font-size:13px">The owner, the people it works with, approvals, delegations to other agents and the data it uses came from the organisation. Tools, MCP servers, memory and guardrails are yours to add. <a href="#/organisation">Open the organisation</a></span></section>`;
     if (st.drafted && st.draftNote) out += `<section class="note plain" role="status"><strong>Drafted by the local model</strong><span style="font-size:13px">${esc(st.draftNote)}</span></section>`;
     if (!st.drafted) {
-      return out + `<section class="card" style="padding:24px;display:flex;flex-direction:column;gap:16px;max-width:820px"><div class="stack"><h2>Start a new agent design</h2><span class="cap">Describe the agent in plain English, start from a pattern, or begin blank. Every drafted element is marked proposed until you ratify.</span></div>
+      return out + agentOrgStart() + `<section class="card" style="padding:24px;display:flex;flex-direction:column;gap:16px;max-width:820px"><div class="stack"><h2>Start a new agent design</h2><span class="cap">Describe the agent in plain English, start from a pattern, or begin blank. Every drafted element is marked proposed until you ratify.</span></div>
       <div class="fld"><label for="describe">Describe your agent</label><textarea id="describe" rows="4" style="padding:10px 12px;border:1px solid #C5CCD6;border-radius:8px;font-size:14px;line-height:1.5;resize:vertical">${esc(st.describeText === undefined ? 'An agent that reads refund requests from our support inbox, checks the order in the CRM, issues refunds through Stripe, remembers the case history, and asks notify-agent to email the customer.' : st.describeText)}</textarea></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" data-act="sDraftAI"${st.drafting ? ' disabled' : ''}>${st.drafting ? 'Drafting…' : 'Draft model with AI'}</button><button class="btn2" data-act="sBlank"${st.drafting ? ' disabled' : ''}>Start blank</button></div>${st.drafting ? '<div class="note plain" role="status"><strong>Drafting with the local Ollama model</strong><span style="font-size:13px">This can take a couple of minutes on a CPU.</span></div>' : ''}${st.draftError ? `<div class="note alert" role="alert"><strong>Could not draft a model</strong><span style="font-size:13px;white-space:pre-wrap">${esc(st.draftError)}</span></div>` : ''}
       <div class="stack" style="gap:8px"><span style="font-size:13px;font-weight:500">Or start from a pattern</span><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="chip" data-act="sDraft">Support agent with refunds</button><button class="chip" data-act="sDraft" data-arg="health">Patient summary agent (healthcare)</button><button class="chip" data-act="sDraft">Research agent with MCP tools</button></div></div>${AG.designs.length ? `<div class="stack" style="gap:8px"><span style="font-size:13px;font-weight:500">Or open a saved design</span><div style="display:flex;gap:8px;flex-wrap:wrap">${AG.designs.map((d) => `<button class="chip" data-act="agOpenDesign" data-arg="${esc(d.design_key)}">${esc(d.name)} \u00b7 ${d.node_count} elements</button>`).join('')}</div></div>` : ''}</section>`;
@@ -968,7 +971,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
         const p = sel.p;
         const chk = (key, label) => `<label class="chk"><input type="checkbox" data-chg="sToggle" data-arg="${key}"${p[key] ? ' checked' : ''}>${label}</label>`;
         panel = `<span class="cap" style="font-weight:600">${TAGS[sel.type]}</span><div class="fld"><label for="el-name">Name</label><input id="el-name" class="inp mono" value="${esc(sel.name)}" data-chg="sRename"></div>` +
-          (sel.type === 'agent' ? `<div class="fld"><label for="el-owner">Owner</label><select id="el-owner" class="inp" data-chg="sProp" data-arg="owner">${opt('', 'No owner', p.owner || '')}${opt('CX eng', 'CX eng', p.owner)}${opt('Payments eng', 'Payments eng', p.owner)}${opt('Platform', 'Platform', p.owner)}${opt('Compliance lead', 'Compliance lead', p.owner)}</select></div><div class="fld"><label for="el-auto">Autonomy</label><select id="el-auto" class="inp" data-chg="sProp" data-arg="auto">${opt('suggests', 'Suggests only', p.auto)}${opt('approval', 'Acts with approval', p.auto)}${opt('autonomous', 'Acts autonomously', p.auto)}</select></div>` : '') +
+          (sel.type === 'agent' ? `<div class="fld"><label for="el-owner">Owner</label><select id="el-owner" class="inp" data-chg="sProp" data-arg="owner">${opt('', 'No owner', p.owner || '')}${p.owner && !['CX eng', 'Payments eng', 'Platform', 'Compliance lead'].includes(p.owner) ? opt(p.owner, p.owner, p.owner) : ''}${opt('CX eng', 'CX eng', p.owner)}${opt('Payments eng', 'Payments eng', p.owner)}${opt('Platform', 'Platform', p.owner)}${opt('Compliance lead', 'Compliance lead', p.owner)}</select></div><div class="fld"><label for="el-auto">Autonomy</label><select id="el-auto" class="inp" data-chg="sProp" data-arg="auto">${opt('suggests', 'Suggests only', p.auto)}${opt('approval', 'Acts with approval', p.auto)}${opt('autonomous', 'Acts autonomously', p.auto)}</select></div>` : '') +
           (sel.type === 'input' ? chk('untrusted', 'Untrusted content (from outside the organisation)') : '') +
           (sel.type === 'tool' ? chk('write', 'Write-capable (changes data or moves money)') : '') +
           (sel.type === 'mcp' ? chk('signed', 'Signed, from the approved registry') : '') +
@@ -1284,11 +1287,11 @@ kill_switch:
       try {
         const d = await STAI.api.draftAgent(text);
         if (!d.nodes.length) st.draftError = d.reply;
-        else Object.assign(st, { drafted: true, sel: null, panel: 'analysis', ratified: false, domain: d.domain, req: {}, nodes: d.nodes, edges: d.edges, n: 100, draftNote: d.reply });
+        else Object.assign(st, { org: null, drafted: true, sel: null, panel: 'analysis', ratified: false, domain: d.domain, req: {}, nodes: d.nodes, edges: d.edges, n: 100, draftNote: d.reply });
       } catch (e) { st.draftError = e.message; }
       st.drafting = false; render(true);
     },
-    sDraft: (a) => { S.studio.draftNote = ''; studioSeed(a); }, sBlank: () => { Object.assign(S.studio, { draftNote: '', domain: 'payments', req: {}, drafted: true, nodes: [{ id: 'a1', type: 'agent', name: 'new-agent', p: { owner: '', auto: 'approval' }, primary: true }], edges: [], sel: 'a1', panel: 'props', ratified: false }); },
+    sDraft: (a) => { S.studio.draftNote = ''; S.studio.org = null; studioSeed(a); }, sBlank: () => { Object.assign(S.studio, { org: null, draftNote: '', domain: 'payments', req: {}, drafted: true, nodes: [{ id: 'a1', type: 'agent', name: 'new-agent', p: { owner: '', auto: 'approval' }, primary: true }], edges: [], sel: 'a1', panel: 'props', ratified: false }); },
     sAdd: (t) => { const names = { agent: 'sub-agent', human: 'human-actor', input: 'new-input', tool: 'new.tool', mcp: 'mcp://new-server', memory: 'new-memory', data: 'new-data-store', approval: 'approval-step', guardrail: 'new-guardrail', constraint: 'new-constraint' }; studioAdd(t, names[t] + (t === 'tool' || t === 'mcp' ? '' : '-' + (S.studio.n - 99)), {}); S.studio.panel = 'props'; },
     sSel: (id) => { S.studio.sel = id; S.studio.panel = 'props'; }, sPanel: (p) => { S.studio.panel = p; }, sFix: (id) => { if (FIX[id]) FIX[id](); },
     sRatify: async () => {
@@ -1397,7 +1400,7 @@ kill_switch:
   const SV = { timer: null, inflight: null, dirty: false };
   const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const lsSet = (k, v) => { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* storage unavailable */ } };
-  const designBody = () => ({ name: M.name, domain: M.domain, subject: 'MODEL', document: { nodes: M.nodes, edges: M.edges, n: M.n } });
+  const designBody = () => ({ name: M.name, domain: M.domain, subject: 'MODEL', document: { nodes: M.nodes, edges: M.edges, n: M.n, org: M.orgRef || undefined } });
   function saveStateHtml() {
     const t = { saved: M.designKey ? 'Saved' : 'Not saved yet', saving: 'Saving\u2026', error: 'Not saved: ' + (M.saveError || 'error') }[M.saveState];
     if (M.saveState === 'conflict') return `<span id="m-savestate" class="cap" role="status" style="color:#B42318">${esc(M.saveError)} <button class="btn2 btn-s" data-act="mReloadDesign">Reload this design</button></span>`;
@@ -1432,7 +1435,7 @@ kill_switch:
   }
   async function openDesign(key) {
     const d = await STAI.api.getDesign(key);
-    Object.assign(M, { nodes: d.document.nodes, edges: d.document.edges, n: d.document.n, name: d.name, domain: STAI.DOMAINS[d.domain] ? d.domain : M.domain, designKey: d.design_key, version: d.version, sel: null, compileMsg: null, saveState: 'saved', saveError: null });
+    Object.assign(M, { orgRef: d.document.org || null, nodes: d.document.nodes, edges: d.document.edges, n: d.document.n, name: d.name, domain: STAI.DOMAINS[d.domain] ? d.domain : M.domain, designKey: d.design_key, version: d.version, sel: null, compileMsg: null, saveState: 'saved', saveError: null });
     SV.dirty = false; lsSet(LS_CURRENT, d.design_key);
     if (M.nodes.length) fitZoom();
   }
@@ -1643,7 +1646,7 @@ kill_switch:
         : `<span class="m-kind" style="color:${MK[n.kind].color}">${MK[n.kind].label}</span><span class="m-title">${esc(nodeTitle(n))}</span><span class="m-sub">${esc(nodeSub(n))}</span>`;
       return `<div class="${cls}" style="left:${n.x}px;top:${n.y}px;width:${s.w}px;height:${s.h}px" data-node="${n.id}" role="button" tabindex="0" aria-label="${esc(MK[n.kind].label + ': ' + nodeTitle(n))}">${inner}<span class="m-handle" data-handle="${n.id}" title="Drag to connect"></span></div>`;
     }).join('');
-    const empty = M.nodes.length ? '' : `<div class="m-empty"><strong>Start your model deployment</strong><span>Add elements from the palette, load the example, describe it to the assistant, or import a JSON description.</span><button class="btn" data-act="mExample">Load example: clinical triage</button></div>`;
+    const empty = M.nodes.length ? '' : `<div class="m-empty"><strong>Start your model deployment</strong><span>Add elements from the palette, load the example, describe it to the assistant, or import a JSON description.</span><button class="btn" data-act="mExample">Load example: clinical triage</button>${mOrgEmpty()}</div>`;
     const z = M.zoom || 1;
     return `<div class="m-canvas" id="m-canvas"><div class="m-sizer" style="width:${Math.ceil(W * z)}px;height:${Math.ceil(H * z)}px"><div class="m-plane" style="width:${W}px;height:${H}px;transform:scale(${z})"><svg class="m-edges" width="${W}" height="${H}"><defs><marker id="m-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8A94A3"/></marker></defs>${edges}<line id="m-temp" class="m-temp" x1="0" y1="0" x2="0" y2="0" style="display:none"/></svg>${nodes}</div></div>${empty}</div>`;
   }
@@ -1741,8 +1744,8 @@ kill_switch:
     const msg = cm ? `<div class="note ${cm.tone}" role="status" style="flex-direction:row;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><span class="stack"><strong>${esc(cm.title)}</strong><span style="font-size:13px">${esc(cm.text)}</span></span>${cm.action === 'contract' ? `<a class="btn2 btn-s" href="#/model/contracts">View contract</a>` : (cm.action === 'risk' ? `<button class="btn2 btn-s" data-act="mPanel" data-arg="risk">Open risk assessment</button>` : '')}</div>` : '';
     return `<header class="hdr" style="align-items:center"><div><span class="cap">Model-level design \u00b7 ST-AI Design Studio</span><input class="m-name" aria-label="Deployment name" value="${esc(M.name)}" data-chg="mName">${saveStateHtml()}</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><div class="fld" style="gap:2px"><label for="m-design" style="font-size:12px">Saved design</label><select id="m-design" class="inp" style="min-height:38px;max-width:260px" data-chg="mOpen">${M.designKey ? '' : '<option value="" selected>(new, not saved yet)</option>'}${M.designs.map((d) => opt(d.design_key, `${d.name} \u00b7 ${d.node_count} elements`, M.designKey)).join('')}</select></div><div class="fld" style="gap:2px"><label for="m-domain" style="font-size:12px">Assessment domain</label><select id="m-domain" class="inp" style="min-height:38px" data-chg="mDomain">${Object.values(STAI.DOMAINS).map((d) => opt(d.domain_id, d.name, M.domain)).join('')}</select></div>${badge}</div></header>
-      <div class="m-toolbar"><button class="btn2 btn-s" data-act="mNew">New</button>${M.designKey ? '<button class="btn2 btn-s" data-act="mDeleteDesign">Delete design</button>' : ''}<button class="btn2 btn-s" data-act="mExample">Load example</button><button class="btn2 btn-s" data-act="mImportOpen">Import JSON</button><button class="btn2 btn-s" data-act="mChatOpen">Assistant</button><button class="btn2 btn-s" data-act="mPanel" data-arg="issues">Validate${nIssues ? ` <span class="pill ${ev.issues.some((i) => i.severity === 'error') ? 'bad' : 'warn'}" style="margin-left:6px">${nIssues}</span>` : ''}</button><span class="m-zoom" role="group" aria-label="Zoom"><button class="btn2 btn-s" data-act="mZoom" data-arg="out" aria-label="Zoom out">−</button><span class="mono">${Math.round((M.zoom || 1) * 100)}%</span><button class="btn2 btn-s" data-act="mZoom" data-arg="in" aria-label="Zoom in">+</button><button class="btn2 btn-s" data-act="mZoom" data-arg="fit">Fit</button></span><span style="flex:1"></span><button class="btn btn-s" data-act="mCompile">Compile contract</button></div>
-      ${backendBanner(ev)}${msg}
+      <div class="m-toolbar"><button class="btn2 btn-s" data-act="mNew">New</button>${M.designKey ? '<button class="btn2 btn-s" data-act="mDeleteDesign">Delete design</button>' : ''}${mOrgSelect()}<button class="btn2 btn-s" data-act="mExample">Load example</button><button class="btn2 btn-s" data-act="mImportOpen">Import JSON</button><button class="btn2 btn-s" data-act="mChatOpen">Assistant</button><button class="btn2 btn-s" data-act="mPanel" data-arg="issues">Validate${nIssues ? ` <span class="pill ${ev.issues.some((i) => i.severity === 'error') ? 'bad' : 'warn'}" style="margin-left:6px">${nIssues}</span>` : ''}</button><span class="m-zoom" role="group" aria-label="Zoom"><button class="btn2 btn-s" data-act="mZoom" data-arg="out" aria-label="Zoom out">−</button><span class="mono">${Math.round((M.zoom || 1) * 100)}%</span><button class="btn2 btn-s" data-act="mZoom" data-arg="in" aria-label="Zoom in">+</button><button class="btn2 btn-s" data-act="mZoom" data-arg="fit">Fit</button></span><span style="flex:1"></span><button class="btn btn-s" data-act="mCompile">Compile contract</button></div>
+      ${mOrgBanner()}${backendBanner(ev)}${msg}
       <div class="m-body"><aside class="card m-palette" aria-label="Palette">${palette()}</aside>${canvasHtml(ev)}<section class="card m-side">${segTabs(tabs, M.panel, 'mPanel')}${panel}</section></div>
       ${M.chatOpen ? chatDrawer() : ''}${M.importOpen ? importDrawer() : ''}`;
   }
@@ -1859,7 +1862,7 @@ kill_switch:
     mNew: async () => {
       if (M.nodes.length && !window.confirm('Start a new design? The current one stays saved and can be opened again from the Saved design list.')) return;
       await flushSave();
-      Object.assign(M, { nodes: [], edges: [], sel: null, name: 'Untitled model deployment', compileMsg: null, n: 1, designKey: null, version: 0, saveState: 'saved', saveError: null }); SV.dirty = false; lsSet(LS_CURRENT, null); render(true);
+      Object.assign(M, { orgRef: null, nodes: [], edges: [], sel: null, name: 'Untitled model deployment', compileMsg: null, n: 1, designKey: null, version: 0, saveState: 'saved', saveError: null }); SV.dirty = false; lsSet(LS_CURRENT, null); render(true);
     },
     mDeleteDesign: async () => {
       if (!M.designKey || !window.confirm('Delete this design? Contracts compiled from it are kept.')) return;
@@ -2526,7 +2529,7 @@ kill_switch:
   async function loadCompany() {
     CO.loading = true;
     try { CO.data = await STAI.api.companyGet(); CO.loaded = true; CO.error = null; } catch (e) { CO.error = e.message; }
-    CO.loading = false; renderIfIdle('organisation');
+    CO.loading = false; renderIfIdle(route());
   }
   async function coAfter(fn, keep) {
     CO.err = null;
@@ -2898,6 +2901,7 @@ kill_switch:
       ${bad ? `<div class="note alert" style="font-size:13px"><strong>Broken rule</strong>${esc((n.props.rule_id && CO.data.violations[n.props.rule_id]) || 'Marked as broken.')}</div>` : ''}
       ${chk.map((c) => `<div class="note ${c.level === 'bad' ? 'alert' : 'plain'}" style="font-size:13px"><strong>${esc(c.title)}</strong>${esc(c.detail)}</div>`).join('')}
       ${n.type === 'agent' || n.type === 'model' ? `<h3 style="font-size:14px;margin-top:4px">Agent assurance</h3>${sysLive ? (sysLive.registered ? `<div class="og-kv"><span>Registered</span><b>${esc(sysLive.agent_key)}</b></div><div class="og-kv"><span>Active contract</span><b>${sysLive.contract_version ? 'v' + esc(sysLive.contract_version) : 'none'}</b></div><div class="og-kv"><span>Last seen by the SDK</span><span>${sysLive.last_seen_at ? esc(String(sysLive.last_seen_at).slice(0, 16).replace('T', ' ')) : 'never'}</span></div>` : '<span class="cap">Not registered in Agent assurance. A registered agent with the same name is linked automatically.</span>') : '<span class="cap">AI models are assessed in the Model studio.</span>'}` : ''}
+      ${n.type === 'agent' && ed ? `<button class="btn btn-s" style="align-self:flex-start" data-act="sFromOrg" data-arg="${esc(n.id)}">Design in the Agent studio</button>` : ''}${n.type === 'model' && ed ? `<button class="btn btn-s" style="align-self:flex-start" data-act="mFromOrg" data-arg="${esc(n.id)}">Start a model design</button>` : ''}
       <h3 style="font-size:14px;margin-top:4px">Connections</h3>${ogEdgeRows(ix, n.id, ed)}${n.type === 'department' ? '' : ''}
       ${ed ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px"><button class="btn2 btn-s" data-act="coConnectFrom" data-arg="${esc(n.id)}">+ Connection</button><button class="btn3 btn-s" data-act="coDelete">Delete</button></div>` : ''}</div>`;
   }
@@ -3093,6 +3097,60 @@ kill_switch:
     coEdgePolicy: async (v, id) => { await coAfter(() => STAI.api.companyPatchEdge(id, { props: { policy: v } })); }
   });
   C.coModel = (v) => { CO.model = v; };
+
+  /* ---------- Starting the two studios from the organisation (Task 14) ---------- */
+  function coWanted() { if (!CO.loaded && !CO.loading && !CO.error) loadCompany(); return CO.loaded ? CO.data : null; }
+  function agentOrgStart() {
+    const d = coWanted(), agents = d ? d.nodes.filter((n) => n.type === 'agent') : [];
+    const head = '<div class="stack"><h2>Start from the organisation</h2><span class="cap">The agents your organisation already describes. The design starts with their owner, the people they work with, approvals, delegations to other agents and the data they use; you add the tools, MCP servers, memory and guardrails.</span></div>';
+    let body;
+    if (!d) body = '<span class="cap">Loading the organisation\u2026</span>';
+    else if (!agents.length) body = '<span class="cap">The organisation has no agents yet. <a href="#/organisation">Describe them on the Organisation page</a>, then start from them here.</span>';
+    else body = agents.map((a) => { const lv = d.live.agents[a.id] || {}, dept = a.props.department && d.nodes.find((n) => n.id === a.props.department), own = a.props.owner && d.nodes.find((n) => n.id === a.props.owner);
+      return `<div class="og-kv" style="align-items:center;gap:12px"><span class="stack" style="gap:2px"><b class="mono">${esc(a.name)}</b><span class="cap">${esc(dept ? dept.name : 'no department')} \u00b7 ${own ? 'owner ' + esc(own.name) : 'no owner'}${lv.registered ? ' \u00b7 registered' + (lv.contract_version ? ', contract v' + esc(lv.contract_version) : '') : ''}</span></span><button class="btn2 btn-s" data-act="sFromOrg" data-arg="${esc(a.id)}">Design from this</button></div>`; }).join('');
+    return `<section class="card" style="padding:24px;display:flex;flex-direction:column;gap:12px;max-width:820px">${head}${body}</section>`;
+  }
+  const mOrgModels = () => { const d = coWanted(); return d ? d.nodes.filter((n) => n.type === 'model') : []; };
+  function mOrgSelect() { const ms = mOrgModels(); return ms.length ? `<select class="reqsel" aria-label="Start from the organisation" data-chg="mFromOrgSel" style="max-width:210px"><option value="">From the organisation\u2026</option>${ms.map((m) => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('')}</select>` : ''; }
+  function mOrgEmpty() { const ms = mOrgModels(); return ms.length ? `<span style="margin-top:6px">Or start from a model in the organisation:</span>${ms.map((m) => `<button class="btn2" data-act="mFromOrg" data-arg="${esc(m.id)}">${esc(m.name)}</button>`).join('')}` : ''; }
+  function mOrgBanner() { return M.orgRef ? `<div class="note plain" role="status" style="font-size:13px"><strong>Started from the organisation: ${esc(M.orgRef.name)}</strong>The departments, the people in each lifecycle role and where it runs came from the organisation. Constraints are yours to determine. <a href="#/organisation?from=model">Open the organisation</a></div>` : ''; }
+  Object.assign(H, {
+    sFromOrg: async (id) => {
+      const st = S.studio;
+      if (st.drafted && st.nodes.length && !window.confirm('Start a new agent design from the organisation? The current design stays saved and can be opened again from the Saved design list.')) return;
+      let seed;
+      try { seed = await STAI.api.companyAgentSeed(id); } catch (e) { window.alert('Could not read the organisation: ' + e.message); return; }
+      await flushAgentSave();
+      resetAgentStudio();
+      Object.assign(st, { drafted: true, sel: null, panel: 'analysis', ratified: false, domain: 'payments', req: {}, nodes: [{ id: 'a1', type: 'agent', name: seed.name, p: { owner: seed.owner || '', auto: 'approval' }, primary: true }], edges: [], n: 100, org: { id: seed.id, name: seed.name, department: seed.department } });
+      seed.goals.forEach((g) => studioAdd('goal', g));
+      seed.humans.forEach((h) => studioAdd('human', h.name));
+      seed.inputs.forEach((i) => studioAdd('input', i.name, { untrusted: !!i.cross_department }));
+      seed.externals.forEach((x) => { studioAdd('external', x.name); st.edges.push({ from: 'a1', to: st.nodes[st.nodes.length - 1].id, label: 'calls' }); });
+      seed.approvals.forEach((a) => studioAdd('approval', a.name));
+      seed.delegates.forEach((d) => studioAdd('agent', d.name, { owner: d.owner || '', auto: 'approval' }));
+      seed.data.forEach((d) => { studioAdd('data', d.name); if (d.write) st.edges[st.edges.length - 1].label = 'writes'; });
+      st.sel = null; st.ratified = false;
+      location.hash = '#/studio'; render(false);
+    },
+    mFromOrg: async (id) => {
+      if (!id) return;
+      let r;
+      try { r = await STAI.api.companyDeployment(id); } catch (e) { window.alert('Could not read the organisation: ' + e.message); return; }
+      for (let i = 0; i < 60 && !M.loaded; i++) await new Promise((res) => setTimeout(res, 100));
+      if (M.nodes.length && !window.confirm('Start a new model design from the organisation? The current design stays saved and can be opened again from the Saved design list.')) return;
+      await flushSave();
+      Object.assign(M, { orgRef: { id, name: r.name }, nodes: [], edges: [], sel: null, name: r.description.deployment_name || 'Untitled model deployment', compileMsg: null, n: 1, designKey: null, version: 0, saveState: 'saved', saveError: null }); SV.dirty = false; lsSet(LS_CURRENT, null);
+      try {
+        const g = await STAI.api.importDescription(r.description);
+        applyGenerated(g); fitZoom();
+        M.compileMsg = { tone: 'good', action: null, title: 'What came across', text: g.reply + (r.skipped.length ? ' Left out: ' + r.skipped.join('; ') + '.' : '') + ' ' + r.notes.join(' ') };
+        persist();
+      } catch (e) { M.compileMsg = { tone: 'alert', action: null, title: 'Could not start from the organisation', text: e.message }; }
+      location.hash = '#/model'; render(false);
+    }
+  });
+  Object.assign(C, { mFromOrgSel: (v) => { if (v) H.mFromOrg(v); } });
 
   function route() {
     const r = location.hash.replace(/^#\/?/, '').split('?')[0];

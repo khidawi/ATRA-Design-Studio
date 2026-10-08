@@ -285,6 +285,39 @@ def test_templates_and_starting_points_are_valid_files():
             wipe()
 
 
+def test_the_studios_can_start_from_what_the_organisation_knows():
+    with authed_client("admin", "Alice Admin") as api:
+        try:
+            wipe()
+            load_sample(api)
+            seed = api.get("/api/company/systems/AG-REFUND/agent-seed").json()
+            assert seed["name"] == "refund-agent" and seed["owner"] == "Sam Okoye" and seed["department"] == "Customer Experience"
+            assert [h["name"] for h in seed["humans"]] == ["Customers", "Support agents"]                      # the owner is not listed as a user
+            assert [a["name"] for a in seed["approvals"]] == ["Approval: Jonas Weber"] and [x["name"] for x in seed["externals"]] == ["Stripe"]
+            d = {x["name"]: x for x in seed["delegates"]}
+            assert set(d) == {"notification-agent", "kyc-agent", "payouts-agent"} and d["notification-agent"]["owner"] == "Lena Fischer" and d["notification-agent"]["cross_department"] is True
+            assert d["payouts-agent"]["owner"] == "" and d["notification-agent"]["data"] == ["customer email", "order id"]
+            assert [x["name"] for x in seed["data"]] == ["Order store", "Customer email addresses", "Customer risk flags", "Payments ledger"] and not any(x["write"] for x in seed["data"])
+            assert seed["goals"] == ["Resolve refunds within policy"]
+            inbound = api.get("/api/company/systems/AG-NOTIFY/agent-seed").json()["inputs"]
+            assert inbound == [{"name": "refund-agent: Send confirmation email", "from": "refund-agent", "department": "Customer Experience", "cross_department": True}]
+            assert api.get("/api/company/systems/MD-TRIAGE/agent-seed").status_code == 404 and api.get("/api/company/systems/NOPE/agent-seed").status_code == 404
+
+            r = api.get("/api/company/systems/MD-TRIAGE/deployment-description").json()
+            desc = r["description"]
+            assert [(a["subtype"], a["identity"]) for a in desc["actors"]] == [("TRAINER", "Aiko Tanaka"), ("VALIDATOR", "Omar Haddad"), ("DEPLOYER", "Omar Haddad"), ("OPERATOR", "Triage nurses"), ("CONSUMER", "Patients")]
+            m = desc["ai_models"][0]
+            assert m["ai_criticality"] == "CRITICAL" and m["data_sensitivity"] == "SPECIAL_CATEGORY" and m["hosting_environment"] == "TYPE_1_INHOUSE" and desc["deployment_name"] == "clinical-triage-llm"
+            assert [e["name"] for e in desc["deployment_environments"]] == ["Platform & Security"]
+            assert {x["name"] for x in desc["departments"]} == {"Clinical AI", "Executive"}
+            assert len(r["skipped"]) == 2 and any("Priya Nair" in x for x in r["skipped"]) and any("Data protection authority" in x for x in r["skipped"])
+            graph = api.post("/api/designs/import", json=desc)                                                 # the Model studio's own importer accepts it as it is
+            assert graph.status_code == 200, graph.text
+            assert api.get("/api/company/systems/AG-REFUND/deployment-description").status_code == 404
+        finally:
+            wipe()
+
+
 if __name__ == "__main__":
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
     failed = 0
