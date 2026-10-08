@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ASTRA · Organisation (mockup)</title>
+<title>ASTRA · Organisation and modelling (mockup v2)</title>
 <style>
 :root{--bg:#F7F8FA;--card:#fff;--line:#DDE1E7;--soft:#EDF0F3;--ink:#141A22;--mut:#4A5563;--blue:#1E4FCB;--blueBg:#E3EBFB;--green:#1E7F4F;--greenBg:#E1F3E8;--amber:#B45309;--amberBg:#FBE9D3;--red:#B42318;--redBg:#FBE3E0;--agent:#0E7490;--agentBg:#DDF3F8;--model:#4C1D95;--modelBg:#EDE7FB}
 *{box-sizing:border-box}
@@ -19,34 +19,45 @@ main{flex:1;min-width:0;padding:28px 32px 60px;display:flex;flex-direction:colum
 h1{margin:0;font-size:26px}h2{margin:0;font-size:16px}h3{margin:0;font-size:14px}
 .cap{color:var(--mut);font-size:12.5px}.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
 .hdr{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px}
-.pad{padding:18px 20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px}.pad{padding:18px 20px}
 .btn{border:0;background:var(--blue);color:#fff;padding:9px 14px;border-radius:8px;font:inherit;font-weight:600;cursor:pointer}
 .btn2{border:1px solid #C5CCD6;background:#fff;color:var(--ink);padding:8px 13px;border-radius:8px;font:inherit;cursor:pointer}
 .btn-s{padding:4px 9px;font-size:12.5px}
 .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;background:var(--soft);color:var(--mut)}
 .pill.ok{background:var(--greenBg);color:var(--green)}.pill.warn{background:var(--amberBg);color:var(--amber)}.pill.bad{background:var(--redBg);color:var(--red)}
 .pill.agent{background:var(--agentBg);color:var(--agent)}.pill.model{background:var(--modelBg);color:var(--model)}.pill.blue{background:var(--blueBg);color:var(--blue)}
-.seg{display:inline-flex;border:1px solid #C5CCD6;border-radius:10px;overflow:hidden;background:#fff}
+.seg{display:inline-flex;border:1px solid #C5CCD6;border-radius:10px;overflow:hidden;background:#fff;flex-wrap:wrap}
 .seg button{border:0;background:none;padding:8px 14px;font:inherit;cursor:pointer;color:var(--mut)}.seg button.on{background:#141A22;color:#fff}
 .inp{border:1px solid #C5CCD6;border-radius:8px;padding:8px 10px;font:inherit;width:100%;background:#fff}
 label.f{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--mut)}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-@media(max-width:1000px){.grid2,.grid3{grid-template-columns:1fr}nav.side{display:none}}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:1000px){.grid2{grid-template-columns:1fr}nav.side{display:none}}
 .drop{border:2px dashed #AEB8C5;border-radius:12px;padding:22px;text-align:center;background:#FBFCFD}
 pre.code{margin:0;background:#0F1620;color:#DDE6F0;border-radius:10px;padding:14px;font-size:12px;line-height:1.55;overflow:auto;max-height:300px}
 .chat{display:flex;flex-direction:column;gap:10px}.bub{max-width:78%;padding:10px 12px;border-radius:12px;font-size:13.5px}
 .bub.me{align-self:flex-end;background:var(--blueBg)}.bub.bot{align-self:flex-start;background:var(--soft)}
 .prop{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;gap:10px;align-items:center;background:#fff}
-.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mut)}.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-2px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mut);padding:8px 10px}.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-2px}
 table{border-collapse:collapse;width:100%;font-size:13px}th{text-align:left;font-size:12px;color:var(--mut);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line)}td{padding:9px 10px;border-bottom:1px solid var(--soft);vertical-align:top}
 tr.sel td{background:#F3F7FF}
 .stack{display:flex;flex-direction:column;gap:6px}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-svg text{font-family:inherit}.dim{opacity:.25}.hit{cursor:pointer}
-.mapwrap{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;align-items:start}
+svg text{font-family:inherit}.dim{opacity:.22}.hit{cursor:pointer}
+.mapwrap{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:18px;align-items:start}
 @media(max-width:1100px){.mapwrap{grid-template-columns:1fr}}
 .kv{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--soft);font-size:13px}
 .mock-flag{background:#FFF8E1;border:1px solid #F1D98A;color:#6B5200;border-radius:8px;padding:8px 12px;font-size:12.5px}
+.views{display:flex;gap:2px;background:#F0F1F3;border-bottom:1px solid var(--line);border-radius:12px 12px 0 0;padding:6px 8px;flex-wrap:wrap}
+.views button{border:0;background:none;font:inherit;padding:7px 12px;border-radius:6px;cursor:pointer;color:#2A3441;font-size:13.5px}.views button.on{background:#DADDE2;font-weight:600}
+.tools{display:flex;gap:18px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap;position:relative}
+.tool{display:flex;align-items:center;gap:8px;border:0;background:none;font:inherit;cursor:pointer;color:var(--ink)}
+.ico{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px;line-height:1}
+.pal{position:absolute;top:46px;left:10px;z-index:5;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(20,26,34,.15);padding:10px;display:none;grid-template-columns:repeat(3,120px);gap:8px}
+.pal.open{display:grid}.pal button{border:1px solid var(--soft);background:#fff;border-radius:8px;padding:8px 6px;font:inherit;font-size:12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px}
+.pal button:hover{background:#F3F7FF}.pal .grp{grid-column:1/-1;font-size:11px;letter-spacing:.06em;color:#7D8896;text-transform:uppercase}
+.chain{display:flex;gap:6px;align-items:stretch;flex-wrap:wrap;padding:10px}
+.chain .st{border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:150px;background:#fff;font-size:12.5px}
+.chain .ar{align-self:center;color:#8793A3;font-size:18px}
+td.c{text-align:center;font-weight:600;white-space:nowrap}.c.ok{background:#F2FAF5;color:var(--green)}.c.xd{background:var(--amberBg);color:var(--amber)}.c.un{background:var(--redBg);color:var(--red)}
 </style>
 </head>
 <body>
@@ -57,15 +68,15 @@ svg text{font-family:inherit}.dim{opacity:.25}.hit{cursor:pointer}
     <div class="navgroup">Shared</div>
     <a class="on" href="#"><span>Organisation</span><small>Acme</small></a>
     <div class="navgroup">Agent assurance</div>
-    <a href="#"><span>Overview</span></a><a href="#"><span>Agents</span><small>3</small></a><a href="#"><span>Design studio</span></a><a href="#"><span>Live runtime</span></a>
+    <a href="#"><span>Overview</span></a><a href="#"><span>Agents</span><small>4</small></a><a href="#"><span>Design studio</span></a><a href="#"><span>Live runtime</span></a>
     <div class="navgroup">Model studio · ST-AI</div>
     <a href="#"><span>Model studio</span><small>27</small></a><a href="#"><span>Compiled contracts</span><small>2</small></a>
   </div>
-  <div class="note-side">Mockup only. Nothing here is saved or connected yet.</div>
+  <div class="note-side">Mockup v2. Nothing here is saved or connected yet.</div>
 </nav>
 
 <main>
-  <div class="mock-flag"><b>Design mockup.</b> Sample company, sample data. Click departments, people and AI systems on the map; switch the input method and the view. Tell me what to change before anything is built.</div>
+  <div class="mock-flag"><b>Design mockup v2.</b> New: Sectro-style modelling views, and agents connected to other agents through tasks, across departments. Click things, switch views, open the “Add Model Component” palette. Tell me what to change before anything is built.</div>
 
   <header class="hdr">
     <div class="stack" style="gap:2px"><span class="cap">One organisation, used by Agent assurance and the Model studio</span>
@@ -73,9 +84,8 @@ svg text{font-family:inherit}.dim{opacity:.25}.hit{cursor:pointer}
     <div class="row"><span class="pill ok" id="sumPill">Draft</span><button class="btn2">Export JSON</button><button class="btn">Save organisation</button></div>
   </header>
 
-  <!-- 1. How the organisation gets in -->
   <section class="card pad stack" style="gap:14px">
-    <div class="row" style="justify-content:space-between"><div class="stack" style="gap:2px"><h2>1 · Describe the company</h2><span class="cap">Three ways in, same result: a map of departments, people and roles, and the AI systems that work with them.</span></div>
+    <div class="row" style="justify-content:space-between"><div class="stack" style="gap:2px"><h2>1 · Describe the company</h2><span class="cap">Three ways in, same result: departments, people and roles, and the AI systems that work with them. Tasks, goals, policies and data are added in the views below.</span></div>
       <div class="seg" role="tablist" id="inTabs"><button class="on" data-t="file">Import a file</button><button data-t="chat">Describe it to the assistant</button><button data-t="hand">Build by hand</button></div></div>
 
     <div id="in-file" class="grid2">
@@ -85,66 +95,79 @@ svg text{font-family:inherit}.dim{opacity:.25}.hit{cursor:pointer}
         <div class="card pad stack" style="background:#F8FAFC;gap:6px"><h3>Preview of what was found</h3>
           <div class="row" id="found"></div>
           <div class="cap" style="color:var(--amber)">1 warning: the ID EMP-4410 appears twice (Omar Haddad, Lena Fischer). Fix it in the file or on the map.</div>
-          <div class="cap">IDs are used to keep a person the same person when the file is imported again, so a re-import updates the organisation instead of duplicating it.</div>
-        </div>
+          <div class="cap">IDs keep a person the same person when the file is imported again, so a re-import updates the organisation instead of duplicating it.</div></div>
       </div>
-      <div class="stack"><h3>What the file looks like</h3><pre class="code" id="jsonEx"></pre><span class="cap">Only <span class="mono">company</span> and <span class="mono">departments</span> are required. People, outside parties and AI systems can be added later in the app.</span></div>
+      <div class="stack"><h3>What the file looks like</h3><pre class="code" id="jsonEx"></pre><span class="cap">Only <span class="mono">company</span> and <span class="mono">departments</span> are required. Everything else can be added later in the app, including <span class="mono">hands_tasks_to</span> and <span class="mono">data_stores</span>.</span></div>
     </div>
 
     <div id="in-chat" class="grid2" style="display:none">
       <div class="chat card pad" style="background:#FBFCFD">
-        <div class="bub me">We're Acme Payments. Engineering builds the payments platform; Customer Experience runs support; Compliance reports to the CTO. Jonas leads CX and approves big refunds.</div>
-        <div class="bub bot">Drafted <b>6 departments</b> and <b>4 people</b> from that. I left the IDs blank and did not invent anyone's surname. Tell me who else is in Compliance and who runs Finance Operations.</div>
-        <div class="bub me">Priya Nair is our compliance lead. Finance ops is run by Daniel Kim.</div>
-        <div class="bub bot">Added Priya Nair (Risk &amp; Compliance) and Daniel Kim (Finance Operations). Review the changes on the right, then accept.</div>
-        <div class="row"><input class="inp" placeholder="Describe your company, a department, or a change…"><button class="btn">Send</button></div>
+        <div class="bub me">We're Acme Payments. Our refund agent sits in Customer Experience. After a refund it asks notify-agent, which Platform runs, to email the customer, and it checks risk flags with kyc-agent in Compliance.</div>
+        <div class="bub bot">Drafted <b>3 agents</b> and <b>2 task links</b>: refund-agent → notify-agent (send confirmation) and refund-agent → kyc-agent (check risk flag). Both cross a department boundary. Who owns notify-agent and kyc-agent?</div>
+        <div class="bub me">Lena Fischer owns notify-agent, Priya Nair owns kyc-agent.</div>
+        <div class="bub bot">Set both owners. Review the changes on the right, then accept.</div>
+        <div class="row"><input class="inp" placeholder="Describe your company, an agent, or how agents work together…"><button class="btn">Send</button></div>
         <span class="cap">Runs on your local model; it can take a couple of minutes on a CPU. Everything it drafts is a proposal.</span>
       </div>
       <div class="stack"><h3>Proposed changes</h3>
-        <div class="prop"><span><b>+ Department</b> Risk &amp; Compliance <span class="cap">reports to Executive</span></span><span class="row"><button class="btn2 btn-s">Edit</button><button class="btn btn-s">Accept</button></span></div>
-        <div class="prop"><span><b>+ Person</b> Priya Nair <span class="cap">Compliance lead · no ID yet</span></span><span class="row"><button class="btn2 btn-s">Edit</button><button class="btn btn-s">Accept</button></span></div>
-        <div class="prop"><span><b>+ Person</b> Daniel Kim <span class="cap">Head of Finance Operations</span></span><span class="row"><button class="btn2 btn-s">Edit</button><button class="btn btn-s">Accept</button></span></div>
-        <div class="prop"><span><b>+ Role link</b> Jonas Weber approves refunds over €100 <span class="cap">applies to AI systems he works with</span></span><span class="row"><button class="btn2 btn-s">Edit</button><button class="btn btn-s">Accept</button></span></div>
-        <button class="btn2" style="align-self:flex-start">Accept all</button>
-      </div>
+        <div class="prop"><span><b>+ Agent</b> notify-agent <span class="cap">Platform &amp; Security · owner Lena Fischer</span></span><span class="row"><button class="btn2 btn-s">Edit</button><button class="btn btn-s">Accept</button></span></div>
+        <div class="prop"><span><b>+ Agent</b> kyc-agent <span class="cap">Risk &amp; Compliance · owner Priya Nair</span></span><span class="row"><button class="btn2 btn-s">Edit</button><button class="btn btn-s">Accept</button></span></div>
+        <div class="prop"><span><b>+ Task link</b> refund-agent → notify-agent <span class="cap">“Send confirmation email”</span></span><span class="row"><button class="btn2 btn-s">Edit</button><button class="btn btn-s">Accept</button></span></div>
+        <div class="prop"><span><b>+ Task link</b> refund-agent → kyc-agent <span class="cap">“Check customer risk flag”</span></span><span class="row"><button class="btn2 btn-s">Edit</button><button class="btn btn-s">Accept</button></span></div>
+        <button class="btn2" style="align-self:flex-start">Accept all</button></div>
     </div>
 
     <div id="in-hand" style="display:none" class="stack">
-      <div class="row"><button class="btn2">+ Department</button><button class="btn2">+ Person or role</button><button class="btn2">+ Outside party</button><button class="btn2">+ AI system</button><span class="cap">Then click an item on the map to fill in its details on the right; drag a person onto another department to move them.</span></div>
+      <div class="row"><button class="btn2">+ Department</button><button class="btn2">+ Person or role</button><button class="btn2">+ Outside party</button><button class="btn2">+ AI system</button><span class="cap">Or open a modelling view below and use <b>Add Model Component</b>, as in Sectro.</span></div>
       <div class="cap">Start from: <a href="#" onclick="return false">an empty company</a> · <a href="#" onclick="return false">a small software company</a> · <a href="#" onclick="return false">a bank</a> · <a href="#" onclick="return false">a hospital</a></div>
     </div>
   </section>
 
-  <!-- 2. The map -->
   <section class="stack" style="gap:10px">
-    <div class="row" style="justify-content:space-between"><div class="stack" style="gap:2px"><h2>2 · The organisation map</h2><span class="cap">Departments, who is in them, and which AI systems work for which department. Click an AI system to see who it deals with.</span></div>
-      <div class="row"><span class="cap">Show</span><div class="seg" id="viewTabs"><button class="on" data-v="all">Everything</button><button data-v="agent">Agents</button><button data-v="model">Models</button></div></div></div>
-    <div class="mapwrap">
-      <div class="card" style="padding:10px;overflow:auto"><svg id="map" viewBox="0 0 1000 585" width="100%" role="img" aria-label="Organisation map"></svg>
-        <div class="legend" style="padding:6px 8px"><span><i style="background:#fff;border:1.5px solid #8793A3"></i>Department</span><span><i style="background:#E3EBFB"></i>Person or role</span><span><i style="background:#F1F3F6;border:1px dashed #8793A3"></i>Outside the company</span><span><i style="background:var(--agentBg);border:1.5px solid var(--agent)"></i>AI agent</span><span><i style="background:var(--modelBg);border:1.5px solid var(--model)"></i>AI model</span></div></div>
-      <aside class="card pad stack" id="insp" style="position:sticky;top:16px"></aside>
+    <div class="stack" style="gap:2px"><h2>2 · Modelling</h2><span class="cap">Same idea as Sectro: one model, several views of it. A change in one view appears in the others (a task added in the Agents view is an operation in the Organisational view).</span></div>
+    <div class="card" style="overflow:visible">
+      <div class="views" id="views" role="tablist">
+        <button class="on" data-v="org">Organisation map</button><button data-v="organisational">Organisational view</button><button data-v="agents">Agents &amp; tasks</button><button data-v="data">Data mapping</button><button data-v="models">Models · ST-AI</button>
+      </div>
+      <div class="tools" id="tools">
+        <button class="tool" id="addComp"><span class="ico" style="background:#2FB344">+</span>Add Model Component</button>
+        <span style="width:1px;height:26px;background:var(--line)"></span>
+        <button class="tool"><span class="ico" style="background:#3BA1E6;font-size:13px">⇢</span>Add Connection</button>
+        <span style="width:1px;height:26px;background:var(--line)"></span>
+        <button class="tool"><span class="ico" style="background:#F2994A;font-size:14px">✕</span>Delete selected</button>
+        <span style="flex:1"></span><span class="cap" id="viewHint"></span>
+        <div class="pal" id="pal"></div>
+      </div>
+      <div class="mapwrap" style="padding:12px">
+        <div style="min-width:0">
+          <div class="row" id="orgFilter" style="padding:0 2px 8px"><span class="cap">Show</span><div class="seg" id="viewTabs"><button class="on" data-v="all">Everything</button><button data-v="agent">Agents</button><button data-v="model">Models</button></div></div>
+          <div class="card" style="padding:6px;overflow:auto"><svg id="map" viewBox="0 0 1000 585" width="100%" role="img" aria-label="Model canvas"></svg><div id="dataView" style="display:none"></div></div>
+          <div class="card" id="chainBox" style="margin-top:10px;display:none"><div class="stack" style="padding:10px 12px 0"><h3>Task chain</h3><span class="cap">The same connections as a sequence: who does what, in which department.</span></div><div class="chain" id="chain"></div></div>
+          <div class="legend" id="legend"></div>
+        </div>
+        <aside class="card pad stack" id="insp" style="position:sticky;top:16px"></aside>
+      </div>
     </div>
   </section>
 
-  <!-- 3. Assignments + checks -->
   <section class="grid2">
-    <div class="card pad stack"><h2>3 · AI systems and the people around them</h2><span class="cap">Each AI system belongs to a department and has people in named roles. These become the starting point of its architecture.</span>
-      <table id="asg"><thead><tr><th>AI system</th><th>Department</th><th>Owner</th><th>People and roles</th></tr></thead><tbody></tbody></table>
-      <div class="row"><button class="btn2 btn-s">+ Link a person to an AI system</button><span class="cap">Roles: owner, requester, approver, operator · and for models: trainer, validator, deployer, operator, consumer.</span></div></div>
-    <div class="card pad stack"><h2>Checks on the organisation</h2><span class="cap">Found while mapping; the same role-separation rules the studios use.</span>
-      <div class="prop"><span><span class="pill bad">Role concentration</span> <b>clinical-triage-llm</b>: Omar Haddad is both validator and deployer.<div class="cap">Separate duties: someone else should deploy (rule SC-RCF-1).</div></span><button class="btn2 btn-s">Fix</button></div>
-      <div class="prop"><span><span class="pill warn">No owner</span> <b>notify-agent</b> has no accountable person.<div class="cap">An agent without an owner counts against ASI10.</div></span><button class="btn2 btn-s">Assign</button></div>
-      <div class="prop"><span><span class="pill warn">No head</span> Department <b>Finance Operations</b> has no head.</span><button class="btn2 btn-s">Assign</button></div>
+    <div class="card pad stack"><h2>3 · AI systems, people and who they work with</h2><span class="cap">Each AI system belongs to a department, has people in named roles, and may hand tasks to other agents.</span>
+      <table id="asg"><thead><tr><th>AI system</th><th>Department</th><th>Owner</th><th>People and roles</th><th>Hands tasks to</th></tr></thead><tbody></tbody></table>
+      <div class="row"><button class="btn2 btn-s">+ Link a person</button><button class="btn2 btn-s">+ Link another agent</button></div></div>
+    <div class="card pad stack"><h2>Checks across the organisation</h2><span class="cap">Found while mapping. Cross-department links are where responsibility is least clear.</span>
+      <div class="prop"><span><span class="pill warn">Crosses departments</span> <b>refund-agent → notify-agent</b><div class="cap">Customer Experience → Platform &amp; Security. Passes the customer's email address; no data-sharing policy covers it yet.</div></span><button class="btn2 btn-s">Add policy</button></div>
+      <div class="prop"><span><span class="pill bad">Not in the contract</span> <b>refund-agent → payouts-agent</b><div class="cap">Seen at runtime (task “Pay out refund”), not declared in contract v1.0.0. Customer Experience → Finance Operations.</div></span><button class="btn2 btn-s">Review drift</button></div>
+      <div class="prop"><span><span class="pill bad">Role concentration</span> <b>clinical-triage-llm</b>: Omar Haddad is both validator and deployer.</span><button class="btn2 btn-s">Fix</button></div>
+      <div class="prop"><span><span class="pill warn">No owner</span> <b>payouts-agent</b> has no accountable person (Finance Operations has no head).</span><button class="btn2 btn-s">Assign</button></div>
       <div class="prop"><span><span class="pill">Duplicate ID</span> <span class="mono">EMP-4410</span> is used by two people.</span><button class="btn2 btn-s">Fix</button></div></div>
   </section>
 
-  <!-- 4. What the studios get -->
   <section class="stack" style="gap:10px">
-    <div class="stack" style="gap:2px"><h2>4 · What the two studios receive</h2><span class="cap">Nobody redraws the company in each studio. Opening an AI system starts from what the organisation map already knows. Elements with a blue outline come from the organisation; grey ones are added in the studio.</span></div>
+    <div class="stack" style="gap:2px"><h2>4 · What the two studios receive</h2><span class="cap">Nobody redraws the company in each studio. Opening an AI system starts from what the organisation already knows. Blue outline: from the organisation. Grey: added in the studio. Amber dashed: an agent in another department.</span></div>
     <div class="grid2">
       <div class="card pad stack"><div class="row" style="justify-content:space-between"><h3><span class="pill agent">Agent studio</span> &nbsp;refund-agent</h3><button class="btn2 btn-s">Open in Agent studio</button></div>
-        <svg viewBox="0 0 470 270" width="100%" id="agentPrev"></svg>
-        <div class="stack" style="gap:2px"><div class="kv"><span>Owner set from the map</span><b>Sam Okoye (Payments Engineering)</b></div><div class="kv"><span>Humans placed</span><b>Customer, Support lead</b></div><div class="kv"><span>Approval step assigned to</span><b>Jonas Weber · CX lead</b></div><div class="kv"><span>Department context</span><b>Customer Experience</b></div></div></div>
+        <svg viewBox="0 0 470 300" width="100%" id="agentPrev"></svg>
+        <div class="stack" style="gap:2px"><div class="kv"><span>Owner set from the map</span><b>Sam Okoye (Payments Engineering)</b></div><div class="kv"><span>Humans placed</span><b>Customers, Support agents</b></div><div class="kv"><span>Approval step assigned to</span><b>Jonas Weber · CX lead</b></div><div class="kv"><span>Delegations to agents in other departments</span><b>notify-agent, kyc-agent</b></div></div></div>
       <div class="card pad stack"><div class="row" style="justify-content:space-between"><h3><span class="pill model">Model studio · ST-AI</span> &nbsp;clinical-triage-llm</h3><button class="btn2 btn-s">Open in Model studio</button></div>
         <svg viewBox="0 0 470 270" width="100%" id="modelPrev"></svg>
         <div class="stack" style="gap:2px"><div class="kv"><span>Department</span><b>Clinical AI</b></div><div class="kv"><span>Trainer / validator / deployer</span><b>Aiko Tanaka · Omar Haddad · Omar Haddad</b></div><div class="kv"><span>Operators and consumers</span><b>Triage nurses · Patients</b></div><div class="kv"><span>Starts the assessment with</span><b>role separation findings already visible</b></div></div></div>
@@ -152,180 +175,254 @@ svg text{font-family:inherit}.dim{opacity:.25}.hit{cursor:pointer}
   </section>
 
   <section class="card pad stack" style="gap:6px"><h3>Questions to settle before building</h3>
-    <ol class="cap" style="margin:0;padding-left:18px;line-height:1.7"><li>One organisation per ASTRA install, or several (for a consultancy managing client companies)?</li><li>Are people always named individuals, or often just roles ("Support lead")? The mockup allows both.</li><li>Should the HR export (CSV) and directory sync (Entra ID / Okta / LDAP) come later, so IDs match the company's real employee IDs?</li><li>Who may edit the organisation: administrators only, or compliance as well?</li><li>Is "reports to" enough for departments, or do you need teams inside departments?</li></ol></section>
+    <ol class="cap" style="margin:0;padding-left:18px;line-height:1.7">
+      <li>One organisation per ASTRA install, or several (for a consultancy managing client companies)?</li>
+      <li>People: named individuals, roles ("Support agents"), or both? The mockup allows both.</li>
+      <li><b>Task links between agents:</b> declared in the Agent studio (as today's delegations) and shown here, or drawn here and pushed into the studio? The mockup assumes one model, edited from either side.</li>
+      <li><b>Cross-department links:</b> should one need acceptance by the other agent's owner before a contract can be ratified? Should the data passed be modelled and checked against a policy?</li>
+      <li>Which Sectro views do you want: Organisational view, Data mapping, Privacy by design, Data breach response plan? The mockup shows the first two and adds Agents &amp; tasks and Models; Privacy by design (threats, mechanisms, measures) and breach response could follow.</li>
+      <li>Which element types should the toolbar offer? The palette shows Sectro's (organisation, actor, goal, operation, policy, asset) plus ours (department, AI agent, AI model, data store).</li>
+      <li>HR export (CSV) and directory sync (Entra ID, Okta, LDAP) later, so IDs match real employee IDs?</li>
+      <li>Who may edit the organisation: administrators only, or compliance as well?</li>
+    </ol></section>
 </main>
 </div>
 
 <script>
-/* ---------- sample company ---------- */
-const DEPTS = [
-  {id:'D-EXEC', name:'Executive', col:0, level:0, head:'EMP-0007'},
-  {id:'D-ENG',  name:'Payments Engineering', col:0, level:1, parent:'D-EXEC', head:'EMP-1042'},
-  {id:'D-CX',   name:'Customer Experience', col:1, level:1, parent:'D-EXEC', head:'EMP-3105'},
-  {id:'D-RISK', name:'Risk & Compliance', col:2, level:1, parent:'D-EXEC', head:'EMP-2210'},
-  {id:'D-FIN',  name:'Finance Operations', col:3, level:1, parent:'D-EXEC', head:null},
-  {id:'D-CLIN', name:'Clinical AI', col:4, level:1, parent:'D-EXEC', head:'EMP-4401'},
-  {id:'D-PLAT', name:'Platform & Security', col:5, level:1, parent:'D-EXEC', head:'EMP-5120'}
-];
-const PEOPLE = [
-  {id:'EMP-0007', name:'Maria Lopez', title:'CTO', dept:'D-EXEC'},
-  {id:'EMP-0001', name:'Tom Reyes', title:'CEO', dept:'D-EXEC'},
-  {id:'EMP-1042', name:'Sam Okoye', title:'Payments eng lead', dept:'D-ENG'},
-  {id:'EMP-1090', name:'Li Wei', title:'Backend engineer', dept:'D-ENG'},
-  {id:'EMP-3105', name:'Jonas Weber', title:'CX lead', dept:'D-CX'},
-  {id:'ROLE-SUP', name:'Support agents', title:'Role · 24 people', dept:'D-CX'},
-  {id:'EMP-2210', name:'Priya Nair', title:'Compliance lead', dept:'D-RISK'},
-  {id:'EMP-6001', name:'Daniel Kim', title:'Finance ops (acting)', dept:'D-FIN'},
-  {id:'ROLE-APR', name:'Finance approver', title:'Role', dept:'D-FIN'},
-  {id:'EMP-4401', name:'Aiko Tanaka', title:'Data scientist', dept:'D-CLIN'},
-  {id:'EMP-4410', name:'Omar Haddad', title:'Clinical safety officer', dept:'D-CLIN'},
-  {id:'ROLE-NUR', name:'Triage nurses', title:'Role · 40 people', dept:'D-CLIN'},
-  {id:'EMP-5120', name:'Lena Fischer', title:'Platform ops lead', dept:'D-PLAT'},
-  {id:'EXT-CUST', name:'Customers', title:'Outside party', dept:null},
-  {id:'EXT-PAT',  name:'Patients', title:'Outside party', dept:null},
-  {id:'EXT-DPA',  name:'Data protection authority', title:'Regulator', dept:null},
-  {id:'EXT-STR',  name:'Stripe', title:'Vendor', dept:null}
-];
-const SYSTEMS = [
-  {id:'AG-REFUND', type:'agent', name:'refund-agent', dept:'D-CX', owner:'EMP-1042',
-   links:[['EXT-CUST','requests refunds'],['EMP-3105','approves refunds over €100'],['ROLE-SUP','escalate to'],['EXT-STR','pays through']]},
-  {id:'AG-NOTIFY', type:'agent', name:'notify-agent', dept:'D-PLAT', owner:null,
-   links:[['EXT-CUST','emails'],['EMP-5120','operates']]},
-  {id:'MD-TRIAGE', type:'model', name:'clinical-triage-llm', dept:'D-CLIN', owner:'EMP-4401',
-   links:[['EMP-4401','trains'],['EMP-4410','validates'],['EMP-4410','deploys'],['ROLE-NUR','operates'],['EXT-PAT','consumes decisions'],['EXT-DPA','oversight by']]}
-];
-const byId = (a,id)=>a.find(x=>x.id===id);
-const person = id => byId(PEOPLE,id);
-const dept = id => byId(DEPTS,id);
+const DEPTS=[
+ {id:'D-EXEC',name:'Executive',col:0,level:0,head:'EMP-0007'},
+ {id:'D-ENG',name:'Payments Engineering',col:0,level:1,parent:'D-EXEC',head:'EMP-1042'},
+ {id:'D-CX',name:'Customer Experience',col:1,level:1,parent:'D-EXEC',head:'EMP-3105'},
+ {id:'D-RISK',name:'Risk & Compliance',col:2,level:1,parent:'D-EXEC',head:'EMP-2210'},
+ {id:'D-FIN',name:'Finance Operations',col:3,level:1,parent:'D-EXEC',head:null},
+ {id:'D-CLIN',name:'Clinical AI',col:4,level:1,parent:'D-EXEC',head:'EMP-4401'},
+ {id:'D-PLAT',name:'Platform & Security',col:5,level:1,parent:'D-EXEC',head:'EMP-5120'}];
+const PEOPLE=[
+ {id:'EMP-0007',name:'Maria Lopez',title:'CTO',dept:'D-EXEC'},{id:'EMP-0001',name:'Tom Reyes',title:'CEO',dept:'D-EXEC'},
+ {id:'EMP-1042',name:'Sam Okoye',title:'Payments eng lead',dept:'D-ENG'},{id:'EMP-1090',name:'Li Wei',title:'Backend engineer',dept:'D-ENG'},
+ {id:'EMP-3105',name:'Jonas Weber',title:'CX lead',dept:'D-CX'},{id:'ROLE-SUP',name:'Support agents',title:'Role · 24 people',dept:'D-CX'},
+ {id:'EMP-2210',name:'Priya Nair',title:'Compliance lead',dept:'D-RISK'},
+ {id:'EMP-6001',name:'Daniel Kim',title:'Finance ops (acting)',dept:'D-FIN'},{id:'ROLE-APR',name:'Finance approver',title:'Role',dept:'D-FIN'},
+ {id:'EMP-4401',name:'Aiko Tanaka',title:'Data scientist',dept:'D-CLIN'},{id:'EMP-4410',name:'Omar Haddad',title:'Clinical safety officer',dept:'D-CLIN'},{id:'ROLE-NUR',name:'Triage nurses',title:'Role · 40 people',dept:'D-CLIN'},
+ {id:'EMP-5120',name:'Lena Fischer',title:'Platform ops lead',dept:'D-PLAT'},
+ {id:'EXT-CUST',name:'Customers',title:'Outside party',dept:null},{id:'EXT-PAT',name:'Patients',title:'Outside party',dept:null},
+ {id:'EXT-DPA',name:'Data protection authority',title:'Regulator',dept:null},{id:'EXT-STR',name:'Stripe',title:'Vendor',dept:null}];
+const SYSTEMS=[
+ {id:'AG-REFUND',type:'agent',name:'refund-agent',dept:'D-CX',owner:'EMP-1042',links:[['EXT-CUST','requests refunds'],['EMP-3105','approves refunds over €100'],['ROLE-SUP','escalate to'],['EXT-STR','pays through']]},
+ {id:'AG-NOTIFY',type:'agent',name:'notify-agent',dept:'D-PLAT',owner:'EMP-5120',links:[['EXT-CUST','emails'],['EMP-5120','operates']]},
+ {id:'AG-KYC',type:'agent',name:'kyc-agent',dept:'D-RISK',owner:'EMP-2210',links:[['EMP-2210','owns']]},
+ {id:'AG-PAYOUT',type:'agent',name:'payouts-agent',dept:'D-FIN',owner:null,links:[['ROLE-APR','approved by']]},
+ {id:'MD-TRIAGE',type:'model',name:'clinical-triage-llm',dept:'D-CLIN',owner:'EMP-4401',links:[['EMP-4401','trains'],['EMP-4410','validates'],['EMP-4410','deploys'],['ROLE-NUR','operates'],['EXT-PAT','consumes decisions'],['EXT-DPA','oversight by']]}];
+const TASKLINKS=[
+ {id:'T1',from:'AG-REFUND',to:'AG-NOTIFY',task:'Send confirmation email',data:['customer email','order id'],declared:true,policy:null},
+ {id:'T2',from:'AG-REFUND',to:'AG-KYC',task:'Check customer risk flag',data:['customer id'],declared:true,policy:'KYC data-sharing policy'},
+ {id:'T3',from:'AG-REFUND',to:'AG-PAYOUT',task:'Pay out refund over €500',data:['order id','amount','IBAN'],declared:false,policy:null,seen:'3 times in the last hour'}];
+const ASSETS=[
+ {id:'A-ORD',name:'Order store',dept:'D-CX',sens:'Internal',acc:{'AG-REFUND':'R','AG-NOTIFY':'R'}},
+ {id:'A-EMAIL',name:'Customer email addresses',dept:'D-CX',sens:'Personal data',acc:{'AG-REFUND':'R','AG-NOTIFY':'R'}},
+ {id:'A-RISK',name:'Customer risk flags',dept:'D-RISK',sens:'Confidential',acc:{'AG-KYC':'RW','AG-REFUND':'R'}},
+ {id:'A-LEDG',name:'Payments ledger',dept:'D-FIN',sens:'Confidential',acc:{'AG-PAYOUT':'RW','AG-REFUND':'R?'}},
+ {id:'A-PHI',name:'Patient records',dept:'D-CLIN',sens:'Special category',acc:{'MD-TRIAGE':'RW'}}];
+const byId=(a,id)=>a.find(x=>x.id===id),person=id=>byId(PEOPLE,id),dept=id=>byId(DEPTS,id),sys=id=>byId(SYSTEMS,id);
+const cross=t=>sys(t.from).dept!==sys(t.to).dept;
 
-const JSON_EX = {
-  company:{name:"Acme Payments", id:"ORG-001"},
-  departments:[{id:"D-ENG",name:"Payments Engineering",reports_to:"D-EXEC",head:"EMP-1042"},{id:"D-CX",name:"Customer Experience",reports_to:"D-EXEC",head:"EMP-3105"}],
-  people:[{id:"EMP-1042",name:"Sam Okoye",title:"Payments eng lead",department:"D-ENG"},{id:"ROLE-SUP",name:"Support agents",kind:"role",headcount:24,department:"D-CX"}],
-  external:[{id:"EXT-CUST",name:"Customers",kind:"customer"}],
-  ai_systems:[{id:"AG-REFUND",type:"agent",name:"refund-agent",department:"D-CX",owner:"EMP-1042",people:[{id:"EXT-CUST",role:"requests"},{id:"EMP-3105",role:"approves"}]}]
-};
-document.getElementById('jsonEx').textContent = JSON.stringify(JSON_EX,null,2);
+const JSON_EX={company:{name:"Acme Payments",id:"ORG-001"},
+ departments:[{id:"D-ENG",name:"Payments Engineering",reports_to:"D-EXEC",head:"EMP-1042"},{id:"D-CX",name:"Customer Experience",reports_to:"D-EXEC",head:"EMP-3105"}],
+ people:[{id:"EMP-1042",name:"Sam Okoye",title:"Payments eng lead",department:"D-ENG"},{id:"ROLE-SUP",name:"Support agents",kind:"role",headcount:24,department:"D-CX"}],
+ external:[{id:"EXT-CUST",name:"Customers",kind:"customer"}],
+ ai_systems:[{id:"AG-REFUND",type:"agent",name:"refund-agent",department:"D-CX",owner:"EMP-1042",people:[{id:"EXT-CUST",role:"requests"},{id:"EMP-3105",role:"approves"}],
+   hands_tasks_to:[{agent:"AG-NOTIFY",task:"Send confirmation email",data:["customer email"]}]}],
+ data_stores:[{id:"A-EMAIL",name:"Customer email addresses",department:"D-CX",sensitivity:"personal"}]};
+document.getElementById('jsonEx').textContent=JSON.stringify(JSON_EX,null,2);
 
-/* ---------- layout ---------- */
-const COLW=156, GAP=8, X0=8, TOPY=8, ROW1Y=165, DH=206, CHIPH=34;
-const pos = {};     // id -> {x,y,w,h,cx,cy}
-function layout(){
-  const exec = dept('D-EXEC'); pos[exec.id] = {x:340,y:TOPY,w:320,h:112};
-  DEPTS.filter(d=>d.level===1).forEach(d=>{ pos[d.id]={x:X0+d.col*(COLW+GAP),y:ROW1Y,w:COLW,h:DH}; });
-  DEPTS.forEach(d=>{ const p=pos[d.id]; const mem=PEOPLE.filter(x=>x.dept===d.id); mem.forEach((m,i)=>{
-    if(d.id==='D-EXEC'){ pos[m.id]={x:p.x+14+i*150,y:p.y+52,w:140,h:CHIPH+8}; }
-    else pos[m.id]={x:p.x+8,y:p.y+40+i*(CHIPH+8),w:COLW-16,h:CHIPH+2}; }); });
-  const ext = PEOPLE.filter(x=>!x.dept); ext.forEach((m,i)=>{ pos[m.id]={x:8+i*232,y:536,w:220,h:38}; });
-  SYSTEMS.forEach(s=>{ const p=pos[s.dept]; const same=SYSTEMS.filter(z=>z.dept===s.dept); const i=same.indexOf(s); pos[s.id]={x:p.x+4+(same.length>1?i*0:0),y:ROW1Y+DH+30+(i*0),w:COLW-8,h:46}; });
-  Object.values(pos).forEach(p=>{p.cx=p.x+p.w/2;p.cy=p.y+p.h/2;});
-}
-layout();
-
-/* ---------- state ---------- */
-let sel=null, view='all';
+let sel=null,selLink=null,view='all',vw='org';
 const NS='http://www.w3.org/2000/svg';
 const el=(t,a={},txt)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(txt!==undefined)e.textContent=txt;return e;};
-function related(){ // ids that stay bright for the selection
-  if(!sel) return null; const out=new Set([sel]);
-  const s=byId(SYSTEMS,sel); const p=person(sel); const d=dept(sel);
-  if(s){ out.add(s.dept); s.links.forEach(l=>out.add(l[0])); if(s.owner) out.add(s.owner); }
-  else if(p){ if(p.dept) out.add(p.dept); SYSTEMS.forEach(z=>{ if(z.owner===p.id||z.links.some(l=>l[0]===p.id)){ out.add(z.id); out.add(z.dept);} }); }
-  else if(d){ PEOPLE.filter(x=>x.dept===d.id).forEach(x=>out.add(x.id)); SYSTEMS.filter(z=>z.dept===d.id).forEach(z=>out.add(z.id)); if(d.parent) out.add(d.parent); }
-  return out;
-}
-function drawMap(){
-  const svg=document.getElementById('map'); svg.innerHTML=''; const rel=related();
-  const dimmed=id=>rel&&!rel.has(id);
-  // hierarchy lines
-  DEPTS.filter(d=>d.parent).forEach(d=>{ const a=pos[d.parent],b=pos[d.id]; const my=(a.y+a.h+b.y)/2;
-    svg.appendChild(el('path',{d:`M${a.cx} ${a.y+a.h} V${my} H${b.cx} V${b.y}`,fill:'none',stroke:'#AEB8C5','stroke-width':1.5,class:dimmed(d.id)&&dimmed(d.parent)?'dim':''})); });
-  // departments
-  DEPTS.forEach(d=>{ const p=pos[d.id]; const g=el('g',{class:'hit'+(dimmed(d.id)?' dim':''),'data-id':d.id});
-    g.appendChild(el('rect',{x:p.x,y:p.y,width:p.w,height:p.h,rx:10,fill:'#fff',stroke:sel===d.id?'#1E4FCB':'#8793A3','stroke-width':sel===d.id?2.5:1.5}));
-    g.appendChild(el('text',{x:p.x+10,y:p.y+22,'font-size':13,'font-weight':700,fill:'#141A22'},d.name));
-    if(!d.head) g.appendChild(el('text',{x:p.x+p.w-10,y:p.y+22,'font-size':11,'text-anchor':'end',fill:'#B45309'},'no head'));
-    g.addEventListener('click',()=>{sel=d.id;render();}); svg.appendChild(g); });
-  // people
-  PEOPLE.forEach(m=>{ const p=pos[m.id]; const ext=!m.dept; const isRole=m.id.startsWith('ROLE');
-    const g=el('g',{class:'hit'+(dimmed(m.id)?' dim':''),'data-id':m.id});
-    g.appendChild(el('rect',{x:p.x,y:p.y,width:p.w,height:p.h,rx:8,fill:ext?'#F1F3F6':'#E3EBFB',stroke:ext?'#8793A3':(sel===m.id?'#1E4FCB':'#9DB4EC'),'stroke-dasharray':ext?'4 3':(isRole?'3 2':'0'),'stroke-width':sel===m.id?2.5:1.2}));
-    g.appendChild(el('text',{x:p.x+8,y:p.y+14,'font-size':11.5,'font-weight':600,fill:'#141A22'},m.name.length>(ext?30:19)?m.name.slice(0,(ext?30:19)-1)+'…':m.name));
-    g.appendChild(el('text',{x:p.x+8,y:p.y+27,'font-size':10,fill:'#4A5563'},(m.title.length>(ext?34:22)?m.title.slice(0,(ext?34:22)-1)+'…':m.title)));
-    g.addEventListener('click',()=>{sel=m.id;render();}); svg.appendChild(g); });
-  // systems (filtered by view)
-  const shown=SYSTEMS.filter(s=>view==='all'||s.type===view);
-  shown.forEach(s=>{ const p=pos[s.id]; const d=pos[s.dept]; const isA=s.type==='agent';
-    svg.appendChild(el('path',{d:`M${p.cx} ${p.y} V${d.y+d.h}`,stroke:isA?'#0E7490':'#4C1D95','stroke-width':1.5,'stroke-dasharray':'4 3',fill:'none',class:dimmed(s.id)?'dim':''}));
-    const g=el('g',{class:'hit'+(dimmed(s.id)?' dim':''),'data-id':s.id});
-    g.appendChild(el('rect',{x:p.x,y:p.y,width:p.w,height:p.h,rx:isA?10:23,fill:isA?'#DDF3F8':'#EDE7FB',stroke:isA?'#0E7490':'#4C1D95','stroke-width':sel===s.id?3:1.6}));
-    g.appendChild(el('text',{x:p.cx,y:p.y+19,'font-size':12,'font-weight':700,'text-anchor':'middle',fill:isA?'#0E7490':'#4C1D95'},s.name.length>20?s.name.slice(0,19)+'…':s.name));
-    g.appendChild(el('text',{x:p.cx,y:p.y+34,'font-size':10,'text-anchor':'middle',fill:'#4A5563'},isA?'AI agent':'AI model · ST-AI'));
-    if(!s.owner&&isA) g.appendChild(el('circle',{cx:p.x+p.w-8,cy:p.y+8,r:6,fill:'#B45309'}));
-    g.addEventListener('click',()=>{sel=s.id;render();}); svg.appendChild(g); });
-  // interaction lines for a selected system
-  const s=byId(SYSTEMS,sel);
-  if(s && shown.includes(s)){ const a=pos[s.id];
-    s.links.forEach(([pid,role],i)=>{ const b=pos[pid]; if(!b) return; const fromY=a.y+a.h; const toY=b.y<a.y?b.y+b.h:b.y;
-      const mx=(a.cx+b.cx)/2, my=(a.y+b.cy)/2-6; const col=s.type==='agent'?'#0E7490':'#4C1D95';
-      svg.appendChild(el('path',{d:`M${a.cx} ${a.y+(b.y<a.y?0:a.h)} C ${a.cx} ${my}, ${b.cx} ${my}, ${b.cx} ${toY}`,fill:'none',stroke:col,'stroke-width':2}));
-      const t=el('text',{x:mx,y:my+(i%2?-4:12),'font-size':10.5,'font-weight':600,'text-anchor':'middle',fill:col,stroke:'#fff','stroke-width':3,'paint-order':'stroke'},role); svg.appendChild(t); }); }
-}
-function inspector(){
-  const box=document.getElementById('insp'); const s=byId(SYSTEMS,sel), p=person(sel), d=dept(sel);
-  const field=(l,v)=>`<label class="f">${l}<input class="inp" value="${v}"></label>`;
-  if(!sel){ box.innerHTML=`<h3>Details</h3><span class="cap">Click a department, a person or an AI system on the map. You can edit here, and every change updates the map and the studios.</span><div class="kv"><span>Departments</span><b>${DEPTS.length}</b></div><div class="kv"><span>People and roles</span><b>${PEOPLE.filter(x=>x.dept).length}</b></div><div class="kv"><span>Outside parties</span><b>${PEOPLE.filter(x=>!x.dept).length}</b></div><div class="kv"><span>AI systems</span><b>${SYSTEMS.length}</b></div>`; return; }
-  if(s){ const o=s.owner&&person(s.owner); const isA=s.type==='agent';
-    box.innerHTML=`<div class="row"><span class="pill ${isA?'agent':'model'}">${isA?'AI agent':'AI model'}</span><b>${s.name}</b></div>${field('Name',s.name)}${field('Department',dept(s.dept).name)}${field('Owner (accountable person)',o?o.name+' · '+o.id:'— none —')}
-    <h3 style="margin-top:6px">Who it deals with</h3>${s.links.map(l=>{const q=person(l[0]);return `<div class="kv"><span>${q.name}<br><span class="cap">${q.id}</span></span><span class="pill blue">${l[1]}</span></div>`}).join('')}
-    <div class="row"><button class="btn2 btn-s">+ Link a person</button></div>${!s.owner?'<div class="pill warn" style="align-self:flex-start">No owner: counts against ASI10</div>':''}
-    <div class="row"><button class="btn btn-s">${isA?'Open in Agent studio':'Open in Model studio'}</button></div>`; }
-  else if(p){ const ex=!p.dept; const used=SYSTEMS.filter(z=>z.owner===p.id||z.links.some(l=>l[0]===p.id));
-    box.innerHTML=`<div class="row"><span class="pill blue">${ex?'Outside party':(p.id.startsWith('ROLE')?'Role':'Person')}</span><b>${p.name}</b></div>${field('Name',p.name)}${field('ID',p.id)}${field('Title',p.title)}${ex?'':field('Department',dept(p.dept).name)}
-    <h3 style="margin-top:6px">Works with</h3>${used.length?used.map(z=>{const ro=[...(z.owner===p.id?['owner']:[]),...z.links.filter(l=>l[0]===p.id).map(l=>l[1])];return `<div class="kv"><span>${z.name}</span><span class="cap" style="text-align:right">${ro.join(', ')}</span></div>`}).join(''):'<span class="cap">No AI system yet.</span>'}`; }
-  else if(d){ const mem=PEOPLE.filter(x=>x.dept===d.id), sys=SYSTEMS.filter(z=>z.dept===d.id);
-    box.innerHTML=`<div class="row"><span class="pill">Department</span><b>${d.name}</b></div>${field('Name',d.name)}${field('ID',d.id)}${field('Reports to',d.parent?dept(d.parent).name:'— top level —')}${field('Head',d.head?person(d.head).name:'— none —')}
-    <h3 style="margin-top:6px">People (${mem.length})</h3>${mem.map(x=>`<div class="kv"><span>${x.name}</span><span class="cap">${x.title}</span></div>`).join('')||'<span class="cap">Nobody yet.</span>'}
-    <h3 style="margin-top:6px">AI systems (${sys.length})</h3>${sys.map(z=>`<div class="kv"><span>${z.name}</span><span class="pill ${z.type}">${z.type}</span></div>`).join('')||'<span class="cap">None.</span>'}`; }
-}
-function assignments(){
-  const tb=document.querySelector('#asg tbody'); tb.innerHTML='';
-  SYSTEMS.filter(s=>view==='all'||s.type===view).forEach(s=>{ const o=s.owner&&person(s.owner); const tr=document.createElement('tr'); if(sel===s.id) tr.className='sel';
-    tr.innerHTML=`<td><span class="pill ${s.type}">${s.type}</span><br><b>${s.name}</b></td><td>${dept(s.dept).name}</td><td>${o?o.name:'<span class="pill warn">none</span>'}</td><td>${s.links.map(l=>`<div>${person(l[0]).name} <span class="cap">· ${l[1]}</span></div>`).join('')}</td>`;
-    tr.style.cursor='pointer'; tr.onclick=()=>{sel=s.id;render();}; tb.appendChild(tr); });
-}
-function render(){ drawMap(); inspector(); assignments(); }
-document.getElementById('viewTabs').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; view=b.dataset.v; [...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b)); render(); });
-document.getElementById('inTabs').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; [...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b)); ['file','chat','hand'].forEach(k=>document.getElementById('in-'+k).style.display=k===b.dataset.t?'':'none'); });
-const nIn=PEOPLE.filter(x=>x.dept).length,nOut=PEOPLE.length-nIn,nAg=SYSTEMS.filter(x=>x.type==='agent').length,nMd=SYSTEMS.length-nAg;
-document.getElementById('sumPill').textContent=`Draft · ${DEPTS.length} departments · ${nIn} people and roles · ${SYSTEMS.length} AI systems`;
-document.getElementById('found').innerHTML=`<span class="pill ok">${DEPTS.length} departments</span><span class="pill ok">${nIn} people and roles</span><span class="pill ok">${nOut} outside parties</span><span class="pill agent">${nAg} agents</span><span class="pill model">${nMd} model</span>`;
+const svg=document.getElementById('map');
+const trunc=(s,n)=>s.length>n?s.slice(0,n-1)+'…':s;
 
-/* ---------- the two generated previews ---------- */
-function node(svg,x,y,w,h,label,sub,kind){ const org=kind==='org'; const g=el('g');
-  g.appendChild(el('rect',{x,y,width:w,height:h,rx:8,fill:kind==='agent'?'#DDF3F8':(kind==='model'?'#EDE7FB':'#fff'),stroke:org?'#1E4FCB':(kind==='agent'?'#0E7490':(kind==='model'?'#4C1D95':'#8793A3')),'stroke-width':org?2.2:1.2}));
-  g.appendChild(el('text',{x:x+w/2,y:y+h/2-(sub?1:-4),'font-size':11,'font-weight':600,'text-anchor':'middle',fill:'#141A22'},label));
-  if(sub) g.appendChild(el('text',{x:x+w/2,y:y+h/2+12,'font-size':9.5,'text-anchor':'middle',fill:'#4A5563'},sub)); svg.appendChild(g); }
-function arrow(svg,x1,y1,x2,y2,label){ svg.appendChild(el('path',{d:`M${x1} ${y1} L${x2} ${y2}`,stroke:'#8793A3','stroke-width':1.4,fill:'none','marker-end':'url(#ah)'})); if(label) svg.appendChild(el('text',{x:(x1+x2)/2,y:(y1+y2)/2-4,'font-size':9.5,'text-anchor':'middle',fill:'#4A5563',stroke:'#fff','stroke-width':3,'paint-order':'stroke'},label)); }
-function defs(svg){ const d=el('defs'); const m=el('marker',{id:'ah',viewBox:'0 0 10 10',refX:9,refY:5,markerWidth:6,markerHeight:6,orient:'auto-start-reverse'}); m.appendChild(el('path',{d:'M0 0 L10 5 L0 10 z',fill:'#8793A3'})); d.appendChild(m); svg.appendChild(d); }
-(function(){ const a=document.getElementById('agentPrev'); defs(a);
-  node(a,10,18,120,40,'Customers','outside party','org'); node(a,10,100,120,40,'support-inbox','input · untrusted','x'); node(a,10,185,120,40,'Support agents','role','org');
-  node(a,170,95,130,52,'refund-agent','owner: Sam Okoye','agent'); a.lastChild.firstChild.setAttribute('stroke','#0E7490');
-  node(a,350,18,112,40,'crm.orders.read','tool · read','x'); node(a,350,80,112,40,'stripe.refunds.create','tool · write','x'); node(a,350,142,112,40,'refund-approval','Jonas Weber','org'); node(a,350,204,112,40,'Stripe','vendor','org');
-  arrow(a,70,58,70,100,'requests'); arrow(a,130,120,170,121,'feeds'); arrow(a,130,205,190,147,'escalate'); arrow(a,300,110,350,40,'uses'); arrow(a,300,121,350,100,'uses'); arrow(a,350,162,300,130,'gates'); arrow(a,300,138,350,222,'pays through'); })();
-(function(){ const m=document.getElementById('modelPrev'); defs(m);
-  m.appendChild(el('rect',{x:6,y:6,width:458,height:258,rx:12,fill:'#FBFAFE',stroke:'#4C1D95','stroke-dasharray':'5 3'})); m.appendChild(el('text',{x:16,y:24,'font-size':11,'font-weight':700,fill:'#4C1D95'},'Clinical AI'));
-  node(m,16,40,130,44,'Aiko Tanaka','trainer','org'); node(m,170,40,130,44,'Omar Haddad','validator','org'); node(m,324,40,130,44,'Omar Haddad','deployer','org');
-  m.appendChild(el('path',{d:'M300 62 H324',stroke:'#B42318','stroke-width':2.4,'stroke-dasharray':'3 2'})); m.appendChild(el('text',{x:312,y:100,'font-size':9.5,'text-anchor':'middle',fill:'#B42318','font-weight':700},'same person'));
-  node(m,150,118,170,52,'clinical-triage-llm','AI model · PHI · in-house','model');
-  node(m,16,196,130,44,'Triage nurses','operator','org'); node(m,170,196,130,44,'Platform & Security','hosting environment','org'); node(m,324,196,130,44,'Patients','consumer','org');
-  arrow(m,81,84,170,128,'trains'); arrow(m,235,84,235,118,'validates'); arrow(m,389,104,320,128,'deploys'); arrow(m,81,196,170,160,'operates'); arrow(m,235,196,235,170,'hosts'); arrow(m,389,196,320,160,'uses decisions'); })();
-// deep links for review: #sel=AG-REFUND  #tab=chat  #view=model
-(function(){const h=location.hash; let m;
- if(m=h.match(/sel=([\w-]+)/)) sel=m[1];
- if(m=h.match(/view=(all|agent|model)/)){view=m[1];[...document.getElementById('viewTabs').children].forEach(x=>x.classList.toggle('on',x.dataset.v===view));}
- if(m=h.match(/tab=(file|chat|hand)/)) document.querySelector('#inTabs button[data-t="'+m[1]+'"]').click();})();
+/* ---- view: organisation map ---- */
+const COLW=156,GAP=8,X0=8,TOPY=8,ROW1Y=165,DH=206,CH=34,pos={};
+(function(){
+ pos['D-EXEC']={x:340,y:TOPY,w:320,h:112};
+ DEPTS.filter(d=>d.level===1).forEach(d=>pos[d.id]={x:X0+d.col*(COLW+GAP),y:ROW1Y,w:COLW,h:DH});
+ DEPTS.forEach(d=>{const p=pos[d.id];PEOPLE.filter(x=>x.dept===d.id).forEach((m,i)=>{pos[m.id]=d.id==='D-EXEC'?{x:p.x+14+i*150,y:p.y+52,w:140,h:CH+8}:{x:p.x+8,y:p.y+40+i*(CH+8),w:COLW-16,h:CH+2};});});
+ PEOPLE.filter(x=>!x.dept).forEach((m,i)=>pos[m.id]={x:8+i*232,y:536,w:220,h:38});
+ SYSTEMS.forEach(s=>{const p=pos[s.dept];pos[s.id]={x:p.x+4,y:ROW1Y+DH+30,w:COLW-8,h:46};});
+ Object.values(pos).forEach(p=>{p.cx=p.x+p.w/2;p.cy=p.y+p.h/2;});})();
+function related(){
+ if(!sel)return null;const out=new Set([sel]);const s=sys(sel),p=person(sel),d=dept(sel);
+ if(s){out.add(s.dept);s.links.forEach(l=>out.add(l[0]));if(s.owner)out.add(s.owner);TASKLINKS.forEach(t=>{if(t.from===s.id){out.add(t.to);out.add(sys(t.to).dept);}if(t.to===s.id){out.add(t.from);out.add(sys(t.from).dept);}});}
+ else if(p){if(p.dept)out.add(p.dept);SYSTEMS.forEach(z=>{if(z.owner===p.id||z.links.some(l=>l[0]===p.id)){out.add(z.id);out.add(z.dept);}});}
+ else if(d){PEOPLE.filter(x=>x.dept===d.id).forEach(x=>out.add(x.id));SYSTEMS.filter(z=>z.dept===d.id).forEach(z=>out.add(z.id));if(d.parent)out.add(d.parent);}
+ return out;}
+function drawOrg(){
+ svg.setAttribute('viewBox','0 0 1000 585');const rel=related();const dim=id=>rel&&!rel.has(id);
+ DEPTS.filter(d=>d.parent).forEach(d=>{const a=pos[d.parent],b=pos[d.id],my=(a.y+a.h+b.y)/2;svg.appendChild(el('path',{d:`M${a.cx} ${a.y+a.h} V${my} H${b.cx} V${b.y}`,fill:'none',stroke:'#AEB8C5','stroke-width':1.5,class:dim(d.id)&&dim(d.parent)?'dim':''}));});
+ DEPTS.forEach(d=>{const p=pos[d.id],g=el('g',{class:'hit'+(dim(d.id)?' dim':'')});g.appendChild(el('rect',{x:p.x,y:p.y,width:p.w,height:p.h,rx:10,fill:'#fff',stroke:sel===d.id?'#1E4FCB':'#8793A3','stroke-width':sel===d.id?2.5:1.5}));
+  g.appendChild(el('text',{x:p.x+10,y:p.y+22,'font-size':13,'font-weight':700,fill:'#141A22'},trunc(d.name,d.level?19:30)));if(!d.head)g.appendChild(el('text',{x:p.x+p.w-10,y:p.y+36,'font-size':10.5,'text-anchor':'end',fill:'#B45309'},'no head'));
+  g.addEventListener('click',()=>{selLink=null;sel=d.id;render();});svg.appendChild(g);});
+ PEOPLE.forEach(m=>{const p=pos[m.id],ext=!m.dept,isRole=m.id.startsWith('ROLE'),g=el('g',{class:'hit'+(dim(m.id)?' dim':'')});
+  g.appendChild(el('rect',{x:p.x,y:p.y,width:p.w,height:p.h,rx:8,fill:ext?'#F1F3F6':'#E3EBFB',stroke:ext?'#8793A3':(sel===m.id?'#1E4FCB':'#9DB4EC'),'stroke-dasharray':ext?'4 3':(isRole?'3 2':'0'),'stroke-width':sel===m.id?2.5:1.2}));
+  g.appendChild(el('text',{x:p.x+8,y:p.y+14,'font-size':11.5,'font-weight':600,fill:'#141A22'},trunc(m.name,ext?30:19)));g.appendChild(el('text',{x:p.x+8,y:p.y+27,'font-size':10,fill:'#4A5563'},trunc(m.title,ext?34:22)));
+  g.addEventListener('click',()=>{selLink=null;sel=m.id;render();});svg.appendChild(g);});
+ const shown=SYSTEMS.filter(s=>view==='all'||s.type===view);
+ shown.forEach(s=>{const p=pos[s.id],d=pos[s.dept],isA=s.type==='agent';svg.appendChild(el('path',{d:`M${p.cx} ${p.y} V${d.y+d.h}`,stroke:isA?'#0E7490':'#4C1D95','stroke-width':1.5,'stroke-dasharray':'4 3',fill:'none',class:dim(s.id)?'dim':''}));
+  const g=el('g',{class:'hit'+(dim(s.id)?' dim':'')});g.appendChild(el('rect',{x:p.x,y:p.y,width:p.w,height:p.h,rx:isA?10:23,fill:isA?'#DDF3F8':'#EDE7FB',stroke:isA?'#0E7490':'#4C1D95','stroke-width':sel===s.id?3:1.6}));
+  g.appendChild(el('text',{x:p.cx,y:p.y+19,'font-size':12,'font-weight':700,'text-anchor':'middle',fill:isA?'#0E7490':'#4C1D95'},trunc(s.name,20)));g.appendChild(el('text',{x:p.cx,y:p.y+34,'font-size':10,'text-anchor':'middle',fill:'#4A5563'},isA?'AI agent':'AI model · ST-AI'));
+  if(!s.owner)g.appendChild(el('circle',{cx:p.x+p.w-8,cy:p.y+8,r:6,fill:'#B45309'}));g.addEventListener('click',()=>{selLink=null;sel=s.id;render();});svg.appendChild(g);});
+ if(view!=='model')TASKLINKS.forEach((t,i)=>{const a=pos[t.from],b=pos[t.to];const y=a.y+a.h,h=34+i*14;const col=t.declared?'#B45309':'#B42318';
+  svg.appendChild(el('path',{d:`M${a.cx+10} ${y} C ${a.cx+10} ${y+h}, ${b.cx-6} ${y+h}, ${b.cx-6} ${y+1}`,fill:'none',stroke:col,'stroke-width':2,'stroke-dasharray':t.declared?'0':'5 3','marker-end':t.declared?'url(#ahw)':'url(#ahr)',class:rel&&!(rel.has(t.from)&&rel.has(t.to))?'dim':''}));});
+ const s=sys(sel);
+ if(s&&shown.includes(s)){const a=pos[s.id];s.links.forEach(([pid,role],i)=>{const b=pos[pid];if(!b)return;const toY=b.y<a.y?b.y+b.h:b.y,mx=(a.cx+b.cx)/2,my=(a.y+b.cy)/2-6,col=s.type==='agent'?'#0E7490':'#4C1D95';
+  svg.appendChild(el('path',{d:`M${a.cx} ${a.y+(b.y<a.y?0:a.h)} C ${a.cx} ${my}, ${b.cx} ${my}, ${b.cx} ${toY}`,fill:'none',stroke:col,'stroke-width':2}));
+  svg.appendChild(el('text',{x:mx,y:my+(i%2?-4:12),'font-size':10.5,'font-weight':600,'text-anchor':'middle',fill:col,stroke:'#fff','stroke-width':3,'paint-order':'stroke'},role));});}
+}
+
+/* ---- view: Sectro-style organisational view ---- */
+const SH={
+ organisation:(g,x,y)=>{g.appendChild(el('rect',{x:x-24,y:y-30,width:48,height:60,fill:'#fff',stroke:'#222','stroke-width':1.6}));g.appendChild(el('path',{d:`M${x-24} ${y-30} h14 l-14 10 z`,fill:'#ccc',stroke:'#222','stroke-width':1}));},
+ actor:(g,x,y,ai)=>{g.appendChild(el('rect',{x:x-34,y:y-24,width:68,height:48,rx:8,fill:ai?'#E8F7FA':'#fff',stroke:ai?'#0E7490':'#E58AA0','stroke-width':2,'stroke-dasharray':'2 3'}));g.appendChild(el('circle',{cx:x-34,cy:y-24,r:6,fill:ai?'#0E7490':'#F4A6B8',stroke:'#444','stroke-width':1}));},
+ goal:(g,x,y)=>g.appendChild(el('rect',{x:x-38,y:y-26,width:76,height:52,rx:8,fill:'#D4E157',stroke:'#111','stroke-width':2.4})),
+ operation:(g,x,y)=>g.appendChild(el('rect',{x:x-42,y:y-24,width:84,height:48,rx:8,fill:'#B07FD8',stroke:'#444','stroke-width':1.6})),
+ policy:(g,x,y)=>g.appendChild(el('path',{d:`M${x-26} ${y-24} h46 q8 0 8 8 v22 q0 8 -8 8 h-46 q-8 0 -8 -8 v-22 q0 -8 8 -8 z`,fill:'#A8E6B8',stroke:'#2B7A3F','stroke-width':1.8}))};
+const ON=[['o','organisation',500,48,'Acme Payments'],
+ ['cu','actor',70,170,'Customers'],['jw','actor',230,170,'Jonas Weber'],['ra','actor',410,170,'refund-agent',1],['na','actor',590,170,'notify-agent',1],['ka','actor',760,170,'kyc-agent',1],['pn','actor',920,170,'Priya Nair'],
+ ['op1','operation',70,325,'Request refund'],['op2','operation',230,325,'Approve refund >€100'],['op3','operation',410,325,'Issue refund'],['op4','operation',590,325,'Send confirmation'],['op5','operation',760,325,'Check risk flag'],['op6','operation',920,325,'Review audit trail'],
+ ['g1','goal',230,480,'Resolve refunds within policy'],['g2','goal',590,480,'Keep customers informed'],
+ ['p1','policy',410,480,'Refund approval policy'],['p2','policy',760,480,'KYC data policy'],['p3','policy',920,480,'Retention 30 days']];
+const OE=[['o','cu','has'],['o','jw','has'],['o','ra','has'],['o','na','has'],['o','ka','has'],['o','pn','has'],
+ ['cu','op1','performs'],['jw','op2','performs'],['ra','op3','performs'],['na','op4','performs'],['ka','op5','performs'],['pn','op6','performs'],
+ ['op1','op3','triggers'],['op2','op3','gates'],['op3','op4','hands task to'],['op3','op5','hands task to'],
+ ['op2','g1','achieves'],['op3','g1','achieves'],['op4','g2','achieves'],['p1','op2','governs'],['p2','op5','governs'],['p3','op6','governs']];
+function drawOrganisational(){
+ svg.setAttribute('viewBox','0 0 1000 585');const P={};ON.forEach(n=>P[n[0]]=n);const rel=sel&&P[sel]?new Set([sel,...OE.filter(e=>e[0]===sel||e[1]===sel).flatMap(e=>[e[0],e[1]])]):null;const dim=id=>rel&&!rel.has(id);
+ OE.forEach(([a,b,l])=>{const A=P[a],B=P[b];const x=(a==='op3'&&(b==='op4'||b==='op5'));const col=x?'#B45309':'#8793A3';const dd=rel&&!(rel.has(a)&&rel.has(b));
+  svg.appendChild(el('path',{d:`M${A[2]} ${A[3]+(A[3]<B[3]?26:-26)} L${B[2]} ${B[3]+(A[3]<B[3]?-26:26)}`,stroke:col,'stroke-width':x?2:1.2,fill:'none','marker-end':'url(#ahw)',class:dd?'dim':''}));
+  if(l!=='has')svg.appendChild(el('text',{x:(A[2]+B[2])/2,y:(A[3]+B[3])/2,'font-size':9.5,'text-anchor':'middle',fill:x?'#B45309':'#4A5563',stroke:'#fff','stroke-width':3,'paint-order':'stroke',class:dd?'dim':''},l));});
+ ON.forEach(([id,t,x,y,label,ai])=>{const g=el('g',{class:'hit'+(dim(id)?' dim':'')});SH[t](g,x,y,ai);if(sel===id)g.appendChild(el('rect',{x:x-48,y:y-34,width:96,height:68,rx:10,fill:'none',stroke:'#1E4FCB','stroke-width':2,'stroke-dasharray':'4 3'}));
+  g.appendChild(el('text',{x,y:y+(t==='organisation'?44:40),'font-size':11,'text-anchor':'middle',fill:'#222'},trunc(label,24)));g.addEventListener('click',()=>{selLink=null;sel=id;render();});svg.appendChild(g);});}
+
+/* ---- view: agents and tasks (swimlanes) ---- */
+const LANES=[{d:'D-CX',x:8},{d:'D-PLAT',x:256},{d:'D-RISK',x:504},{d:'D-FIN',x:752}],LW=240,AY=205,AP={};
+(function(){LANES.forEach(l=>SYSTEMS.filter(z=>z.dept===l.d&&z.type==='agent').forEach(z=>AP[z.id]={x:l.x+30,y:AY,w:LW-60,h:60}));
+ const humans={'D-CX':[['EMP-3105','Jonas Weber','CX lead'],['ROLE-SUP','Support agents','Role']],'D-PLAT':[['EMP-5120','Lena Fischer','Platform ops lead']],'D-RISK':[['EMP-2210','Priya Nair','Compliance lead']],'D-FIN':[['ROLE-APR','Finance approver','Role']]};
+ LANES.forEach(l=>(humans[l.d]||[]).forEach((h,i)=>AP[h[0]]={x:l.x+30,y:345+i*52,w:LW-60,h:42,human:h}));
+ Object.values(AP).forEach(p=>{p.cx=p.x+p.w/2;p.cy=p.y+p.h/2;});})();
+function drawAgents(){
+ svg.setAttribute('viewBox','0 0 1000 480');
+ LANES.forEach(l=>{const d=dept(l.d);svg.appendChild(el('rect',{x:l.x,y:8,width:LW,height:455,rx:12,fill:'#FBFCFD',stroke:'#C5CCD6'}));svg.appendChild(el('text',{x:l.x+12,y:30,'font-size':13,'font-weight':700,fill:'#141A22'},d.name));svg.appendChild(el('text',{x:l.x+12,y:46,'font-size':10.5,fill:d.head?'#4A5563':'#B45309'},d.head?'Head: '+person(d.head).name:'no head'));});
+ const rel=selLink?new Set([selLink.from,selLink.to]):(sel&&sys(sel)?new Set([sel,...TASKLINKS.filter(t=>t.from===sel||t.to===sel).flatMap(t=>[t.from,t.to])]):null);const dim=id=>rel&&!rel.has(id);
+ Object.entries(AP).forEach(([id,p])=>{const g=el('g',{class:'hit'+(dim(id)?' dim':'')});
+  if(p.human){g.appendChild(el('rect',{x:p.x,y:p.y,width:p.w,height:p.h,rx:8,fill:'#E3EBFB',stroke:'#9DB4EC'}));g.appendChild(el('text',{x:p.x+8,y:p.y+17,'font-size':11.5,'font-weight':600,fill:'#141A22'},p.human[1]));g.appendChild(el('text',{x:p.x+8,y:p.y+31,'font-size':10,fill:'#4A5563'},p.human[2]));}
+  else{const s=sys(id);g.appendChild(el('rect',{x:p.x,y:p.y,width:p.w,height:p.h,rx:10,fill:'#DDF3F8',stroke:'#0E7490','stroke-width':sel===id?3:1.8}));g.appendChild(el('text',{x:p.cx,y:p.y+24,'font-size':12.5,'font-weight':700,'text-anchor':'middle',fill:'#0E7490'},s.name));g.appendChild(el('text',{x:p.cx,y:p.y+42,'font-size':10,'text-anchor':'middle',fill:s.owner?'#4A5563':'#B45309'},s.owner?'owner: '+person(s.owner).name:'no owner'));}
+  g.addEventListener('click',()=>{selLink=null;sel=id;render();});svg.appendChild(g);});
+ const j=AP['EMP-3105'],r=AP['AG-REFUND'];svg.appendChild(el('path',{d:`M${j.cx} ${j.y} V${r.y+r.h+2}`,stroke:'#1E4FCB','stroke-width':1.6,fill:'none','marker-end':'url(#ahb)',class:rel&&!rel.has('AG-REFUND')?'dim':''}));svg.appendChild(el('text',{x:j.cx+8,y:(j.y+r.y+r.h)/2+4,'font-size':10,fill:'#1E4FCB',stroke:'#fff','stroke-width':3,'paint-order':'stroke'},'approves >€100'));
+ TASKLINKS.forEach((t,i)=>{const a=AP[t.from],b=AP[t.to];const hgt=60+i*40;const col=t.declared?'#B45309':'#B42318';const act=selLink&&selLink.id===t.id;
+  const g=el('g',{class:'hit'+(rel&&!(rel.has(t.from)&&rel.has(t.to))?' dim':'')});
+  const sx=a.cx+14*(i-1);
+  g.appendChild(el('path',{d:`M${sx} ${a.y} C ${sx} ${a.y-hgt}, ${b.cx} ${b.y-hgt}, ${b.cx} ${b.y-2}`,fill:'none',stroke:col,'stroke-width':act?3.4:2.2,'stroke-dasharray':t.declared?'0':'6 4','marker-end':t.declared?'url(#ahw)':'url(#ahr)'}));
+  const mx=(sx+b.cx)/2,my=a.y-hgt*0.75-2;const lbl=t.task+(t.declared?'':' · seen at runtime');const w=lbl.length*5.7+16;
+  g.appendChild(el('rect',{x:mx-w/2,y:my-12,width:w,height:18,rx:9,fill:t.declared?'#FBE9D3':'#FBE3E0',stroke:col}));g.appendChild(el('text',{x:mx,y:my+1,'font-size':10.5,'font-weight':600,'text-anchor':'middle',fill:col},lbl));
+  g.addEventListener('click',()=>{selLink=t;sel=null;render();});svg.appendChild(g);});}
+function drawChain(){
+ const b=document.getElementById('chainBox'),c=document.getElementById('chain');b.style.display=vw==='agents'?'':'none';c.innerHTML='';if(vw!=='agents')return;
+ const steps=[['Customers','Request a refund','outside'],['refund-agent','Decide the refund','D-CX'],['Jonas Weber','Approve if over €100','D-CX'],['kyc-agent','Check customer risk flag','D-RISK'],['Stripe','Pay out the refund','vendor'],['notify-agent','Send confirmation email','D-PLAT']];
+ steps.forEach((s,i)=>{if(i)c.insertAdjacentHTML('beforeend','<span class="ar">→</span>');const dn=s[2].startsWith('D-')?dept(s[2]).name:(s[2]==='outside'?'Outside':'Vendor');const prev=i&&steps[i-1][2];const x=i&&s[2].startsWith('D-')&&prev&&prev.startsWith('D-')&&prev!==s[2];
+  c.insertAdjacentHTML('beforeend',`<div class="st" style="${x?'border-color:#E5B67A;background:#FFFAF2':''}"><b>${s[0]}</b><div>${s[1]}</div><div class="cap">${dn}${x?' · <span style="color:#B45309">crosses a department</span>':''}</div></div>`);});}
+
+/* ---- view: data mapping ---- */
+function drawData(){
+ const cols=['AG-REFUND','AG-NOTIFY','AG-KYC','AG-PAYOUT','MD-TRIAGE'];
+ const rows=ASSETS.map(a=>`<tr><td><b>${a.name}</b><div class="cap">${a.sens}</div></td><td>${dept(a.dept).name}</td>${cols.map(c=>{const v=a.acc[c];if(!v)return '<td class="c"></td>';const s=sys(c);const x=s.dept!==a.dept,und=v.endsWith('?'),t=v.replace('?','');
+  return `<td class="c ${und?'un':(x?'xd':'ok')}">${t==='RW'?'read / write':'read'}${und?' · undeclared':(x?' ⚠':'')}</td>`;}).join('')}</tr>`).join('');
+ document.getElementById('dataView').innerHTML=`<div style="padding:10px;overflow:auto"><table><thead><tr><th>Data store</th><th>Owned by</th>${cols.map(c=>`<th><span class="pill ${sys(c).type}">${sys(c).type}</span><br>${sys(c).name}<div class="cap" style="font-weight:400">${dept(sys(c).dept).name}</div></th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;}
+
+/* ---- view: models ---- */
+function nodeBox(g,x,y,w,h,label,sub,kind){const org=kind==='org';const e=el('g');e.appendChild(el('rect',{x,y,width:w,height:h,rx:8,fill:kind==='agent'?'#DDF3F8':(kind==='model'?'#EDE7FB':'#fff'),stroke:org?'#1E4FCB':(kind==='agent'?'#0E7490':(kind==='model'?'#4C1D95':'#8793A3')),'stroke-width':org?2.2:1.2}));
+ e.appendChild(el('text',{x:x+w/2,y:y+h/2-(sub?1:-4),'font-size':11,'font-weight':600,'text-anchor':'middle',fill:'#141A22'},label));if(sub)e.appendChild(el('text',{x:x+w/2,y:y+h/2+12,'font-size':9.5,'text-anchor':'middle',fill:'#4A5563'},sub));g.appendChild(e);}
+function arrowTo(g,x1,y1,x2,y2,label,col){g.appendChild(el('path',{d:`M${x1} ${y1} L${x2} ${y2}`,stroke:col||'#8793A3','stroke-width':1.4,fill:'none','marker-end':'url(#ahw)'}));if(label)g.appendChild(el('text',{x:(x1+x2)/2,y:(y1+y2)/2-4,'font-size':9.5,'text-anchor':'middle',fill:col||'#4A5563',stroke:'#fff','stroke-width':3,'paint-order':'stroke'},label));}
+function drawModelRoles(g){
+ g.appendChild(el('rect',{x:6,y:6,width:458,height:258,rx:12,fill:'#FBFAFE',stroke:'#4C1D95','stroke-dasharray':'5 3'}));g.appendChild(el('text',{x:16,y:24,'font-size':11,'font-weight':700,fill:'#4C1D95'},'Clinical AI'));
+ nodeBox(g,16,40,130,44,'Aiko Tanaka','trainer','org');nodeBox(g,170,40,130,44,'Omar Haddad','validator','org');nodeBox(g,324,40,130,44,'Omar Haddad','deployer','org');
+ g.appendChild(el('path',{d:'M300 62 H324',stroke:'#B42318','stroke-width':2.4,'stroke-dasharray':'3 2'}));g.appendChild(el('text',{x:312,y:100,'font-size':9.5,'text-anchor':'middle',fill:'#B42318','font-weight':700},'same person'));
+ nodeBox(g,150,118,170,52,'clinical-triage-llm','AI model · PHI · in-house','model');
+ nodeBox(g,16,196,130,44,'Triage nurses','operator','org');nodeBox(g,170,196,130,44,'Platform & Security','hosting environment','org');nodeBox(g,324,196,130,44,'Patients','consumer','org');
+ arrowTo(g,81,84,170,128,'trains');arrowTo(g,235,84,235,118,'validates');arrowTo(g,389,84,320,128,'deploys');arrowTo(g,81,196,170,160,'operates');arrowTo(g,235,196,235,170,'hosts');arrowTo(g,389,196,320,160,'uses decisions');}
+function drawModels(){svg.setAttribute('viewBox','0 0 470 270');drawModelRoles(svg);}
+
+function addDefs(s){const d=el('defs');[['ahw','#8793A3'],['ahb','#1E4FCB'],['ahr','#B42318']].forEach(([id,c])=>{const m=el('marker',{id,viewBox:'0 0 10 10',refX:9,refY:5,markerWidth:6,markerHeight:6,orient:'auto-start-reverse'});m.appendChild(el('path',{d:'M0 0 L10 5 L0 10 z',fill:c}));d.appendChild(m);});s.appendChild(d);}
+const HINT={org:'Departments, people and the AI systems that work for them. Arcs under the departments: tasks handed to agents in other departments.',organisational:'Sectro-style: organisation, actors, goals, operations and policies. AI agents are actors.',agents:'Agents grouped by department. Click a task arrow to see what is passed and whether the contract declares it.',data:'Which agents and models touch which data, and whose data it is.',models:'ST-AI roles around a model deployment.'};
+const PALETTE={org:[['Organisation','organisation'],['Department','dept'],['Person or role','actor'],['Outside party','ext'],['AI agent','agent'],['AI model','model']],
+ organisational:[['Organisation','organisation'],['Actor','actor'],['Goal','goal'],['Operation','operation'],['Policy','policy'],['Asset','dept']],
+ agents:[['AI agent','agent'],['Person or role','actor'],['Task link','operation'],['Policy','policy'],['Department','dept']],
+ data:[['Data store','dept'],['AI agent','agent'],['AI model','model'],['Access','operation']],models:[['AI model','model'],['Person or role','actor'],['Environment','dept'],['Constraint','policy']]};
+function paletteHtml(){const pal=document.getElementById('pal');pal.innerHTML='<div class="grp">Add to this view</div>';
+ PALETTE[vw].forEach(([l,t])=>{const s=document.createElementNS(NS,'svg');s.setAttribute('width',44);s.setAttribute('height',32);s.setAttribute('viewBox','-50 -34 100 68');const g=el('g');
+  if(SH[t])SH[t](g,0,0,t==='agent');else if(t==='agent')g.appendChild(el('rect',{x:-36,y:-22,width:72,height:44,rx:10,fill:'#DDF3F8',stroke:'#0E7490','stroke-width':3}));else if(t==='model')g.appendChild(el('rect',{x:-38,y:-22,width:76,height:44,rx:22,fill:'#EDE7FB',stroke:'#4C1D95','stroke-width':3}));else if(t==='ext')g.appendChild(el('rect',{x:-36,y:-20,width:72,height:40,rx:8,fill:'#F1F3F6',stroke:'#8793A3','stroke-dasharray':'6 4','stroke-width':3}));else g.appendChild(el('rect',{x:-36,y:-24,width:72,height:48,rx:10,fill:'#fff',stroke:'#8793A3','stroke-width':3}));
+  s.appendChild(g);const b=document.createElement('button');b.appendChild(s);b.appendChild(document.createTextNode(l));pal.appendChild(b);});}
+function inspector(){
+ const box=document.getElementById('insp'),field=(l,v)=>`<label class="f">${l}<input class="inp" value="${v}"></label>`;
+ if(vw==='agents'&&selLink){const t=selLink,a=sys(t.from),b=sys(t.to),x=cross(t);
+  box.innerHTML=`<div class="row"><span class="pill agent">Task link</span><b>${t.task}</b></div>${field('Task',t.task)}<div class="kv"><span>From</span><b>${a.name}<br><span class="cap">${dept(a.dept).name}</span></b></div><div class="kv"><span>To</span><b>${b.name}<br><span class="cap">${dept(b.dept).name}${b.owner?' · owner '+person(b.owner).name:' · <span style="color:#B45309">no owner</span>'}</span></b></div>
+  <div class="kv"><span>Data passed</span><span>${t.data.map(d=>`<span class="pill">${d}</span>`).join(' ')}</span></div>
+  <div class="kv"><span>Crosses departments</span><b>${x?'<span class="pill warn">Yes</span>':'No'}</b></div>
+  <div class="kv"><span>In the design</span><b>${t.declared?'<span class="pill ok">Declared in refund-agent v1.0.0</span>':'<span class="pill bad">Not declared</span>'}</b></div>
+  ${t.declared?'':`<div class="kv"><span>Observed</span><span>${t.seen}</span></div>`}
+  <div class="kv"><span>Policy</span><b>${t.policy||'<span style="color:#B45309">none covers this data</span>'}</b></div>
+  <div class="row">${t.declared?'<button class="btn2 btn-s">Open in Agent studio</button>':'<button class="btn btn-s">Approve into the contract</button><button class="btn2 btn-s">Decline</button>'}<button class="btn2 btn-s">Add policy</button></div>`;return;}
+ const s=sys(sel),p=person(sel),d=dept(sel);
+ if(vw==='organisational'&&sel){const n=ON.find(x=>x[0]===sel);if(n){const lab={organisation:'Organisation',actor:'Actor',goal:'Goal',operation:'Operation',policy:'Policy'}[n[1]];const ed=OE.filter(e=>e[0]===sel||e[1]===sel);
+  box.innerHTML=`<div class="row"><span class="pill blue">${lab}</span><b>${n[4]}</b></div>${field('Name',n[4])}<h3 style="margin-top:6px">Connections</h3>${ed.map(e=>{const o=e[0]===sel?e[1]:e[0];const m=ON.find(x=>x[0]===o);return `<div class="kv"><span>${e[0]===sel?e[2]+' →':'← '+e[2]}</span><b>${m[4]}</b></div>`}).join('')||'<span class="cap">None.</span>'}${n[1]==='operation'?'<span class="pill agent" style="align-self:flex-start">Same as a task in the Agents &amp; tasks view</span>':''}`;return;}}
+ if(!sel){box.innerHTML=`<h3>Details</h3><span class="cap">Click anything on the canvas. Edits here update every view and both studios.</span><div class="kv"><span>Departments</span><b>${DEPTS.length}</b></div><div class="kv"><span>People and roles</span><b>${PEOPLE.filter(x=>x.dept).length}</b></div><div class="kv"><span>Outside parties</span><b>${PEOPLE.filter(x=>!x.dept).length}</b></div><div class="kv"><span>AI systems</span><b>${SYSTEMS.length}</b></div><div class="kv"><span>Task links between agents</span><b>${TASKLINKS.length} (${TASKLINKS.filter(cross).length} cross a department)</b></div>`;return;}
+ if(s){const o=s.owner&&person(s.owner),isA=s.type==='agent',out=TASKLINKS.filter(t=>t.from===s.id),inn=TASKLINKS.filter(t=>t.to===s.id);
+  box.innerHTML=`<div class="row"><span class="pill ${isA?'agent':'model'}">${isA?'AI agent':'AI model'}</span><b>${s.name}</b></div>${field('Name',s.name)}${field('Department',dept(s.dept).name)}${field('Owner (accountable person)',o?o.name+' · '+o.id:'— none —')}
+  <h3 style="margin-top:6px">Who it deals with</h3>${s.links.map(l=>{const q=person(l[0]);return `<div class="kv"><span>${q.name}<br><span class="cap">${q.id}</span></span><span class="pill blue">${l[1]}</span></div>`}).join('')}
+  ${(out.length||inn.length)?`<h3 style="margin-top:6px">Other agents</h3>${out.map(t=>`<div class="kv"><span>→ ${sys(t.to).name}<br><span class="cap">${t.task}</span></span><span class="pill ${cross(t)?'warn':''}">${cross(t)?dept(sys(t.to).dept).name:'same dept'}</span></div>`).join('')}${inn.map(t=>`<div class="kv"><span>← ${sys(t.from).name}<br><span class="cap">${t.task}</span></span><span class="pill">in</span></div>`).join('')}`:''}
+  ${!s.owner?'<span class="pill warn" style="align-self:flex-start">No owner</span>':''}<div class="row"><button class="btn2 btn-s">+ Link a person</button><button class="btn btn-s">${isA?'Open in Agent studio':'Open in Model studio'}</button></div>`;}
+ else if(p){const ex=!p.dept,used=SYSTEMS.filter(z=>z.owner===p.id||z.links.some(l=>l[0]===p.id));
+  box.innerHTML=`<div class="row"><span class="pill blue">${ex?'Outside party':(p.id.startsWith('ROLE')?'Role':'Person')}</span><b>${p.name}</b></div>${field('Name',p.name)}${field('ID',p.id)}${field('Title',p.title)}${ex?'':field('Department',dept(p.dept).name)}<h3 style="margin-top:6px">Works with</h3>${used.length?used.map(z=>{const ro=[...(z.owner===p.id?['owner']:[]),...z.links.filter(l=>l[0]===p.id).map(l=>l[1])];return `<div class="kv"><span>${z.name}</span><span class="cap" style="text-align:right">${ro.join(', ')}</span></div>`}).join(''):'<span class="cap">No AI system yet.</span>'}`;}
+ else if(d){const mem=PEOPLE.filter(x=>x.dept===d.id),ss=SYSTEMS.filter(z=>z.dept===d.id);
+  box.innerHTML=`<div class="row"><span class="pill">Department</span><b>${d.name}</b></div>${field('Name',d.name)}${field('ID',d.id)}${field('Reports to',d.parent?dept(d.parent).name:'— top level —')}${field('Head',d.head?person(d.head).name:'— none —')}<h3 style="margin-top:6px">People (${mem.length})</h3>${mem.map(x=>`<div class="kv"><span>${x.name}</span><span class="cap">${x.title}</span></div>`).join('')||'<span class="cap">Nobody yet.</span>'}<h3 style="margin-top:6px">AI systems (${ss.length})</h3>${ss.map(z=>`<div class="kv"><span>${z.name}</span><span class="pill ${z.type}">${z.type}</span></div>`).join('')||'<span class="cap">None.</span>'}`;}
+ else box.innerHTML='<span class="cap">Nothing here in this view. Pick something else.</span>';}
+function assignments(){const tb=document.querySelector('#asg tbody');tb.innerHTML='';
+ SYSTEMS.forEach(s=>{const o=s.owner&&person(s.owner),out=TASKLINKS.filter(t=>t.from===s.id);const tr=document.createElement('tr');if(sel===s.id)tr.className='sel';
+  tr.innerHTML=`<td><span class="pill ${s.type}">${s.type}</span><br><b>${s.name}</b></td><td>${dept(s.dept).name}</td><td>${o?o.name:'<span class="pill warn">none</span>'}</td><td>${s.links.map(l=>`<div>${person(l[0]).name} <span class="cap">· ${l[1]}</span></div>`).join('')}</td><td>${out.map(t=>`<div>${sys(t.to).name} <span class="cap">· ${t.task}</span>${cross(t)?' <span class="pill warn">other dept</span>':''}${t.declared?'':' <span class="pill bad">undeclared</span>'}</div>`).join('')||'<span class="cap">—</span>'}</td>`;
+  tr.style.cursor='pointer';tr.onclick=()=>{selLink=null;sel=s.id;render();};tb.appendChild(tr);});}
+function legend(){const L={org:'<span><i style="background:#fff;border:1.5px solid #8793A3"></i>Department</span><span><i style="background:#E3EBFB"></i>Person or role</span><span><i style="background:#F1F3F6;border:1px dashed #8793A3"></i>Outside the company</span><span><i style="background:var(--agentBg);border:1.5px solid var(--agent)"></i>AI agent</span><span><i style="background:var(--modelBg);border:1.5px solid var(--model)"></i>AI model</span><span><i style="background:#FBE9D3;border:1.5px solid #B45309"></i>Task link to another agent</span><span><i style="background:#FBE3E0;border:1.5px dashed #B42318"></i>Seen at runtime, not declared</span>',
+ organisational:'<span><i style="background:#fff;border:1.5px solid #222"></i>Organisation</span><span><i style="background:#fff;border:1.5px dotted #E58AA0"></i>Actor</span><span><i style="background:#D4E157;border:1.5px solid #111"></i>Goal</span><span><i style="background:#B07FD8"></i>Operation (task)</span><span><i style="background:#A8E6B8;border:1px solid #2B7A3F"></i>Policy</span>',
+ agents:'<span><i style="background:var(--agentBg);border:1.5px solid var(--agent)"></i>AI agent</span><span><i style="background:#E3EBFB"></i>Person or role</span><span><i style="background:#FBE9D3;border:1.5px solid #B45309"></i>Task link declared in the design</span><span><i style="background:#FBE3E0;border:1.5px dashed #B42318"></i>Seen at runtime, not declared</span>',
+ data:'<span><i style="background:#F2FAF5"></i>Same department</span><span><i style="background:var(--amberBg)"></i>Another department</span><span><i style="background:var(--redBg)"></i>Observed at runtime, not declared</span>',models:'<span><i style="background:#fff;border:1.5px solid var(--blue)"></i>From the organisation</span><span><i style="background:var(--modelBg);border:1.5px solid var(--model)"></i>AI model</span>'};
+ document.getElementById('legend').innerHTML=L[vw];}
+function render(){svg.innerHTML='';addDefs(svg);
+ const isData=vw==='data';svg.style.display=isData?'none':'';document.getElementById('dataView').style.display=isData?'':'none';document.getElementById('orgFilter').style.display=vw==='org'?'':'none';
+ if(vw==='org')drawOrg();else if(vw==='organisational')drawOrganisational();else if(vw==='agents')drawAgents();else if(vw==='data')drawData();else drawModels();
+ drawChain();document.getElementById('viewHint').textContent=HINT[vw];paletteHtml();legend();inspector();assignments();}
+document.getElementById('views').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;vw=b.dataset.v;sel=null;selLink=null;[...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b));document.getElementById('pal').classList.remove('open');render();});
+document.getElementById('viewTabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;view=b.dataset.v;[...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b));render();});
+document.getElementById('inTabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;[...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b));['file','chat','hand'].forEach(k=>document.getElementById('in-'+k).style.display=k===b.dataset.t?'':'none');});
+document.getElementById('addComp').addEventListener('click',()=>document.getElementById('pal').classList.toggle('open'));
+(function(){const nIn=PEOPLE.filter(x=>x.dept).length,nOut=PEOPLE.length-nIn,nAg=SYSTEMS.filter(x=>x.type==='agent').length,nMd=SYSTEMS.length-nAg;
+ document.getElementById('sumPill').textContent=`Draft · ${DEPTS.length} departments · ${nIn} people and roles · ${SYSTEMS.length} AI systems`;
+ document.getElementById('found').innerHTML=`<span class="pill ok">${DEPTS.length} departments</span><span class="pill ok">${nIn} people and roles</span><span class="pill ok">${nOut} outside parties</span><span class="pill agent">${nAg} agents</span><span class="pill model">${nMd} model</span><span class="pill warn">${TASKLINKS.length} task links, ${TASKLINKS.filter(cross).length} cross departments</span>`;})();
+
+/* studio previews */
+(function(){const a=document.getElementById('agentPrev');addDefs(a);
+ const nb=(x,y,w,h,l,s,k)=>nodeBox(a,x,y,w,h,l,s,k);
+ nb(10,16,120,40,'Customers','outside party','org');nb(10,92,120,40,'support-inbox','input · untrusted');nb(10,168,120,40,'Support agents','role','org');
+ nb(170,100,130,52,'refund-agent','owner: Sam Okoye','agent');
+ nb(350,10,112,38,'crm.orders.read','tool · read');nb(350,56,112,38,'stripe.refunds.create','tool · write');nb(350,102,112,38,'refund-approval','Jonas Weber','org');
+ [['notify-agent','Platform & Security',160],['kyc-agent','Risk & Compliance',212]].forEach(([n,d,y])=>{const e=el('g');e.appendChild(el('rect',{x:330,y,width:132,height:44,rx:8,fill:'#FFFAF2',stroke:'#B45309','stroke-width':2,'stroke-dasharray':'5 3'}));e.appendChild(el('text',{x:396,y:y+19,'font-size':11,'font-weight':600,'text-anchor':'middle',fill:'#141A22'},n));e.appendChild(el('text',{x:396,y:y+33,'font-size':9.5,'text-anchor':'middle',fill:'#B45309'},d));a.appendChild(e);});
+ nb(170,230,130,40,'Stripe','vendor','org');
+ arrowTo(a,70,56,70,92,'requests');arrowTo(a,130,112,170,121,'feeds');arrowTo(a,130,188,190,152,'escalate');arrowTo(a,300,112,350,32,'uses');arrowTo(a,300,120,350,78,'uses');arrowTo(a,350,121,300,130,'gates');
+ arrowTo(a,300,142,330,176,'send confirmation','#B45309');arrowTo(a,290,150,330,230,'check risk flag','#B45309');arrowTo(a,235,152,235,230,'pays through');
+ a.appendChild(el('text',{x:396,y:280,'font-size':9.5,'text-anchor':'middle',fill:'#B45309'},'amber dashed: agent in another department'));})();
+(function(){const m=document.getElementById('modelPrev');addDefs(m);drawModelRoles(m);})();
+
+(function(){const h=location.hash;let m;if(m=h.match(/v=(organisational|org|agents|data|models)/)){vw=m[1];[...document.getElementById('views').children].forEach(x=>x.classList.toggle('on',x.dataset.v===vw));}
+ if(m=h.match(/sel=([\w-]+)/))sel=m[1];if(m=h.match(/link=(T\d)/))selLink=byId(TASKLINKS,m[1]);if(m=h.match(/tab=(file|chat|hand)/))document.querySelector('#inTabs button[data-t="'+m[1]+'"]').click();})();
 render();
+if(location.hash.includes('pal=1'))document.getElementById('pal').classList.add('open');
 </script>
 </body>
 </html>
