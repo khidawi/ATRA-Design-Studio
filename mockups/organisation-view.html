@@ -128,10 +128,10 @@ td.c{text-align:center;font-weight:600;white-space:nowrap}.c.ok{background:#F2FA
   </section>
 
   <section class="stack" style="gap:10px">
-    <div class="stack" style="gap:2px"><h2>2 · Modelling</h2><span class="cap">Same idea as Sectro: one model, several views of it. A change in one view appears in the others (a task added in the Agents view is an operation in the Organisational view).</span></div>
+    <div class="stack" style="gap:2px"><h2>2 · Modelling</h2><span class="cap">Same idea as Sectro: one model, several views of it (organisation, data mapping, privacy by design, breach response plan, plus agents and models). A change in one view appears in the others (a task added in the Agents view is an operation in the Organisational view).</span></div>
     <div class="card" style="overflow:visible">
       <div class="views" id="views" role="tablist">
-        <button class="on" data-v="org">Organisation map</button><button data-v="organisational">Organisational view</button><button data-v="agents">Agents &amp; tasks</button><button data-v="data">Data mapping</button><button data-v="models">Models · ST-AI</button>
+        <button class="on" data-v="org">Organisation map</button><button data-v="organisational">Organisational view</button><button data-v="agents">Agents &amp; tasks</button><button data-v="data">Data mapping</button><button data-v="privacy">Privacy by design</button><button data-v="breach">Breach response plan</button><button data-v="models">Models · ST-AI</button>
       </div>
       <div class="tools" id="tools">
         <button class="tool" id="addComp"><span class="ico" style="background:#2FB344">+</span>Add Model Component</button>
@@ -163,6 +163,8 @@ td.c{text-align:center;font-weight:600;white-space:nowrap}.c.ok{background:#F2FA
       <div class="prop"><span><span class="pill bad">Not in the contract</span> <b>refund-agent → payouts-agent</b><div class="cap">Seen at runtime (task “Pay out refund”), not declared in contract v1.0.0. Customer Experience → Finance Operations.</div></span><button class="btn2 btn-s">Review drift</button></div>
       <div class="prop"><span><span class="pill bad">Role concentration</span> <b>clinical-triage-llm</b>: Omar Haddad is both validator and deployer.<div class="cap">Separate duties: someone else should deploy (rule SC-RCF-1).</div></span><button class="btn2 btn-s">Fix</button></div>
       <div class="prop"><span><span class="pill warn">No owner</span> <b>payouts-agent</b> has no accountable person.<div class="cap">An agent without an owner counts against ASI10.</div></span><button class="btn2 btn-s">Assign</button></div>
+      <div class="prop"><span><span class="pill bad">Threat with no protection</span> <b>Training data leakage</b> on patient records.<div class="cap">Privacy by design view: nothing mitigates it yet.</div></span><button class="btn2 btn-s">Add protection</button></div>
+      <div class="prop"><span><span class="pill warn">Breach plan gap</span> <b>Assess</b> step depends on Priya Nair alone.<div class="cap">No deputy named. Finance Operations has no head, so a payouts breach has no contact either.</div></span><button class="btn2 btn-s">Name a deputy</button></div>
       <div class="prop"><span><span class="pill warn">No head</span> Department <b>Finance Operations</b> has no head.</span><button class="btn2 btn-s">Assign</button></div>
       <div class="prop"><span><span class="pill">Duplicate ID</span> <span class="mono">EMP-4410</span> is used by two people.</span><button class="btn2 btn-s">Fix</button></div></div>
   </section>
@@ -186,7 +188,8 @@ td.c{text-align:center;font-weight:600;white-space:nowrap}.c.ok{background:#F2FA
       <li>Is "reports to" enough for departments, or do you need teams inside departments?</li>
       <li><b>Task links between agents:</b> declared in the Agent studio (as today's delegations) and shown here, or drawn here and pushed into the studio? The mockup assumes one model, edited from either side.</li>
       <li><b>Cross-department links:</b> should one need acceptance by the other agent's owner before a contract can be ratified? Should the data passed be modelled and checked against a policy?</li>
-      <li>Which Sectro views do you want: Organisational view, Data mapping, Privacy by design, Data breach response plan? The mockup shows the first two and adds Agents &amp; tasks and Models; Privacy by design (threats, mechanisms, measures) and breach response could follow.</li>
+      <li>Views: this mockup now has Organisational view, Data mapping, Privacy by design and Breach response plan, plus Agents &amp; tasks and Models. Is a Threat view (Sectro's attacks, vulnerabilities, conflicts) needed as well, or does Privacy by design cover it?</li>
+      <li>Breach plan: one plan for the organisation, or one per agent? Who may start it, and should ASTRA open it automatically when a critical finding is raised?</li>
       <li>Which element types should the toolbar offer? The palette shows Sectro's (organisation, actor, goal, operation, policy, asset) plus ours (department, AI agent, AI model, data store).</li>
       <li>HR export (CSV) and directory sync (Entra ID, Okta, LDAP) later, so IDs match real employee IDs?</li>
       <li>Who may edit the organisation: administrators only, or compliance as well?</li>
@@ -291,6 +294,11 @@ const SH={
  actor:(g,x,y,ai)=>{g.appendChild(el('rect',{x:x-34,y:y-24,width:68,height:48,rx:8,fill:ai?'#E8F7FA':'#fff',stroke:ai?'#0E7490':'#E58AA0','stroke-width':2,'stroke-dasharray':'2 3'}));g.appendChild(el('circle',{cx:x-34,cy:y-24,r:6,fill:ai?'#0E7490':'#F4A6B8',stroke:'#444','stroke-width':1}));},
  goal:(g,x,y)=>g.appendChild(el('rect',{x:x-38,y:y-26,width:76,height:52,rx:8,fill:'#D4E157',stroke:'#111','stroke-width':2.4})),
  operation:(g,x,y)=>g.appendChild(el('rect',{x:x-42,y:y-24,width:84,height:48,rx:8,fill:'#B07FD8',stroke:'#444','stroke-width':1.6})),
+ asset:(g,x,y)=>{g.appendChild(el('rect',{x:x-30,y:y-22,width:60,height:44,rx:10,fill:'#FFF3C4',stroke:'#9A7B00','stroke-width':1.8}));g.appendChild(el('path',{d:`M${x-30} ${y-10} q30 12 60 0`,fill:'none',stroke:'#9A7B00','stroke-width':1.4}));},
+ threat:(g,x,y)=>g.appendChild(el('path',{d:`M${x-22} ${y-26} h44 l16 26 l-16 26 h-44 l-16 -26 z`,fill:'#FBD0CB',stroke:'#B42318','stroke-width':2})),
+ mechanism:(g,x,y)=>g.appendChild(el('path',{d:`M${x-28} ${y-24} h56 v22 q0 22 -28 28 q-28 -6 -28 -28 z`,fill:'#CDEFD8',stroke:'#1E7F4F','stroke-width':2})),
+ step:(g,x,y)=>g.appendChild(el('rect',{x:x-42,y:y-24,width:84,height:48,rx:8,fill:'#E3EBFB',stroke:'#1E4FCB','stroke-width':1.8})),
+ decision:(g,x,y)=>g.appendChild(el('path',{d:`M${x} ${y-28} l42 28 l-42 28 l-42 -28 z`,fill:'#FBE9D3',stroke:'#B45309','stroke-width':1.8})),
  policy:(g,x,y)=>g.appendChild(el('path',{d:`M${x-26} ${y-24} h46 q8 0 8 8 v22 q0 8 -8 8 h-46 q-8 0 -8 -8 v-22 q0 -8 8 -8 z`,fill:'#A8E6B8',stroke:'#2B7A3F','stroke-width':1.8}))};
 const ON=[['o','organisation',500,48,'Acme Payments'],
  ['cu','actor',70,170,'Customers'],['jw','actor',230,170,'Jonas Weber'],['ra','actor',410,170,'refund-agent',1],['na','actor',590,170,'notify-agent',1],['ka','actor',760,170,'kyc-agent',1],['pn','actor',920,170,'Priya Nair'],
@@ -344,6 +352,57 @@ function drawData(){
   return `<td class="c ${und?'un':(x?'xd':'ok')}">${t==='RW'?'read / write':'read'}${und?' · undeclared':(x?' ⚠':'')}</td>`;}).join('')}</tr>`).join('');
  document.getElementById('dataView').innerHTML=`<div style="padding:10px;overflow:auto"><table><thead><tr><th>Data store</th><th>Owned by</th>${cols.map(c=>`<th><span class="pill ${sys(c).type}">${sys(c).type}</span><br>${sys(c).name}<div class="cap" style="font-weight:400">${dept(sys(c).dept).name}</div></th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;}
 
+
+/* ---- view: privacy by design (data, threats, protections) ---- */
+const PV=[['pa1','asset',140,70,'Customer email addresses'],['pa2','asset',400,70,'IBAN and amounts'],['pa3','asset',640,70,'Customer risk flags'],['pa4','asset',880,70,'Patient records'],
+ ['pt1','threat',100,250,'Prompt injection via support inbox'],['pt2','threat',300,250,'Email shared too widely'],['pt3','threat',500,250,'Undeclared payout handoff'],['pt4','threat',700,250,'Risk flags exposed to another agent'],['pt5','threat',900,250,'Training data leakage'],
+ ['pm1','mechanism',100,430,'Contract tool allow-list'],['pm2','mechanism',300,430,'Send order id only (minimise)'],['pm3','mechanism',500,430,'Runtime drift monitoring'],['pm4','policy',700,430,'KYC data policy']];
+const PVD={pa1:'Held by Customer Experience. Read by refund-agent and notify-agent.',pa2:'Held by Finance Operations. Used by refund-agent and payouts-agent.',pa3:'Held by Risk & Compliance. Read by refund-agent.',pa4:'Held by Clinical AI. Used by clinical-triage-llm.',
+ pt1:'Text in a customer message makes the agent do something it should not.',pt2:'notify-agent receives more of the customer record than it needs.',pt3:'refund-agent hands a payout to payouts-agent without the contract saying so.',pt4:'Another department\u2019s agent reads risk flags without a policy.',pt5:'The model reveals patient data it was trained on. No protection modelled yet.',
+ pm1:'Only the tools the ratified contract lists can run (enforced by the runtime SDK).',pm2:'Hand over the order id, not the whole customer record.',pm3:'Anything outside the contract becomes a finding and a drift item.',pm4:'Who may see risk flags, and for what.'};
+const PE=[['pt1','pa1','targets'],['pt1','pa2','targets'],['pt2','pa1','targets'],['pt3','pa2','targets'],['pt4','pa3','targets'],['pt5','pa4','targets'],
+ ['pm1','pt1','mitigates'],['pm2','pt2','mitigates'],['pm3','pt3','mitigates'],['pm4','pt4','mitigates']];
+function drawPrivacy(){
+ svg.setAttribute('viewBox','0 0 1000 540');const P={};PV.forEach(n=>P[n[0]]=n);const rel=sel&&P[sel]?new Set([sel,...PE.filter(e=>e[0]===sel||e[1]===sel).flatMap(e=>[e[0],e[1]])]):null;const dim=id=>rel&&!rel.has(id);
+ [['Data',70],['Threats',250],['Protections',430]].forEach(([t,y])=>svg.appendChild(el('text',{x:8,y:y-38,'font-size':10.5,'font-weight':700,fill:'#7D8896','letter-spacing':'.06em'},t.toUpperCase())));
+ PE.forEach(([a,b,l])=>{const A=P[a],B=P[b];const dd=rel&&!(rel.has(a)&&rel.has(b));const mit=l==='mitigates';
+  svg.appendChild(el('path',{d:`M${A[2]} ${A[3]-26} L${B[2]} ${B[3]+26}`,stroke:mit?'#1E7F4F':'#B42318','stroke-width':1.5,fill:'none','marker-end':'url(#ahw)',class:dd?'dim':''}));
+  svg.appendChild(el('text',{x:(A[2]+B[2])/2,y:(A[3]+B[3])/2+4,'font-size':9.5,'text-anchor':'middle',fill:mit?'#1E7F4F':'#B42318',stroke:'#fff','stroke-width':3,'paint-order':'stroke',class:dd?'dim':''},l));});
+ PV.forEach(([id,t,x,y,label])=>{const g=el('g',{class:'hit'+(dim(id)?' dim':'')});SH[t](g,x,y);
+  const open=t==='threat'&&!PE.some(e=>e[1]===id&&e[2]==='mitigates');
+  if(open)g.appendChild(el('rect',{x:x-46,y:y-34,width:92,height:68,rx:12,fill:'none',stroke:'#B42318','stroke-width':1.6,'stroke-dasharray':'5 3'}));
+  if(sel===id)g.appendChild(el('rect',{x:x-50,y:y-38,width:100,height:76,rx:12,fill:'none',stroke:'#1E4FCB','stroke-width':2,'stroke-dasharray':'4 3'}));
+  const words=label.split(' ');let l1='',l2='';words.forEach(w=>{if((l1+' '+w).trim().length<=17&&!l2)l1=(l1+' '+w).trim();else l2=(l2+' '+w).trim();});
+  g.appendChild(el('text',{x,y:y+44,'font-size':10.5,'text-anchor':'middle',fill:'#222'},l1));if(l2)g.appendChild(el('text',{x,y:y+57,'font-size':10.5,'text-anchor':'middle',fill:'#222'},trunc(l2,24)));
+  if(open)g.appendChild(el('text',{x,y:y+71,'font-size':9.5,'font-weight':700,'text-anchor':'middle',fill:'#B42318'},'no protection yet'));
+  g.addEventListener('click',()=>{selLink=null;sel=id;render();});svg.appendChild(g);});}
+
+/* ---- view: breach response plan (who does what, in which order, by when) ---- */
+const BL=[{d:'D-PLAT',y:40},{d:'D-RISK',y:150},{d:'D-CX',y:260},{d:'D-ENG',y:370}];
+const BS=[
+ {id:'b1',lane:'D-PLAT',col:0,label:'Detect',sub:'Finding or drift raised',type:'step',who:'EMP-5120',when:'Immediately',astra:'Live runtime flags an event outside the contract and raises a finding.',gap:null},
+ {id:'b2',lane:'D-PLAT',col:1,label:'Contain',sub:'Pause agent, revoke key',type:'step',who:'EMP-5120',when:'Within 1 hour',astra:'Revoke the agent\u2019s API key; set the agent to suspended.',gap:null},
+ {id:'b3',lane:'D-RISK',col:2,label:'Personal data?',sub:'Assess the impact',type:'decision',who:'EMP-2210',when:'Within 24 hours',astra:'Data mapping view shows which data stores the agent touched.',gap:'No deputy named: if Priya Nair is away nobody assesses.'},
+ {id:'b4',lane:'D-RISK',col:3,label:'Tell regulator',sub:'Data protection authority',type:'step',who:'EMP-2210',when:'Within 72 hours',astra:'A pack of the findings and the contract is exported as evidence.',gap:null},
+ {id:'b5',lane:'D-CX',col:4,label:'Tell customers',sub:'If high risk to them',type:'step',who:'EMP-3105',when:'Without undue delay',astra:'The list of affected customers comes from the data store owner.',gap:null},
+ {id:'b6',lane:'D-ENG',col:5,label:'Fix and review',sub:'New contract, lessons',type:'step',who:'EMP-1042',when:'Within 30 days',astra:'The fix becomes a new contract version that compliance ratifies.',gap:null}];
+const BE=[['b1','b2',''],['b2','b3',''],['b3','b4','yes'],['b4','b5','high risk'],['b5','b6',''],['b3','b6','no personal data']];
+const bx=s=>215+s.col*148;
+function drawBreach(){
+ svg.setAttribute('viewBox','0 0 1000 470');const B={};BS.forEach(x=>B[x.id]=x);const rel=sel&&B[sel]?new Set([sel,...BE.filter(e=>e[0]===sel||e[1]===sel).flatMap(e=>[e[0],e[1]])]):null;const dim=id=>rel&&!rel.has(id);
+ BL.forEach(l=>{const d=dept(l.d);svg.appendChild(el('rect',{x:8,y:l.y,width:984,height:98,rx:10,fill:'#FBFCFD',stroke:'#C5CCD6'}));svg.appendChild(el('text',{x:18,y:l.y+24,'font-size':11.5,'font-weight':700,fill:'#141A22'},trunc(d.name,22)));svg.appendChild(el('text',{x:18,y:l.y+40,'font-size':10.5,fill:'#4A5563'},'Lead: '+(d.head?person(d.head).name:'none')));});
+ const cy=s=>BL.find(l=>l.d===s.lane).y+40;
+ BE.forEach(([a,b,l])=>{const A=B[a],Z=B[b];const x1=bx(A)+(A.type==='decision'?42:44),x2=bx(Z)-(Z.type==='decision'?42:44),y1=cy(A),y2=cy(Z);const skip=(a==='b3'&&b==='b6');const dd=rel&&!(rel.has(a)&&rel.has(b));
+  const mid=(x1+x2)/2;const d=skip?`M${bx(A)} ${y1+28} V${y1+68} H${bx(Z)-70} V${y2} H${x2}`:`M${x1} ${y1} H${mid} V${y2} H${x2}`;
+  svg.appendChild(el('path',{d,fill:'none',stroke:skip?'#8793A3':'#1E4FCB','stroke-width':1.6,'stroke-dasharray':skip?'5 3':'0','marker-end':'url(#ahw)',class:dd?'dim':''}));
+  if(l)svg.appendChild(el('text',{x:skip?bx(A)+60:mid+4,y:skip?y1+64:(y1+y2)/2-4,'font-size':9.5,'text-anchor':skip?'start':'start',fill:'#4A5563',stroke:'#fff','stroke-width':3,'paint-order':'stroke',class:dd?'dim':''},l));});
+ BS.forEach(s=>{const x=bx(s),y=cy(s),g=el('g',{class:'hit'+(dim(s.id)?' dim':'')});SH[s.type](g,x,y);
+  if(s.gap)g.appendChild(el('circle',{cx:x+(s.type==='decision'?34:40),cy:y-24,r:6,fill:'#B45309'}));
+  if(sel===s.id)g.appendChild(el('rect',{x:x-50,y:y-34,width:100,height:68,rx:10,fill:'none',stroke:'#1E4FCB','stroke-width':2,'stroke-dasharray':'4 3'}));
+  g.appendChild(el('text',{x,y:y+3,'font-size':s.type==='decision'?9.5:10.5,'font-weight':700,'text-anchor':'middle',fill:'#141A22'},trunc(s.label,s.type==='decision'?14:16)));
+  g.appendChild(el('text',{x,y:y+43,'font-size':9.5,'text-anchor':'middle',fill:'#4A5563'},s.sub));g.appendChild(el('text',{x,y:y+55,'font-size':9.5,'font-weight':600,'text-anchor':'middle',fill:'#B45309'},s.when));
+  g.addEventListener('click',()=>{selLink=null;sel=s.id;render();});svg.appendChild(g);});}
+
 /* ---- view: models ---- */
 function nodeBox(g,x,y,w,h,label,sub,kind){const org=kind==='org';const e=el('g');e.appendChild(el('rect',{x,y,width:w,height:h,rx:8,fill:kind==='agent'?'#DDF3F8':(kind==='model'?'#EDE7FB':'#fff'),stroke:org?'#1E4FCB':(kind==='agent'?'#0E7490':(kind==='model'?'#4C1D95':'#8793A3')),'stroke-width':org?2.2:1.2}));
  e.appendChild(el('text',{x:x+w/2,y:y+h/2-(sub?1:-4),'font-size':11,'font-weight':600,'text-anchor':'middle',fill:'#141A22'},label));if(sub)e.appendChild(el('text',{x:x+w/2,y:y+h/2+12,'font-size':9.5,'text-anchor':'middle',fill:'#4A5563'},sub));g.appendChild(e);}
@@ -358,10 +417,11 @@ function drawModelRoles(g){
 function drawModels(){svg.setAttribute('viewBox','0 0 470 270');drawModelRoles(svg);}
 
 function addDefs(s){const d=el('defs');[['ahw','#8793A3'],['ahb','#1E4FCB'],['ahr','#B42318']].forEach(([id,c])=>{const m=el('marker',{id,viewBox:'0 0 10 10',refX:9,refY:5,markerWidth:6,markerHeight:6,orient:'auto-start-reverse'});m.appendChild(el('path',{d:'M0 0 L10 5 L0 10 z',fill:c}));d.appendChild(m);});s.appendChild(d);}
-const HINT={org:'Departments, people and the AI systems that work for them. Arcs under the departments: tasks handed to agents in other departments.',organisational:'Sectro-style: organisation, actors, goals, operations and policies. AI agents are actors.',agents:'Agents grouped by department. Click a task arrow to see what is passed and whether the contract declares it.',data:'Which agents and models touch which data, and whose data it is.',models:'ST-AI roles around a model deployment.'};
+const HINT={org:'Departments, people and the AI systems that work for them. Arcs under the departments: tasks handed to agents in other departments.',organisational:'Sectro-style: organisation, actors, goals, operations and policies. AI agents are actors.',agents:'Agents grouped by department. Click a task arrow to see what is passed and whether the contract declares it.',data:'Which agents and models touch which data, and whose data it is.',privacy:'Data, the threats against it, and the protections in place. A dashed red frame marks a threat with no protection yet.',breach:'Who does what, in which order and by when, if an agent leaks or misuses data. Amber dot: a gap in the plan.',models:'ST-AI roles around a model deployment.'};
 const PALETTE={org:[['Organisation','organisation'],['Department','dept'],['Person or role','actor'],['Outside party','ext'],['AI agent','agent'],['AI model','model']],
  organisational:[['Organisation','organisation'],['Actor','actor'],['Goal','goal'],['Operation','operation'],['Policy','policy'],['Asset','dept']],
  agents:[['AI agent','agent'],['Person or role','actor'],['Task link','operation'],['Policy','policy'],['Department','dept']],
+ privacy:[['Data store','asset'],['Threat','threat'],['Protection','mechanism'],['Policy','policy'],['Person or role','actor']],breach:[['Step','step'],['Decision','decision'],['Person or role','actor'],['Deadline','policy'],['Department','dept']],
  data:[['Data store','dept'],['AI agent','agent'],['AI model','model'],['Access','operation']],models:[['AI model','model'],['Person or role','actor'],['Environment','dept'],['Constraint','policy']]};
 function paletteHtml(){const pal=document.getElementById('pal');pal.innerHTML='<div class="grp">Add to this view</div>';
  PALETTE[vw].forEach(([l,t])=>{const s=document.createElementNS(NS,'svg');s.setAttribute('width',44);s.setAttribute('height',32);s.setAttribute('viewBox','-50 -34 100 68');const g=el('g');
@@ -378,6 +438,10 @@ function inspector(){
   <div class="kv"><span>Policy</span><b>${t.policy||'<span style="color:#B45309">none covers this data</span>'}</b></div>
   <div class="row">${t.declared?'<button class="btn2 btn-s">Open in Agent studio</button>':'<button class="btn btn-s">Approve into the contract</button><button class="btn2 btn-s">Decline</button>'}<button class="btn2 btn-s">Add policy</button></div>`;return;}
  const s=sys(sel),p=person(sel),d=dept(sel);
+ if(vw==='privacy'&&sel){const n=PV.find(x=>x[0]===sel);if(n){const lab={asset:'Data',threat:'Threat',mechanism:'Protection',policy:'Policy'}[n[1]];const ed=PE.filter(e=>e[0]===sel||e[1]===sel);const open=n[1]==='threat'&&!PE.some(e=>e[1]===sel&&e[2]==='mitigates');
+  box.innerHTML=`<div class="row"><span class="pill ${n[1]==='threat'?'bad':(n[1]==='asset'?'warn':'ok')}">${lab}</span><b>${n[4]}</b></div>${field('Name',n[4])}<span class="cap">${PVD[sel]}</span><h3 style="margin-top:6px">Connections</h3>${ed.map(e=>{const o=e[0]===sel?e[1]:e[0];const m=PV.find(x=>x[0]===o);return `<div class="kv"><span>${e[0]===sel?e[2]+' \u2192':'\u2190 '+e[2]}</span><b>${m[4]}</b></div>`}).join('')||'<span class="cap">None.</span>'}${open?'<span class="pill bad" style="align-self:flex-start">No protection yet</span><button class="btn btn-s" style="align-self:flex-start">Add a protection</button>':''}${n[1]==='asset'?'<span class="pill agent" style="align-self:flex-start">Same as a data store in Data mapping</span>':''}`;return;}}
+ if(vw==='breach'&&sel){const x=BS.find(b=>b.id===sel);if(x){const p=person(x.who),d=dept(x.lane);
+  box.innerHTML=`<div class="row"><span class="pill blue">${x.type==='decision'?'Decision':'Step'}</span><b>${x.label}</b></div>${field('Name',x.label)}${field('Responsible',p.name+' \u00b7 '+p.id)}${field('Department',d.name)}${field('Deadline',x.when)}<div class="kv"><span>Detail</span><span style="text-align:right">${x.sub}</span></div><div class="kv"><span>How ASTRA helps</span><span style="text-align:right;max-width:170px">${x.astra}</span></div>${x.gap?`<span class="pill warn" style="align-self:flex-start">${x.gap}</span><button class="btn btn-s" style="align-self:flex-start">Name a deputy</button>`:'<span class="pill ok" style="align-self:flex-start">Covered</span>'}`;return;}}
  if(vw==='organisational'&&sel){const n=ON.find(x=>x[0]===sel);if(n){const lab={organisation:'Organisation',actor:'Actor',goal:'Goal',operation:'Operation',policy:'Policy'}[n[1]];const ed=OE.filter(e=>e[0]===sel||e[1]===sel);
   box.innerHTML=`<div class="row"><span class="pill blue">${lab}</span><b>${n[4]}</b></div>${field('Name',n[4])}<h3 style="margin-top:6px">Connections</h3>${ed.map(e=>{const o=e[0]===sel?e[1]:e[0];const m=ON.find(x=>x[0]===o);return `<div class="kv"><span>${e[0]===sel?e[2]+' →':'← '+e[2]}</span><b>${m[4]}</b></div>`}).join('')||'<span class="cap">None.</span>'}${n[1]==='operation'?'<span class="pill agent" style="align-self:flex-start">Same as a task in the Agents &amp; tasks view</span>':''}`;return;}}
  if(!sel){box.innerHTML=`<h3>Details</h3><span class="cap">Click anything on the canvas. Edits here update every view and both studios.</span><div class="kv"><span>Departments</span><b>${DEPTS.length}</b></div><div class="kv"><span>People and roles</span><b>${PEOPLE.filter(x=>x.dept).length}</b></div><div class="kv"><span>Outside parties</span><b>${PEOPLE.filter(x=>!x.dept).length}</b></div><div class="kv"><span>AI systems</span><b>${SYSTEMS.length}</b></div><div class="kv"><span>Task links between agents</span><b>${TASKLINKS.length} (${TASKLINKS.filter(cross).length} cross a department)</b></div>`;return;}
@@ -398,11 +462,12 @@ function assignments(){const tb=document.querySelector('#asg tbody');tb.innerHTM
 function legend(){const L={org:'<span><i style="background:#fff;border:1.5px solid #8793A3"></i>Department</span><span><i style="background:#E3EBFB"></i>Person or role</span><span><i style="background:#F1F3F6;border:1px dashed #8793A3"></i>Outside the company</span><span><i style="background:var(--agentBg);border:1.5px solid var(--agent)"></i>AI agent</span><span><i style="background:var(--modelBg);border:1.5px solid var(--model)"></i>AI model</span><span><i style="background:#FBE9D3;border:1.5px solid #B45309"></i>Task link to another agent</span><span><i style="background:#FBE3E0;border:1.5px dashed #B42318"></i>Seen at runtime, not declared</span>',
  organisational:'<span><i style="background:#fff;border:1.5px solid #222"></i>Organisation</span><span><i style="background:#fff;border:1.5px dotted #E58AA0"></i>Actor</span><span><i style="background:#D4E157;border:1.5px solid #111"></i>Goal</span><span><i style="background:#B07FD8"></i>Operation (task)</span><span><i style="background:#A8E6B8;border:1px solid #2B7A3F"></i>Policy</span>',
  agents:'<span><i style="background:var(--agentBg);border:1.5px solid var(--agent)"></i>AI agent</span><span><i style="background:#E3EBFB"></i>Person or role</span><span><i style="background:#FBE9D3;border:1.5px solid #B45309"></i>Task link declared in the design</span><span><i style="background:#FBE3E0;border:1.5px dashed #B42318"></i>Seen at runtime, not declared</span>',
+ privacy:'<span><i style="background:#FFF3C4;border:1.5px solid #9A7B00"></i>Data</span><span><i style="background:#FBD0CB;border:1.5px solid #B42318"></i>Threat</span><span><i style="background:#CDEFD8;border:1.5px solid #1E7F4F"></i>Protection</span><span><i style="background:#A8E6B8;border:1px solid #2B7A3F"></i>Policy</span><span><i style="border:1.5px dashed #B42318"></i>Threat with no protection yet</span>',breach:'<span><i style="background:#E3EBFB;border:1.5px solid #1E4FCB"></i>Step</span><span><i style="background:#FBE9D3;border:1.5px solid #B45309"></i>Decision</span><span><i style="background:#B45309;border-radius:50%"></i>Gap in the plan</span><span>Dashed line: the shorter path when no personal data is involved</span>',
  data:'<span><i style="background:#F2FAF5"></i>Same department</span><span><i style="background:var(--amberBg)"></i>Another department</span><span><i style="background:var(--redBg)"></i>Observed at runtime, not declared</span>',models:'<span><i style="background:#fff;border:1.5px solid var(--blue)"></i>From the organisation</span><span><i style="background:var(--modelBg);border:1.5px solid var(--model)"></i>AI model</span>'};
  document.getElementById('legend').innerHTML=L[vw];}
 function render(){svg.innerHTML='';addDefs(svg);
  const isData=vw==='data';svg.style.display=isData?'none':'';document.getElementById('dataView').style.display=isData?'':'none';document.getElementById('orgFilter').style.display=vw==='org'?'':'none';
- if(vw==='org')drawOrg();else if(vw==='organisational')drawOrganisational();else if(vw==='agents')drawAgents();else if(vw==='data')drawData();else drawModels();
+ if(vw==='org')drawOrg();else if(vw==='organisational')drawOrganisational();else if(vw==='agents')drawAgents();else if(vw==='data')drawData();else if(vw==='privacy')drawPrivacy();else if(vw==='breach')drawBreach();else drawModels();
  drawChain();document.getElementById('viewHint').textContent=HINT[vw];paletteHtml();legend();inspector();assignments();}
 document.getElementById('views').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;vw=b.dataset.v;sel=null;selLink=null;[...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b));document.getElementById('pal').classList.remove('open');render();});
 document.getElementById('viewTabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;view=b.dataset.v;[...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b));render();});
@@ -425,7 +490,7 @@ document.getElementById('addComp').addEventListener('click',()=>document.getElem
  a.appendChild(el('text',{x:396,y:280,'font-size':9.5,'text-anchor':'middle',fill:'#B45309'},'amber dashed: agent in another department'));})();
 (function(){const m=document.getElementById('modelPrev');addDefs(m);drawModelRoles(m);})();
 
-(function(){const h=location.hash;let m;if(m=h.match(/v=(organisational|org|agents|data|models)/)){vw=m[1];[...document.getElementById('views').children].forEach(x=>x.classList.toggle('on',x.dataset.v===vw));}
+(function(){const h=location.hash;let m;if(m=h.match(/v=(organisational|org|agents|data|privacy|breach|models)/)){vw=m[1];[...document.getElementById('views').children].forEach(x=>x.classList.toggle('on',x.dataset.v===vw));}
  if(m=h.match(/sel=([\w-]+)/))sel=m[1];if(m=h.match(/link=(T\d)/))selLink=byId(TASKLINKS,m[1]);if(m=h.match(/tab=(file|chat|hand)/))document.querySelector('#inTabs button[data-t="'+m[1]+'"]').click();})();
 render();
 if(location.hash.includes('pal=1'))document.getElementById('pal').classList.add('open');
