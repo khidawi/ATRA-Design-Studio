@@ -252,23 +252,108 @@ def test_the_assistant_turns_a_proposal_into_a_draft_without_inventing_anything(
             api.post("/api/company/import", json=body({"departments": [{"id": "D-CX", "name": "Customer Experience"}]}))
             from db.models import CompanyNode
             from db.session import SessionLocal
-            prop = company.DraftProposal(
-                departments=[company.DraftDept(name="Platform", reports_to="Customer Experience")],
-                people=[company.DraftPerson(name="Lena Fischer", title="Ops lead", department="Platform"), company.DraftPerson(name="Support agents", role_only=True, department="Customer Experience")],
-                ai_systems=[company.DraftSystem(name="refund-agent", department="Customer Experience", owner="Sam")],
-                task_links=[company.DraftTask(from_agent="refund-agent", to_agent="notify-agent", task="Send confirmation")])
+            schema = company.DraftProposal.model_json_schema()
+            assert set(schema["required"]) == {"company_name", "departments", "people", "outside_parties", "ai_systems", "roles", "task_links", "data_stores", "data_use"}     # a model may not answer {}
+            for sub in ("DraftDept", "DraftPerson", "DraftSystem", "DraftRole", "DraftTask", "DraftStore", "DraftUse", "DraftOutside"):
+                assert schema["$defs"][sub]["required"], sub
+
+            P = company
+            prop = P.DraftProposal(
+                company_name="Acme Payments",
+                departments=[P.DraftDept(name="Platform", reports_to="Customer Experience", head="Lena Fischer")],
+                people=[P.DraftPerson(name="Lena Fischer", title="Ops lead", department="Platform", is_group=False), P.DraftPerson(name="Support agents", title="", department="Customer Experience", is_group=True)],
+                outside_parties=[P.DraftOutside(name="Customers", kind="customer")],
+                ai_systems=[P.DraftSystem(name="refund-agent", type="agent", department="Customer Experience", owner="Sam", purpose="Decides refunds")],
+                roles=[P.DraftRole(system="refund-agent", person="Customers", role="requests refunds"), P.DraftRole(system="refund-agent", person="Support agents", role="escalate to")],
+                task_links=[P.DraftTask(from_agent="refund-agent", to_agent="notify-agent", task="Send confirmation", data=["customer email"])],
+                data_stores=[P.DraftStore(name="Order database", department="Customer Experience", sensitivity="personal data")],
+                data_use=[P.DraftUse(system="refund-agent", store="Order database", access="read")])
             with SessionLocal() as s:
                 d = company.proposal_to_doc(prop, {n.ext_id: n for n in s.query(CompanyNode).all()})
-            assert d["departments"][0]["reports_to"] == "D-CX"                                  # an existing department is reused by name
-            assert {p["id"] for p in d["people"]} == {"EMP-LENA-FISCHER", "ROLE-SUPPORT-AGENTS"}
-            names = {s["name"] for s in d["ai_systems"]}
-            assert names == {"refund-agent", "notify-agent"}                                    # the agent only mentioned in a handoff is added, with no owner and no department
-            r = [s for s in d["ai_systems"] if s["name"] == "refund-agent"][0]
-            assert r["owner"] == "EMP-SAM" and r["hands_tasks_to"] == [{"agent": "AG-NOTIFY-AGENT", "task": "Send confirmation"}]
+            assert d["company"] == {"name": "Acme Payments"}
+            deps = {x["name"]: x for x in d["departments"]}
+            assert list(deps) == ["Platform"] and deps["Platform"]["reports_to"] == "D-CX" and deps["Platform"]["head"] == "EMP-LENA-FISCHER"          # an existing department is reused by name
+            ppl = {x["name"]: x for x in d["people"]}
+            assert ppl["Lena Fischer"]["title"] == "Ops lead" and ppl["Lena Fischer"]["department"] == "D-PLATFORM" and ppl["Support agents"]["kind"] == "role" and ppl["Support agents"]["department"] == "D-CX"
+            assert "EMP-SAM" in {x["id"] for x in d["people"]}                                  # a person named only as an owner is added, so nothing dangles
+            assert d["external"] == [{"id": "EXT-CUSTOMERS", "name": "Customers", "kind": "customer"}]
+            sysd = {x["name"]: x for x in d["ai_systems"]}
+            assert set(sysd) == {"refund-agent", "notify-agent"} and "owner" not in sysd["notify-agent"] and "department" not in sysd["notify-agent"]      # an agent only mentioned in a handoff has no owner and no department
+            r = sysd["refund-agent"]
+            assert r["owner"] == "EMP-SAM" and r["details"] == {"purpose": "Decides refunds"} and r["hands_tasks_to"] == [{"agent": "AG-NOTIFY-AGENT", "task": "Send confirmation", "data": ["customer email"]}]
+            assert r["people"] == [{"id": "EXT-CUSTOMERS", "role": "requests refunds"}, {"id": "ROLE-SUPPORT-AGENTS", "role": "escalate to"}] and r["uses_data"] == [{"store": "DS-ORDER-DATABASE", "access": "read"}]
+            assert d["data_stores"] == [{"id": "DS-ORDER-DATABASE", "name": "Order database", "department": "D-CX", "sensitivity": "personal data"}]
             pv = api.post("/api/company/import/preview", json=body(d)).json()
-            assert pv["ok"] is False and any("EMP-SAM" in e for e in pv["errors"])              # Sam was named as an owner but never described as a person: the file says so instead of guessing
+            assert pv["ok"] is True, pv["errors"]                                                # the draft is a valid file as it stands
+            applied = api.post("/api/company/import", json=body(d))
+            assert applied.status_code == 200 and applied.json()["company"]["counts"]["agent"] == 2
+            wipe()
+            # what a small model really does wrong: a person in a department's "reports to", and a role with nothing in it
+            slip = P.DraftProposal(
+                company_name="", departments=[P.DraftDept(name="Claims", reports_to="Maria Costa", head="Maria Costa"), P.DraftDept(name="Fraud", reports_to="Claims", head="Ahmed Khan")],
+                people=[P.DraftPerson(name="Maria Costa", title="", department="Claims", is_group=False), P.DraftPerson(name="Ahmed Khan", title="", department="Fraud", is_group=False)],
+                outside_parties=[P.DraftOutside(name="Customers", kind="customer")], ai_systems=[P.DraftSystem(name="fraud-agent", type="agent", department="Maria Costa", owner="Claims", purpose="")],
+                roles=[P.DraftRole(system="fraud-agent", person="Customers", role="")], task_links=[], data_stores=[], data_use=[])
+            d2 = company.proposal_to_doc(slip, {})
+            assert [x["name"] for x in d2["departments"]] == ["Claims", "Fraud"]                      # no department called after a person
+            claims, fraud = d2["departments"]
+            assert "reports_to" not in claims and claims["head"] == "EMP-MARIA-COSTA" and fraud["reports_to"] == "D-CLAIMS" and fraud["head"] == "EMP-AHMED-KHAN"
+            assert {x["name"] for x in d2["people"]} == {"Maria Costa", "Ahmed Khan"} and {x["id"] for x in d2["people"]} == {"EMP-MARIA-COSTA", "EMP-AHMED-KHAN"}
+            fa = d2["ai_systems"][0]
+            assert "department" not in fa and "owner" not in fa and "people" not in fa                  # a wrong-type reference and an empty role are dropped
+            assert api.post("/api/company/import/preview", json=body(d2)).json()["ok"] is True
             assert api.post("/api/company/draft", json={"description": "short"}).status_code == 422
         finally:
+            wipe()
+
+
+def test_drafting_runs_as_a_background_job_and_returns_a_proposal():
+    import time
+
+    import ollama_client
+    canned = {"company_name": "Zed Ltd", "departments": [{"name": "Ops", "reports_to": "", "head": "Pat Lee"}],
+              "people": [{"name": "Pat Lee", "title": "Head of ops", "department": "Ops", "is_group": False}], "outside_parties": [],
+              "ai_systems": [{"name": "ops-agent", "type": "agent", "department": "Ops", "owner": "Pat Lee", "purpose": ""}], "roles": [], "task_links": [], "data_stores": [], "data_use": []}
+    seen = {}
+
+    def fake(messages, schema, **kw):
+        seen["user"], seen["kw"] = messages[-1]["content"], kw
+        return seen.get("answer", canned)
+
+    def finish(api, job):
+        for _ in range(200):
+            s = api.get(f"/api/company/draft/{job}").json()
+            if s["status"] != "running":
+                return s
+            time.sleep(0.05)
+        raise AssertionError("the draft did not finish")
+
+    real = ollama_client.chat_json
+    with authed_client("admin", "Alice Admin") as api, authed_client("engineer", "Eve Engineer") as other:
+        try:
+            wipe()
+            ollama_client.chat_json = fake
+            api.post("/api/company/import", json=body({"departments": [{"id": "D-OLD", "name": "Old department"}]}))
+            r = api.post("/api/company/draft", json={"description": "Zed Ltd has an Ops department led by Pat Lee.", "history": ["We are a small company."]})
+            assert r.status_code == 202, r.text
+            job = r.json()["job"]
+            s = finish(api, job)
+            assert s["status"] == "done" and s["error"] is None
+            res = s["result"]
+            assert res["doc"]["company"] == {"name": "Zed Ltd"} and [d["id"] for d in res["doc"]["departments"]] == ["D-OPS"] and res["plan"]["ok"] and res["plan"]["summary"]["nodes"] == 3
+            assert "Earlier in this conversation" in seen["user"] and "We are a small company." in seen["user"] and "Old department" not in seen["user"]       # it sees what was said, not what is stored
+            assert seen["kw"]["timeout"] == company.DRAFT_TIMEOUT and api.get("/api/company").json()["nodes"][0]["id"] == "D-OLD" and len(api.get("/api/company").json()["nodes"]) == 1    # nothing is saved
+            assert other.get(f"/api/company/draft/{job}").status_code == 404 and api.get("/api/company/draft/nope").status_code == 404                               # a job is its owner's
+
+            seen["answer"] = {"departments": 3}                                                                  # a model that ignores the schema
+            bad = finish(api, api.post("/api/company/draft", json={"description": "Something long enough to send."}).json()["job"])
+            assert bad["status"] == "error" and bad["error"]["status"] == 502 and "malformed" in bad["error"]["detail"]
+            seen["answer"] = {**canned, "departments": [], "people": [], "ai_systems": [], "company_name": ""}      # nothing in the description
+            empty = finish(api, api.post("/api/company/draft", json={"description": "Nothing about a company here."}).json()["job"])
+            assert empty["status"] == "done" and empty["result"]["plan"] is None and empty["result"]["doc"] == {}
+            assert api.post("/api/company/draft", json={"description": "short"}).status_code == 422
+        finally:
+            ollama_client.chat_json = real
             wipe()
 
 

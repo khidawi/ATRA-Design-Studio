@@ -12,6 +12,8 @@ updates by the company's own ids (EMP-1042, D-CX); it never deletes. Checks are 
 """
 import json
 import re
+import threading
+import time
 import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
@@ -862,99 +864,276 @@ def sample() -> Dict[str, Any]:
 
 class DraftIn(BaseModel):
     description: str = Field(min_length=10, max_length=4000)
+    history: List[str] = Field(default_factory=list, max_length=6)       # what the person said earlier in this conversation
 
 
+# Every field is required on purpose. With optional fields a local model, constrained to the schema, is allowed to answer {} and does;
+# required fields make it fill each list (with nothing in it, if the description says nothing).
 class DraftDept(BaseModel):
-    name: str
-    reports_to: str = ""
-    head: str = ""
+    name: str = Field(description="Department name exactly as written")
+    reports_to: str = Field(description="Name of the department it reports to, or empty")
+    head: str = Field(description="Full name of the person who leads it, or empty")
 
 
 class DraftPerson(BaseModel):
-    name: str
-    title: str = ""
-    department: str = ""
-    role_only: bool = False
+    name: str = Field(description="Full name as written, or the group name such as 'support agents'")
+    title: str = Field(description="Job title, or empty")
+    department: str = Field(description="Department they belong to, or empty")
+    is_group: bool = Field(description="true for a group of people, false for one person")
+
+
+class DraftOutside(BaseModel):
+    name: str = Field(description="A party outside the company, such as customers, patients, a regulator or a supplier")
+    kind: str = Field(description="customer, patient, regulator or vendor")
 
 
 class DraftSystem(BaseModel):
-    name: str
-    type: Literal["agent", "model"] = "agent"
-    department: str = ""
-    owner: str = ""
+    name: str = Field(description="Name of the AI agent or AI model as written")
+    type: Literal["agent", "model"]
+    department: str = Field(description="Department it belongs to, or empty")
+    owner: str = Field(description="Person accountable for it, or empty")
+    purpose: str = Field(description="What it does, in a few words, or empty")
+
+
+class DraftRole(BaseModel):
+    system: str = Field(description="Name of the AI agent or model")
+    person: str = Field(description="Name of the person, group or outside party it deals with")
+    role: str = Field(description="How, e.g. requests refunds, approves payouts over 100, escalate to, trains, validates, deploys, operates, decides about")
 
 
 class DraftTask(BaseModel):
     from_agent: str
     to_agent: str
-    task: str = ""
+    task: str = Field(description="What is handed over")
+    data: List[str] = Field(description="Kinds of data passed with it, or an empty list")
+
+
+class DraftStore(BaseModel):
+    name: str = Field(description="A data store or kind of data, as written")
+    department: str = Field(description="Department that owns it, or empty")
+    sensitivity: str = Field(description="personal data, health data, confidential, internal or public, or empty")
+
+
+class DraftUse(BaseModel):
+    system: str
+    store: str
+    access: Literal["read", "write"]
 
 
 class DraftProposal(BaseModel):
-    departments: List[DraftDept] = Field(default_factory=list)
-    people: List[DraftPerson] = Field(default_factory=list)
-    ai_systems: List[DraftSystem] = Field(default_factory=list)
-    task_links: List[DraftTask] = Field(default_factory=list)
+    company_name: str = Field(description="Name of the company, or empty")
+    departments: List[DraftDept]
+    people: List[DraftPerson]
+    outside_parties: List[DraftOutside]
+    ai_systems: List[DraftSystem]
+    roles: List[DraftRole]
+    task_links: List[DraftTask]
+    data_stores: List[DraftStore]
+    data_use: List[DraftUse]
 
 
 DRAFT_PROMPT = (
-    "You turn a plain-English description of a company into a draft organisation. List only what the description says: departments (and which department each "
-    "reports to), people with their title and department (role_only true for a group such as 'support agents'), AI agents or models with their department and "
-    "owner, and tasks one AI agent hands to another. Use the exact names in the description. Never invent a person, surname, department or agent that the "
-    "description does not mention. Leave a field empty rather than guess.")
+    "You turn a plain-English description of a company into a draft organisation, as JSON. Include everything the description says and nothing it does not: "
+    "departments, people (with title and department), outside parties (customers, patients, regulators, suppliers), the AI agents and models and who owns them, "
+    "who each one deals with and in what role, tasks one AI agent hands to another (with the data passed), and the data stores and who reads or writes them. "
+    "Use the exact names written. Never invent a person, surname, department, agent or data store that is not described; leave a field empty instead of guessing. "
+    "If something earlier in the conversation is still true, keep it: always return the whole organisation described so far, not only the newest message.\n\n"
+    "Example. Description: 'Acme runs support. Dana Cole leads Support, which has a refund-agent owned by Dana. Customers ask it for refunds, and it hands "
+    "payments to the ledger-agent in Finance (led by Omar Ali) with the order id. Omar approves payments over 100. The order database holds personal data.' "
+    "Result: company_name Acme; departments Support (head Dana Cole) and Finance (head Omar Ali); people Dana Cole (title leader of Support, department Support) and "
+    "Omar Ali (department Finance); outside_parties Customers (customer); ai_systems refund-agent (agent, Support, owner Dana Cole) and ledger-agent (agent, Finance); "
+    "roles refund-agent / Customers / requests refunds and ledger-agent / Omar Ali / approves payments over 100; task_links refund-agent to ledger-agent, task make the payment, data order id; "
+    "data_stores order database (personal data); data_use refund-agent reads order database. A department 'reports_to' only ever names another department, never a person.")
+
+
+GROUP = {"department": "d", "person": "p", "role": "p", "external": "p", "agent": "s", "model": "s", "data_store": "x"}
 
 
 def proposal_to_doc(prop: DraftProposal, existing: Dict[str, CompanyNode]) -> Dict[str, Any]:
-    """Names become ids: an existing item with the same name is reused, a new one gets a generated id. Pure code, no model."""
-    by_name = {n.name.strip().lower(): n for n in existing.values()}
-    ids: Dict[str, str] = {}
+    """Names become ids: an existing item with the same name is reused, a new one gets a generated id. Anyone or anything the description names is
+    added if it is not there yet, so a reference never dangles. A model sometimes puts a person where a department belongs (or the reverse): such a
+    reference is ignored rather than turned into a department called after a person. Pure code, no model."""
+    section = {"department": "departments", "person": "people", "role": "people", "external": "external", "agent": "ai_systems", "model": "ai_systems", "data_store": "data_stores"}
+    by_name: Dict[Tuple[str, str], Tuple[str, str]] = {(GROUP[n.type], n.name.strip().lower()): (n.ext_id, n.type) for n in existing.values() if n.type in GROUP}
+    doc: Dict[str, Any] = {k: [] for k in ("departments", "people", "external", "ai_systems", "data_stores")}
+    objs: Dict[str, Dict[str, Any]] = {}
+    taken = set(existing)
+    low = lambda s: s.strip().lower()
+    claimed = {low(x.name) for x in prop.people + prop.outside_parties + prop.ai_systems + prop.data_stores}      # names the description gave to something that is not a department
+    dept_names = {low(d.name) for d in prop.departments} | {k[1] for k in by_name if k[0] == "d"}
 
-    def ref(name: str, type_: str) -> Optional[str]:
-        name = (name or "").strip()
-        if not name:
+    def make(name: str, type_: str) -> str:
+        key = (GROUP[type_], low(name))
+        if key in by_name:
+            return by_name[key][0]
+        base = f"{PREFIX[type_]}-{slug(name)}"
+        i, n = base, 2
+        while i in taken:
+            i, n = f"{base}-{n}", n + 1
+        taken.add(i)
+        by_name[key] = (i, type_)
+        o: Dict[str, Any] = {"id": i, "name": name.strip()}
+        if type_ in ("agent", "model"):
+            o["type"] = type_
+        if type_ == "role":
+            o["kind"] = "role"
+        doc[section[type_]].append(o)
+        objs[i] = o
+        return i
+
+    def dref(name: str) -> Optional[str]:
+        """A department reference, unless the name belongs to a person, an AI system or data."""
+        if not name.strip() or low(name) in claimed or any(k[0] != "d" and k[1] == low(name) for k in by_name):
             return None
-        k = name.lower()
-        if k in by_name:
-            return by_name[k].ext_id
-        if k not in ids:
-            ids[k] = f"{PREFIX[type_]}-{slug(name)}"
-        return ids[k]
+        return make(name, "department")
 
-    doc: Dict[str, Any] = {"departments": [], "people": [], "ai_systems": []}
+    def pref(name: str) -> Optional[str]:
+        """A person reference, unless the name is a department."""
+        if not name.strip() or (low(name) in dept_names and low(name) not in claimed):
+            return None
+        return make(name, "person")
+
+    def obj(i: str, type_: str, name: str) -> Dict[str, Any]:
+        """The file entry for an item, so fields can be added to it; an item already in the organisation gets a stub (an import leaves it unchanged)."""
+        if i not in objs:
+            o: Dict[str, Any] = {"id": i, "name": name}
+            if type_ in ("agent", "model"):
+                o["type"] = type_
+            doc[section[type_]].append(o)
+            objs[i] = o
+        return objs[i]
+
+    typ = lambda i: next((t for (j, t) in by_name.values() if j == i), "person")
     for d in prop.departments[:20]:
-        if d.name.strip():
-            i = ref(d.name, "department")
-            doc["departments"].append({"id": i, "name": d.name.strip(), **({"reports_to": ref(d.reports_to, "department")} if d.reports_to.strip() else {}),
-                                       **({"head": ref(d.head, "person")} if d.head.strip() else {})})
+        if d.name.strip() and low(d.name) not in claimed:
+            i = make(d.name, "department")
+            o = objs.get(i)
+            if o is not None:
+                parent = dref(d.reports_to) if low(d.reports_to) != low(d.name) else None
+                if parent:
+                    o["reports_to"] = parent
+                head = pref(d.head)
+                if head:
+                    o["head"] = head
     for p in prop.people[:30]:
         if p.name.strip():
-            doc["people"].append({"id": ref(p.name, "role" if p.role_only else "person"), "name": p.name.strip(), "title": p.title.strip(), "kind": "role" if p.role_only else "person",
-                                  **({"department": ref(p.department, "department")} if p.department.strip() else {})})
-    agents = {s.name.strip().lower(): s for s in prop.ai_systems}
+            i = make(p.name, "role" if p.is_group else "person")
+            o = objs.get(i)
+            if o is not None:
+                if p.title.strip():
+                    o["title"] = p.title.strip()
+                dep = dref(p.department)
+                if dep:
+                    o["department"] = dep
+    for x in prop.outside_parties[:15]:
+        if x.name.strip():
+            i = make(x.name, "external")
+            if i in objs and x.kind.strip():
+                objs[i]["kind"] = x.kind.strip()
     for s in prop.ai_systems[:20]:
         if s.name.strip():
-            tasks = [{"agent": ref(t.to_agent, "agent"), "task": t.task.strip()} for t in prop.task_links if t.from_agent.strip().lower() == s.name.strip().lower() and t.to_agent.strip()]
-            doc["ai_systems"].append({"id": ref(s.name, s.type), "type": s.type, "name": s.name.strip(), **({"department": ref(s.department, "department")} if s.department.strip() else {}),
-                                      **({"owner": ref(s.owner, "person")} if s.owner.strip() else {}), **({"hands_tasks_to": tasks} if tasks else {})})
-    for t in prop.task_links:                                           # a handoff to an agent the description only mentions in passing
-        for n in (t.to_agent,):
-            if n.strip() and n.strip().lower() not in agents and n.strip().lower() not in by_name:
-                doc["ai_systems"].append({"id": ref(n, "agent"), "type": "agent", "name": n.strip()})
-                agents[n.strip().lower()] = DraftSystem(name=n)
-    return {k: v for k, v in doc.items() if v}
+            i = make(s.name, s.type)
+            o = objs.get(i)
+            if o is not None:
+                dep = dref(s.department)
+                if dep:
+                    o["department"] = dep
+                own = pref(s.owner)
+                if own:
+                    o["owner"] = own
+                if s.purpose.strip():
+                    o["details"] = {"purpose": s.purpose.strip()[:300]}
+    for st in prop.data_stores[:20]:
+        if st.name.strip():
+            i = make(st.name, "data_store")
+            o = objs.get(i)
+            if o is not None:
+                dep = dref(st.department)
+                if dep:
+                    o["department"] = dep
+                if st.sensitivity.strip():
+                    o["sensitivity"] = st.sensitivity.strip()
+    for r in prop.roles[:40]:
+        if r.system.strip() and r.person.strip() and r.role.strip():
+            si = make(r.system, "agent")
+            pi = make(r.person, "person")
+            o = obj(si, typ(si) if typ(si) in ("agent", "model") else "agent", r.system.strip())
+            o.setdefault("people", []).append({"id": pi, "role": r.role.strip()})
+    for t in prop.task_links[:30]:
+        if t.from_agent.strip() and t.to_agent.strip() and low(t.from_agent) != low(t.to_agent):
+            a = make(t.from_agent, "agent")
+            b = make(t.to_agent, "agent")
+            o = obj(a, "agent", t.from_agent.strip())
+            o.setdefault("hands_tasks_to", []).append({"agent": b, "task": t.task.strip(), "data": [x.strip() for x in t.data if x.strip()][:10]})
+    for u in prop.data_use[:40]:
+        if u.system.strip() and u.store.strip():
+            si = make(u.system, "agent")
+            di = make(u.store, "data_store")
+            o = obj(si, typ(si) if typ(si) in ("agent", "model") else "agent", u.system.strip())
+            o.setdefault("uses_data", []).append({"store": di, "access": u.access})
+    out = {k: v for k, v in doc.items() if v}
+    if prop.company_name.strip():
+        out = {"company": {"name": prop.company_name.strip()[:120]}, **out}
+    return out
 
 
-@router.post("/draft")
-def draft(body: DraftIn, session: Session = Depends(get_session)) -> Dict[str, Any]:
-    from ollama_client import chat_json
-    raw = chat_json([{"role": "system", "content": DRAFT_PROMPT}, {"role": "user", "content": body.description}], DraftProposal.model_json_schema(), max_tokens=1200)
+DRAFT_TIMEOUT = 900.0                                    # a CPU-only model writing a whole organisation can take several minutes
+JOB_KEEP = 1800
+_jobs: Dict[str, Dict[str, Any]] = {}
+_jobs_lock = threading.Lock()
+
+
+def _run_draft(job_id: str, body: DraftIn) -> None:
+    """Runs in a thread: asks the model, turns its answer into a file, and checks it against the stored organisation. Never raises."""
+    from db.session import SessionLocal
+    import ollama_client
     try:
-        prop = DraftProposal.model_validate(raw)
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"The model returned a malformed proposal: {exc}")
-    org, ns, es = load(session)
-    doc = proposal_to_doc(prop, {n.ext_id: n for n in ns})
-    return {"doc": doc, "plan": public_plan(plan(session, doc, [])) if doc else None}
+        with SessionLocal() as session:
+            org, ns, es = load(session)
+            # The model is deliberately not shown what is already stored: a small model mixes it into its answer and gets slower.
+            # Items with the same name are matched to the stored ones afterwards, in code.
+            user = ""
+            if body.history:
+                user += "Earlier in this conversation the person said:\n" + "\n".join(f"- {h.strip()[:1500]}" for h in body.history if h.strip()) + "\n\nNow they add:\n"
+            user += body.description.strip()
+            raw = ollama_client.chat_json([{"role": "system", "content": DRAFT_PROMPT}, {"role": "user", "content": user}], DraftProposal.model_json_schema(), max_tokens=2200, timeout=DRAFT_TIMEOUT)
+            try:
+                prop = DraftProposal.model_validate(raw)
+            except Exception as exc:
+                raise HTTPException(status_code=502, detail=f"The model returned a malformed proposal: {exc}")
+            doc = proposal_to_doc(prop, {n.ext_id: n for n in ns})
+            result = {"doc": doc, "plan": public_plan(plan(session, doc, [])) if any(k != "company" for k in doc) else None}
+        outcome: Dict[str, Any] = {"status": "done", "result": result}
+    except HTTPException as exc:
+        outcome = {"status": "error", "error": {"status": exc.status_code, "detail": str(exc.detail)}}
+    except Exception as exc:                                 # a thread must not die silently
+        outcome = {"status": "error", "error": {"status": 500, "detail": f"The draft failed: {exc}"}}
+    with _jobs_lock:
+        _jobs[job_id].update(outcome, finished=time.time())
+
+
+@router.post("/draft", status_code=202)
+def draft(body: DraftIn, user: AuthUser = Depends(current_user)) -> Dict[str, Any]:
+    """Starts a draft and returns at once; poll GET /draft/{job}. Nothing is saved: the result is a proposal."""
+    now = time.time()
+    with _jobs_lock:
+        for k in [k for k, j in _jobs.items() if now - j["started"] > JOB_KEEP]:
+            del _jobs[k]
+        if sum(1 for j in _jobs.values() if j["status"] == "running" and j["user"] == str(user.id)) >= 2:
+            raise HTTPException(status_code=429, detail="Two drafts are already running for you. Wait for one to finish.")
+        job_id = uuid.uuid4().hex[:16]
+        _jobs[job_id] = {"status": "running", "started": now, "user": str(user.id)}
+    threading.Thread(target=_run_draft, args=(job_id, body), daemon=True).start()
+    return {"job": job_id}
+
+
+@router.get("/draft/{job_id}")
+def draft_status(job_id: str, user: AuthUser = Depends(current_user)) -> Dict[str, Any]:
+    with _jobs_lock:
+        j = _jobs.get(job_id)
+        if j is None or j["user"] != str(user.id):
+            raise HTTPException(status_code=404, detail="That draft is no longer available. Send the description again.")
+        return {"status": j["status"], "elapsed": int((j.get("finished") or time.time()) - j["started"]), "result": j.get("result"), "error": j.get("error")}
 
 
 # ── Starting points for the two studios (read only: the organisation is not changed) ──

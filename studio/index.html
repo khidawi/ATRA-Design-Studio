@@ -370,7 +370,8 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       companyDeployment: (id) => call('/api/company/systems/' + encodeURIComponent(id) + '/deployment-description'),
       companyPreview: (content, filename, skip) => post('/api/company/import/preview', { content, filename, skip }),
       companyImport: (content, filename, skip) => post('/api/company/import', { content, filename, skip }),
-      companyDraft: (description) => post('/api/company/draft', { description }),
+      companyDraft: (description, history) => post('/api/company/draft', { description, history: history || [] }),
+      companyDraftStatus: (job) => call('/api/company/draft/' + encodeURIComponent(job)),
       companySample: () => call('/api/company/sample'),
       companyStarters: () => call('/api/company/starters'),
       companyStarter: (name) => call('/api/company/starters/' + encodeURIComponent(name)),
@@ -2931,10 +2932,10 @@ kill_switch:
         ${im.preview ? ogPlan(im.preview, im.skip, 'coSkip') + `<button class="btn" style="align-self:flex-start" data-act="coApply"${im.preview.ok && im.preview.summary.create + im.preview.summary.update > 0 && !im.busy ? '' : ' disabled'}>Import ${im.preview.summary.create + im.preview.summary.update} items</button>` : ''}</div>
         <div class="stack"><h3 style="font-size:15px">What the file looks like</h3><pre class="code" style="max-height:340px;font-size:12px">${esc(OG_EX)}</pre><span class="cap">Only departments are needed. People, outside parties, AI systems (with <span class="mono">hands_tasks_to</span> and <span class="mono">uses_data</span>), data stores, and modelling <span class="mono">elements</span> and <span class="mono">links</span> are optional. Ids keep a person the same person when a file is imported again, so a re-import updates instead of duplicating.</span></div></div>`;
     else if (CO.tab === 'chat') body = `<div class="og-two"><div class="stack" style="gap:10px">
-        <div class="og-chat">${ch.log.map((m) => `<div class="m-msg ${m.who === 'me' ? 'user' : (m.err ? 'err' : 'bot')}">${esc(m.text)}</div>`).join('') || '<div class="cap">Describe the company, its departments, who works where, and how your AI agents hand work to each other. The assistant drafts; nothing is saved until you accept.</div>'}${ch.busy ? '<div class="m-msg bot">Thinking… a local model on a CPU can take a couple of minutes.</div>' : ''}</div>
+        <div class="og-chat">${ch.log.map((m) => `<div class="m-msg ${m.who === 'me' ? 'user' : (m.err ? 'err' : 'bot')}">${esc(m.text)}</div>`).join('') || '<div class="cap">Describe the company, its departments, who works where, and how your AI agents hand work to each other. The assistant drafts; nothing is saved until you accept.</div>'}${ch.busy ? '<div class="m-msg bot">Thinking… <span id="co-elapsed">0</span> s. A local model on a CPU can take several minutes; you can keep reading, but stay on this page.</div>' : ''}</div>
         <textarea class="inp" rows="4" style="padding:10px" placeholder="e.g. We’re Acme Payments. Customer Experience runs support; Jonas Weber leads it. Our refund agent sits there and asks notify-agent in Platform to email the customer." data-chg="coChatText">${esc(ch.text)}</textarea>
         <div style="display:flex;gap:8px"><button class="btn btn-s" data-act="coDraft"${ch.text.trim().length >= 10 && !ch.busy ? '' : ' disabled'}>Send</button></div><span class="cap">Runs on your local model. It only lists what you wrote; it never invents a person, department or agent.</span></div>
-        <div class="stack"><h3 style="font-size:15px">Proposed changes</h3>${ch.plan ? ogPlan(ch.plan, ch.skip, 'coChatSkip') + `<button class="btn" style="align-self:flex-start" data-act="coApplyDraft"${ch.plan.ok && ch.plan.summary.create + ch.plan.summary.update > 0 ? '' : ' disabled'}>Accept ${ch.plan.summary.create + ch.plan.summary.update} items</button>` : '<span class="cap">Nothing proposed yet.</span>'}</div></div>`;
+        <div class="stack"><h3 style="font-size:15px">Proposed changes</h3>${ch.plan ? ogPlan(ch.plan, ch.skip, 'coChatSkip') + `<button class="btn" style="align-self:flex-start" data-act="coApplyDraft"${ch.plan.ok && ch.plan.summary.create + ch.plan.summary.update > 0 ? '' : ' disabled'}>Accept ${ch.plan.summary.create + ch.plan.summary.update} changes</button>` : '<span class="cap">Nothing proposed yet.</span>'}</div></div>`;
     else body = `<div class="stack" style="gap:10px"><div style="display:flex;gap:8px;flex-wrap:wrap">${['department', 'person', 'role', 'external', 'agent', 'model'].map((t) => `<button class="btn2" data-act="coAddType" data-arg="${t}">+ ${esc(OG_TYPE[t])}</button>`).join('')}</div><span class="cap">Fill in the details in the panel next to the canvas below. Or open a view and use <b>Add Model Component</b>, as in Sectro.</span>
         <label class="fld" style="max-width:360px"><span class="cap">Start from a template (opens in Import a file, nothing is saved until you import)</span><select class="reqsel" data-chg="coStarter"><option value="">Choose…</option>${(CO.starters || []).map((s) => opt(s.id, s.name, '')).join('')}</select></label></div>`;
     return `<section class="card og-pad stack" style="gap:14px"><div><h2>1 · Describe the company</h2><span class="cap">Three ways in, same result: departments, people and roles, and the AI systems that work with them. Tasks, goals, policies, data and the breach plan are added in the views below.</span></div>${tabs}${body}</section>`;
@@ -3050,9 +3051,22 @@ kill_switch:
     coTemplate: () => { saveFile('/api/company/template'); },
     coDraft: async () => {
       const ch = CO.chat, text = ch.text.trim(); if (ch.busy || text.length < 10) return;
-      ch.busy = true; ch.err = null; ch.log.push({ who: 'me', text }); ch.text = ''; render(true);
-      try { const r = await STAI.api.companyDraft(text); ch.doc = r.doc; ch.plan = r.plan; ch.skip = []; ch.log.push({ who: 'bot', text: r.plan ? `Drafted ${r.plan.summary.nodes} items and ${r.plan.summary.edges} connections. Review them on the right, untick anything wrong, then accept.${r.plan.ok ? '' : ' Some references do not resolve yet: see the notes.'}` : 'I could not find anything to draft in that. Try naming departments, people or agents.' }); }
-      catch (e) { ch.log.push({ who: 'bot', text: e.message, err: true }); }
+      const history = ch.log.filter((m) => m.who === 'me').map((m) => m.text).slice(-5);
+      ch.busy = true; ch.log.push({ who: 'me', text }); ch.text = ''; render(true);
+      try {
+        const { job } = await STAI.api.companyDraft(text, history);
+        let st;
+        for (;;) {
+          await new Promise((res) => setTimeout(res, 2500));
+          st = await STAI.api.companyDraftStatus(job);
+          const el = document.getElementById('co-elapsed'); if (el) el.textContent = st.elapsed;
+          if (st.status !== 'running') break;
+        }
+        if (st.status === 'error') throw new Error(st.error.detail);
+        const r = st.result;
+        ch.doc = r.plan ? r.doc : ch.doc; ch.plan = r.plan || ch.plan; ch.skip = [];
+        ch.log.push({ who: 'bot', text: r.plan ? `Drafted ${r.plan.summary.nodes} items and ${r.plan.summary.edges} connections${r.plan.summary.new_nodes ? ' (' + r.plan.summary.new_nodes + ' new)' : ''}. Review them on the right, untick anything wrong, then accept. Tell me more and I will add to it.${r.plan.ok ? '' : ' Some references do not resolve: see the notes on the right.'}` : 'I could not find anything to draft in that. Try naming departments, people, AI agents and what they do.' });
+      } catch (e) { ch.log.push({ who: 'bot', text: e.message, err: true }); }
       ch.busy = false; render(true);
     },
     coApplyDraft: async () => {

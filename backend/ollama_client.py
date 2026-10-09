@@ -43,6 +43,7 @@ def chat_json(
     *,
     temperature: float = 0.2,
     max_tokens: Optional[int] = None,
+    timeout: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Ask the local model for one JSON object matching `schema`.
 
@@ -62,12 +63,12 @@ def chat_json(
     }
 
     try:
-        resp = httpx.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload, timeout=OLLAMA_TIMEOUT)
+        resp = httpx.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload, timeout=timeout or OLLAMA_TIMEOUT)
         resp.raise_for_status()
     except httpx.TimeoutException as exc:
         raise HTTPException(
             status_code=504,
-            detail=f"Ollama did not answer within {OLLAMA_TIMEOUT:.0f}s. A CPU-only model is slow; "
+            detail=f"Ollama did not answer within {(timeout or OLLAMA_TIMEOUT):.0f}s. A CPU-only model is slow; "
                     "try a shorter description, a smaller OLLAMA_MODEL, or raise OLLAMA_TIMEOUT_SECONDS.",
         ) from exc
     except httpx.ConnectError as exc:
