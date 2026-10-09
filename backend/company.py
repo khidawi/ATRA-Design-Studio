@@ -292,6 +292,38 @@ def state(session: Session) -> Dict[str, Any]:
     return {"organisation": {"name": org.name}, "nodes": nodes, "edges": edges, "live": live, "checks": res["checks"], "violations": res["violations"], "counts": dict(counts)}
 
 
+# ── The organisation's agents become entries in Agent assurance ────────────
+
+def register_org_agents(session: Session, org: Any, only: Optional[List[str]] = None) -> List[str]:
+    """Creates the Agent assurance inventory entry for each AI agent of the organisation that has none, so it can be designed and ratified there. An
+    entry that exists is left alone. The agents come first; the AI models follow when the Model studio starts a design from them. Does not commit."""
+    import removal
+    nodes = {n.ext_id: n for n in session.scalars(select(CompanyNode).where(CompanyNode.organisation_id == org.id).order_by(CompanyNode.created_at, CompanyNode.ext_id))}
+    have = {k for (k,) in session.execute(select(Agent.agent_key))}
+    made: List[str] = []
+    for n in nodes.values():
+        if n.type != "agent" or (only is not None and n.ext_id not in only):
+            continue
+        key = removal.node_key(n)
+        if len(key) < 2 or key in have:
+            continue
+        owner, dept = nodes.get((n.props or {}).get("owner", "")), nodes.get((n.props or {}).get("department", ""))
+        session.add(Agent(agent_key=key, organisation_id=org.id, name=n.name[:80], owner=owner.name[:120] if owner else None, framework="Not built yet", tools_count=0,
+                          status="TO_RATIFY" if owner else "UNOWNED", mode="NOT_RUNNING", origin="ORG", note=("From the organisation" + (f": {dept.name}" if dept else ""))[:200]))
+        have.add(key)
+        made.append(key)
+    return made
+
+
+@router.post("/sync-agents")
+def sync_agents(session: Session = Depends(get_session)) -> Dict[str, Any]:
+    """Creates the Agent assurance entry for every agent of the organisation that has none yet (idempotent)."""
+    org = current_organisation(session)
+    made = register_org_agents(session, org)
+    session.commit()
+    return {"created": made}
+
+
 # ── Import ─────────────────────────────────────────────────────────────────
 
 class DocIn(BaseModel):
@@ -505,13 +537,14 @@ def apply_plan(session: Session, p: Dict[str, Any], user: AuthUser) -> Dict[str,
             session.add(CompanyEdge(organisation_id=org.id, from_ext=e["from"], to_ext=e["to"], kind=e["kind"], label=e["label"], props=e["props"], created_at=stamp()))
             have.add(k)
             links += 1
+    agents_created = register_org_agents(session, org, [n["id"] for n in p["_nodes"] if n["type"] == "agent"])
     renamed = None
     name = p.get("company_name")
     if name and str(name).strip() and str(name).strip() != org.name and user.role == "admin":
         org.name = str(name).strip()[:120]
         renamed = org.name
     session.commit()
-    return {"created": made, "updated": changed, "connections": links, "renamed": renamed}
+    return {"created": made, "updated": changed, "connections": links, "renamed": renamed, "agents_created": agents_created}
 
 
 def public_plan(p: Dict[str, Any]) -> Dict[str, Any]:
@@ -585,21 +618,60 @@ def _clean_edge_props(kind: str, props: Dict[str, Any]) -> Dict[str, Any]:
 class ClearIn(BaseModel):
     confirm: str = Field(max_length=200)                      # the organisation's name, typed out: a stray API call cannot clear it
     new_name: Optional[str] = Field(None, max_length=120)     # optionally start the new company under its own name
+    remove_everywhere: bool = True                            # also remove its agents and models from Agent assurance and the Model studio
+
+
+def clear_impact(session: Session) -> Dict[str, Any]:
+    """What clearing the organisation would remove, for the confirmation."""
+    import removal
+    org = current_organisation(session)
+    ns = list(session.scalars(select(CompanyNode).where(CompanyNode.organisation_id == org.id)))
+    total = {"agents": 0, "models": 0, "designs": 0, "contracts": 0, "findings": 0, "drift_items": 0, "runtime_events": 0}
+    for n in ns:
+        if n.type == "agent":
+            i = removal.agent_impact(session, removal.node_key(n))
+            total["agents"] += 1 if i["in_inventory"] else 0
+            for k in ("designs", "contracts", "findings", "drift_items", "runtime_events"):
+                total[k] += i[k]
+        elif n.type == "model":
+            i = removal.model_impact(session, n.ext_id)
+            total["models"] += 1
+            total["designs"] += i["designs"]
+            total["contracts"] += i["contracts"]
+    edges = session.scalar(select(func.count()).select_from(CompanyEdge).where(CompanyEdge.organisation_id == org.id)) or 0
+    return {"nodes": len(ns), "connections": edges, "agents_in_organisation": sum(1 for n in ns if n.type == "agent"), "models_in_organisation": sum(1 for n in ns if n.type == "model"), **total}
+
+
+@router.get("/clear-impact")
+def get_clear_impact(session: Session = Depends(get_session)) -> Dict[str, Any]:
+    return clear_impact(session)
 
 
 @router.delete("")
-def clear_company(body: ClearIn, session: Session = Depends(get_session)) -> Dict[str, Any]:
-    """Deletes the whole organisation model (every node and connection) so a new company can be described. Administrators only. Agents, contracts,
-    findings and saved designs are not touched. The audit log records who did it."""
+def clear_company(body: ClearIn, session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> Dict[str, Any]:
+    """Deletes the whole organisation model (every node and connection) so a new company can be described. Administrators only. Its AI agents and
+    AI models are removed from Agent assurance and the Model studio too (with their designs, contracts, findings and runtime events) unless
+    remove_everywhere is false. The audit log records who did it and what it took."""
+    import removal
     org = current_organisation(session)
     if body.confirm.strip() != org.name:
         raise HTTPException(status_code=422, detail="Type the organisation's name exactly as it is shown to confirm.")
-    edges = session.execute(delete(CompanyEdge).where(CompanyEdge.organisation_id == org.id)).rowcount
-    nodes = session.execute(delete(CompanyNode).where(CompanyNode.organisation_id == org.id)).rowcount
+    removed = {"agents": 0, "models": 0}
+    nodes_before = session.scalar(select(func.count()).select_from(CompanyNode).where(CompanyNode.organisation_id == org.id)) or 0
+    edges_before = session.scalar(select(func.count()).select_from(CompanyEdge).where(CompanyEdge.organisation_id == org.id)) or 0
+    if body.remove_everywhere:
+        for n in list(session.scalars(select(CompanyNode).where(CompanyNode.organisation_id == org.id, CompanyNode.type == "agent"))):
+            removal.remove_agent(session, removal.node_key(n), user)
+            removed["agents"] += 1
+        for n in list(session.scalars(select(CompanyNode).where(CompanyNode.organisation_id == org.id, CompanyNode.type == "model"))):
+            removal.remove_model(session, n.ext_id, user)
+            removed["models"] += 1
+    session.execute(delete(CompanyEdge).where(CompanyEdge.organisation_id == org.id))
+    session.execute(delete(CompanyNode).where(CompanyNode.organisation_id == org.id))
     if body.new_name and body.new_name.strip():
         org.name = body.new_name.strip()
     session.commit()
-    return {"deleted_nodes": nodes, "deleted_connections": edges, "organisation": org.name}
+    return {"deleted_nodes": nodes_before, "deleted_connections": edges_before, "removed_agents": removed["agents"], "removed_models": removed["models"], "organisation": org.name}
 
 
 @router.post("/nodes", status_code=201)
@@ -624,6 +696,9 @@ def add_node(body: NodeIn, session: Session = Depends(get_session)) -> Dict[str,
     if problems:
         raise HTTPException(status_code=422, detail=" ".join(problems))
     session.add(CompanyNode(organisation_id=org.id, ext_id=ext, type=body.type, name=body.name.strip(), props=props))
+    session.flush()
+    if body.type == "agent":
+        register_org_agents(session, org, [ext])
     session.commit()
     return {"id": ext}
 
@@ -650,26 +725,64 @@ def patch_node(ext_id: str, body: NodePatch, session: Session = Depends(get_sess
         if row.type == "department" and props.get("parent") == ext_id:
             raise HTTPException(status_code=422, detail="A department cannot report to itself.")
         row.props = props
+        if row.type == "agent" and "owner" in body.props:
+            import removal
+            inv = session.scalar(select(Agent).where(Agent.agent_key == removal.node_key(row)))
+            if inv is not None and inv.origin == "ORG" and inv.design_id is None:        # not yet designed: the organisation is still its source
+                who = session.scalar(select(CompanyNode).where(CompanyNode.organisation_id == org.id, CompanyNode.ext_id == props.get("owner", "")))
+                inv.owner = who.name[:120] if who else None
+                inv.status = "TO_RATIFY" if who else "UNOWNED"
     session.commit()
     return {"id": ext_id}
 
 
-@router.delete("/nodes/{ext_id}")
-def delete_node(ext_id: str, session: Session = Depends(get_session)) -> Dict[str, Any]:
-    org = current_organisation(session)
-    row = session.scalar(select(CompanyNode).where(CompanyNode.organisation_id == org.id, CompanyNode.ext_id == ext_id))
-    if row is None:
-        raise HTTPException(status_code=404, detail="That item is not in the organisation.")
+def drop_node(session: Session, org: Any, row: CompanyNode) -> None:
+    """Deletes a node and every connection to it, and clears it as anyone's owner, head or deputy. Does not commit."""
+    ext_id = row.ext_id
     others = list(session.scalars(select(CompanyNode).where(CompanyNode.organisation_id == org.id, CompanyNode.ext_id != ext_id)))
-    users = [o for o in others if any(o.props.get(k) == ext_id for k in ("parent", "department", "lane"))]
-    if row.type == "department" and users:
-        raise HTTPException(status_code=409, detail=f"{row.name} still has {len(users)} item(s) in it ({', '.join(u.name for u in users[:3])}{'…' if len(users) > 3 else ''}). Move or delete them first.")
-    for o in others:                                               # a deleted person is no longer anyone's owner, head or deputy
+    for o in others:
         gone = [k for k in REF_KEYS if o.props.get(k) == ext_id]
         if gone:
             o.props = {k: v for k, v in o.props.items() if k not in gone}
     session.execute(delete(CompanyEdge).where(CompanyEdge.organisation_id == org.id, (CompanyEdge.from_ext == ext_id) | (CompanyEdge.to_ext == ext_id)))
     session.delete(row)
+
+
+@router.get("/nodes/{ext_id}/removal-impact")
+def node_removal_impact(ext_id: str, session: Session = Depends(get_session)) -> Dict[str, Any]:
+    """For an agent or a model: what removing it would take with it across the platform, for the confirmation."""
+    import removal
+    org = current_organisation(session)
+    row = session.scalar(select(CompanyNode).where(CompanyNode.organisation_id == org.id, CompanyNode.ext_id == ext_id))
+    if row is None:
+        raise HTTPException(status_code=404, detail="That item is not in the organisation.")
+    if row.type == "agent":
+        return {"type": "agent", **removal.agent_impact(session, removal.node_key(row))}
+    if row.type == "model":
+        return {"type": "model", **removal.model_impact(session, ext_id)}
+    return {"type": row.type, "name": row.name, "organisation_connections": session.scalar(select(func.count()).select_from(CompanyEdge).where(
+        CompanyEdge.organisation_id == org.id, (CompanyEdge.from_ext == ext_id) | (CompanyEdge.to_ext == ext_id))) or 0}
+
+
+@router.delete("/nodes/{ext_id}")
+def delete_node(ext_id: str, session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> Dict[str, Any]:
+    """Deletes an item. An AI agent or AI model is removed from the whole platform with it (Agent assurance and the Model studio are the same
+    platform as the organisation), which only an administrator may do."""
+    import removal
+    org = current_organisation(session)
+    row = session.scalar(select(CompanyNode).where(CompanyNode.organisation_id == org.id, CompanyNode.ext_id == ext_id))
+    if row is None:
+        raise HTTPException(status_code=404, detail="That item is not in the organisation.")
+    if row.type in ("agent", "model"):
+        if user.role != "admin":
+            raise HTTPException(status_code=403, detail="Only an administrator can remove an AI agent or model: it is removed from Agent assurance and the Model studio as well.")
+        done = removal.remove_agent(session, removal.node_key(row), user) if row.type == "agent" else removal.remove_model(session, ext_id, user)
+        return {"deleted": ext_id, "removed": done}
+    others = list(session.scalars(select(CompanyNode).where(CompanyNode.organisation_id == org.id, CompanyNode.ext_id != ext_id)))
+    users = [o for o in others if any(o.props.get(k) == ext_id for k in ("parent", "department", "lane"))]
+    if row.type == "department" and users:
+        raise HTTPException(status_code=409, detail=f"{row.name} still has {len(users)} item(s) in it ({', '.join(u.name for u in users[:3])}{'…' if len(users) > 3 else ''}). Move or delete them first.")
+    drop_node(session, org, row)
     session.commit()
     return {"deleted": ext_id}
 

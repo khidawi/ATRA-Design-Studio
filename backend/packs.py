@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 from auth import AuthUser, current_user
 from compliance_schema import CompiledContract, compute_contract_hash
 from coverage_scorecard import coverage
-from db.models import Agent, Contract, DriftItem, EvidencePack, Finding
+from db.models import Agent, Contract, DriftItem, EvidencePack, Finding, RemovedContract
 from db.session import get_session
 from organisation import current_organisation
 
@@ -304,7 +304,11 @@ def verify(key: str, session: Session = Depends(get_session)) -> VerifyOut:
             continue
         checked += 1
         row = session.scalar(select(Contract).where(Contract.contract_id == e["ref"]))
-        if row is None:
+        gone = session.scalar(select(RemovedContract).where(RemovedContract.contract_id == e["ref"])) if row is None else None
+        if gone is not None:                 # removed together with its agent or model: the pack stays valid, and says so
+            checked -= 1
+            notes.append(f"Contract {e['ref']} was removed on {gone.removed_at:%d %b %Y} by {gone.removed_by} ({gone.reason}); its hash is kept: {gone.contract_hash[:16]}.")
+        elif row is None:
             problems.append(f"Contract {e['ref']} is no longer stored.")
         elif compute_contract_hash(CompiledContract(**row.document)) != e["hash"]:
             problems.append(f"Contract {e['ref']} no longer matches the hash recorded in this pack.")

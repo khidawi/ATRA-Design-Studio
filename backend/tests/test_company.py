@@ -15,9 +15,11 @@ REQ = {"dpia": {"status": "Covered", "evidence": "DPIA report DOC-9", "signed_of
 
 
 def wipe():
-    from db.models import CompanyDraftCache, CompanyEdge, CompanyNode, RuntimeEvent
+    from db.models import Agent, CompanyDraftCache, CompanyEdge, CompanyNode, RemovedContract, RuntimeEvent
     from db.session import SessionLocal
     with SessionLocal() as s:
+        s.query(Agent).filter(Agent.origin == "ORG").delete(synchronize_session=False)
+        s.query(RemovedContract).delete()
         s.query(CompanyDraftCache).delete()
         s.query(CompanyEdge).delete()
         s.query(CompanyNode).delete()
@@ -221,11 +223,11 @@ def test_the_link_to_agents_contracts_and_the_runtime_is_read_only():
             s = admin.get("/api/company").json()
             live = s["live"]
             assert live["agents"]["AG-S"]["registered"] and live["agents"]["AG-S"]["contract_version"] == "1.0.0" and live["agents"]["AG-R"]["registered"] and live["agents"]["AG-R"]["contract_version"] is None
-            assert live["agents"]["AG-U"]["registered"] is False
+            assert live["agents"]["AG-U"]["registered"] is True and live["agents"]["AG-U"]["contract_version"] is None      # the import created its entry in Agent assurance
             t = {e["label"]: live["tasks"][e["id"]] for e in s["edges"] if e["kind"] == "task"}
             assert t["Hand over"]["declared"] is True and t["Hand over"]["contract_version"] == "1.0.0" and t["Escalate"]["declared"] is False      # the contract declares the receiver, not the other agent
             assert any(c["key"] == "not_in_contract" and c["refs"] == ["AG-S", "AG-U"] and c["level"] == "bad" for c in s["checks"])
-            assert any(c["key"] == "not_registered" and c["refs"] == ["AG-U"] for c in s["checks"])
+            assert not any(c["key"] == "not_registered" for c in s["checks"])
 
             ev = admin.post("/api/runtime/events", json={"agent": SENDER, "events": [{"type": "delegation", "name": RECEIVER}, {"type": "delegation", "name": RECEIVER}, {"type": "delegation", "name": "zz-test-surprise"}]})
             assert ev.status_code == 202, ev.text
@@ -419,7 +421,7 @@ def test_only_an_administrator_can_clear_the_organisation_and_must_type_its_name
             assert api.request("DELETE", "/api/company", json={}).status_code == 422
             assert len(api.get("/api/company").json()["nodes"]) == 64                                           # nothing was deleted by a refused call
             r = api.request("DELETE", "/api/company", json={"confirm": f"  {name} "})
-            assert r.status_code == 200 and r.json() == {"deleted_nodes": 64, "deleted_connections": 63, "organisation": name}
+            assert r.status_code == 200 and r.json() == {"deleted_nodes": 64, "deleted_connections": 63, "removed_agents": 4, "removed_models": 1, "organisation": name}
             s = api.get("/api/company").json()
             assert s["nodes"] == [] and s["edges"] == [] and s["checks"] == [] and s["organisation"]["name"] == name
             events = api.get("/api/audit?limit=30").json()

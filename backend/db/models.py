@@ -516,3 +516,19 @@ class CompanyDraftCache(Base):
     key: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     raw: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class RemovedContract(Base):
+    """What is left of a contract that was removed together with its agent or model: enough for an evidence pack that cited it to say so (Task 15)."""
+
+    __tablename__ = "removed_contracts"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    contract_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    object_type: Mapped[str] = mapped_column(String(8), nullable=False)
+    deployment_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    version: Mapped[str] = mapped_column(String(16), nullable=False, server_default="")
+    contract_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    removed_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    reason: Mapped[str] = mapped_column(String(200), nullable=False, server_default="")
+    removed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

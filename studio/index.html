@@ -209,6 +209,8 @@ main.wide{max-width:none}
 
 /* ---------- Organisation (Task 13) ---------- */
 .og-pad{padding:18px 20px}
+.navback{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;padding:6px 10px;margin:0 8px;border:1px solid #3A4553;border-radius:8px;color:#C9D1DA;font-size:13px;font-weight:500;text-decoration:none}.navback:hover{background:#1F2833;color:#fff}
+.navgrp{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7D8896;padding:12px 12px 4px}
 .btn-danger{background:#8C1F17;border-color:#8C1F17}.btn-danger:hover{background:#6E1812;border-color:#6E1812}.btn-danger:disabled{background:#AEB7C4;border-color:#AEB7C4}
 .og-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
 @media (max-width:1000px){.og-two{grid-template-columns:minmax(0,1fr)}}
@@ -367,6 +369,11 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       previewAgentImport: (body) => post('/api/agents/import/preview', body),
       importAgent: (body) => post('/api/agents/import', body),
       companyGet: () => call('/api/company'),
+      companySyncAgents: () => post('/api/company/sync-agents', {}),
+      companyRemovalImpact: (id) => call('/api/company/nodes/' + encodeURIComponent(id) + '/removal-impact'),
+      companyClearImpact: () => call('/api/company/clear-impact'),
+      agentRemovalImpact: (key) => call('/api/agents/' + encodeURIComponent(key) + '/removal-impact'),
+      deleteAgent: (key) => call('/api/agents/' + encodeURIComponent(key), { method: 'DELETE' }),
       companyClear: (body) => call('/api/company', { method: 'DELETE', body: JSON.stringify(body) }),
       companyAgentSeed: (id) => call('/api/company/systems/' + encodeURIComponent(id) + '/agent-seed'),
       companyDeployment: (id) => call('/api/company/systems/' + encodeURIComponent(id) + '/deployment-description'),
@@ -434,14 +441,15 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
     drift: { sel: null }
   };
 
-  const NAV = [['overview', 'Overview', ''], ['organisation', 'Organisation', ''], ['agents', 'Agents', '12'], ['studio', 'Design studio', ''], ['drift', 'Drift review', '3'], ['findings', 'Findings', '4'], ['coverage', 'Coverage', '7/10'], ['packs', 'Trust and packs', ''], ['runtime', 'Live runtime', ''], ['workspace', 'Compliance workspace', '2'], ['policies', 'Policies', ''], ['regulations', 'Regulations', '']];
+  const NAV = [['overview', 'Overview', ''], ['agents', 'Agents', '12'], ['studio', 'Design studio', ''], ['drift', 'Drift review', '3'], ['findings', 'Findings', '4'], ['coverage', 'Coverage', '7/10'], ['packs', 'Trust and packs', ''], ['runtime', 'Live runtime', ''], ['workspace', 'Compliance workspace', '2']];
   const PARENT = { newagent: 'agents', addagent: 'agents', contract: 'agents', pack: 'packs' };
 
   function nav(active) {
     return `<nav class="side" aria-label="Main">
-      <a class="brand" href="#/" style="text-decoration:none" title="Switch module"><b>ASTRA</b><span>Agent assurance</span></a>
+      <a class="navback" href="#/" title="Back to the main menu">\u2190 Main menu</a>
+      <div class="brand"><b>ASTRA</b><span>Agent assurance</span></div>
       <button type="button" class="tenant" data-act="orgRename" title="Rename organisation"><strong>${esc(ORG.name)}</strong><small>Organisation · click to rename</small></button>
-      <div class="navlinks">${NAV.map(([k, l, b]) => (k === 'agents' ? [k, l, AG.loaded && AG.list.length ? String(AG.list.length) : ''] : (k === 'drift' ? [k, l, FD.loaded ? String(FD.drift.filter((x) => x.status === 'OPEN').length || '') : ''] : (k === 'findings' ? [k, l, FD.loaded ? String(FD.findings.filter((x) => x.status === 'OPEN').length || '') : ''] : (k === 'coverage' ? [k, l, CV.loaded && CV.data.agents_in_scope ? CV.data.covered + '/' + (CV.data.covered + CV.data.partial + CV.data.gap + CV.data.no_data) : ''] : (k === 'runtime' ? [k, l, RT.loaded ? String(RT.data.agents.filter((a) => a.status === 'live').length || '') : ''] : (k === 'workspace' ? [k, l, FD.loaded ? String(FD.drift.filter((x) => x.status === 'OPEN' && x.source !== 'DEMO').length || '') : ''] : [k, l, b]))))))).map(([k, l, b]) => `<a href="#/${k}"${k === active ? ' class="on" aria-current="page"' : ''}><span>${l}</span><small>${b}</small></a>`).join('')}<a href="#/"><span>Switch module</span><small>\u21c4</small></a></div>
+      <div class="navlinks">${NAV.map(([k, l, b]) => (k === 'agents' ? [k, l, AG.loaded && AG.list.length ? String(AG.list.length) : ''] : (k === 'drift' ? [k, l, FD.loaded ? String(FD.drift.filter((x) => x.status === 'OPEN').length || '') : ''] : (k === 'findings' ? [k, l, FD.loaded ? String(FD.findings.filter((x) => x.status === 'OPEN').length || '') : ''] : (k === 'coverage' ? [k, l, CV.loaded && CV.data.agents_in_scope ? CV.data.covered + '/' + (CV.data.covered + CV.data.partial + CV.data.gap + CV.data.no_data) : ''] : (k === 'runtime' ? [k, l, RT.loaded ? String(RT.data.agents.filter((a) => a.status === 'live').length || '') : ''] : (k === 'workspace' ? [k, l, FD.loaded ? String(FD.drift.filter((x) => x.status === 'OPEN' && x.source !== 'DEMO').length || '') : ''] : [k, l, b]))))))).map(([k, l, b]) => `<a href="#/${k}"${k === active ? ' class="on" aria-current="page"' : ''}><span>${l}</span><small>${b}</small></a>`).join('')}</div>
       ${whoBox()}
       ${AG.list.some((a) => a.origin === 'DEMO') ? '<div class="demo">Demo agents loaded</div>' : ''}
     </nav>`;
@@ -654,6 +662,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
   }
   function agents() {
     if (!AG.loaded && !AG.loading && !AG.error) loadAgents();
+    coWanted();
     const st = S.agents, head = hdr('Discovered from GitHub, MCP manifests, IdP scopes and OpenTelemetry', 'Agent inventory', '<a class="btn" href="#/newagent">Add agent</a>');
     if (AG.error && !AG.loaded) return head + `<div class="note alert" role="alert"><strong>Could not load the inventory</strong><span style="font-size:13px">${esc(AG.error)}</span><button class="btn2 btn-s" data-act="agReload" style="align-self:flex-start">Retry</button></div>`;
     if (!AG.loaded) return head + '<p class="cap">Loading\u2026</p>';
@@ -666,12 +675,14 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
       if (a.origin === 'DEMO') { const to = a.status === 'DESIGNED' ? 'drift' : 'contract'; return `<a href="#/${to}" style="font-weight:500">${a.status === 'TO_RATIFY' ? 'Review draft' : (a.status === 'DESIGNED' ? 'Review drift' : 'View contract')}</a>`; }
       if (a.contract_count) return `<a href="#/contract?agent=${esc(a.agent_key)}" style="font-weight:500">View contract</a>`;
       if (a.design_key) return `<button class="btn2 btn-s" data-act="agOpenDesign" data-arg="${esc(a.design_key)}">Open design</button>`;
+      const on = coAgentNode(a.agent_key);
+      if (on) return `<button class="btn2 btn-s" data-act="sFromOrg" data-arg="${esc(on.id)}" title="Start the design from what the organisation knows about this agent">Design it</button>`;
       return '<a href="#/studio" style="font-weight:500">Design it</a>';
     };
     const empty = `<section class="card" style="padding:24px;display:flex;flex-direction:column;gap:12px;max-width:760px"><h3>No agents in the inventory yet</h3><span class="cap">An agent appears here when you ratify a design from the design studio or register one by hand. Finding agents in a repository, telemetry or an identity provider needs connectors, which are not built yet. To explore the screens first, load the demo agents (sample data from the prototype, easy to remove).</span><div class="prow"><a class="btn" href="#/studio">Design an agent</a><a class="btn2" href="#/addagent">Register an agent</a><button class="btn2" data-act="agLoadDemo"${AG.busy ? ' disabled' : ''}>Load demo agents</button></div></section>`;
     const table = `<div>${segTabs([['all', `All (${AG.list.length})`], ['assured', `Assured (${n('ASSURED')})`], ['ratify', `To ratify (${n('TO_RATIFY')})`], ['designed', `Designed (${n('DESIGNED')})`], ['unowned', `Unowned (${n('UNOWNED')})`]], st.tab, 'agTab')}</div>
       <section class="card tbl"><div class="grow head"><span>Agent</span><span>Owner</span><span>Framework</span><span>Tools</span><span>Status</span><span>Mode</span><span>Last finding</span><span>Action</span></div>
-      ${rows.map((a) => `<div class="grow"><span class="mono" style="font-weight:500">${esc(a.name)}${a.origin === 'DEMO' ? ' <span class="pill muted">demo</span>' : ''}${a.origin === 'DISCOVERED' ? ' <span class="pill warn" title="Seen by the runtime SDK, not registered by a person">discovered</span>' : ''}</span><span>${esc(a.owner || 'No owner')}</span><span>${esc(a.framework)}</span><span>${a.tools_count}</span><span><span class="pill ${pills[a.status]}">${STATUS_LABEL[a.status]}</span></span><span>${MODE_LABEL[a.mode]}</span><span class="cap">${esc(a.last_finding || a.note || '\u2014')}</span><span>${action(a)}</span></div>`).join('')}</section>`;
+      ${rows.map((a) => `<div class="grow"><span class="mono" style="font-weight:500">${esc(a.name)}${a.origin === 'DEMO' ? ' <span class="pill muted">demo</span>' : ''}${a.origin === 'DISCOVERED' ? ' <span class="pill warn" title="Seen by the runtime SDK, not registered by a person">discovered</span>' : ''}${a.origin === 'ORG' ? ' <span class="pill muted" title="Created from the organisation">organisation</span>' : ''}</span><span>${esc(a.owner || 'No owner')}</span><span>${esc(a.framework)}</span><span>${a.tools_count}</span><span><span class="pill ${pills[a.status]}">${STATUS_LABEL[a.status]}</span></span><span>${MODE_LABEL[a.mode]}</span><span class="cap">${esc(a.last_finding || a.note || '\u2014')}</span><span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${action(a)}${can('admin') ? `<button class="btn3 btn-s" data-act="agDelete" data-arg="${esc(a.agent_key)}" title="Remove this agent from the whole platform">Delete</button>` : ''}</span></div>`).join('')}</section>`;
     const demoNote = demo ? `<div class="note plain" role="status" style="flex-direction:row;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><span class="stack"><strong>Demo agents are loaded</strong><span style="font-size:13px">Rows marked demo are sample data from the prototype, not discovered agents. Their findings, drift and coverage are illustrative.</span></span><button class="btn2 btn-s" data-act="agRemoveDemo">Remove demo agents</button></div>` : '';
     return head + (AG.error ? `<div class="note alert" role="alert"><span style="font-size:13px;white-space:pre-wrap">${esc(AG.error)}</span></div>` : '') + demoNote + (AG.list.length ? table : empty) +
       '<p class="cap" style="margin:0">Unowned agents count against ASI10 Rogue agents until an owner ratifies a model. Designed agents are free until they run.</p>';
@@ -1730,9 +1741,10 @@ kill_switch:
   /* ----- shell ----- */
   function modelNav(active) {
     return `<nav class="side" aria-label="Model module">
-      <a class="brand" href="#/" style="text-decoration:none"><b>ASTRA</b><span>Model studio \u00b7 ST-AI</span></a>
+      <a class="navback" href="#/" title="Back to the main menu">\u2190 Main menu</a>
+      <div class="brand"><b>ASTRA</b><span>Model studio \u00b7 ST-AI</span></div>
       <button type="button" class="tenant" data-act="orgRename" title="Rename organisation"><strong>${esc(ORG.name)}</strong><small>Organisation · click to rename</small></button>
-      <div class="navlinks"><a href="#/model"${active === 'model' ? ' class="on" aria-current="page"' : ''}><span>Model studio</span><small>${M.nodes.length || ''}</small></a><a href="#/model/contracts"${active === 'contracts' ? ' class="on" aria-current="page"' : ''}><span>Compiled contracts</span><small>${M.contracts.length || ''}</small></a><a href="#/organisation?from=model"${active === 'organisation' ? ' class="on" aria-current="page"' : ''}><span>Organisation</span><small></small></a><a href="#/policies?from=model"${active === 'policies' ? ' class="on" aria-current="page"' : ''}><span>Policies</span><small></small></a><a href="#/regulations?from=model"${active === 'regulations' ? ' class="on" aria-current="page"' : ''}><span>Regulations</span><small></small></a><a href="#/"><span>Switch module</span><small>\u21c4</small></a></div>
+      <div class="navlinks"><a href="#/model"${active === 'model' ? ' class="on" aria-current="page"' : ''}><span>Model studio</span><small>${M.nodes.length || ''}</small></a><a href="#/model/contracts"${active === 'contracts' ? ' class="on" aria-current="page"' : ''}><span>Compiled contracts</span><small>${M.contracts.length || ''}</small></a></div>
       ${whoBox()}
       <div class="demo">Connected to the ST-AI backend</div></nav>`;
   }
@@ -2519,15 +2531,21 @@ kill_switch:
   Object.assign(C, { rtAgent: (v) => { RT.agent = v; loadRuntime(); } });
 
   /* ---------- Organisation (Task 13): one model of the company, drawn as several views, linked read-only to the agent inventory ---------- */
-  const CO = { clear: { open: false, confirm: '', newName: '', busy: false, err: null }, loaded: false, loading: false, error: null, data: null, view: 'org', filter: 'all', sel: null, selEdge: null, palette: false, mode: null, conn: null, form: null, tab: 'file', model: null, err: null, notice: null, starters: null,
+  const CO = { clear: { open: false, confirm: '', newName: '', busy: false, err: null, everywhere: true, impact: null }, loaded: false, loading: false, error: null, data: null, view: 'org', filter: 'all', sel: null, selEdge: null, palette: false, mode: null, conn: null, form: null, tab: 'file', model: null, err: null, notice: null, starters: null,
     imp: { content: '', filename: '', preview: null, skip: [], busy: false, err: null, result: null },
     chat: { text: '', busy: false, err: null, log: [], doc: null, plan: null, skip: [] } };
   let MODCTX = '';                                       // the module the person was last in ('' right after signing in)
-  const orgFrom = () => { const f = new URLSearchParams(location.hash.split('?')[1] || '').get('from'); return f === 'model' || f === 'agent' ? f : MODCTX; };
-  const orgNav = () => `<nav class="side" aria-label="Organisation">
+  const orgFrom = () => '';                              // the organisation has one menu now: the main menu
+  const orgNav = (active) => `<nav class="side" aria-label="Main menu">
       <a class="brand" href="#/" style="text-decoration:none"><b>ASTRA</b><span>Assurance for AI agents and models</span></a>
       <button type="button" class="tenant" data-act="orgRename" title="Rename organisation"><strong>${esc(ORG.name)}</strong><small>Organisation \u00b7 click to rename</small></button>
-      <div class="navlinks"><a href="#/organisation" class="on" aria-current="page"><span>Organisation</span><small></small></a><a href="#/overview"><span>Agent assurance</span><small>\u2192</small></a><a href="#/model"><span>Model studio \u00b7 ST-AI</span><small>\u2192</small></a></div>
+      <div class="navlinks"><div class="navgrp">Company</div>
+        <a href="#/organisation"${active === 'organisation' ? ' class="on" aria-current="page"' : ''}><span>Organisation</span><small></small></a>
+        <a href="#/policies"${active === 'policies' ? ' class="on" aria-current="page"' : ''}><span>Policies</span><small></small></a>
+        <a href="#/regulations"${active === 'regulations' ? ' class="on" aria-current="page"' : ''}><span>Regulations</span><small></small></a>
+        <div class="navgrp">Modules</div>
+        <a href="#/overview"><span>Agent assurance</span><small>\u2192</small></a>
+        <a href="#/model"><span>Model studio \u00b7 ST-AI</span><small>\u2192</small></a></div>
       ${whoBox()}</nav>`;
   const orgModules = () => `<section class="og-two" aria-label="Continue to a module"><a class="choice" href="#/overview" style="padding:18px 20px;gap:6px"><span class="pill ok" style="align-self:flex-start">Agent</span><b style="font-size:17px">Agent assurance</b><span class="cap">Design agents, register running agents, review drift and findings, and watch them live.</span></a><a class="choice" href="#/model" style="padding:18px 20px;gap:6px"><span class="pill" style="align-self:flex-start;background:#EDE7FB;color:#4C1D95">Model</span><b style="font-size:17px">Model studio \u00b7 ST-AI</b><span class="cap">Assess an AI model deployment: its actors, data and constraints, and compile a contract.</span></a></section>`;
   // The sidebar shows the organisation's name, and an import can rename it (administrators): keep the two in step.
@@ -2538,7 +2556,7 @@ kill_switch:
     CO.loading = false; renderIfIdle(route());
   }
   async function coAfter(fn, keep) {
-    CO.err = null;
+    CO.err = null; AG.loaded = false;
     try { const r = await fn(); await loadCompanyQuiet(); return r; } catch (e) { CO.err = e.message; } finally { renderIfIdle('organisation'); }
     return null;
   }
@@ -2933,7 +2951,7 @@ kill_switch:
         <div class="og-drop"><b>Choose a JSON or YAML file</b><div class="cap">up to 512 KB · ${im.filename ? 'loaded: <span class="mono">' + esc(im.filename) + '</span>' : 'or paste it below'}</div><input type="file" accept=".json,.yaml,.yml,application/json,text/yaml" data-chg="coFile" style="margin-top:8px"></div>
         <textarea class="inp" rows="6" style="padding:10px;font-family:'IBM Plex Mono',monospace;font-size:12px" placeholder="…or paste the file here" data-chg="coContent">${esc(im.content)}</textarea>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-s" data-act="coPreview"${im.content.trim() && !im.busy ? '' : ' disabled'}>${im.busy ? 'Checking…' : 'Preview'}</button><button class="btn2 btn-s" data-act="coSample">Use the sample company</button><button class="btn2 btn-s" data-act="coTemplate">Download a template</button></div>
-        ${im.err ? `<div class="note alert" role="alert" style="font-size:13px">${esc(im.err)}</div>` : ''}${im.result ? `<div class="note good" role="status" style="font-size:13px"><strong>Imported</strong>${im.result.created} new, ${im.result.updated} changed, ${im.result.connections} new connections.${im.result.renamed ? ' The organisation is now called ' + esc(im.result.renamed) + '.' : ''}</div>` : ''}
+        ${im.err ? `<div class="note alert" role="alert" style="font-size:13px">${esc(im.err)}</div>` : ''}${im.result ? `<div class="note good" role="status" style="font-size:13px"><strong>Imported</strong>${im.result.created} new, ${im.result.updated} changed, ${im.result.connections} new connections.${im.result.renamed ? ' The organisation is now called ' + esc(im.result.renamed) + '.' : ''}${(im.result.agents_created || []).length ? ' ' + im.result.agents_created.length + ' agent' + (im.result.agents_created.length === 1 ? '' : 's') + ' created in Agent assurance: design them there.' : ''}</div>` : ''}
         ${im.preview ? ogPlan(im.preview, im.skip, 'coSkip') + `<button class="btn" style="align-self:flex-start" data-act="coApply"${im.preview.ok && im.preview.summary.create + im.preview.summary.update > 0 && !im.busy ? '' : ' disabled'}>Import ${im.preview.summary.create + im.preview.summary.update} items</button>` : ''}</div>
         <div class="stack"><h3 style="font-size:15px">What the file looks like</h3><pre class="code" style="max-height:340px;font-size:12px">${esc(OG_EX)}</pre><span class="cap">Only departments are needed. People, outside parties, AI systems (with <span class="mono">hands_tasks_to</span> and <span class="mono">uses_data</span>), data stores, and modelling <span class="mono">elements</span> and <span class="mono">links</span> are optional. Ids keep a person the same person when a file is imported again, so a re-import updates instead of duplicating.</span></div></div>`;
     else if (CO.tab === 'chat') body = `<div class="og-two"><div class="stack" style="gap:10px">
@@ -2961,8 +2979,8 @@ kill_switch:
   function ogLive(ix) {
     const L = CO.data.live, ed = can('write'), agents = ix.T('agent');
     const rows = agents.map((a) => { const lv = L.agents[a.id]; return `<div class="og-kv" style="align-items:center"><span><b>${esc(a.name)}</b><br><span class="cap">${esc(ix.N[a.props.department] ? ix.N[a.props.department].name : 'no department')}</span></span><span style="text-align:right">${lv && lv.registered ? `<span class="pill ${lv.contract_version ? 'ok' : 'warn'}">${lv.contract_version ? 'contract v' + esc(lv.contract_version) : 'registered, no contract'}</span><br><span class="cap">seen ${lv.last_seen_at ? esc(String(lv.last_seen_at).slice(0, 16).replace('T', ' ')) : 'never'}</span>` : '<span class="pill muted">not registered</span>'}</span></div>`; }).join('');
-    const un = L.unmapped_agents, hs = L.unmodelled;
-    return `<section class="stack" style="gap:10px"><div><h2>4 · Linked to Agent assurance</h2><span class="cap">The organisation reads the agent inventory, contracts and runtime reports and never changes them. An agent in the organisation is matched to the registered agent with the same name.</span></div>
+    const un = L.unmapped_agents, hs = L.unmodelled, missing = agents.filter((a) => !(L.agents[a.id] || {}).registered);
+    return `<section class="stack" style="gap:10px"><div><h2>4 · Linked to Agent assurance</h2><span class="cap">Describing the company creates its agents in Agent assurance, where you design and ratify them. The organisation matches an agent to the registered agent with the same name, and reads its contract and runtime reports.</span>${missing.length && ed ? `<div style="margin-top:6px"><button class="btn" data-act="coSyncAgents">Create ${missing.length} agent${missing.length === 1 ? '' : 's'} in Agent assurance</button> <span class="cap">${esc(missing.map((a) => a.name).join(', '))} ${missing.length === 1 ? 'is' : 'are'} in the organisation but not in the inventory.</span></div>` : ''}</div>
       <div class="cols"><div class="card og-pad stack" style="gap:6px"><h3 style="font-size:15px">Agents in the organisation</h3>${rows || '<span class="cap">No agents yet.</span>'}</div>
       <div class="card og-pad stack" style="gap:8px"><h3 style="font-size:15px">Registered agents not in the organisation</h3>${un.length ? un.map((a) => `<div class="og-kv" style="align-items:center"><span><b>${esc(a.name)}</b><br><span class="cap">${esc(a.origin.toLowerCase())}${a.owner ? ' · ' + esc(a.owner) : ''}</span></span>${ed ? `<button class="btn2 btn-s" data-act="coAddUnmapped" data-arg="${esc(a.agent_key)}">Add to the organisation</button>` : ''}</div>`).join('') : '<span class="cap">Every registered agent has a place in the organisation.</span>'}
         <h3 style="font-size:15px;margin-top:8px">Handoffs seen at runtime, not drawn here</h3>${hs.length ? hs.map((h, i) => `<div class="og-kv" style="align-items:center"><span><b>${esc(ix.nm(h.from))} → ${esc(h.to_name)}</b><br><span class="cap">${h.count} time(s) in 30 days${h.declared === false ? ' · <span style="color:#B42318">not in its contract</span>' : ''}</span></span>${ed ? `<button class="btn2 btn-s" data-act="coAddHandoff" data-arg="${i}">Add the task link</button>` : ''}</div>`).join('') : '<span class="cap">None: everything the SDK has seen is drawn.</span>'}</div></div></section>`;
@@ -3031,6 +3049,13 @@ kill_switch:
       const ix = coIx();
       if (CO.selEdge) { if (!window.confirm('Delete this connection?')) return; const id = CO.selEdge; CO.selEdge = null; await coAfter(() => STAI.api.companyDeleteEdge(id)); render(true); return; }
       const n = ix.N[CO.sel]; if (!n) return;
+      if (n.type === 'agent' || n.type === 'model') {
+        let i;
+        try { i = await STAI.api.companyRemovalImpact(n.id); } catch (e) { CO.err = e.message; render(true); return; }
+        const parts = n.type === 'agent' ? [`its entry in Agent assurance`, `${i.designs} design(s)`, `${i.contracts} contract(s)`, `${i.findings} finding(s)`, `${i.drift_items} drift item(s)`, `${i.runtime_events} runtime event(s)`] : [`${i.designs} Model studio design(s) started from it`, `${i.contracts} contract(s) compiled from them`];
+        if (!window.confirm(`Delete ${n.name} from the whole platform?\n\nThe organisation, Agent assurance and the Model studio are one platform, so this removes: ${parts.join(', ')}, and its ${i.organisation_connections} connection(s) here.\n\nIt cannot be undone.`)) return;
+        CO.sel = null; await coAfter(() => STAI.api.companyDeleteNode(n.id)); coStale(); render(true); return;
+      }
       if (!window.confirm(`Delete ${n.name}? Its connections go with it.`)) return;
       CO.sel = null; await coAfter(() => STAI.api.companyDeleteNode(n.id)); render(true);
     },
@@ -3050,7 +3075,7 @@ kill_switch:
     coPreview: async () => { const im = CO.imp; if (im.busy) return; im.busy = true; im.err = null; im.result = null; render(true); try { im.preview = await STAI.api.companyPreview(im.content, im.filename, im.skip); } catch (e) { im.preview = null; im.err = e.message; } im.busy = false; render(true); },
     coApply: async () => {
       const im = CO.imp; if (im.busy || !im.preview) return; im.busy = true; im.err = null; render(true);
-      try { const r = await STAI.api.companyImport(im.content, im.filename, im.skip); im.result = r; im.preview = null; im.content = ''; im.filename = ''; im.skip = []; coSetData(r.company); } catch (e) { im.err = e.message; }
+      try { const r = await STAI.api.companyImport(im.content, im.filename, im.skip); im.result = r; im.preview = null; im.content = ''; im.filename = ''; im.skip = []; coSetData(r.company); AG.loaded = false; } catch (e) { im.err = e.message; }
       im.busy = false; render(true);
     },
     coSample: async () => { try { const d = await STAI.api.companySample(); Object.assign(CO.imp, { content: JSON.stringify(d, null, 2), filename: 'sample-company.json', skip: [], result: null, err: null, preview: null }); await H.coPreview(); } catch (e) { CO.imp.err = e.message; } },
@@ -3077,7 +3102,7 @@ kill_switch:
     },
     coApplyDraft: async () => {
       const ch = CO.chat; if (!ch.doc) return;
-      try { const r = await STAI.api.companyImport(JSON.stringify(ch.doc), 'assistant-draft.json', ch.skip); coSetData(r.company); ch.log.push({ who: 'bot', text: `Added ${r.created} items and ${r.connections} connections.` }); ch.doc = null; ch.plan = null; CO.notice = null; } catch (e) { ch.log.push({ who: 'bot', text: e.message, err: true }); }
+      try { const r = await STAI.api.companyImport(JSON.stringify(ch.doc), 'assistant-draft.json', ch.skip); coSetData(r.company); AG.loaded = false; ch.log.push({ who: 'bot', text: `Added ${r.created} items and ${r.connections} connections.${(r.agents_created || []).length ? ' ' + r.agents_created.length + ' agent(s) were created in Agent assurance.' : ''}` }); ch.doc = null; ch.plan = null; CO.notice = null; } catch (e) { ch.log.push({ who: 'bot', text: e.message, err: true }); }
       render(true);
     },
     coAddUnmapped: async (key) => { const a = CO.data.live.unmapped_agents.find((x) => x.agent_key === key); if (!a) return; await coAfter(() => STAI.api.companyAddNode({ type: 'agent', name: a.name, props: { agent_key: a.agent_key } })); render(true); },
@@ -3119,9 +3144,12 @@ kill_switch:
   C.coModel = (v) => { CO.model = v; };
 
   function coClearPanel() {
-    const d = CO.data, k = CO.clear, name = ORG.name, edges = d.edges.length, nodes = d.nodes.length;
+    const k = CO.clear, name = ORG.name, i = k.impact;
+    const platform = i ? `${i.agents_in_organisation} agent${i.agents_in_organisation === 1 ? '' : 's'} and ${i.models_in_organisation} model${i.models_in_organisation === 1 ? '' : 's'}` : 'its agents and models';
+    const detail = i ? `, with ${i.designs} design${i.designs === 1 ? '' : 's'}, ${i.contracts} contract${i.contracts === 1 ? '' : 's'}, ${i.findings} finding${i.findings === 1 ? '' : 's'}, ${i.drift_items} drift item${i.drift_items === 1 ? '' : 's'} and ${i.runtime_events} runtime event${i.runtime_events === 1 ? '' : 's'}` : '';
     return `<section class="card" role="alertdialog" aria-label="Clear the organisation" style="padding:20px;border:2px solid #8C1F17;display:flex;flex-direction:column;gap:12px;max-width:760px"><h2 style="color:#8C1F17">Clear the organisation</h2>
-      <span class="cap">This deletes all <b>${nodes} items</b> and <b>${edges} connections</b>: every department, person, AI system, data store, task link, goal, policy, threat and breach step. Agents, contracts, findings and saved designs are not touched. <b>It cannot be undone</b>, so download a backup first if you may want it again.</span>
+      <span class="cap">This deletes all <b>${i ? i.nodes : CO.data.nodes.length} items</b> and <b>${i ? i.connections : CO.data.edges.length} connections</b> of the organisation: every department, person, AI system, data store, task link, goal, policy, threat and breach step. <b>It cannot be undone</b>, so download a backup first if you may want it again.</span>
+      <label class="chk" style="align-items:flex-start;min-height:0"><input type="checkbox" data-chg="coClearEverywhere"${k.everywhere ? ' checked' : ''}><span>Also remove ${platform} from Agent assurance and the Model studio${k.everywhere ? detail : ''}. They are the same platform: an agent or model removed here is removed there. Agents that are not in the organisation are not touched.</span></label>
       <div>${dlBtn('/api/company/export', 'Download a backup (JSON)')}</div>
       <div class="fld"><label for="co-clear-confirm">To confirm, type the organisation\u2019s name: <b>${esc(name)}</b></label><input id="co-clear-confirm" class="inp" autocomplete="off" value="${esc(k.confirm)}" data-chg="coClearConfirm"></div>
       <div class="fld"><label for="co-clear-new">Name of the new company (optional)</label><input id="co-clear-new" class="inp" value="${esc(k.newName)}" data-chg="coClearNew" placeholder="${esc(name)}"></div>
@@ -3129,20 +3157,47 @@ kill_switch:
       <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-danger" data-act="coClearDo"${k.confirm.trim() === name && !k.busy ? '' : ' disabled'}>${k.busy ? 'Deleting\u2026' : 'Delete everything'}</button><button class="btn2" data-act="coClearToggle">Cancel</button></div></section>`;
   }
   Object.assign(H, {
-    coClearToggle: () => { CO.clear = { open: !CO.clear.open, confirm: '', newName: '', busy: false, err: null }; },
+    coClearToggle: () => {
+      CO.clear = { open: !CO.clear.open, confirm: '', newName: '', busy: false, err: null, everywhere: true, impact: null };
+      if (CO.clear.open) STAI.api.companyClearImpact().then((i) => { CO.clear.impact = i; renderIfIdle('organisation'); }).catch(() => {});
+    },
     coClearDo: async () => {
       const k = CO.clear; if (k.busy || !CO.data || k.confirm.trim() !== ORG.name) return;
       k.busy = true; k.err = null; render(true);
       try {
-        const r = await STAI.api.companyClear({ confirm: k.confirm.trim(), new_name: k.newName.trim() || null });
-        Object.assign(CO, { data: null, loaded: false, error: null, sel: null, selEdge: null, form: null, conn: null, mode: null, model: null, tab: 'file', view: 'org', notice: `Cleared: ${r.deleted_nodes} items and ${r.deleted_connections} connections deleted. Describe the new company below.`,
-          clear: { open: false, confirm: '', newName: '', busy: false, err: null }, imp: { content: '', filename: '', preview: null, skip: [], busy: false, err: null, result: null }, chat: { text: '', busy: false, err: null, log: [], doc: null, plan: null, skip: [] } });
+        const r = await STAI.api.companyClear({ confirm: k.confirm.trim(), new_name: k.newName.trim() || null, remove_everywhere: k.everywhere });
+        Object.assign(CO, { data: null, loaded: false, error: null, sel: null, selEdge: null, form: null, conn: null, mode: null, model: null, tab: 'file', view: 'org', notice: `Cleared: ${r.deleted_nodes} items and ${r.deleted_connections} connections deleted${r.removed_agents || r.removed_models ? `, and ${r.removed_agents} agent${r.removed_agents === 1 ? '' : 's'} and ${r.removed_models} model${r.removed_models === 1 ? '' : 's'} removed from Agent assurance and the Model studio` : ''}. Describe the new company below.`,
+          clear: { open: false, confirm: '', newName: '', busy: false, err: null, everywhere: true, impact: null }, imp: { content: '', filename: '', preview: null, skip: [], busy: false, err: null, result: null }, chat: { text: '', busy: false, err: null, log: [], doc: null, plan: null, skip: [] } });
+        coStale(); loadAgents(); loadFD(); loadCV();
         if (typeof loadOrganisation === 'function') loadOrganisation();
       } catch (e) { k.busy = false; k.err = e.message; }
       render(true);
     }
   });
-  Object.assign(C, { coClearConfirm: (v) => { CO.clear.confirm = v; }, coClearNew: (v) => { CO.clear.newName = v; } });
+  Object.assign(C, { coClearConfirm: (v) => { CO.clear.confirm = v; }, coClearNew: (v) => { CO.clear.newName = v; }, coClearEverywhere: (v) => { CO.clear.everywhere = !!v; } });
+
+  /* ---------- Removing agents and models across the platform, and the organisation's agents in Agent assurance (Task 15) ---------- */
+  function coAgentNode(key) { return CO.data ? CO.data.nodes.find((n) => n.type === 'agent' && (n.props.agent_key || ogSlug(n.name).slice(0, 80)) === key) : null; }
+  const coStale = () => { CO.loaded = false; AG.loaded = false; FD.loaded = false; CV.loaded = false; RT.loaded = false; PK.loaded = false; OV.loaded = false; };
+  async function removeAgentEverywhere(key, name) {
+    let i;
+    try { i = await STAI.api.agentRemovalImpact(key); } catch (e) { window.alert('Could not check what this would remove: ' + e.message); return false; }
+    const parts = [`its inventory entry`, `${i.designs} design(s)`, `${i.contracts} contract(s)`, `${i.findings} finding(s)`, `${i.drift_items} drift item(s)`, `${i.runtime_events} runtime event(s)`];
+    if (i.in_organisation) parts.push(`its place in the organisation (${i.organisation_connections} connection(s))`);
+    if (!window.confirm(`Delete ${name || i.name} from the whole platform?\n\nThis removes: ${parts.join(', ')}.\n\nContracts are removed too; evidence packs that cited them stay valid and say so. It cannot be undone.`)) return false;
+    try { await STAI.api.deleteAgent(key); } catch (e) { AG.error = e.message; return false; }
+    const st = S.studio; const pr = st.nodes.find((x) => x.primary);
+    if (st.drafted && pr && ogSlug(pr.name).slice(0, 80) === key) resetAgentStudio();
+    coStale(); loadAgents(); loadFD(); loadCV();
+    return true;
+  }
+  Object.assign(H, {
+    agDelete: async (key) => { const a = AG.list.find((x) => x.agent_key === key); await removeAgentEverywhere(key, a && a.name); render(true); },
+    coSyncAgents: async () => {
+      try { const r = await STAI.api.companySyncAgents(); CO.notice = r.created.length ? `Created ${r.created.length} agent${r.created.length === 1 ? '' : 's'} in Agent assurance: ${r.created.join(', ')}.` : 'Every agent of the organisation is already in Agent assurance.'; } catch (e) { CO.err = e.message; }
+      coStale(); render(true);
+    }
+  });
 
   /* ---------- Starting the two studios from the organisation (Task 14) ---------- */
   function coWanted() { if (!CO.loaded && !CO.loading && !CO.error) loadCompany(); return CO.loaded ? CO.data : null; }
@@ -3211,17 +3266,15 @@ kill_switch:
   function render(keepScroll) {
     if (!ME) { document.getElementById('app').innerHTML = authScreen(); document.title = 'ASTRA \u00b7 Sign in'; return; }
     const r = route(), y = window.scrollY;
-    if (r === 'model' || r === 'modelcontracts') MODCTX = 'model'; else if (!['organisation', 'home', 'users', 'audit'].includes(r)) MODCTX = 'agent';
     const keep = {};
     ['#m-canvas', '.m-side', '.m-palette', '.m-chatlog'].forEach((q) => { const el = document.querySelector(q); if (el) keep[q] = [el.scrollLeft, el.scrollTop]; });
     let html;
     if (r === 'home') html = home();
     else if (r === 'model') html = `<div class="shell">${modelNav('model')}<main id="main" class="wide">${modelStudio()}</main></div>`;
     else if (r === 'modelcontracts') html = `<div class="shell">${modelNav('contracts')}<main id="main">${modelContracts()}</main></div>`;
-    else if (r === 'policies') html = `<div class="shell">${policiesFrom() === 'model' ? modelNav('policies') : nav('policies')}<main id="main">${policiesScreen()}</main></div>`;
-    else if (r === 'regulations') html = `<div class="shell">${policiesFrom() === 'model' ? modelNav('regulations') : nav('regulations')}<main id="main">${regulationsScreen()}</main></div>`;
-    else if (r === 'organisation' && orgFrom() === 'model') html = `<div class="shell">${modelNav('organisation')}<main id="main">${organisation()}</main></div>`;
-    else if (r === 'organisation' && orgFrom() === '') html = `<div class="shell">${orgNav()}<main id="main">${organisation()}</main></div>`;
+    else if (r === 'policies') html = `<div class="shell">${orgNav('policies')}<main id="main">${policiesScreen()}</main></div>`;
+    else if (r === 'regulations') html = `<div class="shell">${orgNav('regulations')}<main id="main">${regulationsScreen()}</main></div>`;
+    else if (r === 'organisation') html = `<div class="shell">${orgNav('organisation')}<main id="main">${organisation()}</main></div>`;
     else html = `<div class="shell">${nav(PARENT[r] || r)}<main id="main">${SCREENS[r]()}</main></div>`;
     document.getElementById('app').innerHTML = html;
     const mainEl = document.getElementById('main');
