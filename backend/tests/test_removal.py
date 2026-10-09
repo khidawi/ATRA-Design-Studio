@@ -155,34 +155,55 @@ def test_removing_an_agent_from_the_organisation_removes_it_from_the_platform_an
                 s.commit()
 
 
-def test_clearing_the_organisation_removes_its_agents_and_models_everywhere_unless_told_not_to():
-    with authed_client("admin", "Alice Admin") as api:
+def test_clearing_the_organisation_starts_the_whole_platform_from_scratch_unless_told_not_to():
+    with authed_client("admin", "Alice Admin") as api, authed_client("compliance", "Compliance lead") as comp:
         original = api.get("/api/organisation").json()["name"]
         try:
             wipe_all()
             api.post("/api/company/import", json=body({**ORG, "company": {"name": "Zed Ltd"}}))
             name = api.get("/api/organisation").json()["name"]
-            api.post("/api/designs", json={"name": "zz-test model design", "domain": api.get("/api/domains").json()[0]["domain_id"], "subject": "MODEL", "document": {"nodes": [], "edges": [], "n": 1, "org": {"id": "MD-1", "name": "zz-test-model"}}})
-            api.post("/api/agents/register", json={"name": "zz-test-outside", "owner": "Someone"})            # an agent that is not in the organisation
+            domain = api.get("/api/domains").json()[0]["domain_id"]
+            api.post("/api/designs", json={"name": "zz-test model design", "domain": domain, "subject": "MODEL", "document": {"nodes": [], "edges": [], "n": 1, "org": {"id": "MD-1", "name": "zz-test-model"}}})
+            api.post("/api/designs", json={"name": "zz-test unrelated model", "domain": domain, "subject": "MODEL", "document": {"nodes": [], "edges": [], "n": 1}})        # not linked to the organisation
+            api.post("/api/agents/register", json={"name": "zz-test-outside", "owner": "Someone"})                  # an agent that is not in the organisation
+            d = comp.post("/api/designs", json={"name": "zz-test design", "domain": "OWASP_AGENTIC", "subject": "AGENT", "document": doc(req=REQ)}).json()
+            assert comp.post("/api/agents/ratify", json={"design_key": d["design_key"]}).status_code == 200
+            k = api.post("/api/keys", json={"name": "zz-test-collector", "role": "collector"}).json()
+            assert keyed(k["key"]).post("/api/runtime/events", json={"agent": NAME, "events": [{"type": "tool_call", "name": "payments.transfer.create", "write": True}]}).status_code == 202
+            pack = comp.post("/api/packs", json={"template": "ASSURANCE", "period": "30d", "generated_by": "Compliance lead"})
+            assert pack.status_code in (200, 201)
+
             impact = api.get("/api/company/clear-impact").json()
-            assert impact["agents_in_organisation"] == 2 and impact["models_in_organisation"] == 1 and impact["agents"] == 2 and impact["designs"] == 1 and impact["nodes"] == 5
-            keep = api.request("DELETE", "/api/company", json={"confirm": name, "remove_everywhere": False})
-            assert keep.status_code == 200 and keep.json()["removed_agents"] == 0 and keep.json()["deleted_nodes"] == 5
-            assert api.get("/api/company").json()["nodes"] == [] and NAME in inventory(api)                   # the organisation is cleared, the platform's agents are not
+            assert impact["nodes"] == 5 and impact["agents_in_organisation"] == 2 and impact["models_in_organisation"] == 1
+            assert impact["agents"] >= 3 and impact["agent_designs"] >= 1 and impact["model_designs"] >= 2 and impact["contracts"] >= 1 and impact["findings"] >= 1
+            assert impact["drift_items"] >= 1 and impact["runtime_events"] >= 1 and impact["evidence_packs"] >= 1
+
+            keep = api.request("DELETE", "/api/company", json={"confirm": name, "remove_everywhere": False})        # only the organisation model
+            assert keep.status_code == 200 and keep.json()["platform_cleared"] is False and keep.json()["deleted_nodes"] == 5 and "agents" not in keep.json()
+            assert api.get("/api/company").json()["nodes"] == [] and NAME in inventory(api) and "zz-test-outside" in inventory(api)
+            assert [x for x in api.get("/api/designs?subject=MODEL").json() if x["name"] == "zz-test model design"]
             api.post("/api/company/import", json=body(ORG))
-            gone = api.request("DELETE", "/api/company", json={"confirm": name})                              # the default: removed everywhere
-            assert gone.status_code == 200 and gone.json()["removed_agents"] == 2 and gone.json()["removed_models"] == 1 and gone.json()["deleted_nodes"] == 5
-            inv = inventory(api)
-            assert NAME not in inv and "zz-test-second-agent" not in inv and "zz-test-outside" in inv         # not the agent that was never in the organisation
-            assert not [x for x in api.get("/api/designs?subject=MODEL").json() if x["name"] == "zz-test model design"]
-            assert any(e["action"] == "model.removed" for e in api.get("/api/audit?limit=40").json())
+
+            gone = api.request("DELETE", "/api/company", json={"confirm": name})                                    # the default: from scratch
+            assert gone.status_code == 200 and gone.json()["platform_cleared"] is True and gone.json()["deleted_nodes"] == 5
+            assert gone.json()["agents"] >= 3 and gone.json()["model_designs"] >= 2 and gone.json()["contracts"] >= 1 and gone.json()["evidence_packs"] >= 1
+            assert api.get("/api/company").json()["nodes"] == [] and inventory(api) == {}                           # no agent in Agent assurance, linked or not
+            assert api.get("/api/designs?subject=MODEL").json() == [] and api.get("/api/designs?subject=AGENT").json() == []     # none in the Model studio or the agent studio
+            assert api.get("/api/contract-records?object_type=AGENT").json() == [] and api.get("/api/contract-records?object_type=MODEL").json() == []
+            assert api.get("/api/findings").json() == [] and api.get("/api/drift").json() == [] and api.get("/api/packs").json() == []
+            assert api.get("/api/runtime/overview").json()["events"] == [] and api.get("/api/runtime/overview").json()["agents"] == []
+            assert [x for x in api.get("/api/keys").json() if x["name"] == "zz-test-collector"]                      # people and credentials are kept
+            assert api.get("/api/policies").status_code == 200 and api.get("/api/regulations").status_code == 200
+            ev = [e for e in api.get("/api/audit?limit=40").json() if e["action"] == "platform.cleared"]
+            assert ev and ev[0]["actor"] == "Alice Admin"
         finally:
             api.patch("/api/organisation", json={"name": original})
             wipe_all()
-            from db.models import Design
+            from db.models import Design, EvidencePack
             from db.session import SessionLocal
             with SessionLocal() as s:
                 s.query(Design).filter(Design.name.like("zz-test%")).delete(synchronize_session=False)
+                s.query(EvidencePack).filter(EvidencePack.generated_by == "Compliance lead").delete(synchronize_session=False)
                 s.commit()
 
 

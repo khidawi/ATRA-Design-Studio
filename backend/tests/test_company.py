@@ -421,7 +421,7 @@ def test_only_an_administrator_can_clear_the_organisation_and_must_type_its_name
             assert api.request("DELETE", "/api/company", json={}).status_code == 422
             assert len(api.get("/api/company").json()["nodes"]) == 64                                           # nothing was deleted by a refused call
             r = api.request("DELETE", "/api/company", json={"confirm": f"  {name} "})
-            assert r.status_code == 200 and r.json() == {"deleted_nodes": 64, "deleted_connections": 63, "removed_agents": 4, "removed_models": 1, "organisation": name}
+            assert r.status_code == 200 and r.json()["deleted_nodes"] == 64 and r.json()["deleted_connections"] == 63 and r.json()["platform_cleared"] is True and r.json()["agents"] >= 4 and r.json()["organisation"] == name
             s = api.get("/api/company").json()
             assert s["nodes"] == [] and s["edges"] == [] and s["checks"] == [] and s["organisation"]["name"] == name
             events = api.get("/api/audit?limit=30").json()

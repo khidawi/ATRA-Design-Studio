@@ -2994,7 +2994,7 @@ kill_switch:
     if (CO.error && !CO.loaded) return hdr(eyebrow, 'Organisation') + `<div class="note alert" role="alert"><strong>Could not load the organisation</strong><span style="font-size:13px">${esc(CO.error)}</span><button class="btn2 btn-s" data-act="coReload" style="align-self:flex-start">Retry</button></div>`;
     if (!CO.loaded) return hdr(eyebrow, 'Organisation') + '<p class="cap">Loading…</p>';
     const ix = coIx(), c = CO.data.counts, ed = can('write');
-    const head = hdr(eyebrow, `Organisation <span class="mono" style="font-size:15px;font-weight:500;color:#4A5563">· ${esc(ORG.name)}</span>`, `<span class="pill ok">${c.department || 0} departments · ${(c.person || 0) + (c.role || 0)} people and roles · ${(c.agent || 0) + (c.model || 0)} AI systems</span>${dlBtn('/api/company/export', 'Export JSON')}${can('admin') && CO.data.nodes.length ? '<button class="btn3" data-act="coClearToggle">Clear organisation\u2026</button>' : ''}`);
+    const head = hdr(eyebrow, `Organisation <span class="mono" style="font-size:15px;font-weight:500;color:#4A5563">· ${esc(ORG.name)}</span>`, `<span class="pill ok">${c.department || 0} departments · ${(c.person || 0) + (c.role || 0)} people and roles · ${(c.agent || 0) + (c.model || 0)} AI systems</span>${dlBtn('/api/company/export', 'Export JSON')}${can('admin') ? '<button class="btn3" data-act="coClearToggle">Start from scratch\u2026</button>' : ''}`);
     const clearPanel = CO.clear.open && can('admin') ? coClearPanel() : '';
     let view = '', side = ogInspector(ix);
     const R = { org: ogOrgMap, organisational: ogOrganisational, agents: ogAgents, privacy: ogPrivacy, breach: ogBreach, models: ogModels }[CO.view];
@@ -3144,17 +3144,16 @@ kill_switch:
   C.coModel = (v) => { CO.model = v; };
 
   function coClearPanel() {
-    const k = CO.clear, name = ORG.name, i = k.impact;
-    const platform = i ? `${i.agents_in_organisation} agent${i.agents_in_organisation === 1 ? '' : 's'} and ${i.models_in_organisation} model${i.models_in_organisation === 1 ? '' : 's'}` : 'its agents and models';
-    const detail = i ? `, with ${i.designs} design${i.designs === 1 ? '' : 's'}, ${i.contracts} contract${i.contracts === 1 ? '' : 's'}, ${i.findings} finding${i.findings === 1 ? '' : 's'}, ${i.drift_items} drift item${i.drift_items === 1 ? '' : 's'} and ${i.runtime_events} runtime event${i.runtime_events === 1 ? '' : 's'}` : '';
-    return `<section class="card" role="alertdialog" aria-label="Clear the organisation" style="padding:20px;border:2px solid #8C1F17;display:flex;flex-direction:column;gap:12px;max-width:760px"><h2 style="color:#8C1F17">Clear the organisation</h2>
-      <span class="cap">This deletes all <b>${i ? i.nodes : CO.data.nodes.length} items</b> and <b>${i ? i.connections : CO.data.edges.length} connections</b> of the organisation: every department, person, AI system, data store, task link, goal, policy, threat and breach step. <b>It cannot be undone</b>, so download a backup first if you may want it again.</span>
-      <label class="chk" style="align-items:flex-start;min-height:0"><input type="checkbox" data-chg="coClearEverywhere"${k.everywhere ? ' checked' : ''}><span>Also remove ${platform} from Agent assurance and the Model studio${k.everywhere ? detail : ''}. They are the same platform: an agent or model removed here is removed there. Agents that are not in the organisation are not touched.</span></label>
-      <div>${dlBtn('/api/company/export', 'Download a backup (JSON)')}</div>
+    const k = CO.clear, name = ORG.name, i = k.impact, n = (x, w) => `${x} ${w}${x === 1 ? '' : 's'}`;
+    const platform = i ? `${n(i.agents, 'agent')} in Agent assurance (${n(i.agent_designs, 'agent design')}), ${n(i.model_designs, 'Model studio design')}, ${n(i.contracts, 'contract')}, ${n(i.findings, 'finding')}, ${n(i.drift_items, 'drift item')}, ${n(i.runtime_events, 'runtime event')}, ${n(i.evidence_packs, 'evidence pack')} and ${n(i.coverage_assignments, 'coverage assignment')}` : 'the agents, models and everything built on them';
+    return `<section class="card" role="alertdialog" aria-label="Start from scratch" style="padding:20px;border:2px solid #8C1F17;display:flex;flex-direction:column;gap:12px;max-width:780px"><h2 style="color:#8C1F17">Start from scratch</h2>
+      <span class="cap">The organisation, Agent assurance and the Model studio are one platform: the company is linked to its agents and AI models, which are designed for deployment in it, assessed, and watched at runtime. This clears the company (<b>${i ? i.nodes : CO.data.nodes.length} items</b>, <b>${i ? i.connections : CO.data.edges.length} connections</b>) and, below, everything built on it, so you begin with a new session. <b>It cannot be undone</b>.</span>
+      <label class="chk" style="align-items:flex-start;min-height:0"><input type="checkbox" data-chg="coClearEverywhere"${k.everywhere ? ' checked' : ''}><span><b>Clear the whole platform too</b> (recommended)${k.everywhere ? ': ' + platform + '. Users, API keys, policies, regulations and the audit log are kept.' : '. Unticked, only the company is cleared and the agents, models, contracts and findings stay where they are.'}</span></label>
+      <div>${dlBtn('/api/company/export', 'Download a backup of the company (JSON)')}</div>
       <div class="fld"><label for="co-clear-confirm">To confirm, type the organisation\u2019s name: <b>${esc(name)}</b></label><input id="co-clear-confirm" class="inp" autocomplete="off" value="${esc(k.confirm)}" data-chg="coClearConfirm"></div>
       <div class="fld"><label for="co-clear-new">Name of the new company (optional)</label><input id="co-clear-new" class="inp" value="${esc(k.newName)}" data-chg="coClearNew" placeholder="${esc(name)}"></div>
       ${k.err ? `<div class="note alert" role="alert" style="font-size:13px">${esc(k.err)}</div>` : ''}
-      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-danger" data-act="coClearDo"${k.confirm.trim() === name && !k.busy ? '' : ' disabled'}>${k.busy ? 'Deleting\u2026' : 'Delete everything'}</button><button class="btn2" data-act="coClearToggle">Cancel</button></div></section>`;
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-danger" data-act="coClearDo"${k.confirm.trim() === name && !k.busy ? '' : ' disabled'}>${k.busy ? 'Clearing\u2026' : (k.everywhere ? 'Clear the company and the platform' : 'Clear the company only')}</button><button class="btn2" data-act="coClearToggle">Cancel</button></div></section>`;
   }
   Object.assign(H, {
     coClearToggle: () => {
@@ -3166,8 +3165,15 @@ kill_switch:
       k.busy = true; k.err = null; render(true);
       try {
         const r = await STAI.api.companyClear({ confirm: k.confirm.trim(), new_name: k.newName.trim() || null, remove_everywhere: k.everywhere });
-        Object.assign(CO, { data: null, loaded: false, error: null, sel: null, selEdge: null, form: null, conn: null, mode: null, model: null, tab: 'file', view: 'org', notice: `Cleared: ${r.deleted_nodes} items and ${r.deleted_connections} connections deleted${r.removed_agents || r.removed_models ? `, and ${r.removed_agents} agent${r.removed_agents === 1 ? '' : 's'} and ${r.removed_models} model${r.removed_models === 1 ? '' : 's'} removed from Agent assurance and the Model studio` : ''}. Describe the new company below.`,
+        const n = (x, w) => `${x} ${w}${x === 1 ? '' : 's'}`;
+        Object.assign(CO, { data: null, loaded: false, error: null, sel: null, selEdge: null, form: null, conn: null, mode: null, model: null, tab: 'file', view: 'org', notice: `Started from scratch: ${n(r.deleted_nodes, 'organisation item')} and ${n(r.deleted_connections, 'connection')} deleted${r.platform_cleared ? `, and the platform cleared (${n(r.agents, 'agent')}, ${n(r.agent_designs + r.model_designs, 'design')}, ${n(r.contracts, 'contract')}, ${n(r.findings, 'finding')}, ${n(r.drift_items, 'drift item')}, ${n(r.runtime_events, 'runtime event')}, ${n(r.evidence_packs, 'evidence pack')})` : ''}. Describe the new company below.`,
           clear: { open: false, confirm: '', newName: '', busy: false, err: null, everywhere: true, impact: null }, imp: { content: '', filename: '', preview: null, skip: [], busy: false, err: null, result: null }, chat: { text: '', busy: false, err: null, log: [], doc: null, plan: null, skip: [] } });
+        if (r.platform_cleared) {
+          clearTimeout(AGS.timer); clearTimeout(SV.timer); SV.dirty = false;
+          resetAgentStudio(); AG.list = []; AG.designs = [];
+          Object.assign(M, { orgRef: null, nodes: [], edges: [], sel: null, name: 'Untitled model deployment', compileMsg: null, n: 1, designKey: null, version: 0, saveState: 'saved', saveError: null, designs: [], contracts: [], cstatus: {}, viewContract: null });
+          lsSet(LS_CURRENT, null); lsSet(AG_LS, null);
+        }
         coStale(); loadAgents(); loadFD(); loadCV();
         if (typeof loadOrganisation === 'function') loadOrganisation();
       } catch (e) { k.busy = false; k.err = e.message; }

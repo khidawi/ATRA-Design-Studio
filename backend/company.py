@@ -27,9 +27,10 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 import agent_contract
+import audit
 from agent_registry import agent_key as to_agent_key
 from auth import AuthUser, current_user
-from db.models import Agent, CompanyDraftCache, CompanyEdge, CompanyNode, Contract, RuntimeEvent
+from db.models import Agent, CompanyDraftCache, CompanyEdge, CompanyNode, Contract, Design, DriftItem, Finding, RuntimeEvent
 from db.session import get_session
 from organisation import current_organisation
 
@@ -618,28 +619,20 @@ def _clean_edge_props(kind: str, props: Dict[str, Any]) -> Dict[str, Any]:
 class ClearIn(BaseModel):
     confirm: str = Field(max_length=200)                      # the organisation's name, typed out: a stray API call cannot clear it
     new_name: Optional[str] = Field(None, max_length=120)     # optionally start the new company under its own name
-    remove_everywhere: bool = True                            # also remove its agents and models from Agent assurance and the Model studio
+    remove_everywhere: bool = True                            # also clear Agent assurance and the Model studio: start from scratch
 
 
 def clear_impact(session: Session) -> Dict[str, Any]:
-    """What clearing the organisation would remove, for the confirmation."""
-    import removal
+    """What starting from scratch would remove, for the confirmation: the company, and everything built on it."""
+    from db.models import CoverageAssignment, EvidencePack
     org = current_organisation(session)
     ns = list(session.scalars(select(CompanyNode).where(CompanyNode.organisation_id == org.id)))
-    total = {"agents": 0, "models": 0, "designs": 0, "contracts": 0, "findings": 0, "drift_items": 0, "runtime_events": 0}
-    for n in ns:
-        if n.type == "agent":
-            i = removal.agent_impact(session, removal.node_key(n))
-            total["agents"] += 1 if i["in_inventory"] else 0
-            for k in ("designs", "contracts", "findings", "drift_items", "runtime_events"):
-                total[k] += i[k]
-        elif n.type == "model":
-            i = removal.model_impact(session, n.ext_id)
-            total["models"] += 1
-            total["designs"] += i["designs"]
-            total["contracts"] += i["contracts"]
-    edges = session.scalar(select(func.count()).select_from(CompanyEdge).where(CompanyEdge.organisation_id == org.id)) or 0
-    return {"nodes": len(ns), "connections": edges, "agents_in_organisation": sum(1 for n in ns if n.type == "agent"), "models_in_organisation": sum(1 for n in ns if n.type == "model"), **total}
+    n = lambda model, *where: session.scalar(select(func.count()).select_from(model).where(*where)) or 0
+    return {"nodes": len(ns), "connections": n(CompanyEdge, CompanyEdge.organisation_id == org.id),
+            "agents_in_organisation": sum(1 for x in ns if x.type == "agent"), "models_in_organisation": sum(1 for x in ns if x.type == "model"),
+            "agents": n(Agent), "agent_designs": n(Design, Design.subject == "AGENT"), "model_designs": n(Design, Design.subject == "MODEL"),
+            "contracts": n(Contract), "findings": n(Finding), "drift_items": n(DriftItem), "runtime_events": n(RuntimeEvent),
+            "evidence_packs": n(EvidencePack), "coverage_assignments": n(CoverageAssignment)}
 
 
 @router.get("/clear-impact")
@@ -649,29 +642,27 @@ def get_clear_impact(session: Session = Depends(get_session)) -> Dict[str, Any]:
 
 @router.delete("")
 def clear_company(body: ClearIn, session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> Dict[str, Any]:
-    """Deletes the whole organisation model (every node and connection) so a new company can be described. Administrators only. Its AI agents and
-    AI models are removed from Agent assurance and the Model studio too (with their designs, contracts, findings and runtime events) unless
-    remove_everywhere is false. The audit log records who did it and what it took."""
-    import removal
+    """Starts from scratch. Deletes the company (every node and connection) and, unless remove_everywhere is false, everything built on it: the
+    organisation, Agent assurance and the Model studio are one platform, so every agent and AI model, their designs, every contract, finding,
+    drift item and runtime event, the evidence packs and the coverage assignments go with it. Users, API keys, policies, regulations and the audit
+    log are kept (and the audit log records who did this and what it took). Administrators only."""
+    from db.models import CoverageAssignment, EvidencePack, RemovedContract
     org = current_organisation(session)
     if body.confirm.strip() != org.name:
         raise HTTPException(status_code=422, detail="Type the organisation's name exactly as it is shown to confirm.")
-    removed = {"agents": 0, "models": 0}
-    nodes_before = session.scalar(select(func.count()).select_from(CompanyNode).where(CompanyNode.organisation_id == org.id)) or 0
-    edges_before = session.scalar(select(func.count()).select_from(CompanyEdge).where(CompanyEdge.organisation_id == org.id)) or 0
+    impact = clear_impact(session)
     if body.remove_everywhere:
-        for n in list(session.scalars(select(CompanyNode).where(CompanyNode.organisation_id == org.id, CompanyNode.type == "agent"))):
-            removal.remove_agent(session, removal.node_key(n), user)
-            removed["agents"] += 1
-        for n in list(session.scalars(select(CompanyNode).where(CompanyNode.organisation_id == org.id, CompanyNode.type == "model"))):
-            removal.remove_model(session, n.ext_id, user)
-            removed["models"] += 1
+        for model in (Contract, Finding, DriftItem, RuntimeEvent, EvidencePack, RemovedContract, CoverageAssignment, Agent, Design):
+            session.execute(delete(model))                    # contracts first: they point at designs
     session.execute(delete(CompanyEdge).where(CompanyEdge.organisation_id == org.id))
     session.execute(delete(CompanyNode).where(CompanyNode.organisation_id == org.id))
     if body.new_name and body.new_name.strip():
         org.name = body.new_name.strip()
     session.commit()
-    return {"deleted_nodes": nodes_before, "deleted_connections": edges_before, "removed_agents": removed["agents"], "removed_models": removed["models"], "organisation": org.name}
+    done = {"deleted_nodes": impact["nodes"], "deleted_connections": impact["connections"], "organisation": org.name, "platform_cleared": body.remove_everywhere,
+            **({k: impact[k] for k in ("agents", "agent_designs", "model_designs", "contracts", "findings", "drift_items", "runtime_events", "evidence_packs", "coverage_assignments")} if body.remove_everywhere else {})}
+    audit.record(user.name, user.role, "platform.cleared" if body.remove_everywhere else "organisation.cleared", "ok", done)
+    return done
 
 
 @router.post("/nodes", status_code=201)
