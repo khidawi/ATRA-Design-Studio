@@ -1,0 +1,187 @@
+{
+  "company": { "name": "Helix Logistics", "id": "ORG-HELIX" },
+
+  "departments": [
+    { "id": "D-EXEC", "name": "Executive", "head": "EMP-001" },
+    { "id": "D-OPS", "name": "Operations", "reports_to": "D-EXEC", "head": "EMP-110" },
+    { "id": "D-CUS", "name": "Customs and Compliance", "reports_to": "D-EXEC", "head": "EMP-210" },
+    { "id": "D-CS", "name": "Customer Service", "reports_to": "D-EXEC", "head": "EMP-310" },
+    { "id": "D-DATA", "name": "Data Science", "reports_to": "D-EXEC", "head": "EMP-410" },
+    { "id": "D-IT", "name": "IT and Security", "reports_to": "D-EXEC", "head": "EMP-510" },
+    { "id": "D-FIN", "name": "Finance", "reports_to": "D-EXEC" }
+  ],
+
+  "people": [
+    { "id": "EMP-001", "name": "Nora Blake", "title": "CEO", "department": "D-EXEC" },
+    { "id": "EMP-110", "name": "Karim Haddad", "title": "Head of Operations", "department": "D-OPS" },
+    { "id": "EMP-111", "name": "Sven Larsen", "title": "Dispatch lead", "department": "D-OPS" },
+    { "id": "EMP-210", "name": "Elena Rossi", "title": "Customs compliance lead", "department": "D-CUS" },
+    { "id": "EMP-310", "name": "Tomas Novak", "title": "Customer service lead", "department": "D-CS" },
+    { "id": "EMP-410", "name": "Priya Raman", "title": "Head of data science", "department": "D-DATA" },
+    { "id": "EMP-411", "name": "Diego Alvarez", "title": "ML engineer", "department": "D-DATA" },
+    { "id": "EMP-510", "name": "Marcus Lee", "title": "Head of IT security", "department": "D-IT" },
+    { "id": "EMP-610", "name": "Hana Sato", "title": "Finance analyst", "department": "D-FIN" },
+    { "id": "ROLE-DRV", "name": "Drivers", "kind": "role", "headcount": 120, "department": "D-OPS" },
+    { "id": "ROLE-DSP", "name": "Dispatchers", "kind": "role", "headcount": 14, "department": "D-OPS" },
+    { "id": "ROLE-SUP", "name": "Support agents", "kind": "role", "headcount": 18, "department": "D-CS" }
+  ],
+
+  "external": [
+    { "id": "EXT-SHP", "name": "Shippers", "kind": "customer" },
+    { "id": "EXT-CNS", "name": "Consignees", "kind": "customer" },
+    { "id": "EXT-CST", "name": "Customs authority", "kind": "regulator" },
+    { "id": "EXT-CAR", "name": "Carrier partners", "kind": "vendor" },
+    { "id": "EXT-DPA", "name": "Data protection authority", "kind": "regulator" }
+  ],
+
+  "data_stores": [
+    { "id": "DS-SHIP", "name": "Shipment records", "department": "D-OPS", "sensitivity": "Personal data" },
+    { "id": "DS-ROUTE", "name": "Route and traffic data", "department": "D-OPS", "sensitivity": "Internal" },
+    { "id": "DS-CUST", "name": "Customs declarations", "department": "D-CUS", "sensitivity": "Confidential" },
+    { "id": "DS-TICK", "name": "Support tickets", "department": "D-CS", "sensitivity": "Personal data" },
+    { "id": "DS-PAY", "name": "Freight invoices", "department": "D-FIN", "sensitivity": "Confidential" },
+    { "id": "DS-HIST", "name": "Delivery history", "department": "D-DATA", "sensitivity": "Internal" }
+  ],
+
+  "ai_systems": [
+    {
+      "id": "AG-ROUTE", "type": "agent", "name": "route-planner-agent", "department": "D-OPS", "owner": "EMP-110",
+      "details": { "purpose": "Plans delivery routes and books carrier capacity" },
+      "people": [
+        { "id": "ROLE-DSP", "role": "approves route changes" },
+        { "id": "ROLE-DRV", "role": "receives routes" },
+        { "id": "EXT-CAR", "role": "books capacity with" }
+      ],
+      "hands_tasks_to": [
+        { "agent": "AG-NOTIFY", "task": "Send delivery window", "data": ["shipment id", "delivery window"] },
+        { "agent": "AG-CUSTOMS", "task": "Check export restrictions", "data": ["shipment id", "goods description"], "policy": "Customs data-sharing policy" }
+      ],
+      "uses_data": [ { "store": "DS-SHIP", "access": "read" }, { "store": "DS-ROUTE", "access": "write" } ]
+    },
+    {
+      "id": "AG-CUSTOMS", "type": "agent", "name": "customs-agent", "department": "D-CUS", "owner": "EMP-210",
+      "details": { "purpose": "Prepares and files customs declarations" },
+      "people": [
+        { "id": "EXT-CST", "role": "files declarations with" },
+        { "id": "EMP-210", "role": "approves declarations over 50000 euros" }
+      ],
+      "uses_data": [ { "store": "DS-CUST", "access": "write" }, { "store": "DS-SHIP", "access": "read" } ]
+    },
+    {
+      "id": "AG-NOTIFY", "type": "agent", "name": "customer-notify-agent", "department": "D-CS", "owner": "EMP-310",
+      "details": { "purpose": "Tells shippers and consignees when a parcel will arrive" },
+      "people": [ { "id": "EXT-SHP", "role": "emails" }, { "id": "EXT-CNS", "role": "emails" } ],
+      "uses_data": [ { "store": "DS-SHIP", "access": "read" } ]
+    },
+    {
+      "id": "AG-CLAIMS", "type": "agent", "name": "claims-agent", "department": "D-CS",
+      "details": { "purpose": "Handles damage claims from shippers" },
+      "people": [ { "id": "EXT-SHP", "role": "receives damage claims from" }, { "id": "ROLE-SUP", "role": "escalate to" } ],
+      "hands_tasks_to": [ { "agent": "AG-PAY", "task": "Pay approved claim", "data": ["claim id", "amount", "IBAN"] } ],
+      "uses_data": [ { "store": "DS-TICK", "access": "read" }, { "store": "DS-SHIP", "access": "read" } ]
+    },
+    {
+      "id": "AG-PAY", "type": "agent", "name": "payments-agent", "department": "D-FIN", "owner": "EMP-610",
+      "details": { "purpose": "Pays approved claims and supplier invoices" },
+      "uses_data": [ { "store": "DS-PAY", "access": "write" } ]
+    },
+    {
+      "id": "MD-FORECAST", "type": "model", "name": "demand-forecast-model", "department": "D-DATA", "owner": "EMP-410",
+      "details": { "purpose": "Forecasts parcel volumes per depot", "version": "1.4", "risk_class": "Medium", "origin": "In-house", "data_note": "Delivery history and shipment records (personal data)" },
+      "people": [
+        { "id": "EMP-411", "role": "trains" },
+        { "id": "EMP-410", "role": "validates" },
+        { "id": "EMP-410", "role": "deploys" },
+        { "id": "ROLE-DSP", "role": "operates" },
+        { "id": "EMP-110", "role": "consumes forecasts" },
+        { "id": "EXT-DPA", "role": "oversight by" }
+      ],
+      "uses_data": [ { "store": "DS-HIST", "access": "trained on" }, { "store": "DS-SHIP", "access": "reads" } ]
+    }
+  ],
+
+  "elements": [
+    { "id": "OP-PLAN", "type": "operation", "name": "Plan route" },
+    { "id": "OP-APPR", "type": "operation", "name": "Approve route change" },
+    { "id": "OP-CLEAR", "type": "operation", "name": "Clear customs" },
+    { "id": "OP-NOTI", "type": "operation", "name": "Notify recipient" },
+    { "id": "OP-CLAIM", "type": "operation", "name": "Handle damage claim" },
+    { "id": "OP-PAYC", "type": "operation", "name": "Pay claim" },
+
+    { "id": "G-ONTIME", "type": "goal", "name": "Deliver on time" },
+    { "id": "G-COMPLY", "type": "goal", "name": "Comply with export rules" },
+    { "id": "G-TRUST", "type": "goal", "name": "Keep customers informed" },
+
+    { "id": "POL-CUST", "type": "policy", "name": "Customs data-sharing policy" },
+    { "id": "POL-RET", "type": "policy", "name": "Retention 24 months" },
+    { "id": "POL-PAY", "type": "policy", "name": "Payment approval policy" },
+
+    { "id": "TH-INJ", "type": "threat", "name": "Prompt injection via claim emails" },
+    { "id": "TH-LEAK", "type": "threat", "name": "Customer data shared with partners" },
+    { "id": "TH-ROUTE", "type": "threat", "name": "Manipulated traffic feed" },
+    { "id": "TH-FRAUD", "type": "threat", "name": "Fraudulent claim payout" },
+    { "id": "TH-DRIFT", "type": "threat", "name": "Forecast model drift" },
+
+    { "id": "PR-ALLOW", "type": "protection", "name": "Contract tool allow-list", "sub": "Only tools the ratified contract lists can run" },
+    { "id": "PR-MIN", "type": "protection", "name": "Share shipment id only", "sub": "Minimise what partners receive" },
+    { "id": "PR-FEED", "type": "protection", "name": "Signed traffic feed" },
+    { "id": "PR-APPR", "type": "protection", "name": "Human approval above 5000 euros" },
+
+    { "id": "RULE-SC", "type": "rule", "name": "Separate validator and deployer", "sub": "rule SC-RCF-1", "rule_id": "separate_validator_deployer" },
+    { "id": "RULE-HUMAN", "type": "rule", "name": "A dispatcher approves every route change", "sub": "human oversight", "status": "in_place" },
+
+    { "id": "ENV-CLOUD", "type": "environment", "name": "EU cloud region", "sub": "hosting environment", "department": "D-IT" },
+
+    { "id": "ST-1", "type": "step", "name": "Detect", "sub": "Finding or drift raised", "lane": "D-IT", "order": 1, "who": "EMP-510", "when": "Immediately", "astra": "Live runtime flags an event outside the contract and raises a finding." },
+    { "id": "ST-2", "type": "step", "name": "Contain", "sub": "Pause agent, revoke key", "lane": "D-IT", "order": 2, "who": "EMP-510", "when": "Within 1 hour", "astra": "Revoke the agent's API key." },
+    { "id": "ST-3", "type": "decision", "name": "Personal data?", "sub": "Assess the impact", "lane": "D-CUS", "order": 3, "who": "EMP-210", "when": "Within 24 hours", "astra": "Data mapping shows which data stores the agent touched." },
+    { "id": "ST-4", "type": "step", "name": "Tell the authority", "sub": "Data protection authority", "lane": "D-CUS", "order": 4, "who": "EMP-210", "deputy": "EMP-001", "when": "Within 72 hours", "legal_deadline": true, "astra": "A pack of the findings and the contract is exported as evidence." },
+    { "id": "ST-5", "type": "step", "name": "Tell affected customers", "sub": "If high risk to them", "lane": "D-CS", "order": 5, "who": "EMP-310", "when": "Without undue delay" },
+    { "id": "ST-6", "type": "step", "name": "Fix and review", "sub": "New contract, lessons", "lane": "D-OPS", "order": 6, "who": "EMP-110", "when": "Within 30 days" }
+  ],
+
+  "links": [
+    { "from": "AG-ROUTE", "to": "OP-PLAN", "kind": "performs" },
+    { "from": "ROLE-DSP", "to": "OP-APPR", "kind": "performs" },
+    { "from": "AG-CUSTOMS", "to": "OP-CLEAR", "kind": "performs" },
+    { "from": "AG-NOTIFY", "to": "OP-NOTI", "kind": "performs" },
+    { "from": "EXT-SHP", "to": "OP-CLAIM", "kind": "performs" },
+    { "from": "AG-CLAIMS", "to": "OP-CLAIM", "kind": "performs" },
+    { "from": "AG-PAY", "to": "OP-PAYC", "kind": "performs" },
+
+    { "from": "OP-APPR", "to": "OP-PLAN", "kind": "gates", "label": "gates" },
+    { "from": "OP-PLAN", "to": "OP-CLEAR", "kind": "triggers", "label": "hands task to" },
+    { "from": "OP-PLAN", "to": "OP-NOTI", "kind": "triggers", "label": "hands task to" },
+    { "from": "OP-CLAIM", "to": "OP-PAYC", "kind": "triggers", "label": "hands task to" },
+
+    { "from": "OP-PLAN", "to": "G-ONTIME", "kind": "achieves" },
+    { "from": "OP-CLEAR", "to": "G-COMPLY", "kind": "achieves" },
+    { "from": "OP-NOTI", "to": "G-TRUST", "kind": "achieves" },
+
+    { "from": "POL-CUST", "to": "OP-CLEAR", "kind": "governs" },
+    { "from": "POL-PAY", "to": "OP-PAYC", "kind": "governs" },
+    { "from": "POL-RET", "to": "DS-SHIP", "kind": "governs" },
+
+    { "from": "TH-INJ", "to": "DS-TICK", "kind": "targets" },
+    { "from": "TH-LEAK", "to": "DS-SHIP", "kind": "targets" },
+    { "from": "TH-ROUTE", "to": "DS-ROUTE", "kind": "targets" },
+    { "from": "TH-FRAUD", "to": "DS-PAY", "kind": "targets" },
+    { "from": "TH-DRIFT", "to": "MD-FORECAST", "kind": "targets" },
+
+    { "from": "PR-ALLOW", "to": "TH-INJ", "kind": "mitigates" },
+    { "from": "PR-MIN", "to": "TH-LEAK", "kind": "mitigates" },
+    { "from": "PR-FEED", "to": "TH-ROUTE", "kind": "mitigates" },
+    { "from": "PR-APPR", "to": "TH-FRAUD", "kind": "mitigates" },
+
+    { "from": "RULE-SC", "to": "EMP-410", "kind": "applies_to" },
+    { "from": "RULE-HUMAN", "to": "ROLE-DSP", "kind": "applies_to" },
+    { "from": "ENV-CLOUD", "to": "MD-FORECAST", "kind": "hosts" },
+
+    { "from": "ST-1", "to": "ST-2", "kind": "next" },
+    { "from": "ST-2", "to": "ST-3", "kind": "next" },
+    { "from": "ST-3", "to": "ST-4", "kind": "next", "label": "yes" },
+    { "from": "ST-4", "to": "ST-5", "kind": "next", "label": "high risk" },
+    { "from": "ST-5", "to": "ST-6", "kind": "next" },
+    { "from": "ST-3", "to": "ST-6", "kind": "next", "label": "no personal data" }
+  ]
+}
