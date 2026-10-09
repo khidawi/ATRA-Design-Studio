@@ -2530,9 +2530,11 @@ kill_switch:
       <div class="navlinks"><a href="#/organisation" class="on" aria-current="page"><span>Organisation</span><small></small></a><a href="#/overview"><span>Agent assurance</span><small>\u2192</small></a><a href="#/model"><span>Model studio \u00b7 ST-AI</span><small>\u2192</small></a></div>
       ${whoBox()}</nav>`;
   const orgModules = () => `<section class="og-two" aria-label="Continue to a module"><a class="choice" href="#/overview" style="padding:18px 20px;gap:6px"><span class="pill ok" style="align-self:flex-start">Agent</span><b style="font-size:17px">Agent assurance</b><span class="cap">Design agents, register running agents, review drift and findings, and watch them live.</span></a><a class="choice" href="#/model" style="padding:18px 20px;gap:6px"><span class="pill" style="align-self:flex-start;background:#EDE7FB;color:#4C1D95">Model</span><b style="font-size:17px">Model studio \u00b7 ST-AI</b><span class="cap">Assess an AI model deployment: its actors, data and constraints, and compile a contract.</span></a></section>`;
+  // The sidebar shows the organisation's name, and an import can rename it (administrators): keep the two in step.
+  function coSetData(d) { CO.data = d; if (d && d.organisation && d.organisation.name) ORG.name = d.organisation.name; }
   async function loadCompany() {
     CO.loading = true;
-    try { CO.data = await STAI.api.companyGet(); CO.loaded = true; CO.error = null; } catch (e) { CO.error = e.message; }
+    try { coSetData(await STAI.api.companyGet()); CO.loaded = true; CO.error = null; } catch (e) { CO.error = e.message; }
     CO.loading = false; renderIfIdle(route());
   }
   async function coAfter(fn, keep) {
@@ -2540,7 +2542,7 @@ kill_switch:
     try { const r = await fn(); await loadCompanyQuiet(); return r; } catch (e) { CO.err = e.message; } finally { renderIfIdle('organisation'); }
     return null;
   }
-  async function loadCompanyQuiet() { CO.data = await STAI.api.companyGet(); CO.loaded = true; CO.error = null; }
+  async function loadCompanyQuiet() { coSetData(await STAI.api.companyGet()); CO.loaded = true; CO.error = null; }
 
   const OG_TYPE = { department: 'Department', person: 'Person', role: 'Role (a group)', external: 'Outside party', agent: 'AI agent', model: 'AI model', data_store: 'Data store', goal: 'Goal', operation: 'Operation', policy: 'Policy', threat: 'Threat', protection: 'Protection', rule: 'Rule', environment: 'Environment', step: 'Step', decision: 'Decision' };
   const OG_VIEWS = [['org', 'Organisation map'], ['organisational', 'Organisational view'], ['agents', 'Agents & tasks'], ['data', 'Data mapping'], ['privacy', 'Privacy by design'], ['breach', 'Breach response plan'], ['models', 'Models · ST-AI']];
@@ -2695,7 +2697,7 @@ kill_switch:
       s += ogLine(pos[e.from], pos[e.to], 28, 28, hand ? '#B45309' : '#8793A3', hand ? 2 : 1.2, '0', 'ogw', dd);
       s += ogLbl((pos[e.from].x + pos[e.to].x) / 2, (pos[e.from].y + pos[e.to].y) / 2, e.label || OG_KIND[e.kind], hand ? '#B45309' : '#4A5563', dd);
     });
-    s += ogG({}, OGS.organisation(pos.__org.x, pos.__org.y) + ogE('text', { x: pos.__org.x, y: pos.__org.y + 44, 'font-size': 11, 'text-anchor': 'middle', fill: '#222' }, ogT(CO.data.organisation.name, 26)));
+    s += ogG({}, OGS.organisation(pos.__org.x, pos.__org.y) + ogE('text', { x: pos.__org.x, y: pos.__org.y + 44, 'font-size': 11, 'text-anchor': 'middle', fill: '#222' }, ogT(ORG.name, 26)));
     actors.concat(ops, bottom).forEach((n) => {
       const p = pos[n.id], [l1, l2] = ogWrap(n.name, 17);
       s += ogG({ ...ogAct(n.id), class: 'og-hit' + ogDim(rel, n.id) }, (['operation', 'goal', 'policy'].includes(n.type) ? ogShape(n, p.x, p.y) : OGS.actor(p.x, p.y, n.type === 'agent' || n.type === 'model')) + (CO.sel === n.id ? ogE('rect', { x: p.x - 48, y: p.y - 34, width: 96, height: 68, rx: 10, fill: 'none', stroke: '#1E4FCB', 'stroke-width': 2, 'stroke-dasharray': '4 3' }) : '') + ogE('text', { x: p.x, y: p.y + 40, 'font-size': 10.5, 'text-anchor': 'middle', fill: '#222' }, l1) + (l2 ? ogE('text', { x: p.x, y: p.y + 52, 'font-size': 10.5, 'text-anchor': 'middle', fill: '#222' }, l2) : ''));
@@ -2974,7 +2976,7 @@ kill_switch:
     if (CO.error && !CO.loaded) return hdr(eyebrow, 'Organisation') + `<div class="note alert" role="alert"><strong>Could not load the organisation</strong><span style="font-size:13px">${esc(CO.error)}</span><button class="btn2 btn-s" data-act="coReload" style="align-self:flex-start">Retry</button></div>`;
     if (!CO.loaded) return hdr(eyebrow, 'Organisation') + '<p class="cap">Loading…</p>';
     const ix = coIx(), c = CO.data.counts, ed = can('write');
-    const head = hdr(eyebrow, `Organisation <span class="mono" style="font-size:15px;font-weight:500;color:#4A5563">· ${esc(CO.data.organisation.name)}</span>`, `<span class="pill ok">${c.department || 0} departments · ${(c.person || 0) + (c.role || 0)} people and roles · ${(c.agent || 0) + (c.model || 0)} AI systems</span>${dlBtn('/api/company/export', 'Export JSON')}${can('admin') && CO.data.nodes.length ? '<button class="btn3" data-act="coClearToggle">Clear organisation\u2026</button>' : ''}`);
+    const head = hdr(eyebrow, `Organisation <span class="mono" style="font-size:15px;font-weight:500;color:#4A5563">· ${esc(ORG.name)}</span>`, `<span class="pill ok">${c.department || 0} departments · ${(c.person || 0) + (c.role || 0)} people and roles · ${(c.agent || 0) + (c.model || 0)} AI systems</span>${dlBtn('/api/company/export', 'Export JSON')}${can('admin') && CO.data.nodes.length ? '<button class="btn3" data-act="coClearToggle">Clear organisation\u2026</button>' : ''}`);
     const clearPanel = CO.clear.open && can('admin') ? coClearPanel() : '';
     let view = '', side = ogInspector(ix);
     const R = { org: ogOrgMap, organisational: ogOrganisational, agents: ogAgents, privacy: ogPrivacy, breach: ogBreach, models: ogModels }[CO.view];
@@ -3048,7 +3050,7 @@ kill_switch:
     coPreview: async () => { const im = CO.imp; if (im.busy) return; im.busy = true; im.err = null; im.result = null; render(true); try { im.preview = await STAI.api.companyPreview(im.content, im.filename, im.skip); } catch (e) { im.preview = null; im.err = e.message; } im.busy = false; render(true); },
     coApply: async () => {
       const im = CO.imp; if (im.busy || !im.preview) return; im.busy = true; im.err = null; render(true);
-      try { const r = await STAI.api.companyImport(im.content, im.filename, im.skip); im.result = r; im.preview = null; im.content = ''; im.filename = ''; im.skip = []; CO.data = r.company; } catch (e) { im.err = e.message; }
+      try { const r = await STAI.api.companyImport(im.content, im.filename, im.skip); im.result = r; im.preview = null; im.content = ''; im.filename = ''; im.skip = []; coSetData(r.company); } catch (e) { im.err = e.message; }
       im.busy = false; render(true);
     },
     coSample: async () => { try { const d = await STAI.api.companySample(); Object.assign(CO.imp, { content: JSON.stringify(d, null, 2), filename: 'sample-company.json', skip: [], result: null, err: null, preview: null }); await H.coPreview(); } catch (e) { CO.imp.err = e.message; } },
@@ -3075,7 +3077,7 @@ kill_switch:
     },
     coApplyDraft: async () => {
       const ch = CO.chat; if (!ch.doc) return;
-      try { const r = await STAI.api.companyImport(JSON.stringify(ch.doc), 'assistant-draft.json', ch.skip); CO.data = r.company; ch.log.push({ who: 'bot', text: `Added ${r.created} items and ${r.connections} connections.` }); ch.doc = null; ch.plan = null; CO.notice = null; } catch (e) { ch.log.push({ who: 'bot', text: e.message, err: true }); }
+      try { const r = await STAI.api.companyImport(JSON.stringify(ch.doc), 'assistant-draft.json', ch.skip); coSetData(r.company); ch.log.push({ who: 'bot', text: `Added ${r.created} items and ${r.connections} connections.` }); ch.doc = null; ch.plan = null; CO.notice = null; } catch (e) { ch.log.push({ who: 'bot', text: e.message, err: true }); }
       render(true);
     },
     coAddUnmapped: async (key) => { const a = CO.data.live.unmapped_agents.find((x) => x.agent_key === key); if (!a) return; await coAfter(() => STAI.api.companyAddNode({ type: 'agent', name: a.name, props: { agent_key: a.agent_key } })); render(true); },
@@ -3117,7 +3119,7 @@ kill_switch:
   C.coModel = (v) => { CO.model = v; };
 
   function coClearPanel() {
-    const d = CO.data, k = CO.clear, name = d.organisation.name, edges = d.edges.length, nodes = d.nodes.length;
+    const d = CO.data, k = CO.clear, name = ORG.name, edges = d.edges.length, nodes = d.nodes.length;
     return `<section class="card" role="alertdialog" aria-label="Clear the organisation" style="padding:20px;border:2px solid #8C1F17;display:flex;flex-direction:column;gap:12px;max-width:760px"><h2 style="color:#8C1F17">Clear the organisation</h2>
       <span class="cap">This deletes all <b>${nodes} items</b> and <b>${edges} connections</b>: every department, person, AI system, data store, task link, goal, policy, threat and breach step. Agents, contracts, findings and saved designs are not touched. <b>It cannot be undone</b>, so download a backup first if you may want it again.</span>
       <div>${dlBtn('/api/company/export', 'Download a backup (JSON)')}</div>
@@ -3129,7 +3131,7 @@ kill_switch:
   Object.assign(H, {
     coClearToggle: () => { CO.clear = { open: !CO.clear.open, confirm: '', newName: '', busy: false, err: null }; },
     coClearDo: async () => {
-      const k = CO.clear; if (k.busy || !CO.data || k.confirm.trim() !== CO.data.organisation.name) return;
+      const k = CO.clear; if (k.busy || !CO.data || k.confirm.trim() !== ORG.name) return;
       k.busy = true; k.err = null; render(true);
       try {
         const r = await STAI.api.companyClear({ confirm: k.confirm.trim(), new_name: k.newName.trim() || null });
