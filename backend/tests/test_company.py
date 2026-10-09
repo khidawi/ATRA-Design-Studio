@@ -404,6 +404,34 @@ def test_the_model_is_warmed_at_most_once_in_ten_minutes_and_a_failure_is_harmle
         httpx.post = real_post
 
 
+def test_only_an_administrator_can_clear_the_organisation_and_must_type_its_name():
+    with authed_client("admin", "Alice Admin") as api, authed_client("compliance", "Cora Compliance") as comp, authed_client("engineer", "Eve Engineer") as eng:
+        original = api.get("/api/organisation").json()["name"]
+        try:
+            wipe()
+            load_sample(api)
+            name = api.get("/api/organisation").json()["name"]                                              # the sample names the company, and an administrator's import applies it
+            assert api.get("/api/company").json()["counts"]["agent"] == 4
+            for c in (comp, eng):
+                assert c.request("DELETE", "/api/company", json={"confirm": name}).status_code == 403          # not even compliance
+            assert api.request("DELETE", "/api/company", json={"confirm": "not the name"}).status_code == 422
+            assert api.request("DELETE", "/api/company", json={}).status_code == 422
+            assert len(api.get("/api/company").json()["nodes"]) == 64                                           # nothing was deleted by a refused call
+            r = api.request("DELETE", "/api/company", json={"confirm": f"  {name} "})
+            assert r.status_code == 200 and r.json() == {"deleted_nodes": 64, "deleted_connections": 63, "organisation": name}
+            s = api.get("/api/company").json()
+            assert s["nodes"] == [] and s["edges"] == [] and s["checks"] == [] and s["organisation"]["name"] == name
+            events = api.get("/api/audit?limit=30").json()
+            assert any(e["actor"] == "Alice Admin" and e["action"] == "DELETE /api/company" and e["outcome"] == "ok" for e in events)
+            assert any(e["actor"] == "Cora Compliance" and e["action"] == "DELETE /api/company" and e["outcome"] == "denied" for e in events)
+            load_sample(api)                                                                                    # a new company can be described straight away
+            r = api.request("DELETE", "/api/company", json={"confirm": name, "new_name": "  Fresh Co "})
+            assert r.status_code == 200 and r.json()["organisation"] == "Fresh Co" and api.get("/api/organisation").json()["name"] == "Fresh Co"
+        finally:
+            api.patch("/api/organisation", json={"name": original})
+            wipe()
+
+
 def test_templates_and_starting_points_are_valid_files():
     with authed_client("admin", "Alice Admin") as api:
         try:

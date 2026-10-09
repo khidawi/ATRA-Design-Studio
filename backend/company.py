@@ -581,6 +581,26 @@ def _clean_edge_props(kind: str, props: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
+class ClearIn(BaseModel):
+    confirm: str = Field(max_length=200)                      # the organisation's name, typed out: a stray API call cannot clear it
+    new_name: Optional[str] = Field(None, max_length=120)     # optionally start the new company under its own name
+
+
+@router.delete("")
+def clear_company(body: ClearIn, session: Session = Depends(get_session)) -> Dict[str, Any]:
+    """Deletes the whole organisation model (every node and connection) so a new company can be described. Administrators only. Agents, contracts,
+    findings and saved designs are not touched. The audit log records who did it."""
+    org = current_organisation(session)
+    if body.confirm.strip() != org.name:
+        raise HTTPException(status_code=422, detail="Type the organisation's name exactly as it is shown to confirm.")
+    edges = session.execute(delete(CompanyEdge).where(CompanyEdge.organisation_id == org.id)).rowcount
+    nodes = session.execute(delete(CompanyNode).where(CompanyNode.organisation_id == org.id)).rowcount
+    if body.new_name and body.new_name.strip():
+        org.name = body.new_name.strip()
+    session.commit()
+    return {"deleted_nodes": nodes, "deleted_connections": edges, "organisation": org.name}
+
+
 @router.post("/nodes", status_code=201)
 def add_node(body: NodeIn, session: Session = Depends(get_session)) -> Dict[str, Any]:
     org = current_organisation(session)

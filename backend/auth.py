@@ -104,7 +104,7 @@ def required_permission(method: str, path: str) -> str:
         if path.startswith(("/api/users", "/api/keys")):
             return "admin"
         return "audit" if path.startswith(("/api/audit", "/api/export/audit")) else "read"
-    if path.startswith(("/api/users", "/api/keys")) or path == "/api/organisation":
+    if path.startswith(("/api/users", "/api/keys")) or path == "/api/organisation" or (method == "DELETE" and path == "/api/company"):
         return "admin"
     if any(re.search(p, path) for p in PURE):
         return "read"

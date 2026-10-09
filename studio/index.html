@@ -209,6 +209,7 @@ main.wide{max-width:none}
 
 /* ---------- Organisation (Task 13) ---------- */
 .og-pad{padding:18px 20px}
+.btn-danger{background:#8C1F17;border-color:#8C1F17}.btn-danger:hover{background:#6E1812;border-color:#6E1812}.btn-danger:disabled{background:#AEB7C4;border-color:#AEB7C4}
 .og-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
 @media (max-width:1000px){.og-two{grid-template-columns:minmax(0,1fr)}}
 .og-views{display:flex;gap:2px;background:#F0F1F3;border-bottom:1px solid #DDE1E7;border-radius:10px 10px 0 0;padding:6px 8px;flex-wrap:wrap}
@@ -366,6 +367,7 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       previewAgentImport: (body) => post('/api/agents/import/preview', body),
       importAgent: (body) => post('/api/agents/import', body),
       companyGet: () => call('/api/company'),
+      companyClear: (body) => call('/api/company', { method: 'DELETE', body: JSON.stringify(body) }),
       companyAgentSeed: (id) => call('/api/company/systems/' + encodeURIComponent(id) + '/agent-seed'),
       companyDeployment: (id) => call('/api/company/systems/' + encodeURIComponent(id) + '/deployment-description'),
       companyPreview: (content, filename, skip) => post('/api/company/import/preview', { content, filename, skip }),
@@ -2517,7 +2519,7 @@ kill_switch:
   Object.assign(C, { rtAgent: (v) => { RT.agent = v; loadRuntime(); } });
 
   /* ---------- Organisation (Task 13): one model of the company, drawn as several views, linked read-only to the agent inventory ---------- */
-  const CO = { loaded: false, loading: false, error: null, data: null, view: 'org', filter: 'all', sel: null, selEdge: null, palette: false, mode: null, conn: null, form: null, tab: 'file', model: null, err: null, notice: null, starters: null,
+  const CO = { clear: { open: false, confirm: '', newName: '', busy: false, err: null }, loaded: false, loading: false, error: null, data: null, view: 'org', filter: 'all', sel: null, selEdge: null, palette: false, mode: null, conn: null, form: null, tab: 'file', model: null, err: null, notice: null, starters: null,
     imp: { content: '', filename: '', preview: null, skip: [], busy: false, err: null, result: null },
     chat: { text: '', busy: false, err: null, log: [], doc: null, plan: null, skip: [] } };
   let MODCTX = '';                                       // the module the person was last in ('' right after signing in)
@@ -2972,7 +2974,8 @@ kill_switch:
     if (CO.error && !CO.loaded) return hdr(eyebrow, 'Organisation') + `<div class="note alert" role="alert"><strong>Could not load the organisation</strong><span style="font-size:13px">${esc(CO.error)}</span><button class="btn2 btn-s" data-act="coReload" style="align-self:flex-start">Retry</button></div>`;
     if (!CO.loaded) return hdr(eyebrow, 'Organisation') + '<p class="cap">Loading…</p>';
     const ix = coIx(), c = CO.data.counts, ed = can('write');
-    const head = hdr(eyebrow, `Organisation <span class="mono" style="font-size:15px;font-weight:500;color:#4A5563">· ${esc(CO.data.organisation.name)}</span>`, `<span class="pill ok">${c.department || 0} departments · ${(c.person || 0) + (c.role || 0)} people and roles · ${(c.agent || 0) + (c.model || 0)} AI systems</span>${dlBtn('/api/company/export', 'Export JSON')}`);
+    const head = hdr(eyebrow, `Organisation <span class="mono" style="font-size:15px;font-weight:500;color:#4A5563">· ${esc(CO.data.organisation.name)}</span>`, `<span class="pill ok">${c.department || 0} departments · ${(c.person || 0) + (c.role || 0)} people and roles · ${(c.agent || 0) + (c.model || 0)} AI systems</span>${dlBtn('/api/company/export', 'Export JSON')}${can('admin') && CO.data.nodes.length ? '<button class="btn3" data-act="coClearToggle">Clear organisation\u2026</button>' : ''}`);
+    const clearPanel = CO.clear.open && can('admin') ? coClearPanel() : '';
     let view = '', side = ogInspector(ix);
     const R = { org: ogOrgMap, organisational: ogOrganisational, agents: ogAgents, privacy: ogPrivacy, breach: ogBreach, models: ogModels }[CO.view];
     let canvas, extra = '';
@@ -2995,7 +2998,7 @@ kill_switch:
       models: '<span><i style="background:#EDE7FB;border:1.5px solid #4C1D95"></i>AI model</span><span><i style="background:#fff;border:1.5px dotted #E58AA0"></i>Person or role</span><span><i style="background:#FFF3C4;border:1.5px solid #9A7B00"></i>Data</span><span><i style="background:#A8E6B8;border:1px solid #2B7A3F"></i>Rule</span><span><i style="border:1.5px dashed #B42318"></i>Broken rule</span>' }[CO.view];
     const tools = `<div class="og-tools"><button class="og-tool${CO.palette ? ' on' : ''}" data-act="coPalette"${ed ? '' : ' disabled'}><span class="og-ico" style="background:#2FB344">+</span>Add Model Component</button><span class="og-sep"></span><button class="og-tool${CO.mode === 'connect' ? ' on' : ''}" data-act="coConnectMode"${ed ? '' : ' disabled'}><span class="og-ico" style="background:#3BA1E6;font-size:13px">⇢</span>${CO.mode === 'connect' ? (CO.conn ? 'Pick the second item…' : 'Pick the first item…') : 'Add Connection'}</button><span class="og-sep"></span><button class="og-tool" data-act="coDelete"${ed && (CO.sel || CO.selEdge) ? '' : ' disabled'}><span class="og-ico" style="background:#F2994A;font-size:14px">✕</span>Delete selected</button><span style="flex:1"></span><span class="cap">${esc(OG_HINT[CO.view])}</span>${pal}</div>`;
     const modelling = `<section class="stack" style="gap:10px"><div><h2>2 · Modelling</h2><span class="cap">One model, several views of it. A change in one view appears in the others.</span></div><div class="card" style="overflow:visible"><div class="og-views" role="tablist">${OG_VIEWS.map(([k, l]) => `<button class="${CO.view === k ? 'on' : ''}" data-act="coView" data-arg="${k}">${l}</button>`).join('')}</div>${tools}<div class="og-wrap"><div style="min-width:0">${filt}${modelPick}<div class="card" style="padding:6px;overflow:auto">${canvas}</div>${extra}<div class="og-legend">${legend}</div></div><aside class="card og-pad stack" style="position:sticky;top:16px;gap:8px">${side}</aside></div></div></section>`;
-    return head + (orgFrom() === '' ? orgModules() : '') + (CO.notice ? `<div class="note good" role="status" style="font-size:13px">${esc(CO.notice)}</div>` : '') + ogDescribe() + modelling + `<section class="og-two">${ogTable(ix)}${ogChecks(ix)}</section>` + ogLive(ix);
+    return head + clearPanel + (orgFrom() === '' ? orgModules() : '') + (CO.notice ? `<div class="note good" role="status" style="font-size:13px">${esc(CO.notice)}</div>` : '') + ogDescribe() + modelling + `<section class="og-two">${ogTable(ix)}${ogChecks(ix)}</section>` + ogLive(ix);
   }
   SCREENS.organisation = organisation;
 
@@ -3112,6 +3115,32 @@ kill_switch:
     coEdgePolicy: async (v, id) => { await coAfter(() => STAI.api.companyPatchEdge(id, { props: { policy: v } })); }
   });
   C.coModel = (v) => { CO.model = v; };
+
+  function coClearPanel() {
+    const d = CO.data, k = CO.clear, name = d.organisation.name, edges = d.edges.length, nodes = d.nodes.length;
+    return `<section class="card" role="alertdialog" aria-label="Clear the organisation" style="padding:20px;border:2px solid #8C1F17;display:flex;flex-direction:column;gap:12px;max-width:760px"><h2 style="color:#8C1F17">Clear the organisation</h2>
+      <span class="cap">This deletes all <b>${nodes} items</b> and <b>${edges} connections</b>: every department, person, AI system, data store, task link, goal, policy, threat and breach step. Agents, contracts, findings and saved designs are not touched. <b>It cannot be undone</b>, so download a backup first if you may want it again.</span>
+      <div>${dlBtn('/api/company/export', 'Download a backup (JSON)')}</div>
+      <div class="fld"><label for="co-clear-confirm">To confirm, type the organisation\u2019s name: <b>${esc(name)}</b></label><input id="co-clear-confirm" class="inp" autocomplete="off" value="${esc(k.confirm)}" data-chg="coClearConfirm"></div>
+      <div class="fld"><label for="co-clear-new">Name of the new company (optional)</label><input id="co-clear-new" class="inp" value="${esc(k.newName)}" data-chg="coClearNew" placeholder="${esc(name)}"></div>
+      ${k.err ? `<div class="note alert" role="alert" style="font-size:13px">${esc(k.err)}</div>` : ''}
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-danger" data-act="coClearDo"${k.confirm.trim() === name && !k.busy ? '' : ' disabled'}>${k.busy ? 'Deleting\u2026' : 'Delete everything'}</button><button class="btn2" data-act="coClearToggle">Cancel</button></div></section>`;
+  }
+  Object.assign(H, {
+    coClearToggle: () => { CO.clear = { open: !CO.clear.open, confirm: '', newName: '', busy: false, err: null }; },
+    coClearDo: async () => {
+      const k = CO.clear; if (k.busy || !CO.data || k.confirm.trim() !== CO.data.organisation.name) return;
+      k.busy = true; k.err = null; render(true);
+      try {
+        const r = await STAI.api.companyClear({ confirm: k.confirm.trim(), new_name: k.newName.trim() || null });
+        Object.assign(CO, { data: null, loaded: false, error: null, sel: null, selEdge: null, form: null, conn: null, mode: null, model: null, tab: 'file', view: 'org', notice: `Cleared: ${r.deleted_nodes} items and ${r.deleted_connections} connections deleted. Describe the new company below.`,
+          clear: { open: false, confirm: '', newName: '', busy: false, err: null }, imp: { content: '', filename: '', preview: null, skip: [], busy: false, err: null, result: null }, chat: { text: '', busy: false, err: null, log: [], doc: null, plan: null, skip: [] } });
+        if (typeof loadOrganisation === 'function') loadOrganisation();
+      } catch (e) { k.busy = false; k.err = e.message; }
+      render(true);
+    }
+  });
+  Object.assign(C, { coClearConfirm: (v) => { CO.clear.confirm = v; }, coClearNew: (v) => { CO.clear.newName = v; } });
 
   /* ---------- Starting the two studios from the organisation (Task 14) ---------- */
   function coWanted() { if (!CO.loaded && !CO.loading && !CO.error) loadCompany(); return CO.loaded ? CO.data : null; }
