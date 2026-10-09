@@ -3071,7 +3071,7 @@ kill_switch:
         if (st.status === 'error') throw new Error(st.error.detail);
         const r = st.result;
         ch.doc = r.plan ? r.doc : ch.doc; ch.plan = r.plan || ch.plan; ch.skip = [];
-        ch.log.push({ who: 'bot', text: r.plan ? `Drafted ${r.plan.summary.nodes} items and ${r.plan.summary.edges} connections${r.plan.summary.new_nodes ? ' (' + r.plan.summary.new_nodes + ' new)' : ''}. Review them on the right, untick anything wrong, then accept. Tell me more and I will add to it.${r.plan.ok ? '' : ' Some references do not resolve: see the notes on the right.'}` : 'I could not find anything to draft in that. Try naming departments, people, AI agents and what they do.' });
+        ch.log.push({ who: 'bot', text: r.plan ? `${r.cached ? 'You described this before, so this is the same draft as last time. ' : ''}Drafted ${r.plan.summary.nodes} items and ${r.plan.summary.edges} connections${r.plan.summary.new_nodes ? ' (' + r.plan.summary.new_nodes + ' new)' : ''}. Review them on the right, untick anything wrong, then accept. Tell me more and I will add to it.${r.plan.ok ? '' : ' Some references do not resolve: see the notes on the right.'}` : 'I could not find anything to draft in that. Try naming departments, people, AI agents and what they do.' });
       } catch (e) { ch.log.push({ who: 'bot', text: e.message, err: true }); }
       ch.busy = false; render(true);
     },

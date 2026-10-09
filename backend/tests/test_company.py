@@ -15,9 +15,10 @@ REQ = {"dpia": {"status": "Covered", "evidence": "DPIA report DOC-9", "signed_of
 
 
 def wipe():
-    from db.models import CompanyEdge, CompanyNode, RuntimeEvent
+    from db.models import CompanyDraftCache, CompanyEdge, CompanyNode, RuntimeEvent
     from db.session import SessionLocal
     with SessionLocal() as s:
+        s.query(CompanyDraftCache).delete()
         s.query(CompanyEdge).delete()
         s.query(CompanyNode).delete()
         s.query(RuntimeEvent).filter(RuntimeEvent.agent_key.like("zz-test%")).delete(synchronize_session=False)
@@ -341,7 +342,7 @@ def test_drafting_runs_as_a_background_job_and_returns_a_proposal():
             res = s["result"]
             assert res["doc"]["company"] == {"name": "Zed Ltd"} and [d["id"] for d in res["doc"]["departments"]] == ["D-OPS"] and res["plan"]["ok"] and res["plan"]["summary"]["nodes"] == 3
             assert "Earlier in this conversation" in seen["user"] and "We are a small company." in seen["user"] and "Old department" not in seen["user"]       # it sees what was said, not what is stored
-            assert seen["kw"]["timeout"] == company.DRAFT_TIMEOUT and api.get("/api/company").json()["nodes"][0]["id"] == "D-OLD" and len(api.get("/api/company").json()["nodes"]) == 1    # nothing is saved
+            assert seen["kw"]["timeout"] == company.DRAFT_TIMEOUT and seen["kw"]["temperature"] == 0 and seen["kw"]["options"] == company.DRAFT_OPTIONS and company.DRAFT_OPTIONS["seed"] == 42 and api.get("/api/company").json()["nodes"][0]["id"] == "D-OLD" and len(api.get("/api/company").json()["nodes"]) == 1    # nothing is saved
             assert other.get(f"/api/company/draft/{job}").status_code == 404 and api.get("/api/company/draft/nope").status_code == 404                               # a job is its owner's
 
             seen["answer"] = {"departments": 3}                                                                  # a model that ignores the schema
@@ -429,6 +430,97 @@ def test_only_an_administrator_can_clear_the_organisation_and_must_type_its_name
             assert r.status_code == 200 and r.json()["organisation"] == "Fresh Co" and api.get("/api/organisation").json()["name"] == "Fresh Co"
         finally:
             api.patch("/api/organisation", json={"name": original})
+            wipe()
+
+
+def test_the_fixed_generation_settings_reach_ollama_unchanged():
+    import httpx
+
+    import ollama_client
+    captured = {}
+
+    class Reply:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"message": {"content": "{}"}}
+
+    real = httpx.post
+    httpx.post = lambda url, json=None, timeout=None: captured.update(json or {}) or Reply()
+    try:
+        ollama_client.chat_json([{"role": "user", "content": "x"}], {"type": "object"}, temperature=0, options=company.DRAFT_OPTIONS)
+        a = dict(captured)
+        ollama_client.chat_json([{"role": "user", "content": "y"}], {"type": "object"}, temperature=0, options=company.DRAFT_OPTIONS)
+    finally:
+        httpx.post = real
+    assert a["options"] == company.DRAFT_OPTIONS == captured["options"]                                      # the same settings on every call
+    assert a["options"]["temperature"] == 0 and a["options"]["top_k"] == 1 and a["options"]["seed"] == 42 and a["options"]["num_ctx"] == 4096
+    assert a["stream"] is False and a["keep_alive"] == ollama_client.OLLAMA_KEEP_ALIVE
+    assert ollama_client.chat_json.__kwdefaults__["temperature"] == 0.2 and ollama_client.chat_json.__kwdefaults__["options"] is None      # other callers keep their own defaults
+
+
+def test_the_same_description_always_gives_the_same_draft():
+    import time
+
+    import ollama_client
+    from db.models import CompanyDraftCache
+    from db.session import SessionLocal
+    calls = []
+
+    def fake(messages, schema, **kw):
+        calls.append(messages[-1]["content"])
+        n = len(calls)                                           # a model that is NOT repeatable: a different answer on every call
+        return {"company": f"Run {n} Ltd", "departments": [f"Dept {n} | | "], "people": [], "outside": [], "systems": [], "roles": [], "handoffs": [], "data": [], "uses": []}
+
+    def draft(api, text, history=None):
+        job = api.post("/api/company/draft", json={"description": text, "history": history or []}).json()["job"]
+        for _ in range(200):
+            s = api.get(f"/api/company/draft/{job}").json()
+            if s["status"] != "running":
+                return s["result"]
+            time.sleep(0.05)
+        raise AssertionError("the draft did not finish")
+
+    real = ollama_client.chat_json
+    with authed_client("admin", "Alice Admin") as api:
+        try:
+            wipe()
+            with SessionLocal() as s:
+                s.query(CompanyDraftCache).delete()
+                s.commit()
+            ollama_client.chat_json = fake
+            first = draft(api, "Zed Ltd has an Ops department led by Pat Lee.")
+            again = draft(api, "Zed Ltd has an Ops department led by Pat Lee.")
+            assert len(calls) == 1 and first["cached"] is False and again["cached"] is True              # the model was asked once
+            assert again["doc"] == first["doc"] and again["plan"] == first["plan"] and first["doc"]["company"] == {"name": "Run 1 Ltd"}
+            other = draft(api, "Zed Ltd has an Ops department led by Pat Lee, and Finance.")            # one word more is a different description
+            assert len(calls) == 2 and other["cached"] is False and other["doc"]["company"] == {"name": "Run 2 Ltd"}
+            withh = draft(api, "Zed Ltd has an Ops department led by Pat Lee.", ["We are small."])        # earlier messages are part of the input
+            assert len(calls) == 3 and withh["cached"] is False
+            assert draft(api, "Zed Ltd has an Ops department led by Pat Lee.", ["We are small."])["doc"] == withh["doc"] and len(calls) == 3
+            old_seed = company.DRAFT_OPTIONS["seed"]
+            company.DRAFT_OPTIONS["seed"] = 7                                                              # a changed setting must not reuse a draft made under the old one
+            try:
+                assert draft(api, "Zed Ltd has an Ops department led by Pat Lee.")["cached"] is False and len(calls) == 4
+            finally:
+                company.DRAFT_OPTIONS["seed"] = old_seed
+            ollama_client.chat_json = lambda *a, **k: {"departments": 3}                                  # an unusable answer is not kept
+            bad_text = "A description that makes the model fail."
+            job = api.post("/api/company/draft", json={"description": bad_text}).json()["job"]
+            for _ in range(200):
+                st = api.get(f"/api/company/draft/{job}").json()
+                if st["status"] != "running":
+                    break
+                time.sleep(0.05)
+            assert st["status"] == "error"
+            with SessionLocal() as s:
+                assert s.query(CompanyDraftCache).count() == 4
+        finally:
+            ollama_client.chat_json = real
+            with SessionLocal() as s:
+                s.query(CompanyDraftCache).delete()
+                s.commit()
             wipe()
 
 

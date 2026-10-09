@@ -47,22 +47,25 @@ def chat_json(
     max_tokens: Optional[int] = None,
     timeout: Optional[float] = None,
     on_progress: Optional[Callable[[int], None]] = None,
+    options: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Ask the local model for one JSON object matching `schema`.
 
     Raises HTTPException with a specific status for each way it can fail:
     503 Ollama unreachable, 504 timed out, 502 Ollama error / unusable output.
     """
-    options: Dict[str, Any] = {"temperature": temperature}
+    opts: Dict[str, Any] = {"temperature": temperature}
     if max_tokens:
-        options["num_predict"] = max_tokens
+        opts["num_predict"] = max_tokens
+    if options:
+        opts.update(options)           # e.g. a fixed seed and sampling settings, for a caller that needs the same answer to the same input
 
     payload = {
         "model": OLLAMA_MODEL,
         "messages": messages,
         "stream": on_progress is not None,
         "format": schema,
-        "options": options,
+        "options": opts,
         "keep_alive": OLLAMA_KEEP_ALIVE,
     }
 

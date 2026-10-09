@@ -10,6 +10,7 @@ sender's active contract and whether the runtime SDK has seen it, and which regi
 Input is a JSON or YAML file, a plain-English description to a local model (proposals only), or editing by hand. An import adds and
 updates by the company's own ids (EMP-1042, D-CX); it never deletes. Checks are deterministic code over the stored model.
 """
+import hashlib
 import json
 import re
 import threading
@@ -28,7 +29,7 @@ from sqlalchemy.orm import Session
 import agent_contract
 from agent_registry import agent_key as to_agent_key
 from auth import AuthUser, current_user
-from db.models import Agent, CompanyEdge, CompanyNode, Contract, RuntimeEvent
+from db.models import Agent, CompanyDraftCache, CompanyEdge, CompanyNode, Contract, RuntimeEvent
 from db.session import get_session
 from organisation import current_organisation
 
@@ -1155,6 +1156,21 @@ def proposal_to_doc(prop: DraftProposal, existing: Dict[str, CompanyNode]) -> Di
     return out
 
 
+# The same description must give the same draft. Every generation setting is fixed here, not left to the model's defaults: greedy decoding
+# (temperature 0, top_k 1), a fixed seed, and a fixed context window and repetition penalty. Change one of these and the drafts change with it.
+DRAFT_OPTIONS: Dict[str, Any] = {"temperature": 0, "top_k": 1, "top_p": 1.0, "repeat_penalty": 1.1, "seed": 42, "num_ctx": 4096, "num_predict": 1400}
+DRAFT_CACHE_KEEP = 500
+
+
+def draft_key(messages: List[Dict[str, str]], schema: Dict[str, Any]) -> str:
+    """The fingerprint of everything that decides the model's answer. Change the model, the prompt, the schema, a setting or one word of the
+    description and it changes; otherwise the earlier answer is reused. This is what makes the same description give the same draft: even with a
+    fixed seed and temperature 0, Ollama's prompt cache lets the first and a later run differ in the last digit of a calculation, and now and then in a word."""
+    import ollama_client
+    blob = json.dumps({"model": ollama_client.OLLAMA_MODEL, "messages": messages, "schema": schema, "options": DRAFT_OPTIONS}, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
 DRAFT_TIMEOUT = 900.0                                    # a CPU-only model writing a whole organisation can take several minutes
 JOB_KEEP = 1800
 _jobs: Dict[str, Dict[str, Any]] = {}
@@ -1177,13 +1193,26 @@ def _run_draft(job_id: str, body: DraftIn) -> None:
             def progress(n: int) -> None:
                 with _jobs_lock:
                     _jobs[job_id]["pieces"] = n
-            raw = ollama_client.chat_json([{"role": "system", "content": COMPACT_PROMPT}, {"role": "user", "content": user}], DraftCompact.model_json_schema(), max_tokens=1400, timeout=DRAFT_TIMEOUT, on_progress=progress)
+            messages = [{"role": "system", "content": COMPACT_PROMPT}, {"role": "user", "content": user}]
+            schema = DraftCompact.model_json_schema()
+            key = draft_key(messages, schema)
+            hit = session.scalar(select(CompanyDraftCache).where(CompanyDraftCache.key == key))
+            cached = hit is not None
+            raw = hit.raw if hit else ollama_client.chat_json(messages, schema, temperature=0, timeout=DRAFT_TIMEOUT, on_progress=progress, options=DRAFT_OPTIONS)
             try:
                 prop = parse_compact(DraftCompact.model_validate(raw))
             except Exception as exc:
                 raise HTTPException(status_code=502, detail=f"The model returned a malformed proposal: {exc}")
+            if not cached:                                       # only a usable draft is kept
+                try:
+                    session.add(CompanyDraftCache(key=key, raw=raw))
+                    session.execute(delete(CompanyDraftCache).where(CompanyDraftCache.id.in_(
+                        select(CompanyDraftCache.id).order_by(CompanyDraftCache.created_at.desc()).offset(DRAFT_CACHE_KEEP))))
+                    session.commit()
+                except Exception:                                # a second identical draft finishing at the same moment: the first one stands
+                    session.rollback()
             doc = proposal_to_doc(prop, {n.ext_id: n for n in ns})
-            result = {"doc": doc, "plan": public_plan(plan(session, doc, [])) if any(k != "company" for k in doc) else None}
+            result = {"doc": doc, "cached": cached, "plan": public_plan(plan(session, doc, [])) if any(k != "company" for k in doc) else None}
         outcome: Dict[str, Any] = {"status": "done", "result": result}
     except HTTPException as exc:
         outcome = {"status": "error", "error": {"status": exc.status_code, "detail": str(exc.detail)}}

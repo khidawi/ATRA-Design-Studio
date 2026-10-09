@@ -504,3 +504,15 @@ class CompanyEdge(Base):
     label: Mapped[str] = mapped_column(String(80), nullable=False, server_default="")
     props: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class CompanyDraftCache(Base):
+    """A draft the organisation assistant produced, kept against a fingerprint of everything that determines it (the description, the prompt, the
+    schema, the generation settings and the model), so the same description always gives the same draft. Not organisation data: safe to delete."""
+
+    __tablename__ = "company_draft_cache"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    key: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    raw: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
