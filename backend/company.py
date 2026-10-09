@@ -932,7 +932,7 @@ class DraftProposal(BaseModel):
     data_use: List[DraftUse]
 
 
-DRAFT_PROMPT = (
+FULL_DRAFT_PROMPT = (
     "You turn a plain-English description of a company into a draft organisation, as JSON. Include everything the description says and nothing it does not: "
     "departments, people (with title and department), outside parties (customers, patients, regulators, suppliers), the AI agents and models and who owns them, "
     "who each one deals with and in what role, tasks one AI agent hands to another (with the data passed), and the data stores and who reads or writes them. "
@@ -947,6 +947,64 @@ DRAFT_PROMPT = (
 
 
 GROUP = {"department": "d", "person": "p", "role": "p", "external": "p", "agent": "s", "model": "s", "data_store": "x"}
+
+
+# ── The format the model is actually asked for: one short line per item ──
+# The object-per-item schema above is clear but long: every empty field is written out, and a CPU model writes about five tokens a second.
+# One "a | b | c" string per item says the same in a third of the tokens. The lines are parsed here, in code, into the proposal above.
+
+class DraftCompact(BaseModel):
+    company: str
+    departments: List[str]
+    people: List[str]
+    outside: List[str]
+    systems: List[str]
+    roles: List[str]
+    handoffs: List[str]
+    data: List[str]
+    uses: List[str]
+
+
+COMPACT_PROMPT = (
+    "You turn a plain-English description of a company into a draft organisation, as JSON with these lists. Each item is ONE text line with fields separated by ' | ' "
+    "(leave a field empty if the description does not say):\n"
+    "company: the company name.\n"
+    "departments: 'name | reports to (another department) | head (a person)'.\n"
+    "people: 'full name | job title | department | group' (write the word group only for a group of people, such as support agents).\n"
+    "outside: 'name | customer, patient, regulator or vendor' (parties outside the company).\n"
+    "systems: 'name | agent or model | department | owner (a person) | what it does'.\n"
+    "roles: 'AI system | person or party | their role', for example requests refunds, approves payouts over 100, escalate to, trains, validates, deploys, operates.\n"
+    "handoffs: 'from agent | to agent | what is handed over | data passed, comma separated'.\n"
+    "data: 'data store | department | sensitivity (personal data, health data, confidential, internal or public)'.\n"
+    "uses: 'AI system | data store | read or write'.\n"
+    "Include everything the description says and nothing it does not. Use the exact names written. Never invent a person, department, agent or data store; leave a field empty instead. "
+    "A department's 'reports to' names a department, never a person. Return the whole organisation described so far, not only the newest message.\n\n"
+    "Example. Description: 'Acme runs support. Dana Cole leads Support, which has a refund-agent owned by Dana. Customers ask it for refunds, and it hands payments to the "
+    "ledger-agent in Finance (led by Omar Ali) with the order id. Omar approves payments over 100. The order database holds personal data.' Result: "
+    '{"company":"Acme","departments":["Support | | Dana Cole","Finance | | Omar Ali"],"people":["Dana Cole | leader of Support | Support |","Omar Ali | | Finance |"],'
+    '"outside":["Customers | customer"],"systems":["refund-agent | agent | Support | Dana Cole | decides refunds","ledger-agent | agent | Finance | | makes payments"],'
+    '"roles":["refund-agent | Customers | requests refunds","ledger-agent | Omar Ali | approves payments over 100"],"handoffs":["refund-agent | ledger-agent | make the payment | order id"],'
+    '"data":["order database | Support | personal data"],"uses":["refund-agent | order database | read"]}')
+
+
+def _fields(line: str, n: int) -> List[str]:
+    parts = [p.strip() for p in str(line).split("|")]
+    return (parts + [""] * n)[:n]
+
+
+def parse_compact(c: DraftCompact) -> DraftProposal:
+    """The model's one-line items as a DraftProposal. Missing fields are empty, a line with no name is skipped; nothing here can fail on a malformed line."""
+    flag = lambda v: bool(re.search(r"group|true|yes", v, re.I))
+    return DraftProposal(
+        company_name=c.company.strip(),
+        departments=[DraftDept(name=f[0], reports_to=f[1], head=f[2]) for f in (_fields(x, 3) for x in c.departments) if f[0]],
+        people=[DraftPerson(name=f[0], title=f[1], department=f[2], is_group=flag(f[3])) for f in (_fields(x, 4) for x in c.people) if f[0]],
+        outside_parties=[DraftOutside(name=f[0], kind=f[1]) for f in (_fields(x, 2) for x in c.outside) if f[0]],
+        ai_systems=[DraftSystem(name=f[0], type="model" if re.search(r"model|llm", f[1], re.I) else "agent", department=f[2], owner=f[3], purpose=f[4]) for f in (_fields(x, 5) for x in c.systems) if f[0]],
+        roles=[DraftRole(system=f[0], person=f[1], role=f[2]) for f in (_fields(x, 3) for x in c.roles) if f[0] and f[1] and f[2]],
+        task_links=[DraftTask(from_agent=f[0], to_agent=f[1], task=f[2], data=[d.strip() for d in f[3].split(",") if d.strip()]) for f in (_fields(x, 4) for x in c.handoffs) if f[0] and f[1]],
+        data_stores=[DraftStore(name=f[0], department=f[1], sensitivity=f[2]) for f in (_fields(x, 3) for x in c.data) if f[0]],
+        data_use=[DraftUse(system=f[0], store=f[1], access="write" if re.search(r"write", f[2], re.I) else "read") for f in (_fields(x, 3) for x in c.uses) if f[0] and f[1]])
 
 
 def proposal_to_doc(prop: DraftProposal, existing: Dict[str, CompanyNode]) -> Dict[str, Any]:
@@ -1096,9 +1154,12 @@ def _run_draft(job_id: str, body: DraftIn) -> None:
             if body.history:
                 user += "Earlier in this conversation the person said:\n" + "\n".join(f"- {h.strip()[:1500]}" for h in body.history if h.strip()) + "\n\nNow they add:\n"
             user += body.description.strip()
-            raw = ollama_client.chat_json([{"role": "system", "content": DRAFT_PROMPT}, {"role": "user", "content": user}], DraftProposal.model_json_schema(), max_tokens=2200, timeout=DRAFT_TIMEOUT)
+            def progress(n: int) -> None:
+                with _jobs_lock:
+                    _jobs[job_id]["pieces"] = n
+            raw = ollama_client.chat_json([{"role": "system", "content": COMPACT_PROMPT}, {"role": "user", "content": user}], DraftCompact.model_json_schema(), max_tokens=1400, timeout=DRAFT_TIMEOUT, on_progress=progress)
             try:
-                prop = DraftProposal.model_validate(raw)
+                prop = parse_compact(DraftCompact.model_validate(raw))
             except Exception as exc:
                 raise HTTPException(status_code=502, detail=f"The model returned a malformed proposal: {exc}")
             doc = proposal_to_doc(prop, {n.ext_id: n for n in ns})
@@ -1110,6 +1171,22 @@ def _run_draft(job_id: str, body: DraftIn) -> None:
         outcome = {"status": "error", "error": {"status": 500, "detail": f"The draft failed: {exc}"}}
     with _jobs_lock:
         _jobs[job_id].update(outcome, finished=time.time())
+
+
+_warm = {"at": 0.0}
+
+
+@router.post("/assistant/warm", status_code=202)
+def warm_assistant() -> Dict[str, Any]:
+    """Asks the local model to load now (it takes a couple of minutes from cold on a CPU) so the first draft is quick. Does at most one warm-up every ten minutes."""
+    import ollama_client
+    now = time.time()
+    with _jobs_lock:
+        if now - _warm["at"] < 600:
+            return {"warming": False}
+        _warm["at"] = now
+    threading.Thread(target=lambda: ollama_client.warm(), daemon=True).start()
+    return {"warming": True}
 
 
 @router.post("/draft", status_code=202)
@@ -1133,7 +1210,7 @@ def draft_status(job_id: str, user: AuthUser = Depends(current_user)) -> Dict[st
         j = _jobs.get(job_id)
         if j is None or j["user"] != str(user.id):
             raise HTTPException(status_code=404, detail="That draft is no longer available. Send the description again.")
-        return {"status": j["status"], "elapsed": int((j.get("finished") or time.time()) - j["started"]), "result": j.get("result"), "error": j.get("error")}
+        return {"status": j["status"], "elapsed": int((j.get("finished") or time.time()) - j["started"]), "pieces": j.get("pieces", 0), "result": j.get("result"), "error": j.get("error")}
 
 
 # ── Starting points for the two studios (read only: the organisation is not changed) ──

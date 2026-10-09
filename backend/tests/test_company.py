@@ -311,9 +311,8 @@ def test_drafting_runs_as_a_background_job_and_returns_a_proposal():
     import time
 
     import ollama_client
-    canned = {"company_name": "Zed Ltd", "departments": [{"name": "Ops", "reports_to": "", "head": "Pat Lee"}],
-              "people": [{"name": "Pat Lee", "title": "Head of ops", "department": "Ops", "is_group": False}], "outside_parties": [],
-              "ai_systems": [{"name": "ops-agent", "type": "agent", "department": "Ops", "owner": "Pat Lee", "purpose": ""}], "roles": [], "task_links": [], "data_stores": [], "data_use": []}
+    canned = {"company": "Zed Ltd", "departments": ["Ops | | Pat Lee"], "people": ["Pat Lee | Head of ops | Ops |"], "outside": [],
+              "systems": ["ops-agent | agent | Ops | Pat Lee | "], "roles": [], "handoffs": [], "data": [], "uses": []}
     seen = {}
 
     def fake(messages, schema, **kw):
@@ -338,7 +337,7 @@ def test_drafting_runs_as_a_background_job_and_returns_a_proposal():
             assert r.status_code == 202, r.text
             job = r.json()["job"]
             s = finish(api, job)
-            assert s["status"] == "done" and s["error"] is None
+            assert s["status"] == "done" and s["error"] is None and "pieces" in s
             res = s["result"]
             assert res["doc"]["company"] == {"name": "Zed Ltd"} and [d["id"] for d in res["doc"]["departments"]] == ["D-OPS"] and res["plan"]["ok"] and res["plan"]["summary"]["nodes"] == 3
             assert "Earlier in this conversation" in seen["user"] and "We are a small company." in seen["user"] and "Old department" not in seen["user"]       # it sees what was said, not what is stored
@@ -348,13 +347,61 @@ def test_drafting_runs_as_a_background_job_and_returns_a_proposal():
             seen["answer"] = {"departments": 3}                                                                  # a model that ignores the schema
             bad = finish(api, api.post("/api/company/draft", json={"description": "Something long enough to send."}).json()["job"])
             assert bad["status"] == "error" and bad["error"]["status"] == 502 and "malformed" in bad["error"]["detail"]
-            seen["answer"] = {**canned, "departments": [], "people": [], "ai_systems": [], "company_name": ""}      # nothing in the description
+            seen["answer"] = {**canned, "departments": [], "people": [], "systems": [], "company": ""}      # nothing in the description
             empty = finish(api, api.post("/api/company/draft", json={"description": "Nothing about a company here."}).json()["job"])
             assert empty["status"] == "done" and empty["result"]["plan"] is None and empty["result"]["doc"] == {}
             assert api.post("/api/company/draft", json={"description": "short"}).status_code == 422
         finally:
             ollama_client.chat_json = real
             wipe()
+
+
+def test_the_compact_answer_is_parsed_in_code_and_survives_sloppy_lines():
+    schema = company.DraftCompact.model_json_schema()
+    assert set(schema["required"]) == {"company", "departments", "people", "outside", "systems", "roles", "handoffs", "data", "uses"}              # a model may not answer {}
+    c = company.DraftCompact(
+        company=" Acme ", departments=["Support | | Dana Cole", "Finance", " | x | y", "Legal|Support|"],
+        people=["Dana Cole | leader of Support | Support |", "Support agents | | Support | group", "Omar Ali"], outside=["Customers | customer", "Regulator"],
+        systems=["refund-agent | agent | Support | Dana Cole | decides refunds", "triage-llm | LLM model | Clinical | | suggests", "ledger-agent"],
+        roles=["refund-agent | Customers | requests refunds", "refund-agent | Customers", "| x | y"], handoffs=["refund-agent | ledger-agent | pay | order id, amount ,", "a"],
+        data=["order database | Support | personal data"], uses=["refund-agent | order database | write", "refund-agent | order database", "x"])
+    p = company.parse_compact(c)
+    assert p.company_name == "Acme" and [(d.name, d.reports_to, d.head) for d in p.departments] == [("Support", "", "Dana Cole"), ("Finance", "", ""), ("Legal", "Support", "")]
+    assert [(x.name, x.is_group) for x in p.people] == [("Dana Cole", False), ("Support agents", True), ("Omar Ali", False)] and [(o.name, o.kind) for o in p.outside_parties] == [("Customers", "customer"), ("Regulator", "")]
+    assert [(s.name, s.type, s.owner) for s in p.ai_systems] == [("refund-agent", "agent", "Dana Cole"), ("triage-llm", "model", ""), ("ledger-agent", "agent", "")]
+    assert [(r.system, r.person, r.role) for r in p.roles] == [("refund-agent", "Customers", "requests refunds")]                       # a role line with a field missing is dropped
+    assert [(t.from_agent, t.to_agent, t.task, t.data) for t in p.task_links] == [("refund-agent", "ledger-agent", "pay", ["order id", "amount"])]
+    assert [(u.system, u.store, u.access) for u in p.data_use] == [("refund-agent", "order database", "write"), ("refund-agent", "order database", "read")] and p.data_stores[0].sensitivity == "personal data"
+    assert company.proposal_to_doc(p, {})["company"] == {"name": "Acme"}
+
+
+def test_the_model_is_warmed_at_most_once_in_ten_minutes_and_a_failure_is_harmless():
+    import time
+
+    import ollama_client
+    calls = []
+    real = ollama_client.warm
+    ollama_client.warm = lambda *a, **k: calls.append(1) or True
+    with authed_client("admin", "Alice Admin") as api, authed_client("auditor", "Ada Auditor") as aud:
+        try:
+            company._warm["at"] = 0.0
+            assert api.post("/api/company/assistant/warm").json() == {"warming": True}
+            for _ in range(100):
+                if calls:
+                    break
+                time.sleep(0.02)
+            assert calls == [1] and api.post("/api/company/assistant/warm").json() == {"warming": False}          # not again within ten minutes
+            assert aud.post("/api/company/assistant/warm").status_code == 403                                      # an auditor changes nothing, not even the model's memory
+        finally:
+            ollama_client.warm = real
+            company._warm["at"] = 0.0
+    import httpx
+    real_post = httpx.post
+    httpx.post = lambda *a, **k: (_ for _ in ()).throw(httpx.ConnectError("down"))
+    try:
+        assert real() is False                                                                                       # Ollama unreachable: warming just reports it
+    finally:
+        httpx.post = real_post
 
 
 def test_templates_and_starting_points_are_valid_files():

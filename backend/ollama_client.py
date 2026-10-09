@@ -8,7 +8,7 @@ Runs against a locally hosted model — no API key, no per-call cost.
 """
 import json
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import httpx
 from fastapi import HTTPException
@@ -17,6 +17,8 @@ OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1")
 # A CPU-only Ollama (e.g. in Docker without a GPU) generates a full graph in minutes, not seconds.
 OLLAMA_TIMEOUT = float(os.environ.get("OLLAMA_TIMEOUT_SECONDS", "280"))
+# Keep the model in memory between requests: loading an 8B model from disk costs ten to twenty seconds on every cold call.
+OLLAMA_KEEP_ALIVE = os.environ.get("OLLAMA_KEEP_ALIVE", "30m")
 
 
 def extract_json_object(text: str) -> dict:
@@ -44,6 +46,7 @@ def chat_json(
     temperature: float = 0.2,
     max_tokens: Optional[int] = None,
     timeout: Optional[float] = None,
+    on_progress: Optional[Callable[[int], None]] = None,
 ) -> Dict[str, Any]:
     """Ask the local model for one JSON object matching `schema`.
 
@@ -57,14 +60,32 @@ def chat_json(
     payload = {
         "model": OLLAMA_MODEL,
         "messages": messages,
-        "stream": False,
+        "stream": on_progress is not None,
         "format": schema,
         "options": options,
+        "keep_alive": OLLAMA_KEEP_ALIVE,
     }
 
     try:
-        resp = httpx.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload, timeout=timeout or OLLAMA_TIMEOUT)
-        resp.raise_for_status()
+        if on_progress is None:
+            resp = httpx.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload, timeout=timeout or OLLAMA_TIMEOUT)
+            resp.raise_for_status()
+            content = resp.json().get("message", {}).get("content", "")
+        else:                                  # streamed: the caller is told how many pieces have arrived, e.g. to show progress
+            parts: List[str] = []
+            with httpx.stream("POST", f"{OLLAMA_BASE_URL}/api/chat", json=payload, timeout=timeout or OLLAMA_TIMEOUT) as resp:
+                if resp.status_code >= 400:
+                    resp.read()
+                resp.raise_for_status()
+                for line in resp.iter_lines():
+                    if not line:
+                        continue
+                    chunk = json.loads(line)
+                    parts.append(chunk.get("message", {}).get("content", ""))
+                    on_progress(len(parts))
+                    if chunk.get("done"):
+                        break
+            content = "".join(parts)
     except httpx.TimeoutException as exc:
         raise HTTPException(
             status_code=504,
@@ -85,8 +106,6 @@ def chat_json(
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f"Could not reach Ollama: {exc}") from exc
 
-    content = resp.json().get("message", {}).get("content", "")
-
     try:
         return json.loads(content)
     except json.JSONDecodeError:
@@ -97,3 +116,12 @@ def chat_json(
                 status_code=502,
                 detail=f"Model did not return valid JSON: {exc}",
             ) from exc
+
+
+def warm(timeout: float = 600.0) -> bool:
+    """Load the model into memory (an empty request) so the first real call does not pay for it. Never raises: warming is only a courtesy."""
+    try:
+        httpx.post(f"{OLLAMA_BASE_URL}/api/generate", json={"model": OLLAMA_MODEL, "keep_alive": OLLAMA_KEEP_ALIVE}, timeout=timeout).raise_for_status()
+        return True
+    except Exception:
+        return False
