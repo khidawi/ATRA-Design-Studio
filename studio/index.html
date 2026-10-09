@@ -2925,7 +2925,7 @@ kill_switch:
       ${bad ? `<div class="note alert" style="font-size:13px"><strong>Broken rule</strong>${esc((n.props.rule_id && CO.data.violations[n.props.rule_id]) || 'Marked as broken.')}</div>` : ''}
       ${chk.map((c) => `<div class="note ${c.level === 'bad' ? 'alert' : 'plain'}" style="font-size:13px"><strong>${esc(c.title)}</strong>${esc(c.detail)}</div>`).join('')}
       ${n.type === 'agent' || n.type === 'model' ? `<h3 style="font-size:14px;margin-top:4px">Agent assurance</h3>${sysLive ? (sysLive.registered ? `<div class="og-kv"><span>Registered</span><b>${esc(sysLive.agent_key)}</b></div><div class="og-kv"><span>Active contract</span><b>${sysLive.contract_version ? 'v' + esc(sysLive.contract_version) : 'none'}</b></div><div class="og-kv"><span>Last seen by the SDK</span><span>${sysLive.last_seen_at ? esc(String(sysLive.last_seen_at).slice(0, 16).replace('T', ' ')) : 'never'}</span></div>` : '<span class="cap">Not registered in Agent assurance. A registered agent with the same name is linked automatically.</span>') : '<span class="cap">AI models are assessed in the Model studio.</span>'}` : ''}
-      ${n.type === 'agent' && ed ? `<button class="btn btn-s" style="align-self:flex-start" data-act="sFromOrg" data-arg="${esc(n.id)}">Design in the Agent studio</button>` : ''}${n.type === 'model' && ed ? `<button class="btn btn-s" style="align-self:flex-start" data-act="mFromOrg" data-arg="${esc(n.id)}">Start a model design</button>` : ''}
+      ${n.type === 'agent' && ed ? `<button class="btn btn-s" style="align-self:flex-start" data-act="sFromOrg" data-arg="${esc(n.id)}">Design in the Agent studio</button>` : ''}${n.type === 'model' && ed ? `<button class="btn btn-s" style="align-self:flex-start" data-act="mFromOrg" data-arg="${esc(n.id)}">${(CO.data.live.models[n.id] || {}).design_key ? 'Open in the Model studio' : 'Start a model design'}</button>` : ''}
       <h3 style="font-size:14px;margin-top:4px">Connections</h3>${ogEdgeRows(ix, n.id, ed)}${n.type === 'department' ? '' : ''}
       ${ed ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px"><button class="btn2 btn-s" data-act="coConnectFrom" data-arg="${esc(n.id)}">+ Connection</button><button class="btn3 btn-s" data-act="coDelete">Delete</button></div>` : ''}</div>`;
   }
@@ -2951,7 +2951,7 @@ kill_switch:
         <div class="og-drop"><b>Choose a JSON or YAML file</b><div class="cap">up to 512 KB · ${im.filename ? 'loaded: <span class="mono">' + esc(im.filename) + '</span>' : 'or paste it below'}</div><input type="file" accept=".json,.yaml,.yml,application/json,text/yaml" data-chg="coFile" style="margin-top:8px"></div>
         <textarea class="inp" rows="6" style="padding:10px;font-family:'IBM Plex Mono',monospace;font-size:12px" placeholder="…or paste the file here" data-chg="coContent">${esc(im.content)}</textarea>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-s" data-act="coPreview"${im.content.trim() && !im.busy ? '' : ' disabled'}>${im.busy ? 'Checking…' : 'Preview'}</button><button class="btn2 btn-s" data-act="coSample">Use the sample company</button><button class="btn2 btn-s" data-act="coTemplate">Download a template</button></div>
-        ${im.err ? `<div class="note alert" role="alert" style="font-size:13px">${esc(im.err)}</div>` : ''}${im.result ? `<div class="note good" role="status" style="font-size:13px"><strong>Imported</strong>${im.result.created} new, ${im.result.updated} changed, ${im.result.connections} new connections.${im.result.renamed ? ' The organisation is now called ' + esc(im.result.renamed) + '.' : ''}${(im.result.agents_created || []).length ? ' ' + im.result.agents_created.length + ' agent' + (im.result.agents_created.length === 1 ? '' : 's') + ' created in Agent assurance: design them there.' : ''}</div>` : ''}
+        ${im.err ? `<div class="note alert" role="alert" style="font-size:13px">${esc(im.err)}</div>` : ''}${im.result ? `<div class="note good" role="status" style="font-size:13px"><strong>Imported</strong>${im.result.created} new, ${im.result.updated} changed, ${im.result.connections} new connections.${im.result.renamed ? ' The organisation is now called ' + esc(im.result.renamed) + '.' : ''}${(im.result.agents_created || []).length ? ' ' + im.result.agents_created.length + ' agent' + (im.result.agents_created.length === 1 ? '' : 's') + ' created in Agent assurance: design them there.' : ''}${(im.result.models_created || []).length ? ' ' + im.result.models_created.length + ' model design' + (im.result.models_created.length === 1 ? '' : 's') + ' created in the Model studio.' : ''}</div>` : ''}
         ${im.preview ? ogPlan(im.preview, im.skip, 'coSkip') + `<button class="btn" style="align-self:flex-start" data-act="coApply"${im.preview.ok && im.preview.summary.create + im.preview.summary.update > 0 && !im.busy ? '' : ' disabled'}>Import ${im.preview.summary.create + im.preview.summary.update} items</button>` : ''}</div>
         <div class="stack"><h3 style="font-size:15px">What the file looks like</h3><pre class="code" style="max-height:340px;font-size:12px">${esc(OG_EX)}</pre><span class="cap">Only departments are needed. People, outside parties, AI systems (with <span class="mono">hands_tasks_to</span> and <span class="mono">uses_data</span>), data stores, and modelling <span class="mono">elements</span> and <span class="mono">links</span> are optional. Ids keep a person the same person when a file is imported again, so a re-import updates instead of duplicating.</span></div></div>`;
     else if (CO.tab === 'chat') body = `<div class="og-two"><div class="stack" style="gap:10px">
@@ -2980,8 +2980,10 @@ kill_switch:
     const L = CO.data.live, ed = can('write'), agents = ix.T('agent');
     const rows = agents.map((a) => { const lv = L.agents[a.id]; return `<div class="og-kv" style="align-items:center"><span><b>${esc(a.name)}</b><br><span class="cap">${esc(ix.N[a.props.department] ? ix.N[a.props.department].name : 'no department')}</span></span><span style="text-align:right">${lv && lv.registered ? `<span class="pill ${lv.contract_version ? 'ok' : 'warn'}">${lv.contract_version ? 'contract v' + esc(lv.contract_version) : 'registered, no contract'}</span><br><span class="cap">seen ${lv.last_seen_at ? esc(String(lv.last_seen_at).slice(0, 16).replace('T', ' ')) : 'never'}</span>` : '<span class="pill muted">not registered</span>'}</span></div>`; }).join('');
     const un = L.unmapped_agents, hs = L.unmodelled, missing = agents.filter((a) => !(L.agents[a.id] || {}).registered);
-    return `<section class="stack" style="gap:10px"><div><h2>4 · Linked to Agent assurance</h2><span class="cap">Describing the company creates its agents in Agent assurance, where you design and ratify them. The organisation matches an agent to the registered agent with the same name, and reads its contract and runtime reports.</span>${missing.length && ed ? `<div style="margin-top:6px"><button class="btn" data-act="coSyncAgents">Create ${missing.length} agent${missing.length === 1 ? '' : 's'} in Agent assurance</button> <span class="cap">${esc(missing.map((a) => a.name).join(', '))} ${missing.length === 1 ? 'is' : 'are'} in the organisation but not in the inventory.</span></div>` : ''}</div>
-      <div class="cols"><div class="card og-pad stack" style="gap:6px"><h3 style="font-size:15px">Agents in the organisation</h3>${rows || '<span class="cap">No agents yet.</span>'}</div>
+    const mods = ix.T('model'), noDesign = mods.filter((m) => !((L.models || {})[m.id] || {}).design_key);
+    const mrows = mods.map((m) => { const lv = (L.models || {})[m.id] || {}; return `<div class="og-kv" style="align-items:center"><span><b>${esc(m.name)}</b><br><span class="cap">${esc(ix.N[m.props.department] ? ix.N[m.props.department].name : 'no department')}${m.props.risk_class ? ' \u00b7 ' + esc(m.props.risk_class) + ' risk' : ''}</span></span><span style="text-align:right">${lv.design_key ? `<span class="pill ok">design in the Model studio</span><br><button class="og-link" data-act="mFromOrg" data-arg="${esc(m.id)}">Open it</button>` : '<span class="pill muted">no design yet</span>'}</span></div>`; }).join('');
+    return `<section class="stack" style="gap:10px"><div><h2>4 · Linked to Agent assurance and the Model studio</h2><span class="cap">Describing the company creates its agents in Agent assurance and its AI models in the Model studio, where you design, assess and ratify them. The organisation matches an agent to the registered agent with the same name, and reads its contract and runtime reports.</span>${(missing.length || noDesign.length) && ed ? `<div style="margin-top:6px"><button class="btn" data-act="coSyncAgents">Create ${[missing.length ? missing.length + ' agent' + (missing.length === 1 ? '' : 's') + ' in Agent assurance' : '', noDesign.length ? noDesign.length + ' model design' + (noDesign.length === 1 ? '' : 's') + ' in the Model studio' : ''].filter(Boolean).join(' and ')}</button> <span class="cap">${esc(missing.concat(noDesign).map((a) => a.name).join(', '))} ${missing.length + noDesign.length === 1 ? 'is' : 'are'} in the organisation but not there yet.</span></div>` : ''}</div>
+      <div class="cols"><div class="card og-pad stack" style="gap:6px"><h3 style="font-size:15px">Agents in the organisation</h3>${rows || '<span class="cap">No agents yet.</span>'}${mrows ? '<h3 style="font-size:15px;margin-top:8px">AI models in the organisation</h3>' + mrows : ''}</div>
       <div class="card og-pad stack" style="gap:8px"><h3 style="font-size:15px">Registered agents not in the organisation</h3>${un.length ? un.map((a) => `<div class="og-kv" style="align-items:center"><span><b>${esc(a.name)}</b><br><span class="cap">${esc(a.origin.toLowerCase())}${a.owner ? ' · ' + esc(a.owner) : ''}</span></span>${ed ? `<button class="btn2 btn-s" data-act="coAddUnmapped" data-arg="${esc(a.agent_key)}">Add to the organisation</button>` : ''}</div>`).join('') : '<span class="cap">Every registered agent has a place in the organisation.</span>'}
         <h3 style="font-size:15px;margin-top:8px">Handoffs seen at runtime, not drawn here</h3>${hs.length ? hs.map((h, i) => `<div class="og-kv" style="align-items:center"><span><b>${esc(ix.nm(h.from))} → ${esc(h.to_name)}</b><br><span class="cap">${h.count} time(s) in 30 days${h.declared === false ? ' · <span style="color:#B42318">not in its contract</span>' : ''}</span></span>${ed ? `<button class="btn2 btn-s" data-act="coAddHandoff" data-arg="${i}">Add the task link</button>` : ''}</div>`).join('') : '<span class="cap">None: everything the SDK has seen is drawn.</span>'}</div></div></section>`;
   }
@@ -3075,7 +3077,7 @@ kill_switch:
     coPreview: async () => { const im = CO.imp; if (im.busy) return; im.busy = true; im.err = null; im.result = null; render(true); try { im.preview = await STAI.api.companyPreview(im.content, im.filename, im.skip); } catch (e) { im.preview = null; im.err = e.message; } im.busy = false; render(true); },
     coApply: async () => {
       const im = CO.imp; if (im.busy || !im.preview) return; im.busy = true; im.err = null; render(true);
-      try { const r = await STAI.api.companyImport(im.content, im.filename, im.skip); im.result = r; im.preview = null; im.content = ''; im.filename = ''; im.skip = []; coSetData(r.company); AG.loaded = false; } catch (e) { im.err = e.message; }
+      try { const r = await STAI.api.companyImport(im.content, im.filename, im.skip); im.result = r; im.preview = null; im.content = ''; im.filename = ''; im.skip = []; coSetData(r.company); AG.loaded = false; syncModelStudio(); } catch (e) { im.err = e.message; }
       im.busy = false; render(true);
     },
     coSample: async () => { try { const d = await STAI.api.companySample(); Object.assign(CO.imp, { content: JSON.stringify(d, null, 2), filename: 'sample-company.json', skip: [], result: null, err: null, preview: null }); await H.coPreview(); } catch (e) { CO.imp.err = e.message; } },
@@ -3102,7 +3104,7 @@ kill_switch:
     },
     coApplyDraft: async () => {
       const ch = CO.chat; if (!ch.doc) return;
-      try { const r = await STAI.api.companyImport(JSON.stringify(ch.doc), 'assistant-draft.json', ch.skip); coSetData(r.company); AG.loaded = false; ch.log.push({ who: 'bot', text: `Added ${r.created} items and ${r.connections} connections.${(r.agents_created || []).length ? ' ' + r.agents_created.length + ' agent(s) were created in Agent assurance.' : ''}` }); ch.doc = null; ch.plan = null; CO.notice = null; } catch (e) { ch.log.push({ who: 'bot', text: e.message, err: true }); }
+      try { const r = await STAI.api.companyImport(JSON.stringify(ch.doc), 'assistant-draft.json', ch.skip); coSetData(r.company); AG.loaded = false; syncModelStudio(); ch.log.push({ who: 'bot', text: `Added ${r.created} items and ${r.connections} connections.${(r.agents_created || []).length ? ' ' + r.agents_created.length + ' agent(s) were created in Agent assurance.' : ''}${(r.models_created || []).length ? ' ' + r.models_created.length + ' model design(s) were created in the Model studio.' : ''}` }); ch.doc = null; ch.plan = null; CO.notice = null; } catch (e) { ch.log.push({ who: 'bot', text: e.message, err: true }); }
       render(true);
     },
     coAddUnmapped: async (key) => { const a = CO.data.live.unmapped_agents.find((x) => x.agent_key === key); if (!a) return; await coAfter(() => STAI.api.companyAddNode({ type: 'agent', name: a.name, props: { agent_key: a.agent_key } })); render(true); },
@@ -3184,7 +3186,16 @@ kill_switch:
 
   /* ---------- Removing agents and models across the platform, and the organisation's agents in Agent assurance (Task 15) ---------- */
   function coAgentNode(key) { return CO.data ? CO.data.nodes.find((n) => n.type === 'agent' && (n.props.agent_key || ogSlug(n.name).slice(0, 80)) === key) : null; }
-  const coStale = () => { CO.loaded = false; AG.loaded = false; FD.loaded = false; CV.loaded = false; RT.loaded = false; PK.loaded = false; OV.loaded = false; };
+  const coStale = () => { CO.loaded = false; AG.loaded = false; FD.loaded = false; CV.loaded = false; RT.loaded = false; PK.loaded = false; OV.loaded = false; syncModelStudio(); };
+  // Designs the organisation creates for its models appear in the Model studio's list; an empty studio opens the newest one.
+  async function syncModelStudio() {
+    if (!M.loaded) return;                                  // the studio has not been opened yet: it loads its own designs
+    try {
+      await refreshDesignList();
+      if (!M.designKey && !M.nodes.length && M.designs.length) await openDesign(M.designs[0].design_key);
+    } catch (e) { /* the list refreshes on the next visit */ }
+    renderIfIdle(route());
+  }
   async function removeAgentEverywhere(key, name) {
     let i;
     try { i = await STAI.api.agentRemovalImpact(key); } catch (e) { window.alert('Could not check what this would remove: ' + e.message); return false; }
@@ -3200,7 +3211,12 @@ kill_switch:
   Object.assign(H, {
     agDelete: async (key) => { const a = AG.list.find((x) => x.agent_key === key); await removeAgentEverywhere(key, a && a.name); render(true); },
     coSyncAgents: async () => {
-      try { const r = await STAI.api.companySyncAgents(); CO.notice = r.created.length ? `Created ${r.created.length} agent${r.created.length === 1 ? '' : 's'} in Agent assurance: ${r.created.join(', ')}.` : 'Every agent of the organisation is already in Agent assurance.'; } catch (e) { CO.err = e.message; }
+      try {
+        const r = await STAI.api.companySyncAgents(), parts = [];
+        if (r.created.length) parts.push(`${r.created.length} agent${r.created.length === 1 ? '' : 's'} in Agent assurance (${r.created.join(', ')})`);
+        if (r.models_created.length) parts.push(`${r.models_created.length} model design${r.models_created.length === 1 ? '' : 's'} in the Model studio`);
+        CO.notice = parts.length ? 'Created ' + parts.join(' and ') + '.' : 'Every agent and model of the organisation is already in Agent assurance and the Model studio.';
+      } catch (e) { CO.err = e.message; }
       coStale(); render(true);
     }
   });
@@ -3242,6 +3258,13 @@ kill_switch:
     },
     mFromOrg: async (id) => {
       if (!id) return;
+      const have = CO.data && CO.data.live.models && CO.data.live.models[id];
+      if (have && have.design_key) {                         // the organisation already made this model's design: open it
+        for (let i = 0; i < 60 && !M.loaded; i++) await new Promise((res) => setTimeout(res, 100));
+        await flushSave();
+        try { await openDesign(have.design_key); M.compileMsg = null; } catch (e) { window.alert('Could not open the design: ' + e.message); return; }
+        location.hash = '#/model'; render(false); return;
+      }
       let r;
       try { r = await STAI.api.companyDeployment(id); } catch (e) { window.alert('Could not read the organisation: ' + e.message); return; }
       for (let i = 0; i < 60 && !M.loaded; i++) await new Promise((res) => setTimeout(res, 100));

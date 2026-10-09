@@ -57,7 +57,7 @@ def test_describing_the_company_creates_its_agents_in_agent_assurance():
             assert b["origin"] == "ORG" and b["owner"] is None and b["status"] == "UNOWNED"
             assert "zz-test-model" not in inv
             assert api.post("/api/company/import", json=body(ORG)).json()["agents_created"] == []         # a second import creates nothing
-            assert api.post("/api/company/sync-agents").json() == {"created": []}
+            assert api.post("/api/company/sync-agents").json() == {"created": [], "models_created": []}
             live = api.get("/api/company").json()["live"]["agents"]
             assert live["AG-1"]["registered"] and live["AG-2"]["registered"]
             assert not any(c["key"] == "not_registered" for c in api.get("/api/company").json()["checks"])
@@ -73,6 +73,61 @@ def test_describing_the_company_creates_its_agents_in_agent_assurance():
             api.patch("/api/company/nodes/AG-2", json={"props": {"owner": ""}})
             assert inventory(api)["zz-test-second-agent"]["owner"] is None and inventory(api)["zz-test-second-agent"]["status"] == "UNOWNED"
         finally:
+            wipe_all()
+
+
+def test_describing_the_company_creates_its_models_in_the_model_studio():
+    org2 = {"company": {"name": "Zed Ltd"}, "departments": [{"id": "D-A", "name": "Alpha", "head": "EMP-1"}, {"id": "D-B", "name": "Beta", "reports_to": "D-A"}],
+            "people": [{"id": "EMP-1", "name": "Pat Lee", "department": "D-A"}, {"id": "EMP-2", "name": "Sam Roe", "department": "D-B"}, {"id": "ROLE-OPS", "name": "Ops team", "kind": "role", "department": "D-B"}],
+            "external": [{"id": "EXT-C", "name": "Customers", "kind": "customer"}],
+            "data_stores": [{"id": "DS-T", "name": "Training notes", "department": "D-B", "sensitivity": "Special category"}],
+            "ai_systems": [{"id": "AG-1", "type": "agent", "name": NAME, "department": "D-A", "owner": "EMP-1"},
+                           {"id": "MD-1", "type": "model", "name": "zz-test-model", "department": "D-B", "owner": "EMP-2", "details": {"risk_class": "High", "origin": "In-house", "purpose": "Scores things"},
+                            "people": [{"id": "EMP-1", "role": "trains"}, {"id": "EMP-2", "role": "validates"}, {"id": "EMP-2", "role": "deploys"}, {"id": "ROLE-OPS", "role": "operates"}, {"id": "EXT-C", "role": "decides about"}],
+                            "uses_data": [{"store": "DS-T", "access": "trained on"}]}],
+            "elements": [{"id": "ENV-1", "type": "environment", "name": "EU region", "sub": "hosting"}], "links": [{"from": "ENV-1", "to": "MD-1", "kind": "hosts"}]}
+    with authed_client("admin", "Alice Admin") as api:
+        original = api.get("/api/organisation").json()["name"]
+        try:
+            wipe_all()
+            r = api.post("/api/company/import", json=body(org2)).json()
+            assert r["agents_created"] == [NAME] and r["models_created"] == ["MD-1"]                       # agents first, then the models
+            designs = api.get("/api/designs?subject=MODEL").json()
+            assert [x["name"] for x in designs] == ["zz-test-model"] and designs[0]["node_count"] == 10
+            doc_ = api.get(f"/api/designs/{designs[0]['design_key']}").json()["document"]
+            kinds = sorted(n["kind"] for n in doc_["nodes"])
+            assert kinds == ["ACTOR"] * 5 + ["AI_MODEL", "DEPARTMENT", "DEPARTMENT", "DEPLOYMENT_ENV", "TRAINING_DATASET"]
+            assert doc_["org"] == {"id": "MD-1", "name": "zz-test-model"}
+            by = {n["id"]: n for n in doc_["nodes"]}
+            model = next(n for n in doc_["nodes"] if n["kind"] == "AI_MODEL")
+            assert model["data"] == {"name": "zz-test-model", "modelType": "LLM", "aiCriticality": "CRITICAL", "domain": "Scores things", "dataSensitivity": "SPECIAL_CATEGORY", "hostingEnvironment": "TYPE_1_INHOUSE"}
+            types = sorted(e["type"] for e in doc_["edges"])
+            assert types == ["CONSUMED_BY", "DEPLOYS", "OPERATES", "REPORTS_TO", "RUNS_IN", "TRAINED_ON", "TRAINS", "VALIDATES"]
+            assert all(e["source"] in by and e["target"] in by for e in doc_["edges"])
+            actors = {n["data"]["identity"]: n for n in doc_["nodes"] if n["kind"] == "ACTOR"}
+            assert set(actors) == {"Pat Lee", "Sam Roe", "Ops team", "Customers"} and "parent" not in actors["Customers"]       # Customers are outside any department
+            assert actors["Customers"]["y"] >= max(n["y"] + n["h"] for n in doc_["nodes"] if n["kind"] == "DEPARTMENT")      # outside parties sit under the departments, not on them
+            assert by[actors["Sam Roe"]["parent"]]["data"]["name"] == "Beta" and actors["Sam Roe"]["data"]["departmentId"] == actors["Sam Roe"]["parent"]
+            beta = next(n for n in doc_["nodes"] if n["kind"] == "DEPARTMENT" and n["data"]["name"] == "Beta")
+            assert beta["data"]["reportsToDepartmentId"] == next(n["id"] for n in doc_["nodes"] if n["kind"] == "DEPARTMENT" and n["data"]["name"] == "Alpha")
+            assert all(isinstance(n["x"], int) and isinstance(n["y"], int) for n in doc_["nodes"]) and doc_["n"] > len(doc_["nodes"]) + len(doc_["edges"])
+            assert api.get("/api/designs?subject=AGENT").json() == []                                       # the agent is in the inventory; its design is for the Agent studio to make
+
+            live = api.get("/api/company").json()
+            assert live["live"]["models"]["MD-1"]["design_key"] == designs[0]["design_key"] and not any(c["key"] == "no_model_design" for c in live["checks"])
+            assert api.post("/api/company/import", json=body(org2)).json()["models_created"] == []        # a second import creates nothing
+            assert api.post("/api/company/sync-agents").json() == {"created": [], "models_created": []}
+
+            api.delete(f"/api/designs/{designs[0]['design_key']}")                                         # the design was deleted in the studio: the organisation notices
+            gone = api.get("/api/company").json()
+            assert gone["live"]["models"]["MD-1"]["designs"] == 0 and any(c["key"] == "no_model_design" and c["refs"] == ["MD-1"] for c in gone["checks"])
+            assert api.post("/api/company/sync-agents").json() == {"created": [], "models_created": ["MD-1"]}
+            assert [x["name"] for x in api.get("/api/designs?subject=MODEL").json()] == ["zz-test-model"]
+
+            api.post("/api/company/nodes", json={"type": "model", "name": "zz-test-by-hand", "props": {"department": "D-A"}})        # a model added by hand gets its design too
+            assert sorted(x["name"] for x in api.get("/api/designs?subject=MODEL").json()) == ["zz-test-by-hand", "zz-test-model"]
+        finally:
+            api.patch("/api/organisation", json={"name": original})
             wipe_all()
 
 
@@ -130,8 +185,9 @@ def test_removing_an_agent_from_the_organisation_removes_it_from_the_platform_an
             admin.post("/api/company/import", json=body(ORG))
             assert eng.delete("/api/company/nodes/MD-1").status_code == 403                                   # a model is removed everywhere too: an administrator's decision
             assert eng.delete("/api/company/nodes/EMP-1").status_code == 200                                  # an ordinary item is the editor's
-            d = admin.post("/api/designs", json={"name": "zz-test model design", "domain": admin.get("/api/domains").json()[0]["domain_id"], "subject": "MODEL",
-                                                 "document": {"nodes": [], "edges": [], "n": 1, "org": {"id": "MD-1", "name": "zz-test-model"}}}).json()
+            made = admin.get("/api/company").json()["live"]["models"]["MD-1"]                                 # the import already created the model's design
+            assert made["design_key"] and made["designs"] == 1
+            d = {"design_key": made["design_key"]}
             other = admin.post("/api/designs", json={"name": "zz-test unrelated design", "domain": admin.get("/api/domains").json()[0]["domain_id"], "subject": "MODEL", "document": {"nodes": [], "edges": [], "n": 1}}).json()
             impact = admin.get("/api/company/nodes/MD-1/removal-impact").json()
             assert impact["type"] == "model" and impact["designs"] == 1 and impact["contracts"] == 0

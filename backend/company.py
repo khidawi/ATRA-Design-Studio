@@ -211,7 +211,19 @@ def live_links(session: Session, org_id: uuid.UUID, nodes: List[Dict[str, Any]],
                 unmodelled.append({"from": src, "to_name": s["name"], "to": by_key.get(tk), "count": s["count"], "last_seen": s["last"],
                                    "declared": None if views.get(src) is None else any(to_agent_key(d) == tk for d in views[src]["delegates_to"])})
     unmapped = [{"agent_key": a.agent_key, "name": a.name, "origin": a.origin, "owner": a.owner} for k, a in sorted(agents.items()) if k not in by_key]
-    return {"agents": agent_live, "tasks": task_live, "unmodelled": unmodelled, "unmapped_agents": unmapped}
+    models: Dict[str, Any] = {}
+    org_models = [n for n in nodes if n["type"] == "model"]
+    if org_models:
+        from db.models import Design
+        for d in session.scalars(select(Design).where(Design.subject == "MODEL").order_by(Design.updated_at.desc())):
+            ref = ((d.document or {}).get("org") or {}).get("id")
+            if ref and ref not in models:
+                models[ref] = {"design_key": d.design_key, "design_name": d.name, "designs": 0}
+            if ref:
+                models[ref]["designs"] += 1
+        for n in org_models:
+            models.setdefault(n["id"], {"design_key": None, "design_name": None, "designs": 0})
+    return {"agents": agent_live, "tasks": task_live, "unmodelled": unmodelled, "unmapped_agents": unmapped, "models": models}
 
 
 # ── Checks (deterministic) ─────────────────────────────────────────────────
@@ -265,6 +277,9 @@ def run_checks(nodes: List[Dict[str, Any]], edges: List[Dict[str, Any]], live: D
     if live["unmapped_agents"]:
         names = ", ".join(a["name"] for a in live["unmapped_agents"][:4]) + (f" and {len(live['unmapped_agents']) - 4} more" if len(live["unmapped_agents"]) > 4 else "")
         add("unmapped_agents", "info", "Agents not in the organisation", f"{len(live['unmapped_agents'])} registered agent(s) have no place in the organisation yet: {names}.", [], "Add them")
+    for m in (n for n in nodes if n["type"] == "model"):
+        if live.get("models", {}).get(m["id"], {}).get("designs", 1) == 0:
+            add("no_model_design", "info", "Not in the Model studio", f"{m['name']} is in the organisation but has no design in the Model studio yet.", [m["id"]], "Create it")
     for t in (n for n in nodes if n["type"] == "threat"):
         if not any(e["kind"] == "mitigates" and e["to"] == t["id"] for e in edges):
             add("threat_unprotected", "bad", "Threat with no protection", f"{t['name']}: nothing mitigates it yet.", [t["id"]], "Add a protection")
@@ -318,11 +333,113 @@ def register_org_agents(session: Session, org: Any, only: Optional[List[str]] = 
 
 @router.post("/sync-agents")
 def sync_agents(session: Session = Depends(get_session)) -> Dict[str, Any]:
-    """Creates the Agent assurance entry for every agent of the organisation that has none yet (idempotent)."""
+    """Creates the Agent assurance entry for every agent, then the Model studio design for every model, of the organisation that has none yet (idempotent)."""
     org = current_organisation(session)
     made = register_org_agents(session, org)
+    models = register_org_models(session, org)
     session.commit()
-    return {"created": made}
+    return {"created": made, "models_created": models}
+
+
+# ── The organisation's models become designs in the Model studio ───────────
+
+ACTOR_EDGE = {"TRAINER": ("TRAINS", "trains"), "VALIDATOR": ("VALIDATES", "validates"), "DEPLOYER": ("DEPLOYS", "deploys"), "OPERATOR": ("OPERATES", "operates")}
+
+
+def build_model_document(res: Dict[str, Any], ext_id: str) -> Dict[str, Any]:
+    """A Model studio design document for one organisation model: the departments, the people in each lifecycle role, the model, where it runs
+    and what it was trained on, with the same positions the studio gives an imported description (applyGenerated). Pure code."""
+    desc = res["description"]
+    counter = [1]
+    nodes: List[Dict[str, Any]] = []
+    edges: List[Dict[str, Any]] = []
+    seen: Set[Tuple[str, str, str]] = set()
+    tmap: Dict[str, Dict[str, Any]] = {}
+
+    def nid() -> str:
+        counter[0] += 1
+        return f"n{counter[0] - 1}"
+
+    def add(kind: str, data: Dict[str, Any], x: int, y: int, **extra: Any) -> Dict[str, Any]:
+        node = {"id": nid(), "kind": kind, "x": x, "y": y, "data": data, **extra}
+        nodes.append(node)
+        return node
+
+    def edge(a: str, b: str, type_: str, label: str) -> None:
+        if (a, b, type_) in seen:
+            return
+        seen.add((a, b, type_))
+        edges.append({"id": f"e{counter[0]}", "source": a, "target": b, "type": type_, "label": label})
+        counter[0] += 1
+
+    base = 40
+    for i, d in enumerate(desc["departments"]):
+        tmap[d["temp_id"]] = add("DEPARTMENT", {"name": d["name"], "reportsToDepartmentId": ""}, base + i * 290, 40, w=260, h=200)
+    for d in desc["departments"]:
+        parent = tmap.get(d.get("reports_to_temp_id") or "")
+        if parent is not None:
+            tmap[d["temp_id"]]["data"]["reportsToDepartmentId"] = parent["id"]
+            edge(tmap[d["temp_id"]]["id"], parent["id"], "REPORTS_TO", "reports_to")
+    slots: Dict[str, int] = {}
+    placed: Dict[int, Tuple[Dict[str, Any], Dict[str, Any]]] = {}
+    for i, a in enumerate(desc["actors"]):                          # people inside a department first: they decide how tall the departments are
+        dept = tmap.get(a.get("department_temp_id") or "")
+        if dept is None:
+            continue
+        k = slots[dept["id"]] = slots.get(dept["id"], 0) + 1
+        if k > 2:
+            dept["h"] = max(dept["h"], 50 + k * 70)
+        n = add("ACTOR", {"subtype": a["subtype"], "identity": a.get("identity", ""), "departmentId": dept["id"]}, dept["x"] + 35, dept["y"] + 40 + (k - 1) * 70)
+        n["parent"] = dept["id"]
+        placed[i] = (a, n)
+    below = max([d["y"] + d["h"] for d in tmap.values()] or [240]) + 40       # outside parties go under the tallest department, not over it
+    free = 0
+    for i, a in enumerate(desc["actors"]):
+        if i in placed:
+            continue
+        placed[i] = (a, add("ACTOR", {"subtype": a["subtype"], "identity": a.get("identity", ""), "departmentId": ""}, base + (free % 2) * 220, below + (free // 2) * 90))
+        free += 1
+    actor_nodes = [placed[i] for i in sorted(placed)]
+    row_y = below + -(-free // 2) * 90 + (20 if free else 0)
+    models = [add("AI_MODEL", {"name": m["name"], "modelType": m["model_type"], "aiCriticality": m["ai_criticality"], "domain": m.get("domain") or "",
+                               "dataSensitivity": m["data_sensitivity"], "hostingEnvironment": m["hosting_environment"]}, base + 460, row_y + i * 90) for i, m in enumerate(desc["ai_models"])]
+    envs = [add("DEPLOYMENT_ENV", {"name": e["name"], "description": e.get("description", "")}, base + 700, row_y + i * 90) for i, e in enumerate(desc["deployment_environments"])]
+    sets = [add("TRAINING_DATASET", {"name": name, "description": ""}, base + 700, row_y + (len(envs) + i) * 90) for i, name in enumerate(res.get("datasets", []))]
+    model = models[0]
+    for a, n in actor_nodes:
+        if a["subtype"] == "CONSUMER":
+            edge(model["id"], n["id"], "CONSUMED_BY", "consumed_by")
+        elif a["subtype"] in ACTOR_EDGE:
+            edge(n["id"], model["id"], *ACTOR_EDGE[a["subtype"]])
+    for e in envs:
+        edge(model["id"], e["id"], "RUNS_IN", "runs_in")
+    for d in sets:
+        edge(model["id"], d["id"], "TRAINED_ON", "trained_on")
+    return {"nodes": nodes, "edges": edges, "n": counter[0], "org": {"id": ext_id, "name": res["name"]}}
+
+
+def register_org_models(session: Session, org: Any, only: Optional[List[str]] = None) -> List[str]:
+    """Creates a Model studio design for each AI model of the organisation that has none, so the model appears in the ST-AI studio the moment the
+    company is described, as its agents appear in Agent assurance. The design starts from what the organisation knows and the constraints start
+    as not yet determined. A design that exists is left alone. Does not commit; returns the ids of the models that got a design."""
+    import secrets
+
+    import removal
+    from db.models import Domain
+    domain = session.scalar(select(Domain.domain_key).where(Domain.subject == "MODEL").order_by(Domain.domain_key != "GENERAL", Domain.position, Domain.domain_key))
+    if domain is None:
+        return []
+    made: List[str] = []
+    for n in session.scalars(select(CompanyNode).where(CompanyNode.organisation_id == org.id, CompanyNode.type == "model").order_by(CompanyNode.created_at, CompanyNode.ext_id)):
+        if (only is not None and n.ext_id not in only) or removal.model_designs(session, n.ext_id):
+            continue
+        try:
+            res = model_description(session, n.ext_id)
+        except HTTPException:
+            continue
+        session.add(Design(design_key="d-" + secrets.token_hex(5), organisation_id=org.id, subject="MODEL", name=n.name[:200], domain_key=domain, document=build_model_document(res, n.ext_id)))
+        made.append(n.ext_id)
+    return made
 
 
 # ── Import ─────────────────────────────────────────────────────────────────
@@ -538,14 +655,16 @@ def apply_plan(session: Session, p: Dict[str, Any], user: AuthUser) -> Dict[str,
             session.add(CompanyEdge(organisation_id=org.id, from_ext=e["from"], to_ext=e["to"], kind=e["kind"], label=e["label"], props=e["props"], created_at=stamp()))
             have.add(k)
             links += 1
-    agents_created = register_org_agents(session, org, [n["id"] for n in p["_nodes"] if n["type"] == "agent"])
+    session.flush()
+    agents_created = register_org_agents(session, org, [n["id"] for n in p["_nodes"] if n["type"] == "agent"])      # agents first,
+    models_created = register_org_models(session, org, [n["id"] for n in p["_nodes"] if n["type"] == "model"])      # then the models
     renamed = None
     name = p.get("company_name")
     if name and str(name).strip() and str(name).strip() != org.name and user.role == "admin":
         org.name = str(name).strip()[:120]
         renamed = org.name
     session.commit()
-    return {"created": made, "updated": changed, "connections": links, "renamed": renamed, "agents_created": agents_created}
+    return {"created": made, "updated": changed, "connections": links, "renamed": renamed, "agents_created": agents_created, "models_created": models_created}
 
 
 def public_plan(p: Dict[str, Any]) -> Dict[str, Any]:
@@ -690,6 +809,8 @@ def add_node(body: NodeIn, session: Session = Depends(get_session)) -> Dict[str,
     session.flush()
     if body.type == "agent":
         register_org_agents(session, org, [ext])
+    elif body.type == "model":
+        register_org_models(session, org, [ext])
     session.commit()
     return {"id": ext}
 
@@ -1488,7 +1609,7 @@ def model_description(session: Session, ext_id: str) -> Dict[str, Any]:
     notes = ["Constraints and their status are not in the organisation: every constraint starts as not yet determined."]
     if trained:
         notes.append(f"Training data ({', '.join(trained)}) is not carried over; add it in the studio if the assessment needs it.")
-    return {"id": ext_id, "name": m["name"], "description": desc, "skipped": skipped, "notes": notes}
+    return {"id": ext_id, "name": m["name"], "description": desc, "skipped": skipped, "notes": notes, "datasets": trained}
 
 
 @router.get("/systems/{ext_id}/agent-seed")

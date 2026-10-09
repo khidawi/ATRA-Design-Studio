@@ -15,9 +15,10 @@ REQ = {"dpia": {"status": "Covered", "evidence": "DPIA report DOC-9", "signed_of
 
 
 def wipe():
-    from db.models import Agent, CompanyDraftCache, CompanyEdge, CompanyNode, RemovedContract, RuntimeEvent
+    from db.models import Agent, CompanyDraftCache, CompanyEdge, CompanyNode, Design, RemovedContract, RuntimeEvent
     from db.session import SessionLocal
     with SessionLocal() as s:
+        s.query(Design).filter(Design.document.has_key("org")).delete(synchronize_session=False)
         s.query(Agent).filter(Agent.origin == "ORG").delete(synchronize_session=False)
         s.query(RemovedContract).delete()
         s.query(CompanyDraftCache).delete()
