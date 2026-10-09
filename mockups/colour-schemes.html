@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ASTRA · Colour scheme options</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#ECEEF2;color:#141A22;font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.page{max-width:1500px;margin:0 auto;padding:24px 28px 60px;display:flex;flex-direction:column;gap:20px}
+h1{margin:0;font-size:24px}h2{margin:0;font-size:16px}
+.cap{color:#4A5563;font-size:13px}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flag{background:#FFF8E1;border:1px solid #F1D98A;color:#6B5200;border-radius:8px;padding:8px 12px;font-size:13px}
+.picks{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+@media(max-width:1100px){.picks{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:640px){.picks{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.pick{border:2px solid transparent;background:#fff;border-radius:12px;padding:10px;cursor:pointer;text-align:left;font:inherit;display:flex;flex-direction:column;gap:8px;color:#141A22}
+.pick:hover{border-color:#9AA6B6}.pick.on{border-color:#141A22;box-shadow:0 0 0 3px rgba(20,26,34,.12)}
+.pick b{font-size:14px}.pick small{color:#4A5563;font-size:12px}
+.sw{display:flex;height:34px;border-radius:8px;overflow:hidden;border:1px solid rgba(0,0,0,.08)}
+.sw i{flex:1}
+.stage{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;align-items:start}
+@media(max-width:1100px){.stage{grid-template-columns:1fr}}
+.frame{border-radius:14px;overflow:hidden;border:1px solid #C9CFD8;box-shadow:0 10px 30px rgba(20,26,34,.10)}
+.tok{background:#fff;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;font-size:12.5px}
+.tok .row{display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px solid #EEF0F3;padding:5px 0}
+.tok .row:first-of-type{border-top:0}
+.tok code{font:12px ui-monospace,Menlo,Consolas,monospace}
+.tok .chip{display:inline-block;width:16px;height:16px;border-radius:4px;border:1px solid rgba(0,0,0,.15);vertical-align:-3px;margin-right:6px}
+.btnc{border:1px solid #C5CCD6;background:#fff;border-radius:8px;padding:8px 12px;font:inherit;cursor:pointer}
+.thumbs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media(max-width:1100px){.thumbs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){.thumbs{grid-template-columns:1fr}}
+.thumb{background:#fff;border:2px solid transparent;border-radius:12px;padding:8px;cursor:pointer;text-align:left;font:inherit;color:#141A22}
+.thumb:hover{border-color:#9AA6B6}.thumb.on{border-color:#141A22}
+.thumb .win{height:300px;overflow:hidden;border-radius:8px;border:1px solid #D5DAE2;position:relative}
+.thumb .win>div{transform:scale(.42);transform-origin:0 0;width:238%}
+.thumb b{display:block;margin-top:6px}
+
+/* ===== the sample app: same layout as the studio, every colour is a token ===== */
+.app{display:flex;min-height:640px;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.app .side{width:216px;flex:0 0 216px;background:var(--side);color:var(--sideText);padding:20px 14px;display:flex;flex-direction:column;gap:16px;border-right:1px solid var(--sideLine)}
+.app .brand b{display:block;font:600 19px ui-monospace,Menlo,Consolas,monospace;letter-spacing:.14em;color:var(--brandText)}
+.app .brand span{font-size:12px;color:var(--sideMut)}
+.app .tenant{border:1px solid var(--sideLine);border-radius:8px;padding:9px 11px;display:flex;flex-direction:column}
+.app .tenant strong{font-size:13px;color:var(--brandText)}.app .tenant small{font-size:11.5px;color:var(--sideMut)}
+.app .grp{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--sideMut);padding:10px 10px 3px}
+.app .nl{display:flex;justify-content:space-between;align-items:center;min-height:38px;padding:0 10px;border-radius:8px;color:var(--sideText);font-weight:500;font-size:13.5px}
+.app .nl small{color:var(--sideMut)}.app .nl.on{background:var(--sideActive);color:var(--brandText);font-weight:600}
+.app .who{margin-top:auto;font-size:12px;color:var(--sideMut)}.app .who b{display:block;color:var(--sideText);font-weight:500;font-size:13px}
+.app main{flex:1;min-width:0;padding:22px 26px 28px;display:flex;flex-direction:column;gap:16px}
+.app h1{font-size:24px;font-weight:600;color:var(--ink)}
+.app .cap2{font-size:12.5px;color:var(--mut)}
+.app .hdr{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.app .card{background:var(--card);border:1px solid var(--line);border-radius:10px}
+.app .pill{display:inline-flex;align-items:center;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
+.app .p-ok{background:var(--priSoft);color:var(--priSoftText)}.app .p-warn{background:var(--warnBg);color:var(--warn)}.app .p-bad{background:var(--badBg);color:var(--bad)}.app .p-good{background:var(--goodBg);color:var(--good)}.app .p-muted{background:var(--mutedBg);color:var(--mutedText)}
+.app .p-agent{background:var(--agentBg);color:var(--agent)}.app .p-model{background:var(--modelBg);color:var(--model)}
+.app .btn,.app .btn2,.app .btn3{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 15px;border-radius:8px;font-size:13.5px;white-space:nowrap}
+.app .btn{background:var(--pri);border:1px solid var(--pri);color:var(--priText);font-weight:600}
+.app .btn2{background:var(--card);border:1px solid var(--line2);color:var(--ink);font-weight:500}
+.app .btn3{background:var(--card);border:1px solid var(--bad);color:var(--bad);font-weight:500}
+.app .btn-s{min-height:30px;padding:0 10px;font-size:12.5px}
+.app .seg{display:inline-flex;gap:4px;padding:4px;background:var(--segBg);border-radius:10px}
+.app .tab{padding:6px 13px;border-radius:8px;font-size:13.5px;color:var(--mut);font-weight:500}.app .tab.on{background:var(--card);border:1px solid var(--line2);color:var(--ink)}
+.app .kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.app .kpi{padding:16px;display:flex;flex-direction:column;gap:4px}.app .kpi big{font-size:28px;font-weight:600}.app .kpi big small{font-size:14px;color:var(--mut);font-weight:500}
+.app .tbl{overflow:hidden}
+.app .grow{display:grid;grid-template-columns:1.5fr 1fr 1fr .9fr 1.5fr;gap:10px;align-items:center;padding:10px 16px;border-top:1px solid var(--line)}
+.app .grow.head{font-size:12px;font-weight:500;color:var(--mut);border-top:0}
+.app a.lnk{color:var(--link);font-weight:500;text-decoration:underline}
+.app .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:500}
+.app .note{padding:12px 14px;border-radius:8px;font-size:13px;display:flex;flex-direction:column;gap:2px}
+.app .n-good{background:var(--priSoft);color:var(--priSoftText)}.app .n-alert{background:var(--badBg);color:var(--bad)}
+.app .inp{height:38px;border:1px solid var(--line2);border-radius:8px;background:var(--card);color:var(--ink);padding:0 11px;font:inherit;width:100%}
+.app label{font-size:12.5px;font-weight:500;color:var(--ink)}
+.app .two{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:14px}
+.app svg text{font-family:inherit}
+.app .mapbox{padding:8px}
+.app .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--mut);padding:2px 6px 6px}.app .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="stack">
+    <h1>Colour scheme options</h1>
+    <div class="cap">Same layout as the platform today. Only colours change. Click a scheme to see it large, compare them below, then tell me which one to apply to the front end.</div>
+  </div>
+  <div class="flag"><b>Mockup only.</b> Nothing in the real platform has changed. Each scheme keeps the status colours readable (green, amber, red) and keeps agents teal and models purple apart from the main colour, so the meaning of a colour stays the same.</div>
+
+  <div class="picks" id="picks"></div>
+
+  <div class="stage">
+    <div class="frame" id="big"></div>
+    <div class="tok" id="tokens"></div>
+  </div>
+
+  <h2>All six, side by side</h2>
+  <div class="thumbs" id="thumbs"></div>
+</div>
+
+<script>
+/* every colour the front end uses, as tokens */
+const P=[
+ {id:'ink',name:'1 · Ink & Blue',note:'What the platform uses now',t:{side:'#141A22',sideText:'#C9CFD7',sideMut:'#A9B1BC',sideActive:'#2A3442',sideLine:'#2D3642',brandText:'#FFFFFF',bg:'#F5F6F8',card:'#FFFFFF',line:'#EDF0F3',line2:'#C5CCD6',ink:'#141A22',mut:'#4A5563',pri:'#1E4FCB',priH:'#163C9C',priText:'#FFFFFF',priSoft:'#E3EBFB',priSoftText:'#153C99',link:'#1E4FCB',warnBg:'#FBE9D3',warn:'#7F3905',badBg:'#F9DEDB',bad:'#8C1F17',goodBg:'#E2F3E9',good:'#14532D',mutedBg:'#ECEFF2',mutedText:'#38414D',segBg:'#ECEFF2',agent:'#0E7490',agentBg:'#DDF3F8',model:'#4C1D95',modelBg:'#EDE7FB',deptLine:'#8793A3',personBg:'#E3EBFB',personLine:'#9DB4EC'}},
+ {id:'forest',name:'2 · Forest & Sage',note:'Calm, natural, trust',t:{side:'#10231D',sideText:'#CFE0D8',sideMut:'#9DB5AA',sideActive:'#1D3A31',sideLine:'#24413A',brandText:'#FFFFFF',bg:'#F3F7F4',card:'#FFFFFF',line:'#E6EDE8',line2:'#C8D6CE',ink:'#12201B',mut:'#46574F',pri:'#1F7A55',priH:'#165C40',priText:'#FFFFFF',priSoft:'#E0F2E8',priSoftText:'#14573B',link:'#17694A',warnBg:'#FBEBD0',warn:'#7A4A05',badBg:'#F8DDD9',bad:'#8A2418',goodBg:'#DDF1E5',good:'#14532D',mutedBg:'#E9EFEB',mutedText:'#38483F',segBg:'#E9EFEB',agent:'#0E7490',agentBg:'#DAF1F5',model:'#6D3FA8',modelBg:'#EEE6F8',deptLine:'#7E9488',personBg:'#E0F2E8',personLine:'#9CCBB2'}},
+ {id:'indigo',name:'3 · Indigo Night',note:'Modern, a touch of violet',t:{side:'#1B1B3A',sideText:'#D6D6EE',sideMut:'#A8A8CC',sideActive:'#2E2E5C',sideLine:'#35356B',brandText:'#FFFFFF',bg:'#F6F6FB',card:'#FFFFFF',line:'#ECECF5',line2:'#D2D2E6',ink:'#17172E',mut:'#4F4F70',pri:'#4F46E5',priH:'#3D35C4',priText:'#FFFFFF',priSoft:'#E8E7FD',priSoftText:'#3730A3',link:'#4338CA',warnBg:'#FDEBD3',warn:'#7C3A06',badBg:'#FBE0E3',bad:'#9F1239',goodBg:'#DDF4E8',good:'#14532D',mutedBg:'#EDEDF6',mutedText:'#3F3F5E',segBg:'#EDEDF6',agent:'#0891B2',agentBg:'#D9F2F8',model:'#7C3AED',modelBg:'#EFE7FD',deptLine:'#8A8AB0',personBg:'#E8E7FD',personLine:'#A9A5F2'}},
+ {id:'warm',name:'4 · Warm Graphite',note:'Friendly, warm neutrals, orange accent',t:{side:'#231F1C',sideText:'#E6DFD8',sideMut:'#B5ABA2',sideActive:'#3A332E',sideLine:'#413A34',brandText:'#FFFFFF',bg:'#FAF7F4',card:'#FFFFFF',line:'#EFE8E1',line2:'#DCD2C8',ink:'#231F1C',mut:'#5B5048',pri:'#C2410C',priH:'#9A3412',priText:'#FFFFFF',priSoft:'#FDE8DA',priSoftText:'#7C2D0C',link:'#B0390A',warnBg:'#FEF3C7',warn:'#78350F',badBg:'#FDE2E2',bad:'#991B1B',goodBg:'#DCF1E4',good:'#14532D',mutedBg:'#F0EAE4',mutedText:'#4A4038',segBg:'#F0EAE4',agent:'#0F766E',agentBg:'#D8F0EC',model:'#6D28D9',modelBg:'#EEE6FB',deptLine:'#A39688',personBg:'#FDE8DA',personLine:'#F2B995'}},
+ {id:'light',name:'5 · Clean Light',note:'Light sidebar, airy, bright blue',t:{side:'#FFFFFF',sideText:'#374151',sideMut:'#6B7280',sideActive:'#E6EEFF',sideLine:'#E3E7EE',brandText:'#111827',bg:'#F3F5F9',card:'#FFFFFF',line:'#EAEDF3',line2:'#CDD3DE',ink:'#111827',mut:'#4B5563',pri:'#2563EB',priH:'#1D4ED8',priText:'#FFFFFF',priSoft:'#E0EAFF',priSoftText:'#1E40AF',link:'#1D4ED8',warnBg:'#FEF0D9',warn:'#8A4B08',badBg:'#FDE4E4',bad:'#991B1B',goodBg:'#DDF3E6',good:'#166534',mutedBg:'#ECEFF4',mutedText:'#374151',segBg:'#E9EDF3',agent:'#0E7490',agentBg:'#DAF1F6',model:'#6D28D9',modelBg:'#EEE7FB',deptLine:'#94A0B4',personBg:'#E0EAFF',personLine:'#9DB8F5'}},
+ {id:'dark',name:'6 · Midnight (dark)',note:'Full dark theme for long sessions',t:{side:'#0B1017',sideText:'#C5CEDA',sideMut:'#8B97A8',sideActive:'#1C2633',sideLine:'#202B3A',brandText:'#FFFFFF',bg:'#0F151D',card:'#161E29',line:'#243041',line2:'#34445A',ink:'#E6EAF0',mut:'#9AA7B8',pri:'#4C8DFF',priH:'#6EA3FF',priText:'#0B1220',priSoft:'#1B2A44',priSoftText:'#A9C7FF',link:'#7DAEFF',warnBg:'#3A2A12',warn:'#F5C77E',badBg:'#3D1C1C',bad:'#FF9B94',goodBg:'#14301F',good:'#86E0A8',mutedBg:'#1F2A38',mutedText:'#B4C0CF',segBg:'#1B2531',agent:'#38BDF8',agentBg:'#0F2C3B',model:'#A78BFA',modelBg:'#2A2145',deptLine:'#4A5A70',personBg:'#1B2A44',personLine:'#35538A'}}
+];
+const css=(t)=>Object.entries(t).map(([k,v])=>`--${k}:${v}`).join(';');
+
+function map(){return `<svg viewBox="0 0 560 250" width="100%">
+ <path d="M280 52 V70 H92 V84 M280 70 H280 V84 M280 70 H468 V84" fill="none" stroke="var(--deptLine)" stroke-width="1.4"/>
+ <rect x="200" y="8" width="160" height="44" rx="8" fill="var(--card)" stroke="var(--deptLine)" stroke-width="1.4"/><text x="212" y="27" font-size="12" font-weight="700" fill="var(--ink)">Executive</text><text x="212" y="42" font-size="10" fill="var(--mut)">Maria Lopez</text>
+ ${[['Customer Experience',22,'Jonas Weber'],['Claims',196,'Maria Costa'],['Clinical AI',370,'Aiko Tanaka']].map(([n,x,p])=>`<rect x="${x}" y="84" width="168" height="74" rx="8" fill="var(--card)" stroke="var(--deptLine)" stroke-width="1.4"/><text x="${x+10}" y="102" font-size="12" font-weight="700" fill="var(--ink)">${n}</text><rect x="${x+8}" y="110" width="152" height="30" rx="6" fill="var(--personBg)" stroke="var(--personLine)"/><text x="${x+16}" y="124" font-size="10.5" font-weight="600" fill="var(--ink)">${p}</text><text x="${x+16}" y="135" font-size="9" fill="var(--mut)">Lead</text>`).join('')}
+ <rect x="26" y="182" width="160" height="40" rx="10" fill="var(--agentBg)" stroke="var(--agent)" stroke-width="1.6"/><text x="106" y="200" font-size="11.5" font-weight="700" text-anchor="middle" fill="var(--agent)">refund-agent</text><text x="106" y="213" font-size="9.5" text-anchor="middle" fill="var(--mut)">AI agent · registered</text>
+ <rect x="200" y="182" width="160" height="40" rx="10" fill="var(--agentBg)" stroke="var(--agent)" stroke-width="1.6"/><text x="280" y="200" font-size="11.5" font-weight="700" text-anchor="middle" fill="var(--agent)">claims-agent</text><text x="280" y="213" font-size="9.5" text-anchor="middle" fill="var(--mut)">AI agent</text>
+ <rect x="374" y="182" width="160" height="40" rx="20" fill="var(--modelBg)" stroke="var(--model)" stroke-width="1.6"/><text x="454" y="200" font-size="11.5" font-weight="700" text-anchor="middle" fill="var(--model)">health-risk-model</text><text x="454" y="213" font-size="9.5" text-anchor="middle" fill="var(--mut)">AI model · ST-AI</text>
+ <path d="M96 222 C96 246 270 246 270 224" fill="none" stroke="var(--warn)" stroke-width="2"/><path d="M116 222 C116 240 430 244 430 224" fill="none" stroke="var(--bad)" stroke-width="2" stroke-dasharray="5 3"/>
+</svg>`}
+
+function preview(){return `<div class="app">
+ <div class="side"><div class="brand"><b>ASTRA</b><span>Assurance for AI agents and models</span></div>
+  <div class="tenant"><strong>Meridian Health Insurance</strong><small>Organisation · click to rename</small></div>
+  <div><div class="grp">Company</div><div class="nl on"><span>Organisation</span><small></small></div><div class="nl"><span>Policies</span></div><div class="nl"><span>Regulations</span></div>
+  <div class="grp">Modules</div><div class="nl"><span>Agent assurance</span><small>→</small></div><div class="nl"><span>Model studio · ST-AI</span><small>→</small></div></div>
+  <div class="who">Signed in as<b>Alice Admin</b>Administrator</div></div>
+ <main>
+  <div class="hdr"><div><span class="cap2">One organisation, used by Agent assurance and the Model studio</span><h1>Organisation <span class="mono" style="font-size:14px;color:var(--mut)">· Meridian Health Insurance</span></h1></div>
+   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="pill p-ok">7 departments · 13 people · 6 AI systems</span><span class="btn2">Export JSON</span><span class="btn3">Start from scratch…</span><span class="btn">Import</span></div></div>
+  <div class="kpis"><div class="card kpi"><span class="cap2">Agents live now</span><big>3 <small>of 5</small></big><span class="cap2">seen in the last 2 minutes</span></div>
+   <div class="card kpi"><span class="cap2">Events in 24 hours</span><big>128</big><span class="cap2">reported by the SDK</span></div>
+   <div class="card kpi"><span class="cap2">Outside the contract</span><big style="color:var(--bad)">2</big><span class="cap2">each checked against the active contract</span></div></div>
+  <div class="seg"><span class="tab on">Organisation map</span><span class="tab">Organisational view</span><span class="tab">Agents &amp; tasks</span><span class="tab">Data mapping</span><span class="tab">Privacy by design</span></div>
+  <div class="two">
+   <div class="card mapbox">${map()}<div class="legend"><span><i style="background:var(--card);border:1.5px solid var(--deptLine)"></i>Department</span><span><i style="background:var(--personBg)"></i>Person</span><span><i style="background:var(--agentBg);border:1.5px solid var(--agent)"></i>AI agent</span><span><i style="background:var(--modelBg);border:1.5px solid var(--model)"></i>AI model</span><span><i style="background:var(--warnBg);border:1.5px solid var(--warn)"></i>Task link</span><span><i style="background:var(--badBg);border:1.5px dashed var(--bad)"></i>Not in the contract</span></div></div>
+   <div style="display:flex;flex-direction:column;gap:12px">
+    <div class="note n-alert"><strong>Not in the contract</strong>refund-agent → payouts-agent is drawn here, but the contract v2.0.0 does not declare it.</div>
+    <div class="note n-good"><strong>Started from the organisation</strong>Owner, people, approvals and delegations came from here.</div>
+    <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:8px"><label>Name</label><div class="inp" style="display:flex;align-items:center">refund-agent</div><label>Owner</label><div class="inp" style="display:flex;align-items:center">Sam Okoye</div><div style="display:flex;gap:8px"><span class="btn btn-s">Design in the Agent studio</span><span class="btn2 btn-s">Delete</span></div></div>
+   </div></div>
+  <div class="card tbl"><div class="grow head"><span>Agent</span><span>Owner</span><span>Status</span><span>Mode</span><span>Action</span></div>
+   <div class="grow"><span class="mono">claims-triage-agent <span class="pill p-agent">agent</span></span><span>Maria Costa</span><span><span class="pill p-good">Assured</span></span><span>Block</span><span style="display:flex;gap:8px;align-items:center"><a class="lnk">View contract</a><span class="btn3 btn-s">Delete</span></span></div>
+   <div class="grow"><span class="mono">fraud-agent <span class="pill p-agent">agent</span></span><span>Ahmed Khan</span><span><span class="pill p-warn">To ratify</span></span><span>Flag</span><span style="display:flex;gap:8px;align-items:center"><span class="btn2 btn-s">Design it</span><span class="btn3 btn-s">Delete</span></span></div>
+   <div class="grow"><span class="mono">support-chat-agent <span class="pill p-agent">agent</span></span><span style="color:var(--mut)">No owner</span><span><span class="pill p-bad">Unowned</span></span><span>Observe</span><span style="display:flex;gap:8px;align-items:center"><span class="btn2 btn-s">Assign owner</span><span class="btn3 btn-s">Delete</span></span></div>
+   <div class="grow"><span class="mono">health-risk-model <span class="pill p-model">model</span></span><span>Aiko Tanaka</span><span><span class="pill p-muted">Designed</span></span><span>Not running</span><span style="display:flex;gap:8px;align-items:center"><a class="lnk">Open design</a><span class="btn3 btn-s">Delete</span></span></div></div>
+ </main></div>`}
+
+let cur='ink';
+function swatch(t){return ['side','pri','priSoft','bg','warnBg','bad','good','agent','model'].map(k=>`<i style="background:${t[k]=== undefined?t.side:t[k]}"></i>`).join('')}
+function render(){
+  const p=P.find(x=>x.id===cur);
+  document.getElementById('picks').innerHTML=P.map(x=>`<button class="pick${x.id===cur?' on':''}" data-id="${x.id}"><div class="sw">${[x.t.side,x.t.pri,x.t.priSoft,x.t.bg,x.t.warnBg,x.t.badBg,x.t.agent,x.t.model].map(c=>`<i style="background:${c}"></i>`).join('')}</div><b>${x.name}</b><small>${x.note}</small></button>`).join('');
+  const big=document.getElementById('big');big.setAttribute('style',css(p.t));big.innerHTML=preview();
+  const rows=[['Sidebar','side'],['Active menu item','sideActive'],['Primary button','pri'],['Primary hover','priH'],['Info pill / selected','priSoft'],['Page background','bg'],['Card','card'],['Text','ink'],['Muted text','mut'],['Warning','warn'],['Critical / delete','bad'],['Success','good'],['AI agent','agent'],['AI model','model']];
+  document.getElementById('tokens').innerHTML=`<h2>${p.name}</h2><span class="cap">${p.note}</span>${rows.map(([l,k])=>`<div class="row"><span><span class="chip" style="background:${p.t[k]}"></span>${l}</span><code>${p.t[k]}</code></div>`).join('')}<button class="btnc" id="copy">Copy as CSS variables</button>`;
+  document.getElementById('copy').onclick=()=>{const txt=':root{\n'+Object.entries(p.t).map(([k,v])=>`  --${k}: ${v};`).join('\n')+'\n}';navigator.clipboard&&navigator.clipboard.writeText(txt).then(()=>{document.getElementById('copy').textContent='Copied'});};
+  document.getElementById('thumbs').innerHTML=P.map(x=>`<button class="thumb${x.id===cur?' on':''}" data-id="${x.id}"><div class="win"><div style="${css(x.t)}">${preview()}</div></div><b>${x.name}</b></button>`).join('');
+  document.querySelectorAll('.pick,.thumb').forEach(b=>b.onclick=()=>{cur=b.dataset.id;history.replaceState(null,'','#'+cur);render();window.scrollTo({top:0,behavior:'smooth'});});
+}
+const h=location.hash.slice(1);if(P.some(x=>x.id===h))cur=h;
+render();
+</script>
+</body>
+</html>
