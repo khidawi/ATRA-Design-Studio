@@ -193,6 +193,56 @@ class IncidentEntry(BaseModel):
     status:      str = "OPEN"
     detected_at: datetime
     resolved_at: Optional[datetime] = None
+    occurred_at:  Optional[datetime] = None
+    mitigated_at: Optional[datetime] = None
+    title:        str = ""
+    description:  str = ""
+    root_cause:   str = ""
+    lessons_learned: str = ""
+    owner:        str = ""
+
+
+class Lifecycle(BaseModel):
+    """Facts about a running (or retiring) AI model: layers 6-11 of the ST-AI registry.
+    Every field is optional; what is not stated keeps the framework default."""
+    # L6 deployment
+    rollback_mode:               Optional[str]  = None
+    ai_dependency_level:         Optional[str]  = None
+    deployment_mode:             Optional[str]  = None
+    model_card_approved:         Optional[bool] = None
+    fallback_procedure_exists:   Optional[bool] = None
+    fallback_tested:             Optional[bool] = None
+    # L7 runtime
+    audit_frequency:             Optional[str]  = None
+    drift_detected:              Optional[bool] = None
+    drift_type:                  Optional[str]  = None
+    domain_violation_occurred:   Optional[bool] = None
+    bias_breach_detected:        Optional[bool] = None
+    quarantine_activated:        Optional[bool] = None
+    # L8 governance
+    dpia_approved:               Optional[bool] = None
+    provider_sla_gdpr_dpa:       Optional[bool] = None
+    hitl_formally_specified:     Optional[bool] = None
+    policy_hallucination_acknowledged: Optional[bool] = None
+    liability_boundary_declared: Optional[bool] = None
+    right_to_challenge_documented: Optional[bool] = None
+    conflict_resolution:         Optional[str]  = None
+    # L9 epistemic
+    consumption_role:            Optional[str]  = None
+    hallucination_incident_count: Optional[int] = None
+    output_validation_gate_configured: Optional[bool] = None
+    # L10 culture and misuse
+    misuse_incident_count:       Optional[int]  = None
+    root_causes:                 List[str]      = Field(default_factory=list)
+    automation_bias_risk:        Optional[str]  = None
+    hitl_verified_substantive:   Optional[bool] = None
+    operator_training_complete:  Optional[bool] = None
+    # L11 decommissioning
+    decommissioning_status:      Optional[str]  = None
+    decommission_reason:         Optional[str]  = None
+    legal_hold_active:           Optional[bool] = None
+    disposal_method:             Optional[str]  = None
+    post_retirement_verified:    Optional[bool] = None
 
 
 class RegistryBlock(BaseModel):
@@ -229,6 +279,7 @@ class RegistryBlock(BaseModel):
     confidence_signal:       Optional[str] = None
     ai_criticality_enum:     Optional[str] = None
     experience_level:        Optional[str] = None
+    lifecycle:               Lifecycle = Field(default_factory=Lifecycle)
 
 
 # ── Graph sub-models ───────────────────────────────────────────────────────────

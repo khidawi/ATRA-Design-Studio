@@ -156,6 +156,25 @@ def score(req: ScoreRequest) -> ScoreResponse:
     return ScoreResponse(pcs_result=pcs_result, warnings=warnings)
 
 
+# ── Standards crosswalk ───────────────────────────────────────────────────────
+
+@app.get("/api/crosswalk")
+def crosswalk() -> Dict[str, Any]:
+    """Every pillar, block reason and lifecycle phase of the ST-AI framework mapped to the external standards it rests on."""
+    from framework import crosswalk as cw
+
+    def rows(entries):
+        return [{"standard": s, "clause": c, "title": t, "relevance": r} for s, c, t, r in entries]
+
+    return {
+        "pillars": {k: rows(v) for k, v in cw.PILLAR_CROSSWALK.items()},
+        "block_reasons": {k: rows(v) for k, v in cw.BLOCK_REASON_CROSSWALK.items()},
+        "phases": {k: rows(v) for k, v in cw.PHASE_CROSSWALK.items()},
+        "standards": [{"name": n, "colour": cw.standard_colour(n)} for n in cw.all_standards()],
+        "coverage": cw.coverage_summary(),
+    }
+
+
 # ── Document validation ────────────────────────────────────────────────────────
 
 @app.post("/document/validate")

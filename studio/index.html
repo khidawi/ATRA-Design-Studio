@@ -246,6 +246,50 @@ td.og-c{text-align:center;font-weight:600;white-space:nowrap}.og-c.ok{background
 .og-st{border:1px solid var(--ln-dde1e7);border-radius:10px;padding:8px 10px;min-width:150px;background:var(--bg-ffffff);font-size:12.5px}
 .og-ar{align-self:center;color:var(--fg-8793a3);font-size:18px}
 svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
+
+/* ---------- ST-AI lifecycle pages ---------- */
+.tc-CRITICAL{--tc:var(--bg-b42318);--tf:var(--fg-b42318)}.tc-HIGH{--tc:var(--bg-d97706);--tf:var(--fg-b45309)}.tc-MODERATE{--tc:var(--bg-1e7f4f);--tf:var(--fg-1e7f4f)}.tc-LOW{--tc:var(--bg-1e4fcb);--tf:var(--fg-1e4fcb)}
+.lf-radar{width:100%;max-width:460px;height:auto;display:block;margin:0 auto}
+.lf-radar .lf-ring{fill:none;stroke:var(--ln-dde1e7);stroke-width:1}
+.lf-radar .lf-poly{fill:var(--tc);fill-opacity:.2;stroke:var(--tc);stroke-width:2;stroke-linejoin:round}
+.lf-radar .lf-dot{fill:var(--tc);stroke:var(--bg-ffffff);stroke-width:2}
+.lf-radar .lf-tick{font-size:9px;fill:var(--fg-4a5563)}
+.lf-radar .lf-lbl{font-size:12.5px;fill:var(--fg-141a22)}.lf-radar .lf-lbl.ai{fill:var(--fg-1e4fcb);font-weight:700}
+.lf-radar .lf-val{font-size:13px;font-weight:700;fill:var(--tf)}
+.lf-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:1000px){.lf-two{grid-template-columns:minmax(0,1fr)}}
+.lf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px 24px}
+.lf-chk{align-items:flex-start;padding:6px 0}.lf-chk input{margin-top:2px;flex:none}
+.lf-prow{border:1px solid var(--ln-dde1e7);border-left:4px solid var(--tc);border-radius:8px;padding:10px 14px;background:var(--bg-ffffff)}
+.lf-pn{color:var(--tf);font-size:15px}.lf-pv{color:var(--tf);font-size:22px}
+.lf-ai{margin-left:8px;font-size:10px;padding:2px 7px;border-radius:8px;background:var(--bg-1e4fcb);color:#fff;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+.lf-legend{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;font-size:12px;color:var(--fg-4a5563)}.lf-legend span{display:inline-flex;align-items:center;gap:5px}.lf-legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.lf-sw{background:var(--tc)}
+.lf-heat{display:grid;grid-template-columns:92px repeat(5,minmax(0,1fr));gap:4px;max-width:520px;margin:0 auto;width:100%}
+.lf-hh{font-size:11px;font-weight:600;text-align:center;padding:4px 0;color:var(--fg-4a5563)}.lf-hy{font-size:11px;font-weight:600;text-align:right;padding-right:6px;align-self:center;color:var(--fg-4a5563)}
+.lf-cell{display:flex;align-items:center;justify-content:center;min-height:38px;border-radius:5px;font-weight:700;font-size:13px;color:#fff}
+.lf-c-l{background:#1565c0}.lf-c-m{background:#2e7d32}.lf-c-h{background:#f9a825}.lf-cell.lf-c-h{color:#1a1500}.lf-c-u{background:#e65100}.lf-c-c{background:#c62828}
+.lf-here{display:block;width:16px;height:16px;border-radius:50%;background:#000;border:2px solid #fff;box-shadow:0 0 0 1px #000}
+.lf-badge{display:inline-flex;align-items:center;gap:8px;min-height:38px}
+.lf-effect{padding:16px 20px;display:flex;gap:22px;align-items:center;flex-wrap:wrap}.lf-big{font-size:34px;font-weight:600;line-height:1}.lf-arrow{font-size:24px;color:var(--fg-4a5563)}
+.lf-gate{gap:10px}
+.lf-links{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.lf-link{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border:1px solid var(--ln-dde1e7);border-radius:8px;text-decoration:none;color:var(--fg-141a22)}.lf-link:hover{border-color:var(--ln-1e4fcb)}
+.lf-terms{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.lf-term{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--ln-edf0f3);border-radius:8px}.lf-ts{color:var(--fg-4a5563)}
+.lf-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.lf-tile{padding:14px 16px;border:1px solid var(--ln-dde1e7);border-radius:10px;background:var(--bg-ffffff);display:flex;flex-direction:column;gap:2px}.lf-tile b{font-size:26px;font-weight:600}
+.lf-form{display:flex;flex-direction:column;gap:12px}
+.lf-steps{list-style:none;display:flex;margin:0;padding:0;flex-wrap:wrap}
+.lf-steps li{flex:1 1 110px;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12.5px;color:var(--fg-4a5563);position:relative;text-align:center}
+.lf-steps li i{width:14px;height:14px;border-radius:50%;border:2px solid var(--ln-c5ccd6);background:var(--bg-ffffff);position:relative;z-index:1}
+.lf-steps li::before{content:'';position:absolute;top:6px;left:-50%;right:50%;height:2px;background:var(--ln-dde1e7)}.lf-steps li:first-child::before{display:none}
+.lf-steps li.done i{background:var(--bg-1e7f4f);border-color:var(--bg-1e7f4f)}.lf-steps li.done::before,.lf-steps li.now::before{background:var(--bg-1e7f4f)}
+.lf-steps li.now i{background:var(--bg-1e4fcb);border-color:var(--bg-1e4fcb)}.lf-steps li.now{color:var(--fg-141a22);font-weight:600}
+.lf-det{border-top:1px solid var(--ln-edf0f3);padding:8px 0}.lf-det summary{display:flex;align-items:center;cursor:pointer;gap:6px;min-height:32px}
+.lf-xrow{display:grid;grid-template-columns:160px 110px minmax(0,1fr) auto;gap:10px;align-items:center;padding:6px 0 6px 6px}
+@media (max-width:760px){.lf-xrow{grid-template-columns:minmax(0,1fr)}}
+.lf-std{font-size:12px;font-weight:600;color:var(--fg-141a22);border-left:4px solid var(--sc);padding-left:8px}
 </style>
 </head>
 <body>
@@ -314,6 +358,7 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
         doms.forEach((d) => { STAI.DOMAINS[d.domain_id] = d; });
       },
       score: (registry) => post('/score', { registry }),
+      crosswalk: () => call('/api/crosswalk'),
       assess: (designId, domain, registry, constraintNodeIds, designGraph) => post(designPath(designId, 'assess'), { domain, registry, constraint_node_ids: constraintNodeIds, design_graph: designGraph }),
       compile: (designId, body) => post(designPath(designId, 'compile'), body),
       importDescription: (description) => post('/api/designs/import', description),
@@ -1418,11 +1463,11 @@ kill_switch:
   const LS_KEY = 'astra-model-studio-v1';        // before designs were saved on the server; read once to move them
   const LS_CURRENT = 'astra-model-current-design';
   const M = { nodes: [], edges: [], sel: null, domain: 'GENERAL', panel: 'inspector', name: 'Untitled model deployment', contracts: [], chatOpen: false, chatLog: [], importOpen: false, importText: '', importErrors: [], compileMsg: null, viewContract: null, n: 1, zoom: 1,
-    designKey: null, version: 0, designs: [], loaded: false, saveState: 'saved', saveError: null, verify: {}, cstatus: {} };
+    life: {}, incidents: [], designKey: null, version: 0, designs: [], loaded: false, saveState: 'saved', saveError: null, verify: {}, cstatus: {} };
   const SV = { timer: null, inflight: null, dirty: false };
   const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const lsSet = (k, v) => { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* storage unavailable */ } };
-  const designBody = () => ({ name: M.name, domain: M.domain, subject: 'MODEL', document: { nodes: M.nodes, edges: M.edges, n: M.n, org: M.orgRef || undefined } });
+  const designBody = () => ({ name: M.name, domain: M.domain, subject: 'MODEL', document: { nodes: M.nodes, edges: M.edges, n: M.n, org: M.orgRef || undefined, life: Object.keys(M.life).length ? M.life : undefined, incidents: M.incidents.length ? M.incidents : undefined } });
   function saveStateHtml() {
     const t = { saved: M.designKey ? 'Saved' : 'Not saved yet', saving: 'Saving\u2026', error: 'Not saved: ' + (M.saveError || 'error') }[M.saveState];
     if (M.saveState === 'conflict') return `<span id="m-savestate" class="cap" role="status" style="color:var(--fg-b42318)">${esc(M.saveError)} <button class="btn2 btn-s" data-act="mReloadDesign">Reload this design</button></span>`;
@@ -1457,7 +1502,7 @@ kill_switch:
   }
   async function openDesign(key) {
     const d = await STAI.api.getDesign(key);
-    Object.assign(M, { orgRef: d.document.org || null, nodes: d.document.nodes, edges: d.document.edges, n: d.document.n, name: d.name, domain: STAI.DOMAINS[d.domain] ? d.domain : M.domain, designKey: d.design_key, version: d.version, sel: null, compileMsg: null, saveState: 'saved', saveError: null });
+    Object.assign(M, { orgRef: d.document.org || null, life: d.document.life || {}, incidents: d.document.incidents || [], nodes: d.document.nodes, edges: d.document.edges, n: d.document.n, name: d.name, domain: STAI.DOMAINS[d.domain] ? d.domain : M.domain, designKey: d.design_key, version: d.version, sel: null, compileMsg: null, saveState: 'saved', saveError: null });
     SV.dirty = false; lsSet(LS_CURRENT, d.design_key);
     if (M.nodes.length) fitZoom();
   }
@@ -1537,13 +1582,19 @@ kill_switch:
     const regulatory_requirements = nodes.filter((n) => n.kind === 'REGULATORY_REQ').map((n) => ({ id: n.id, instrument: n.data.instrument || n.id, clause: n.data.clause, risk_tier: n.data.riskTier || undefined, status: n.data.status, evidence: n.data.evidence || undefined }));
     const consent_records = nodes.filter((n) => n.kind === 'CONSENT_RECORD').map((n) => { const lb = nodes.find((x) => x.id === neighborsOfKind(n.id, 'LEGAL_BASIS')[0]); return { id: n.id, diaprod_consent_id: n.data.diaprodConsentId || undefined, legal_basis: lb ? lb.data.basis : '', data_category_ids: neighborsOfKind(n.id, 'DATA_CATEGORY'), validated_at: n.data.validatedAt || undefined, validation_source: n.data.validationSource }; });
     const registry = { actors, departments, deployment_context, system_type: m ? m.data.hostingEnvironment : undefined, data_categories, consent_records, regulatory_requirements, governance_state: { constraints_declared } };
+    if (Object.keys(M.life).length) {
+      registry.lifecycle = Object.assign({}, M.life);
+      if (M.life.hallucination_constraint_declared !== undefined) registry.hallucination_constraint_declared = !!M.life.hallucination_constraint_declared;
+      if (M.life.confidence_signal) registry.confidence_signal = M.life.confidence_signal;
+    }
+    if (M.incidents.length) registry.incident_register = M.incidents.map((i) => { const o = { id: i.id, type: i.type, severity: i.severity, status: i.status, detected_at: i.detected_at }; ['occurred_at', 'mitigated_at', 'resolved_at', 'title', 'description', 'root_cause', 'lessons_learned', 'owner'].forEach((k) => { if (i[k]) o[k] = i[k]; }); return o; });
     return { registry, constraintNodeIds };
   }
   /* ----- backend evaluation: score + assessment come from the FastAPI service, debounced and cached by input signature ----- */
   function buildDesignGraph() {
     return { nodes: M.nodes.map((n) => ({ id: n.id, type: n.kind, props: n.data, primary: false })), edges: M.edges.map((e) => ({ from: e.source, to: e.target, label: e.type })) };
   }
-  const REMOTE = { key: null, want: null, timer: null, score: null, scoreError: null, assessment: null, assessError: null, error: null, byNode: {} };
+  const REMOTE = { key: null, want: null, timer: null, base: null, score: null, scoreError: null, assessment: null, assessError: null, error: null, byNode: {} };
   const BOOT = { ready: false, loading: false, error: null };
   function adaptScore(res) {
     const p = res.pcs_result, raw = p.raw_breakdown || {};
@@ -1552,7 +1603,7 @@ kill_switch:
   }
   // A response can land while someone is typing; re-rendering then would wipe the field they are in, so wait for the blur.
   function renderWhenIdle() {
-    if (route() !== 'model') return;
+    if (!inModel()) return;
     const ae = document.activeElement;
     if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) ae.addEventListener('blur', () => setTimeout(() => render(true), 0), { once: true });
     else render(true);
@@ -1561,9 +1612,12 @@ kill_switch:
     REMOTE.want = key;
     clearTimeout(REMOTE.timer);
     REMOTE.timer = setTimeout(async () => {
-      const [s, a] = await Promise.allSettled([STAI.api.score(registry), STAI.api.assess('current', domain, registry, constraintNodeIds, designGraph)]);
+      const hasLife = !!(registry.lifecycle || registry.incident_register);
+      const baseReg = hasLife ? Object.assign({}, registry, { lifecycle: undefined, incident_register: undefined, hallucination_constraint_declared: undefined, confidence_signal: undefined }) : null;
+      const [s, a, b] = await Promise.allSettled([STAI.api.score(registry), STAI.api.assess('current', domain, registry, constraintNodeIds, designGraph), baseReg ? STAI.api.score(baseReg) : Promise.resolve(null)]);
       if (REMOTE.want !== key) return; // a newer edit superseded this request
       REMOTE.key = key;
+      REMOTE.base = b.status === 'fulfilled' && b.value ? adaptScore(b.value) : null;
       const net = [s, a].find((r) => r.status === 'rejected' && r.reason && r.reason.network);
       REMOTE.error = net ? net.reason.message : null;
       if (s.status === 'fulfilled') { REMOTE.score = adaptScore(s.value); REMOTE.scoreError = null; }
@@ -1606,7 +1660,7 @@ kill_switch:
       BOOT.ready = true;
     } catch (e) { BOOT.error = e.message; }
     BOOT.loading = false;
-    if (route() === 'model') render(true);
+    if (inModel()) render(true);
   }
   function validateGraph() {
     const issues = [], connected = new Set();
@@ -1729,7 +1783,7 @@ kill_switch:
       <div class="stack" style="gap:8px"><strong style="font-size:13px">Risk pillars</strong>${pillars.map(([k, v]) => `<div class="m-pillar"><span>${k}</span><div class="meter"><span style="width:${Math.min(100, v)}%;background:${v >= 60 ? 'var(--bg-b42318)' : v >= 30 ? 'var(--bg-d97706)' : 'var(--bg-1e7f4f)'}"></span></div><b class="mono">${STAI.pyFixed(v, 1)}</b></div>`).join('')}<span class="cap">Composite (balanced profile) ${STAI.pyFixed(t.risk_vector.composite, 1)}${t.risk_vector.gate_blocked ? ` \u00b7 ${t.risk_vector.blocking_dimension} at or above 80` : ''}</span></div>
       ${list('Blockers', t.blockers, 'alert')}${list('Warnings', t.warnings, 'plain')}${list('Recommendations', t.recommendations, 'good')}
       <details><summary class="cap" style="cursor:pointer">Derivation log (${t.derivation_log.length} steps)</summary><pre class="code" style="font-size:11.5px;white-space:pre-wrap">${esc(t.derivation_log.join('\n'))}</pre></details>
-      <div class="note plain" style="font-size:12.5px"><strong>What reaches the engine from this canvas</strong><span>The AI model's type, criticality, data sensitivity and hosting, plus constraint statuses for the gate. Constraint statuses do not yet set the engine's governance flags (for example DPIA approved), matching the current back end.</span></div>`;
+      <div class="note plain" style="font-size:12.5px"><strong>What reaches the engine from this canvas</strong><span>The AI model's type, criticality, data sensitivity and hosting, plus constraint statuses for the gate. What is true of the running model (monitoring, approvals, incidents, retirement) is declared on the Runtime, Governance, Incidents and Decommissioning pages and feeds the same score.</span></div>`;
   }
   function issuesPanel(ev) {
     if (!ev.issues.length) return `<h2>Issues</h2><div class="note good">No structural issues found.</div>`;
@@ -1745,13 +1799,293 @@ kill_switch:
       <div class="m-pal-group"><span class="m-pal-h">Constraint bundles</span>${BUNDLES.map((x) => `<button class="m-pal m-bundle" data-act="mBundle" data-arg="${x.id}" title="${esc(x.description)}"><b>${esc(x.name)}</b><small>${x.ids.join(' \u00b7 ')}</small></button>`).join('')}</div>`;
   }
 
+  function inModel() { const r = route(); return r === 'model' || r === 'modelcontracts' || r.startsWith('m_'); }
+  /* ----- ST-AI lifecycle pages: overview (six-pillar radar), runtime, governance, incidents, decommissioning, regulations and standards ----- */
+  const LF_PAGES = [['overview', 'Overview'], ['runtime', 'Runtime'], ['governance', 'Governance'], ['incidents', 'Incidents'], ['decommission', 'Decommissioning'], ['standards', 'Regulations & standards']];
+  const LF_DEFAULT = { hitl_verified_substantive: true, provider_sla_gdpr_dpa: true };
+  const LF = { cw: null, cwErr: null, cwBusy: false, std: '', form: { type: 'MODEL_FAILURE', severity: '3', title: '', description: '', owner: '', detected: '' } };
+  const lfHuman = (v) => { const s = String(v).replace(/_/g, ' ').toLowerCase(); return (s.charAt(0).toUpperCase() + s.slice(1)).replace(/(dpia|hitl|rcf|pinn|gdpr|sla|dpa)/gi, (w) => w.toUpperCase()); };
+  const lfGet = (k) => (M.life[k] === undefined || M.life[k] === null) ? (LF_DEFAULT[k] === undefined ? false : LF_DEFAULT[k]) : M.life[k];
+  const LF_ENUM = {
+    deployment_mode: ['STANDARD', 'CANARY', 'SHADOW', 'BLUE_GREEN', 'EMERGENCY_ROLLBACK'],
+    rollback_mode: ['AUTOMATED', 'MANUAL', 'NOT_POSSIBLE'],
+    ai_dependency_level: ['CRITICAL_NO_FALLBACK', 'CRITICAL_WITH_FALLBACK', 'IMPORTANT', 'ADVISORY'],
+    audit_frequency: ['CONTINUOUS', 'DAILY', 'WEEKLY', 'QUARTERLY'],
+    drift_type: ['DATA_DRIFT', 'CONCEPT_DRIFT', 'PERFORMANCE_DRIFT', 'PREDICTION_DRIFT'],
+    consumption_role: ['ADVISORY_READER', 'DECISION_MAKER', 'AUTOMATED_EXECUTOR', 'REGULATOR_SUBMITTER', 'AUDITOR'],
+    confidence_signal: ['NONE', 'QUALITATIVE', 'NUMERIC', 'INTERVAL'],
+    automation_bias_risk: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'],
+    decommissioning_status: ['PLANNED', 'IN_PROGRESS', 'WEIGHTS_DISPOSED', 'DATA_DELETED', 'AUDIT_COMPLETE', 'LEGALLY_HELD'],
+    decommission_reason: ['RISK', 'OBSOLESCENCE', 'REGULATORY', 'BUSINESS'],
+    disposal_method: ['SECURE_DELETE', 'CRYPTOGRAPHIC_DESTRUCTION', 'ARCHIVE_ENCRYPTED', 'TRANSFER_TO_SUCCESSOR']
+  };
+  const LF_ROOT_CAUSES = ['NO_TRAINING', 'TRAINING_INADEQUATE', 'REVIEW_BYPASSED_DELIBERATELY', 'REVIEW_BYPASSED_INADVERTENTLY', 'SYSTEM_DID_NOT_SIGNAL_UNCERTAINTY', 'ORGANISATION_DID_NOT_ACCEPT_HALLUCINATION_RISK'];
+  const LF_INC_TYPES = ['DRIFT_DETECTION', 'BIAS_BREACH', 'SECURITY_EVENT', 'MODEL_FAILURE', 'SUPPLY_CHAIN', 'REGULATORY_INQUIRY', 'DATA_BREACH', 'AVAILABILITY_OUTAGE', 'HALLUCINATION_HARM', 'HUMAN_OVERRIDE_FAILED'];
+  const LF_INC_STATUS = ['OPEN', 'INVESTIGATING', 'MITIGATED', 'RESOLVED', 'POST_MORTEM'];
+  const LF_SEV = { 1: ['Low', 'LOW'], 2: ['Moderate', 'MODERATE'], 3: ['High', 'HIGH'], 4: ['Severe', 'HIGH'], 5: ['Critical', 'CRITICAL'] };
+  const lfCheck = (k, label, help) => `<label class="chk lf-chk"><input type="checkbox" data-chg="lfSet" data-arg="${k}"${lfGet(k) ? ' checked' : ''}><span class="stack" style="gap:1px"><span>${label}</span>${help ? `<span class="cap" style="font-size:12.5px">${help}</span>` : ''}</span></label>`;
+  const lfSelect = (k, label, help, unset) => `<div class="fld"><label for="lf-${k}">${label}</label><select id="lf-${k}" class="inp" data-chg="lfSel" data-arg="${k}"><option value="">${unset || 'Not stated'}</option>${LF_ENUM[k].map((v) => opt(v, lfHuman(v), M.life[k])).join('')}</select>${help ? `<span class="cap" style="font-size:12.5px">${help}</span>` : ''}</div>`;
+  const lfCount = (k, label, help) => `<div class="fld"><label for="lf-${k}">${label}</label><input id="lf-${k}" class="inp" type="number" min="0" step="1" style="max-width:140px" data-chg="lfNum" data-arg="${k}" value="${M.life[k] === undefined ? '' : esc(M.life[k])}" placeholder="0">${help ? `<span class="cap" style="font-size:12.5px">${help}</span>` : ''}</div>`;
+  const lfCard = (title, sub, body) => `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:12px"><div class="stack" style="gap:2px"><h2>${title}</h2>${sub ? `<span class="cap">${sub}</span>` : ''}</div>${body}</section>`;
+  const lfGrid = (inner) => `<div class="lf-grid">${inner}</div>`;
+  const lfEmpty = () => !M.designKey && !M.nodes.length;
+  const lfWhere = (txt) => /decommission|retire|disposal|legal hold/i.test(txt) ? ['decommission', 'Decommissioning'] : /incident|72 hours/i.test(txt) ? ['incidents', 'Incidents'] : /DPIA|HITL|human|model card|hallucination|liability|challenge|training|SLA|DPA|automation|consent/i.test(txt) ? ['governance', 'Governance'] : /drift|violation|bias|quarantine|rollback|fallback/i.test(txt) ? ['runtime', 'Runtime'] : null;
+  const lfClean = (x) => String(x).replace(/^(❌|⚠️|📋)\s*/u, '');
+
+  // Six-pillar radar. Each dot takes the colour of its own pillar's tier, the polygon the colour of the worst tier; Autonomy and Evolution are the AI-specific pillars.
+  function lfRadar(pv, tiers) {
+    const P = [['Likelihood', 'likelihood', false], ['Severity', 'severity', false], ['Vulnerability', 'vulnerability', false], ['Uncertainty', 'uncertainty', false], ['Autonomy', 'autonomy', true], ['Evolution', 'evolution', true]];
+    const cx = 210, cy = 186, R = 112, a = (i) => -Math.PI / 2 + i * Math.PI / 3, f1 = (n) => n.toFixed(1);
+    const pt = (i, r) => [cx + r * Math.cos(a(i)), cy + r * Math.sin(a(i))];
+    const ring = (k) => P.map((_, i) => pt(i, R * k).map(f1).join(',')).join(' ');
+    const rank = { CRITICAL: 0, HIGH: 1, MODERATE: 2, LOW: 3 };
+    const tierOf = (k) => (tiers && tiers[k]) || 'LOW';
+    const worst = P.map(([, k]) => tierOf(k)).sort((x, y) => rank[x] - rank[y])[0];
+    const poly = P.map(([, k], i) => pt(i, R * Math.min(100, pv[k] || 0) / 100).map(f1).join(',')).join(' ');
+    const rings = [0.2, 0.4, 0.6, 0.8, 1].map((k) => `<polygon class="lf-ring" points="${ring(k)}"/>`).join('');
+    const spokes = P.map((_, i) => { const [x, y] = pt(i, R); return `<line class="lf-ring" x1="${cx}" y1="${cy}" x2="${f1(x)}" y2="${f1(y)}"/>`; }).join('');
+    const ticks = [20, 40, 60, 80, 100].map((v) => `<text class="lf-tick" x="${cx + 3}" y="${f1(cy - R * v / 100 - 2)}">${v}</text>`).join('');
+    const dots = P.map(([, k], i) => { const [x, y] = pt(i, R * Math.min(100, pv[k] || 0) / 100); return `<circle class="lf-dot tc-${tierOf(k)}" cx="${f1(x)}" cy="${f1(y)}" r="5.5"/>`; }).join('');
+    const labels = P.map(([name, k, ai], i) => {
+      const [x, y] = pt(i, R + 16), c = Math.cos(a(i)), s = Math.sin(a(i));
+      const anchor = c > 0.2 ? 'start' : c < -0.2 ? 'end' : 'middle', up = s < -0.5 ? -14 : 0;
+      return `<text class="lf-lbl${ai ? ' ai' : ''}" x="${f1(x)}" y="${f1(y + 4 + up)}" text-anchor="${anchor}">${name}</text><text class="lf-val tc-${tierOf(k)}" x="${f1(x)}" y="${f1(y + 18 + up)}" text-anchor="${anchor}">${STAI.pyFixed(pv[k], 1)}</text>`;
+    }).join('');
+    return `<svg class="lf-radar tc-${worst}" viewBox="0 0 420 372" role="img" aria-label="Six-pillar risk radar: ${P.map(([n, k]) => n + ' ' + STAI.pyFixed(pv[k], 1)).join(', ')}">${rings}${spokes}${ticks}<polygon class="lf-poly" points="${poly}"/>${dots}${labels}</svg>`;
+  }
+  const LF_BAND = (s) => s >= 80 ? 4 : s >= 60 ? 3 : s >= 40 ? 2 : s >= 20 ? 1 : 0;
+  function lfHeat(likelihood, severity) {
+    const lr = 4 - LF_BAND(likelihood), sc = LF_BAND(severity);
+    const sev = ['Negligible', 'Minor', 'Moderate', 'Major', 'Severe'], like = ['Almost certain', 'Likely', 'Possible', 'Unlikely', 'Rare'];
+    const tone = (p) => p >= 15 ? 'c' : p >= 10 ? 'u' : p >= 5 ? 'h' : p >= 3 ? 'm' : 'l';
+    let cells = '<span></span>' + sev.map((s) => `<span class="lf-hh">${s}</span>`).join('');
+    for (let r = 0; r < 5; r++) {
+      cells += `<span class="lf-hy">${like[r]}</span>`;
+      for (let c = 0; c < 5; c++) { const p = (5 - r) * (c + 1); cells += `<span class="lf-cell lf-c-${tone(p)}">${r === lr && c === sc ? '<i class="lf-here" aria-label="This model"></i>' : p}</span>`; }
+    }
+    return `<div class="lf-heat">${cells}</div><div class="lf-legend"><span><i class="lf-c-l"></i> Low</span><span><i class="lf-c-m"></i> Moderate</span><span><i class="lf-c-h"></i> High</span><span><i class="lf-c-u"></i> Urgent</span><span><i class="lf-c-c"></i> Critical</span></div><span class="cap" style="text-align:center">ISO 31000 5×5 matrix · the ringed cell is this model's inherent position (likelihood × severity pillar bands)</span>`;
+  }
+  const LF_PILLARS = [
+    ['Likelihood', 'likelihood', 'ISO 31000 §6.4.3', 'L × Δ/τ', false],
+    ['Severity', 'severity', 'ISO 31000 · COSO', 'I × Ws × Dm', false],
+    ['Vulnerability', 'vulnerability', 'NIST SP 800-30 §2.3.3', 'RCF × Wh × Wf × Wr', false],
+    ['Uncertainty', 'uncertainty', 'ISO/IEC 23894', 'εb + εia', false],
+    ['Autonomy', 'autonomy', 'EU AI Act Art 6', 'ACM × Wh', true],
+    ['Evolution', 'evolution', 'EU AI Act Art 9', 'Wf × C', true]
+  ];
+
+  // The page frame every lifecycle page shares: heading, the design in use, the current score, and a note when nothing has been designed yet.
+  function lfFrame(sub, title, eyebrow, body, ev) {
+    if (!BOOT.ready) return hdr('ST-AI · model lifecycle', BOOT.error ? 'Backend unavailable' : 'Connecting to the backend…') + (BOOT.error ? `<div class="note alert" role="alert"><strong>Could not load the catalogue</strong><span>${esc(BOOT.error)}</span><button class="btn2 btn-s" style="align-self:flex-start" data-act="mRetryBoot">Retry</button></div>` : '');
+    const p = ev && ev.score && ev.score.pcs_result;
+    const badge = ev && ev.scoreError ? '<span class="pill bad">Score rejected</span>' : (p ? `<span class="lf-badge"><span class="mono">PCS ${STAI.pyFixed(p.pcs_final, 1)}</span><span class="pill ${TIER_CLS[p.tier]}">${p.tier}</span><span class="pill ${GATE_CLS[p.gate]}">${p.gate.replace('_', ' ')}</span></span>` : `<span class="pill muted">${ev && ev.pending ? 'Scoring…' : 'No score'}</span>`);
+    const picker = `<div class="fld" style="gap:2px"><label for="m-design" style="font-size:12px">Model design</label><select id="m-design" class="inp" style="min-height:38px;max-width:280px" data-chg="mOpen">${M.designKey ? '' : '<option value="" selected>(none yet)</option>'}${M.designs.map((d) => opt(d.design_key, `${d.name} · ${d.node_count} elements`, M.designKey)).join('')}</select></div>`;
+    const head = hdr(eyebrow, title, picker + badge);
+    if (lfEmpty()) return head + `<section class="card" style="padding:24px;display:flex;flex-direction:column;gap:10px"><h2>No model design yet</h2><p style="margin:0">These pages describe a model that has been designed. Draw one in the Model studio, or start from a model in the organisation.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn" href="#/model">Open Model studio</a><a class="btn2" href="#/">Choose from the organisation</a></div></section>`;
+    return head + (M.saveState === 'conflict' ? saveStateHtml() : '') + body;
+  }
+  // Under every lifecycle page: what the facts declared here do to the score, compared with the design alone.
+  function lfEffect(ev) {
+    if (!ev.score) return '';
+    const p = ev.score.pcs_result, base = REMOTE.base && REMOTE.base.pcs_result;
+    const hasFacts = Object.keys(M.life).length || M.incidents.length;
+    const delta = base ? Math.round((p.pcs_final - base.pcs_final) * 10) / 10 : null;
+    const arrow = delta === null ? '' : delta > 0 ? `▲ +${delta}` : delta < 0 ? `▼ ${delta}` : 'no change';
+    const left = hasFacts && base ? `<div class="stack" style="gap:2px"><span class="cap">Design alone</span><span class="lf-big mono">${STAI.pyFixed(base.pcs_final, 1)}</span><span class="pill ${TIER_CLS[base.tier]}" style="align-self:flex-start">${base.tier}</span></div><span class="lf-arrow" aria-hidden="true">→</span>` : '';
+    const dcls = delta === null ? 'muted' : delta > 0 ? 'bad' : delta < 0 ? 'ok' : 'muted';
+    return `<section class="card lf-effect" aria-label="Effect on the score">${left}<div class="stack" style="gap:2px"><span class="cap">${hasFacts ? 'With the facts declared in the lifecycle' : 'No lifecycle facts declared yet'}</span><span class="lf-big mono">${STAI.pyFixed(p.pcs_final, 1)}</span><span style="display:flex;gap:6px;flex-wrap:wrap"><span class="pill ${TIER_CLS[p.tier]}">${p.tier}</span><span class="pill ${GATE_CLS[p.gate]}">${p.gate.replace('_', ' ')}</span>${arrow ? `<span class="pill ${dcls}">${arrow}</span>` : ''}</span></div><span class="cap" style="flex:1 1 260px">${hasFacts ? 'Recomputed by the ST-AI engine every time a fact below changes. A higher score means more risk, so a rise (red) is a worse position than the design alone.' : 'Declare what is true of the running model below and the score is recomputed against the design.'}${p.gate === 'BLOCKED' ? ` <a href="#/model/overview">See what blocks the gate.</a>` : ''}</span></section>`;
+  }
+
+  function lfOverview() {
+    const ev = evaluate();
+    let body;
+    if (ev.scoreError) body = `<div class="note alert" role="alert"><strong>Score rejected</strong><span>${esc(ev.scoreError)}</span><a href="#/model">Open the Model studio to fix it</a></div>`;
+    else if (!ev.score) body = `<section class="card" style="padding:24px"><p style="margin:0" class="cap">${ev.pending ? 'Scoring the design…' : 'Waiting for the backend.'}</p></section>`;
+    else {
+      const p = ev.score.pcs_result, t = p.terms, pv = p.pillar_vector, rv = t.risk_vector || {}, tiers = rv.tiers || {};
+      const tone = { APPROVED: ['good', 'Gate open', 'Nothing in the declared design or lifecycle blocks this model.'], REQUIRES_REVIEW: ['plain', 'Review required', 'A person has to review this model before it is used.'], BLOCKED: ['alert', 'Gate blocked', 'This model must not go live until the items below are cleared.'] }[p.gate] || ['plain', p.gate, ''];
+      const blockers = (t.blockers || []).map(lfClean).concat(p.unmet_veto_constraints.map((c) => `Critical constraint ${c} is not satisfied`));
+      const list = (title, arr, cls) => arr.length ? `<div class="stack" style="gap:6px"><strong style="font-size:13px">${title} (${arr.length})</strong>${arr.map((x) => { const w = lfWhere(x); return `<div class="note ${cls}" style="font-size:13px;padding:10px 12px;flex-direction:row;justify-content:space-between;gap:12px;align-items:center"><span>${esc(lfClean(x))}</span>${w ? `<a class="btn2 btn-s" href="#/model/${w[0]}" style="white-space:nowrap">${w[1]}</a>` : ''}</div>`; }).join('')}</div>` : '';
+      const pillars = LF_PILLARS.map(([name, k, std, formula, ai]) => { const v = pv[k] || 0, tr = tiers[k] || 'LOW'; return `<div class="lf-prow tc-${tr}"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div class="stack" style="gap:1px"><span><b class="lf-pn">${name}</b>${ai ? '<span class="lf-ai">AI-specific</span>' : ''}</span><span class="cap" style="font-size:12px">${std} · <span class="mono">${formula}</span></span></div><div style="text-align:right"><b class="lf-pv mono">${STAI.pyFixed(v, 1)}</b><div class="cap" style="font-size:12px">${tr}</div></div></div><div class="meter" style="margin-top:6px"><span style="width:${Math.min(100, v)}%;background:var(--tc)"></span></div></div>`; }).join('');
+      const terms = [['L', t.L, 'Likelihood of failure'], ['I', t.I, 'Impact'], ['Δ', t.delta, 'Detection delay'], ['τ', t.tau, 'Time to respond'], ['Dm', t.Dm, 'Domain multiplier'], ['Wr', t.Wr, 'Reach weight'], ['Ws', t.Ws, 'Sensitivity weight'], ['Wf', t.Wf, 'Feedback weight'], ['Wh', t.Wh, 'Human-oversight weight'], ['RCF', t.rcf_adj, 'Role concentration'], ['εb', t.eps_b, 'Bias term'], ['εia', t.eps_ia, 'Importance-gap term']].filter((x) => x[1] !== null && x[1] !== undefined);
+      const cardLink = (to, label, line) => `<a class="lf-link" href="#/model/${to}"><b>${label}</b><span class="cap">${line}</span></a>`;
+      const openInc = M.incidents.filter((i) => ['OPEN', 'INVESTIGATING'].indexOf(i.status) >= 0).length, n = Object.keys(M.life).length;
+      body = `<section class="note ${tone[0]} lf-gate" role="status"><div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><span class="rcr-score">${STAI.pyFixed(p.pcs_final, 1)}</span><span class="stack" style="gap:6px"><span style="display:flex;gap:6px;flex-wrap:wrap"><span class="pill ${TIER_CLS[p.tier]}">${p.tier} tier</span><span class="pill ${GATE_CLS[p.gate]}">${tone[1]}</span></span><span style="font-size:13.5px">${tone[2]}</span></span></div>${rv.gate_blocked ? `<span style="font-size:13px"><b>${esc(rv.blocking_dimension)}</b> is at or above 80, which blocks the gate on its own.</span>` : ''}</section>
+        <div class="lf-two">
+          ${lfCard('Six-pillar risk vector', 'Four textbook pillars (ISO 31000, NIST SP 800-30) and two AI-specific pillars (EU AI Act, NIST AI RMF). Each pillar is 100 × its PCS terms ÷ their maximum.', `<div class="lf-radarbox">${lfRadar(pv, tiers)}</div><span class="cap" style="text-align:center">Polygon colour = the worst pillar's tier · dot colour = that pillar's own tier · composite ${STAI.pyFixed(rv.composite, 1)} (balanced profile)</span><div class="lf-legend"><span><i class="tc-LOW lf-sw"></i> Low</span><span><i class="tc-MODERATE lf-sw"></i> Moderate</span><span><i class="tc-HIGH lf-sw"></i> High</span><span><i class="tc-CRITICAL lf-sw"></i> Critical</span></div>`)}
+          ${lfCard('Pillar breakdown', 'One row per pillar, coloured by its tier.', `<div class="stack" style="gap:8px">${pillars}</div>`)}
+        </div>
+        <div class="lf-two">
+          ${lfCard('Inherent risk', 'Where likelihood meets severity before any control is counted.', lfHeat(pv.likelihood || 0, pv.severity || 0))}
+          ${lfCard('Lifecycle status', 'What has been declared about this model since design. Open a page to add to it.', `<div class="lf-links">${cardLink('runtime', 'Runtime', n ? `${n} fact${n === 1 ? '' : 's'} declared` : 'Nothing declared yet')}${cardLink('governance', 'Governance', 'DPIA, oversight, liability, training')}${cardLink('incidents', 'Incidents', M.incidents.length ? `${M.incidents.length} logged, ${openInc} open` : 'None logged')}${cardLink('decommission', 'Decommissioning', lfGet('decommissioning_status') && M.life.decommissioning_status ? lfHuman(M.life.decommissioning_status) : 'Not planned')}${cardLink('standards', 'Regulations & standards', 'NIST · ISO · EU AI Act · GDPR')}${cardLink('contracts', 'Compiled contracts', `${M.contracts.length} compiled`)}</div>`)}
+        </div>
+        ${blockers.length || t.warnings.length || t.recommendations.length ? `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:14px"><h2>What needs doing</h2>${list('Blockers', blockers, 'alert')}${list('Warnings', t.warnings, 'plain')}${list('Recommendations', t.recommendations, 'good')}</section>` : `<div class="note good"><strong>Nothing to fix</strong><span>The engine has no blockers, warnings or recommendations for this model.</span></div>`}
+        ${lfCard('Formula terms', 'The inputs of the Pre-deployment Compliance Score, all derived from what is declared and never typed in.', `<div class="lf-terms">${terms.map(([s, v, l]) => `<div class="lf-term"><span class="mono lf-ts">${s}</span><b class="mono">${STAI.pyFloat(typeof v === 'number' ? Math.round(v * 1000) / 1000 : v)}</b><span class="cap" style="font-size:12px">${l}</span></div>`).join('')}</div><details><summary class="cap" style="cursor:pointer">Derivation log (${(t.derivation_log || []).length} steps)</summary><pre class="code" style="font-size:11.5px;white-space:pre-wrap">${esc((t.derivation_log || []).join('\n'))}</pre></details>`)}`;
+    }
+    return lfFrame('overview', esc(M.name), 'ST-AI · model overview', body, ev);
+  }
+
+  function lfRuntime() {
+    const ev = evaluate();
+    const body = lfEffect(ev) +
+      lfCard('Deployment', 'Layer 6: how the model was released and what happens if it has to be pulled back.', lfGrid(
+        lfSelect('deployment_mode', 'Release approach', 'Canary, shadow and blue/green releases limit the damage of a bad version.', 'Standard release (default)') +
+        lfSelect('rollback_mode', 'Rollback', 'How a faulty version is reverted. If it cannot be, the risk goes up.', 'Manual (default)') +
+        lfSelect('ai_dependency_level', 'How much the business depends on it', 'Critical with no fallback is the highest exposure.', 'Important (default)') +
+        lfCheck('fallback_procedure_exists', 'A fallback procedure exists', 'What staff do when the model is switched off.') +
+        lfCheck('fallback_tested', 'The fallback has been tested', 'Rehearsed, not only written down.'))) +
+      lfCard('Monitoring', 'Layer 7: what the running model has done. Record what monitoring has shown; each item is a signal the engine weighs.', lfGrid(
+        lfSelect('audit_frequency', 'How often it is audited', 'Continuous monitoring shortens the time harm stays hidden.', 'Weekly (default)') +
+        lfCheck('drift_detected', 'Drift has been detected', 'Inputs or behaviour have moved away from what was validated.') +
+        (lfGet('drift_detected') ? lfSelect('drift_type', 'Kind of drift', 'Data, concept, performance or prediction drift.') : '') +
+        lfCheck('domain_violation_occurred', 'A domain rule was violated', 'For example an output outside a physical or legal limit. This blocks the gate.') +
+        lfCheck('bias_breach_detected', 'A bias threshold was breached', 'A fairness measure went outside its declared limit.') +
+        lfCheck('quarantine_activated', 'The model was quarantined', 'Taken out of use while the cause is found.'))) +
+      lfCard('Misuse and unreliable output', 'Layers 9 and 10: counts and causes recorded from operations.', lfGrid(
+        lfCount('hallucination_incident_count', 'Hallucination incidents', 'Times a made-up answer was acted on or reached a user.') +
+        lfCount('misuse_incident_count', 'Misuse incidents', 'Times the model was used outside its intended purpose.')) +
+        `<div class="stack" style="gap:2px"><strong style="font-size:13px">Root causes found</strong><div class="lf-grid">${LF_ROOT_CAUSES.map((c) => `<label class="chk lf-chk"><input type="checkbox" data-chg="lfCause" data-arg="${c}"${(M.life.root_causes || []).indexOf(c) >= 0 ? ' checked' : ''}><span>${lfHuman(c)}</span></label>`).join('')}</div></div>`);
+    return lfFrame('runtime', 'Runtime', 'ST-AI · layers 6, 7, 9 and 10', body, ev);
+  }
+
+  function lfGovernance() {
+    const ev = evaluate();
+    const body = lfEffect(ev) +
+      lfCard('Accountability', 'Layer 8: the approvals and documents that must exist before and while the model is used.', lfGrid(
+        lfCheck('dpia_approved', 'Data protection impact assessment approved', 'GDPR Art 35. Missing, it is a blocker for personal data.') +
+        lfCheck('provider_sla_gdpr_dpa', 'Provider agreement covers GDPR', 'A data processing agreement is in place with every provider.') +
+        lfCheck('right_to_challenge_documented', 'People can challenge a decision', 'GDPR Art 22: how someone contests an automated outcome.') +
+        lfCheck('liability_boundary_declared', 'Liability boundary declared', 'Who answers when the model is wrong: provider, deployer or operator.') +
+        lfCheck('policy_hallucination_acknowledged', 'Hallucination risk accepted by policy', 'Leadership has acknowledged that the model can state falsehoods.') +
+        lfCheck('model_card_approved', 'Model card approved', 'Purpose, data, limits and tests written down and signed off.') +
+        lfCheck('hitl_formally_specified', 'Human oversight formally specified', 'EU AI Act Art 14: who reviews, when, and with what power to stop it.')) +
+        `<div class="fld"><label for="lf-conflict_resolution">How conflicts between constraints are resolved</label><input id="lf-conflict_resolution" class="inp" data-chg="lfText" data-arg="conflict_resolution" value="${esc(M.life.conflict_resolution || '')}" placeholder="For example: safety rules win over availability"></div>`) +
+      lfCard('Epistemic controls', 'Layer 9: how people are protected from trusting an answer they should not.', lfGrid(
+        lfSelect('consumption_role', 'Who consumes the output', 'An automated executor acts on it with no one reading it first.', 'Advisory reader (default)') +
+        lfSelect('confidence_signal', 'Does the model signal its uncertainty', 'Numeric or interval confidence lets a reader judge the answer.', 'Qualitative (default)') +
+        lfCheck('output_validation_gate_configured', 'An output validation gate is configured', 'Answers are checked before anyone relies on them.') +
+        lfCheck('hallucination_constraint_declared', 'A hallucination constraint is declared', 'A rule limiting what the model may assert without a source.'))) +
+      lfCard('Culture and oversight in practice', 'Layer 10: whether the oversight on paper is real.', lfGrid(
+        lfCheck('operator_training_complete', 'Operators are trained', 'Everyone who reviews the output has been trained for it.') +
+        lfCheck('hitl_verified_substantive', 'Human review is substantive', 'Reviewers genuinely check, rather than approving what the model says.') +
+        lfSelect('automation_bias_risk', 'Automation-bias risk', 'The tendency of reviewers to go along with the model.', 'Not assessed')));
+    return lfFrame('governance', 'Governance', 'ST-AI · layers 8, 9 and 10', body, ev);
+  }
+
+  function lfIncidents() {
+    const ev = evaluate(), now = Date.now();
+    const list = M.incidents.slice().sort((a, b) => String(b.detected_at).localeCompare(String(a.detected_at)));
+    const isOpen = (i) => i.status === 'OPEN' || i.status === 'INVESTIGATING';
+    const open = list.filter(isOpen), severe = open.filter((i) => i.severity >= 4);
+    const stuck = open.filter((i) => i.severity === 5 && now - new Date(i.detected_at).getTime() > 72 * 3600 * 1000);
+    const done = list.filter((i) => i.resolved_at).map((i) => new Date(i.resolved_at) - new Date(i.detected_at)).filter((x) => x >= 0);
+    const mttr = done.length ? done.reduce((x, y) => x + y, 0) / done.length : null;
+    const dur = (ms) => ms === null ? '—' : ms < 3600000 ? Math.round(ms / 60000) + ' min' : ms < 172800000 ? Math.round(ms / 360000) / 10 + ' h' : Math.round(ms / 8640000) / 10 + ' days';
+    const tile = (n, l, cls) => `<div class="lf-tile${cls ? ' ' + cls : ''}"><b class="mono">${n}</b><span class="cap">${l}</span></div>`;
+    const F = LF.form;
+    const add = `<div class="lf-form"><div class="lf-grid">
+      <div class="fld"><label for="lf-i-type">Type</label><select id="lf-i-type" class="inp" data-chg="lfForm" data-arg="type">${LF_INC_TYPES.map((v) => opt(v, lfHuman(v), F.type)).join('')}</select></div>
+      <div class="fld"><label for="lf-i-sev">Severity</label><select id="lf-i-sev" class="inp" data-chg="lfForm" data-arg="severity">${[1, 2, 3, 4, 5].map((n) => opt(String(n), `${n} · ${LF_SEV[n][0]}`, F.severity)).join('')}</select></div>
+      <div class="fld" style="grid-column:1/-1"><label for="lf-i-title">What happened</label><input id="lf-i-title" class="inp" data-chg="lfForm" data-arg="title" value="${esc(F.title)}" placeholder="One line, for example: Refund model approved out-of-policy refunds"></div>
+      <div class="fld"><label for="lf-i-owner">Owner</label><input id="lf-i-owner" class="inp" data-chg="lfForm" data-arg="owner" value="${esc(F.owner)}" placeholder="Who is handling it"></div>
+      <div class="fld"><label for="lf-i-det">Detected (now if empty)</label><input id="lf-i-det" class="inp" type="datetime-local" data-chg="lfForm" data-arg="detected" value="${esc(F.detected)}"></div>
+      <div class="fld" style="grid-column:1/-1"><label for="lf-i-desc">Details (optional)</label><textarea id="lf-i-desc" class="inp" style="min-height:64px;padding:10px 12px" data-chg="lfForm" data-arg="description">${esc(F.description)}</textarea></div></div>
+      <div><button type="button" class="btn" data-act="lfAddInc">Log incident</button></div></div>`;
+    const row = (i) => { const sv = LF_SEV[i.severity] || LF_SEV[3]; return `<div class="lrow"><span class="stack" style="min-width:0;flex:1 1 320px"><span style="font-weight:500">${esc(i.title || lfHuman(i.type))} <span class="pill ${sv[1] === 'CRITICAL' ? 'bad' : sv[1] === 'HIGH' ? 'warn' : 'ok'}">${i.severity} · ${sv[0]}</span></span><span class="cap mono">${esc(i.id)} · ${esc(lfHuman(i.type))} · detected ${esc(String(i.detected_at).slice(0, 16).replace('T', ' '))}${i.resolved_at ? ' · resolved in ' + dur(new Date(i.resolved_at) - new Date(i.detected_at)) : ''}${i.owner ? ' · ' + esc(i.owner) : ''}</span>${i.description ? `<span class="cap">${esc(i.description)}</span>` : ''}</span><span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><select class="reqsel" aria-label="Status of ${esc(i.id)}" data-chg="lfIncStatus" data-arg="${esc(i.id)}">${LF_INC_STATUS.map((s) => opt(s, lfHuman(s), i.status)).join('')}</select><button class="btn3 btn-s" data-act="lfIncDel" data-arg="${esc(i.id)}">Remove</button></span></div>`; };
+    const body = lfEffect(ev) +
+      `<div class="lf-tiles">${tile(open.length, 'Open incidents')}${tile(severe.length, 'Open, severe or critical', severe.length ? 'warn' : '')}${tile(stuck.length, 'Critical, open over 72 hours', stuck.length ? 'bad' : '')}${tile(dur(mttr), 'Mean time to resolve')}</div>` +
+      (stuck.length ? `<div class="note alert" role="alert"><strong>${stuck.length} critical incident${stuck.length === 1 ? ' has' : 's have'} been open for over 72 hours</strong><span style="font-size:13px">The gate stays blocked until ${stuck.length === 1 ? 'it is' : 'they are'} resolved.</span></div>` : '') +
+      `<section class="card" style="padding:8px 0"><div class="ph" style="display:flex;justify-content:space-between;align-items:center;gap:12px"><h2>Incident log</h2><span class="cap">${list.length} logged</span></div>${list.length ? list.map(row).join('') : '<p class="cap" style="padding:8px 20px 16px;margin:0">No incidents logged for this model.</p>'}</section>` +
+      lfCard('Log an incident', 'Each open incident feeds back into the score, closing the NIST AI RMF Manage loop.', add) +
+      `<div class="note plain" style="font-size:13px"><strong>How incidents change the score</strong><span>An open severe (4) or critical (5) incident adds 0.10 to the likelihood. Three or more drift, bias or hallucination incidents in 90 days add 0.05 to the bias term. A critical incident open for more than 72 hours blocks the gate.</span></div>`;
+    return lfFrame('incidents', 'Incidents', 'ST-AI · NIST AI RMF Manage', body, ev);
+  }
+
+  function lfDecommission() {
+    const ev = evaluate();
+    const steps = ['PLANNED', 'IN_PROGRESS', 'WEIGHTS_DISPOSED', 'DATA_DELETED', 'AUDIT_COMPLETE'], cur = M.life.decommissioning_status || '';
+    const at = steps.indexOf(cur);
+    const stepper = `<ol class="lf-steps" aria-label="Decommissioning progress">${steps.map((s, i) => `<li class="${cur === 'LEGALLY_HELD' ? '' : i < at ? 'done' : i === at ? 'now' : ''}"><i></i><span>${lfHuman(s)}</span></li>`).join('')}</ol>${cur === 'LEGALLY_HELD' ? '<div class="note warn" style="font-size:13px"><strong>Legally held</strong><span>Retirement is paused because the model, its data or its logs must be kept.</span></div>' : ''}`;
+    const t = ev.score && ev.score.pcs_result.terms, rel = t ? (t.blockers || []).concat(t.warnings || []).filter((x) => /decommission|retire|disposal|legal hold/i.test(x)) : [];
+    const body = lfEffect(ev) +
+      lfCard('Retirement', 'Layer 11: ending the model’s life safely. Leave the status empty while the model is in service.', stepper + lfGrid(
+        lfSelect('decommissioning_status', 'Status', 'Weights and training data must be disposed of, then the retirement audited.', 'In service (not being retired)') +
+        lfSelect('decommission_reason', 'Reason for retiring', 'Recorded for the audit trail; it does not change the score.') +
+        lfSelect('disposal_method', 'How the model and data are disposed of', 'Cryptographic destruction or secure deletion leaves nothing to recover.') +
+        lfCheck('legal_hold_active', 'A legal hold is active', 'Something must be kept for a case or a regulator, so disposal waits.') +
+        lfCheck('post_retirement_verified', 'Retirement has been verified', 'Someone independent has confirmed that nothing remains.'))) +
+      (rel.length ? `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:8px"><h2>What the engine says</h2>${rel.map((x) => `<div class="note plain" style="font-size:13px">${esc(lfClean(x))}</div>`).join('')}</section>` : '');
+    return lfFrame('decommission', 'Decommissioning', 'ST-AI · layer 11', body, ev);
+  }
+
+  async function lfLoadCrosswalk() {
+    if (LF.cw || LF.cwBusy) return;
+    LF.cwBusy = true;
+    try { LF.cw = await STAI.api.crosswalk(); LF.cwErr = null; } catch (e) { LF.cwErr = e.message; }
+    LF.cwBusy = false;
+    if (route() === 'm_standards') render(true);
+  }
+  function lfStandards() {
+    lfLoadCrosswalk();
+    const ev = evaluate(), cw = LF.cw;
+    const p = ev.score && ev.score.pcs_result, tiers = (p && p.terms.risk_vector && p.terms.risk_vector.tiers) || {};
+    const regs = M.nodes.filter((n) => n.kind === 'REGULATORY_REQ');
+    const ST = { SATISFIED: ['ok', 'Satisfied'], PARTIAL: ['warn', 'Partial'], NOT_YET_DETERMINED: ['muted', 'Not yet determined'], UNSATISFIED: ['bad', 'Not met'] };
+    const regCard = lfCard('Regulatory requirements in this design', 'The clauses drawn on the Model studio canvas and where each stands. Organisation-wide rules are on the <a href="#/regulations">Regulations</a> page.', regs.length ? `<div>${regs.map((n) => { const s = ST[n.data.status] || ['muted', lfHuman(n.data.status)]; return `<div class="lrow" style="padding-left:0;padding-right:0"><span class="stack"><span style="font-weight:500">${esc([n.data.instrument, n.data.clause].filter(Boolean).join(' · ') || 'Requirement')}</span><span class="cap">${n.data.evidence ? esc(n.data.evidence) : 'No evidence recorded'}${n.data.riskTier ? ' · ' + esc(n.data.riskTier) : ''}</span></span><span class="pill ${s[0]}">${esc(s[1])}</span></div>`; }).join('')}</div>` : '<p class="cap" style="margin:0">No regulatory requirement is drawn in this design. Add one from the Governance group in the Model studio.</p>');
+    let xw;
+    if (LF.cwErr) xw = `<div class="note alert"><strong>Could not load the crosswalk</strong><span>${esc(LF.cwErr)}</span></div>`;
+    else if (!cw) xw = '<section class="card" style="padding:24px"><p class="cap" style="margin:0">Loading the standards crosswalk…</p></section>';
+    else {
+      const stds = cw.standards.map((s) => s.name), want = LF.std;
+      const keep = (rows) => rows.filter((r) => !want || r.standard === want);
+      const rowsHtml = (rows) => keep(rows).map((r) => `<div class="lf-xrow"><span class="lf-std" style="--sc:${esc((cw.standards.find((s) => s.name === r.standard) || {}).colour || '#5a6680')}">${esc(r.standard)}</span><span class="mono" style="font-size:12.5px">${esc(r.clause)}</span><span style="font-size:13.5px">${esc(r.title)}</span><span class="pill ${r.relevance === 'primary' ? 'ok' : 'muted'}">${esc(r.relevance)}</span></div>`).join('');
+      const group = (title, sub, obj, withTier) => lfCard(title, sub, Object.keys(obj).map((k) => { const rows = keep(obj[k]); if (!rows.length) return ''; const tr = withTier ? tiers[k.toLowerCase()] : null; return `<details class="lf-det"${tr === 'CRITICAL' || tr === 'HIGH' ? ' open' : ''}><summary><b>${esc(lfHuman(k))}</b>${tr ? `<span class="pill ${TIER_CLS[tr]}" style="margin-left:8px">${tr}</span>` : ''}<span class="cap" style="margin-left:auto">${rows.length}</span></summary>${rowsHtml(obj[k])}</details>`; }).join('') || '<p class="cap" style="margin:0">No clause from this standard here.</p>');
+      xw = `<section class="card" style="padding:14px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><label class="cap" for="lf-std">Show only</label><select id="lf-std" class="reqsel" data-chg="lfStd"><option value="">All standards</option>${stds.map((s) => opt(s, `${s} (${cw.coverage[s] || 0})`, want)).join('')}</select><span class="cap">Every ST-AI rule is mapped to the clause that anchors it, so evidence from this platform can be shown to an auditor without re-mapping.</span></section>` +
+        group('Risk pillars', 'The six pillars and the standards that define the same concept. Pillars at a high tier for this model are opened.', cw.pillars, true) +
+        group('Gate conditions', 'The reasons a model can be blocked and the law or standard behind each.', cw.block_reasons, false) +
+        group('Lifecycle phases', 'Which clauses govern each stage of the model’s life.', cw.phases, false);
+    }
+    return lfFrame('standards', 'Regulations & standards', 'ST-AI · NIST · ISO · EU AI Act · GDPR', regCard + xw, ev);
+  }
+
+  function lfIncId() { const n = M.incidents.reduce((m, i) => Math.max(m, parseInt(String(i.id).replace(/\D/g, ''), 10) || 0), 0); return 'INC-' + String(n + 1).padStart(3, '0'); }
+  Object.assign(C, {
+    lfSet: (v, k) => { M.life[k] = !!v; persist(); },
+    lfSel: (v, k) => { if (v) M.life[k] = v; else delete M.life[k]; persist(); },
+    lfNum: (v, k) => { if (v === '') delete M.life[k]; else M.life[k] = Math.max(0, parseInt(v, 10) || 0); persist(); },
+    lfText: (v, k) => { if (v.trim()) M.life[k] = v.trim(); else delete M.life[k]; persist(); },
+    lfCause: (v, k) => { const a = new Set(M.life.root_causes || []); if (v) a.add(k); else a.delete(k); if (a.size) M.life.root_causes = Array.from(a); else delete M.life.root_causes; persist(); },
+    lfForm: (v, k) => { LF.form[k] = v; },
+    lfStd: (v) => { LF.std = v; },
+    lfIncStatus: (v, id) => {
+      const i = M.incidents.find((x) => x.id === id); if (!i) return;
+      const stamp = new Date().toISOString();
+      i.status = v;
+      if (v === 'MITIGATED' && !i.mitigated_at) i.mitigated_at = stamp;
+      if ((v === 'RESOLVED' || v === 'POST_MORTEM') && !i.resolved_at) { i.resolved_at = stamp; if (!i.mitigated_at) i.mitigated_at = stamp; }
+      if (v === 'OPEN' || v === 'INVESTIGATING') { delete i.resolved_at; }
+      persist();
+    }
+  });
+  Object.assign(H, {
+    lfAddInc: () => {
+      const F = LF.form; if (!F.title.trim()) return;
+      const det = F.detected ? new Date(F.detected) : new Date();
+      M.incidents.push({ id: lfIncId(), type: F.type, severity: parseInt(F.severity, 10) || 3, status: 'OPEN', title: F.title.trim(), description: F.description.trim(), owner: F.owner.trim(), detected_at: (isNaN(det) ? new Date() : det).toISOString() });
+      LF.form = { type: F.type, severity: '3', title: '', description: '', owner: '', detected: '' };
+      persist();
+    },
+    lfIncDel: (id) => { if (!window.confirm('Remove this incident from the log?')) return; M.incidents = M.incidents.filter((i) => i.id !== id); persist(); }
+  });
+  const LF_VIEWS = { m_overview: lfOverview, m_runtime: lfRuntime, m_governance: lfGovernance, m_incidents: lfIncidents, m_decommission: lfDecommission, m_standards: lfStandards };
+
   /* ----- shell ----- */
   function modelNav(active) {
     return `<nav class="side" aria-label="Model module">
       <a class="navback" href="#/" title="Back to the main menu">\u2190 Main menu</a>
       <div class="brand"><b>ASTRA</b><span>Model studio \u00b7 ST-AI</span></div>
       <button type="button" class="tenant" data-act="orgRename" title="Rename organisation"><strong>${esc(ORG.name)}</strong><small>Organisation · click to rename</small></button>
-      <div class="navlinks"><a href="#/model"${active === 'model' ? ' class="on" aria-current="page"' : ''}><span>Model studio</span><small>${M.nodes.length || ''}</small></a><a href="#/model/contracts"${active === 'contracts' ? ' class="on" aria-current="page"' : ''}><span>Compiled contracts</span><small>${M.contracts.length || ''}</small></a></div>
+      <div class="navlinks">${[['/overview', 'Overview', '', 'overview'], ['', 'Model studio', M.nodes.length || '', 'model'], ['/runtime', 'Runtime', '', 'runtime'], ['/governance', 'Governance', '', 'governance'], ['/incidents', 'Incidents', M.incidents.filter((i) => i.status === 'OPEN' || i.status === 'INVESTIGATING').length || '', 'incidents'], ['/decommission', 'Decommissioning', '', 'decommission'], ['/standards', 'Regulations & standards', '', 'standards'], ['/contracts', 'Compiled contracts', M.contracts.length || '', 'contracts']].map(([to, l, b, k]) => `<a href="#/model${to}"${active === k ? ' class="on" aria-current="page"' : ''}><span>${l}</span><small>${b}</small></a>`).join('')}</div>
       ${whoBox()}
       <div class="demo">Connected to the ST-AI backend</div></nav>`;
   }
@@ -1885,13 +2219,13 @@ kill_switch:
     mNew: async () => {
       if (M.nodes.length && !window.confirm('Start a new design? The current one stays saved and can be opened again from the Saved design list.')) return;
       await flushSave();
-      Object.assign(M, { orgRef: null, nodes: [], edges: [], sel: null, name: 'Untitled model deployment', compileMsg: null, n: 1, designKey: null, version: 0, saveState: 'saved', saveError: null }); SV.dirty = false; lsSet(LS_CURRENT, null); render(true);
+      Object.assign(M, { orgRef: null, nodes: [], edges: [], sel: null, name: 'Untitled model deployment', compileMsg: null, n: 1, life: {}, incidents: [], designKey: null, version: 0, saveState: 'saved', saveError: null }); SV.dirty = false; lsSet(LS_CURRENT, null); render(true);
     },
     mDeleteDesign: async () => {
       if (!M.designKey || !window.confirm('Delete this design? Contracts compiled from it are kept.')) return;
       try { await STAI.api.deleteDesign(M.designKey); } catch (e) { M.compileMsg = { tone: 'alert', action: null, title: 'Could not delete', text: e.message }; render(true); return; }
       SV.dirty = false; await refreshDesignList();
-      if (M.designs.length) await openDesign(M.designs[0].design_key); else Object.assign(M, { nodes: [], edges: [], sel: null, name: 'Untitled model deployment', n: 1, designKey: null, version: 0, saveState: 'saved' });
+      if (M.designs.length) await openDesign(M.designs[0].design_key); else Object.assign(M, { nodes: [], edges: [], sel: null, name: 'Untitled model deployment', n: 1, life: {}, incidents: [], designKey: null, version: 0, saveState: 'saved' });
       try { await refreshModelContracts(); } catch (e) { /* unchanged */ }
       M.compileMsg = null; render(true);
     },
@@ -2025,7 +2359,7 @@ kill_switch:
       <h1 style="font-size:32px;margin-top:8px">Choose a module</h1><p class="cap" style="font-size:15px;margin:0 0 8px">Choose the module that fits what you're assessing: an AI agent, or an AI model deployment. Each works on its own.</p>
       <div class="landing-grid">
         <a class="choice landing-card" href="#/overview"><span class="pill ok" style="align-self:flex-start">Agent</span><h2 style="font-size:22px">Agent assurance</h2><span class="cap" style="font-size:14px">Design agents in the Secure Tropos studio, register running agents, review drift, ratify contracts and export Assurance Packs.</span><span style="display:flex;gap:8px;flex-wrap:wrap"><span class="pill muted">Design studio</span><span class="pill muted">Drift review</span><span class="pill muted">OWASP ASI</span><span class="pill muted">Risk score</span></span><span style="font-weight:600;color:var(--fg-1e4fcb)">Open agent module \u2192</span></a>
-        <a class="choice landing-card" href="#/model"><span class="pill" style="align-self:flex-start;background:var(--bg-ede7fb);color:var(--fg-4c1d95)">Model</span><h2 style="font-size:22px">Model studio</h2><span class="cap" style="font-size:14px">Map an AI model deployment's actors, departments, data and constraints, score it with the ST-AI PCS engine and compile a contract once it is green.</span><span style="display:flex;gap:8px;flex-wrap:wrap"><span class="pill muted">PCS engine</span><span class="pill muted">GDPR \u00b7 EU AI Act</span><span class="pill muted">Constraint bundles</span><span class="pill muted">Contracts</span></span><span style="font-weight:600;color:var(--fg-1e4fcb)">Open model module \u2192</span></a>
+        <a class="choice landing-card" href="#/model/overview"><span class="pill" style="align-self:flex-start;background:var(--bg-ede7fb);color:var(--fg-4c1d95)">Model</span><h2 style="font-size:22px">Model studio</h2><span class="cap" style="font-size:14px">Map an AI model deployment's actors, departments, data and constraints, score it with the ST-AI PCS engine and compile a contract once it is green.</span><span style="display:flex;gap:8px;flex-wrap:wrap"><span class="pill muted">PCS engine</span><span class="pill muted">GDPR \u00b7 EU AI Act</span><span class="pill muted">Constraint bundles</span><span class="pill muted">Contracts</span></span><span style="font-weight:600;color:var(--fg-1e4fcb)">Open model module \u2192</span></a>
       </div><span class="cap">Signed in as ${esc(ME.full_name)} (${esc(ROLE_LABEL[ME.role])}) \u00b7 <button class="btn3" data-act="acctSignOut">Sign out</button>${can('admin') ? ' \u00b7 <a href="#/users">Users</a>' : ''}${can('audit') ? ' \u00b7 <a href="#/audit">Audit log</a>' : ''}</span></div></div>`;
   }
 
@@ -2552,9 +2886,9 @@ kill_switch:
         <a href="#/regulations"${active === 'regulations' ? ' class="on" aria-current="page"' : ''}><span>Regulations</span><small></small></a>
         <div class="navgrp">Modules</div>
         <a href="#/overview"><span>Agent assurance</span><small>\u2192</small></a>
-        <a href="#/model"><span>Model studio \u00b7 ST-AI</span><small>\u2192</small></a></div>
+        <a href="#/model/overview"><span>Model studio \u00b7 ST-AI</span><small>\u2192</small></a></div>
       ${whoBox()}</nav>`;
-  const orgModules = () => `<section class="og-two" aria-label="Continue to a module"><a class="choice" href="#/overview" style="padding:18px 20px;gap:6px"><span class="pill ok" style="align-self:flex-start">Agent</span><b style="font-size:17px">Agent assurance</b><span class="cap">Design agents, register running agents, review drift and findings, and watch them live.</span></a><a class="choice" href="#/model" style="padding:18px 20px;gap:6px"><span class="pill" style="align-self:flex-start;background:var(--bg-ede7fb);color:var(--fg-4c1d95)">Model</span><b style="font-size:17px">Model studio \u00b7 ST-AI</b><span class="cap">Assess an AI model deployment: its actors, data and constraints, and compile a contract.</span></a></section>`;
+  const orgModules = () => `<section class="og-two" aria-label="Continue to a module"><a class="choice" href="#/overview" style="padding:18px 20px;gap:6px"><span class="pill ok" style="align-self:flex-start">Agent</span><b style="font-size:17px">Agent assurance</b><span class="cap">Design agents, register running agents, review drift and findings, and watch them live.</span></a><a class="choice" href="#/model/overview" style="padding:18px 20px;gap:6px"><span class="pill" style="align-self:flex-start;background:var(--bg-ede7fb);color:var(--fg-4c1d95)">Model</span><b style="font-size:17px">Model studio \u00b7 ST-AI</b><span class="cap">Assess an AI model deployment: its actors, data and constraints, and compile a contract.</span></a></section>`;
   // The sidebar shows the organisation's name, and an import can rename it (administrators): keep the two in step.
   function coSetData(d) { CO.data = d; if (d && d.organisation && d.organisation.name) ORG.name = d.organisation.name; }
   async function loadCompany() {
@@ -3185,7 +3519,7 @@ kill_switch:
         if (r.platform_cleared) {
           clearTimeout(AGS.timer); clearTimeout(SV.timer); SV.dirty = false;
           resetAgentStudio(); AG.list = []; AG.designs = [];
-          Object.assign(M, { orgRef: null, nodes: [], edges: [], sel: null, name: 'Untitled model deployment', compileMsg: null, n: 1, designKey: null, version: 0, saveState: 'saved', saveError: null, designs: [], contracts: [], cstatus: {}, viewContract: null });
+          Object.assign(M, { orgRef: null, nodes: [], edges: [], sel: null, name: 'Untitled model deployment', compileMsg: null, n: 1, life: {}, incidents: [], designKey: null, version: 0, saveState: 'saved', saveError: null, designs: [], contracts: [], cstatus: {}, viewContract: null });
           lsSet(LS_CURRENT, null); lsSet(AG_LS, null);
         }
         coStale(); loadAgents(); loadFD(); loadCV();
@@ -3282,7 +3616,7 @@ kill_switch:
       for (let i = 0; i < 60 && !M.loaded; i++) await new Promise((res) => setTimeout(res, 100));
       if (M.nodes.length && !window.confirm('Start a new model design from the organisation? The current design stays saved and can be opened again from the Saved design list.')) return;
       await flushSave();
-      Object.assign(M, { orgRef: { id, name: r.name }, nodes: [], edges: [], sel: null, name: r.description.deployment_name || 'Untitled model deployment', compileMsg: null, n: 1, designKey: null, version: 0, saveState: 'saved', saveError: null }); SV.dirty = false; lsSet(LS_CURRENT, null);
+      Object.assign(M, { orgRef: { id, name: r.name }, nodes: [], edges: [], sel: null, name: r.description.deployment_name || 'Untitled model deployment', compileMsg: null, n: 1, life: {}, incidents: [], designKey: null, version: 0, saveState: 'saved', saveError: null }); SV.dirty = false; lsSet(LS_CURRENT, null);
       try {
         const g = await STAI.api.importDescription(r.description);
         applyGenerated(g); fitZoom();
@@ -3300,6 +3634,7 @@ kill_switch:
     if (r === 'modules') return 'home';
     if (r === 'model') return 'model';
     if (r === 'model/contracts') return 'modelcontracts';
+    if (/^model\/(overview|runtime|governance|incidents|decommission|standards)$/.test(r)) return 'm_' + r.slice(6);
     if (r === 'policies') return 'policies';
     if (r === 'regulations') return 'regulations';
     return SCREENS[r] ? r : 'overview';
@@ -3312,6 +3647,7 @@ kill_switch:
     let html;
     if (r === 'home') html = home();
     else if (r === 'model') html = `<div class="shell">${modelNav('model')}<main id="main" class="wide">${modelStudio()}</main></div>`;
+    else if (r.startsWith('m_')) html = `<div class="shell">${modelNav(r.slice(2))}<main id="main">${LF_VIEWS[r]()}</main></div>`;
     else if (r === 'modelcontracts') html = `<div class="shell">${modelNav('contracts')}<main id="main">${modelContracts()}</main></div>`;
     else if (r === 'policies') html = `<div class="shell">${orgNav('policies')}<main id="main">${policiesScreen()}</main></div>`;
     else if (r === 'regulations') html = `<div class="shell">${orgNav('regulations')}<main id="main">${regulationsScreen()}</main></div>`;
@@ -3322,7 +3658,7 @@ kill_switch:
     if (mainEl && ME.role === 'auditor') mainEl.insertAdjacentHTML('afterbegin', '<div class="note plain" role="status"><strong>Read-only</strong><span style="font-size:13px">Your role is auditor: you can view everything and the audit log, but not change anything.</span></div>');
     if (keepScroll) Object.keys(keep).forEach((q) => { const el = document.querySelector(q); if (el) { el.scrollLeft = keep[q][0]; el.scrollTop = keep[q][1]; } });
     window.scrollTo(0, keepScroll ? y : 0);
-    const titles = { home: 'ASTRA \u00b7 Choose a module', model: 'ASTRA \u00b7 Model studio', modelcontracts: 'ASTRA \u00b7 Compiled contracts', policies: 'ASTRA \u00b7 Policies', regulations: 'ASTRA \u00b7 Regulations', organisation: 'ASTRA \u00b7 Organisation', users: 'ASTRA \u00b7 Users', audit: 'ASTRA \u00b7 Audit log' };
+    const titles = { m_overview: 'ASTRA \u00b7 Model overview', m_runtime: 'ASTRA \u00b7 Model runtime', m_governance: 'ASTRA \u00b7 Model governance', m_incidents: 'ASTRA \u00b7 Model incidents', m_decommission: 'ASTRA \u00b7 Model decommissioning', m_standards: 'ASTRA \u00b7 Regulations and standards', home: 'ASTRA \u00b7 Choose a module', model: 'ASTRA \u00b7 Model studio', modelcontracts: 'ASTRA \u00b7 Compiled contracts', policies: 'ASTRA \u00b7 Policies', regulations: 'ASTRA \u00b7 Regulations', organisation: 'ASTRA \u00b7 Organisation', users: 'ASTRA \u00b7 Users', audit: 'ASTRA \u00b7 Audit log' };
     document.title = titles[r] || 'ASTRA \u00b7 Agent assurance prototype';
     agentAutosaveCheck();
   }

@@ -22,7 +22,12 @@ from framework.enums import (
     ConstraintTypeEnum, SilentFailureEnum, ConfidenceSignalEnum,
     AICriticalityEnum, ExperienceLevelEnum, BudgetBandEnum,
     ConsumptionRoleEnum, AuditFrequencyEnum, GateDecisionEnum,
-    ActionTierEnum,
+    ActionTierEnum, RollbackModeEnum, AIDependencyLevelEnum, DeploymentModeEnum,
+    DriftTypeEnum, RootCauseEnum, BiasRiskLevelEnum, DecommissioningStatusEnum,
+    DisposalMethodEnum,
+)
+from framework.incidents import (
+    Incident, IncidentRegister, IncidentTypeEnum, IncidentStatusEnum, IncidentSeverityEnum,
 )
 
 # Mapping from string keys in the Design Studio schema → enum values.
@@ -49,6 +54,73 @@ def _e(mapping: dict, value, default):
     if value is None:
         return default
     return mapping.get(str(value), default)
+
+
+def _enum_map(enum_cls):
+    return {e.value: e for e in enum_cls}
+
+
+_LIFE_ENUMS = {
+    "rollback_mode": _enum_map(RollbackModeEnum),
+    "ai_dependency_level": _enum_map(AIDependencyLevelEnum),
+    "deployment_mode": _enum_map(DeploymentModeEnum),
+    "audit_frequency": _enum_map(AuditFrequencyEnum),
+    "drift_type": _enum_map(DriftTypeEnum),
+    "consumption_role": _enum_map(ConsumptionRoleEnum),
+    "automation_bias_risk": _enum_map(BiasRiskLevelEnum),
+    "decommissioning_status": _enum_map(DecommissioningStatusEnum),
+    "disposal_method": _enum_map(DisposalMethodEnum),
+}
+_LIFE_FLAGS = (
+    "model_card_approved", "fallback_procedure_exists", "fallback_tested",
+    "drift_detected", "domain_violation_occurred", "bias_breach_detected", "quarantine_activated",
+    "dpia_approved", "provider_sla_gdpr_dpa", "hitl_formally_specified",
+    "policy_hallucination_acknowledged", "liability_boundary_declared", "right_to_challenge_documented",
+    "output_validation_gate_configured", "hitl_verified_substantive", "operator_training_complete",
+    "legal_hold_active", "post_retirement_verified",
+)
+_LIFE_COUNTS = ("hallucination_incident_count", "misuse_incident_count")
+_INC_TYPES = _enum_map(IncidentTypeEnum)
+_INC_STATUS = _enum_map(IncidentStatusEnum)
+
+
+def _naive(dt):
+    return dt.astimezone().replace(tzinfo=None) if dt is not None and dt.tzinfo else dt   # the framework compares against datetime.now()
+
+
+def _apply_lifecycle(rs: RegistryState, rb: RegistryBlock) -> None:
+    """Copy the stated lifecycle facts (layers 6-11) and the incident log into the state; unstated ones keep their defaults."""
+    life = rb.lifecycle
+    for name, table in _LIFE_ENUMS.items():
+        v = getattr(life, name)
+        if v is not None and str(v) in table:
+            setattr(rs, name, table[str(v)])
+    for name in _LIFE_FLAGS:
+        v = getattr(life, name)
+        if v is not None:
+            setattr(rs, name, bool(v))
+    for name in _LIFE_COUNTS:
+        v = getattr(life, name)
+        if v is not None:
+            setattr(rs, name, max(0, int(v)))
+    if life.conflict_resolution:
+        rs.conflict_resolution = life.conflict_resolution
+    if life.root_causes:
+        rc = _enum_map(RootCauseEnum)
+        rs.root_causes = [rc[r] for r in life.root_causes if r in rc]
+    reg = IncidentRegister()
+    for i in rb.incident_register:
+        reg.incidents.append(Incident(
+            incident_id=i.id,
+            incident_type=_INC_TYPES.get(i.type, IncidentTypeEnum.MODEL_FAILURE),
+            severity=IncidentSeverityEnum(i.severity),
+            status=_INC_STATUS.get(i.status, IncidentStatusEnum.OPEN),
+            occurred_at=_naive(i.occurred_at), detected_at=_naive(i.detected_at),
+            mitigated_at=_naive(i.mitigated_at), resolved_at=_naive(i.resolved_at),
+            title=i.title, description=i.description, root_cause=i.root_cause,
+            lessons_learned=i.lessons_learned, owner=i.owner,
+        ))
+    rs.incident_register = reg
 
 
 def registry_block_to_state(rb: RegistryBlock) -> RegistryState:
@@ -104,6 +176,8 @@ def registry_block_to_state(rb: RegistryBlock) -> RegistryState:
         confidence_signal=_e(_CONFIDENCE, rb.confidence_signal, ConfidenceSignalEnum.QUALITATIVE),
         deployment_name=rb.deployment_context.domain or "",
     )
+
+    _apply_lifecycle(rs, rb)
 
     # Post-init fields that RegistryState sets in __post_init__ —
     # we only override if the caller explicitly passed something.
@@ -173,6 +247,12 @@ def score_registry(rb: RegistryBlock) -> tuple[PCSResultBlock, list[str]]:
                 "composite": rv.composite if rv else None,
                 "gate_blocked": bool(rv.gate_blocked) if rv else False,
                 "blocking_dimension": rv.blocking_dimension if rv else "",
+                "tiers": ({
+                    "likelihood": rv.tier_likelihood.value, "severity": rv.tier_severity.value,
+                    "vulnerability": rv.tier_vulnerability.value, "uncertainty": rv.tier_uncertainty.value,
+                    "autonomy": rv.tier_autonomy.value, "evolution": rv.tier_evolution.value,
+                    "composite": rv.tier_composite.value,
+                } if rv else {}),
             },
         },
     )
