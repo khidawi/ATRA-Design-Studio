@@ -1,11 +1,11 @@
 """
 Removing an AI agent or an AI model from the platform (Task 15).
 
-The organisation, Agent assurance and the Model studio are one platform, so removing an agent or a model removes it everywhere:
+The organisation, AI Agents and AI Models are one platform, so removing an agent or a model removes it everywhere:
 
   agent  - its inventory entry, its designs, every contract issued for it, its findings, its drift items, its runtime events, and its place
            in the organisation (the node and every connection to it);
-  model  - its place in the organisation, the Model studio designs that were started from it, and the contracts compiled from those designs.
+  model  - its place in the organisation, AI Models designs that were started from it, and the contracts compiled from those designs.
 
 Evidence packs are point-in-time records that cite contracts by id and hash, so a pack must stay verifiable after a contract is removed:
 each removed contract leaves a small tombstone (id, hash, who removed it and when) and verifying a pack reports it as removed, not as tampered with.
@@ -54,7 +54,7 @@ def agent_designs(session: Session, key: str) -> List[Design]:
 
 
 def model_designs(session: Session, ext_id: str) -> List[Design]:
-    """The Model studio designs that were started from this organisation model (they remember it in their document)."""
+    """The AI Models designs that were started from this organisation model (they remember it in their document)."""
     return [d for d in session.scalars(select(Design).where(Design.subject == "MODEL")) if ((d.document or {}).get("org") or {}).get("id") == ext_id]
 
 
@@ -121,7 +121,7 @@ def remove_agent(session: Session, key: str, user: AuthUser) -> Dict[str, Any]:
 
 
 def remove_model(session: Session, ext_id: str, user: AuthUser) -> Dict[str, Any]:
-    """Removes an organisation model, the Model studio designs started from it, and the contracts compiled from them. Commits."""
+    """Removes an organisation model, AI Models designs started from it, and the contracts compiled from them. Commits."""
     import company
     impact = model_impact(session, ext_id)
     org = current_organisation(session)

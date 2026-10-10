@@ -267,19 +267,19 @@ def run_checks(nodes: List[Dict[str, Any]], edges: List[Dict[str, Any]], live: D
             add("cross_department", "warn", "Crosses departments", f"{a['name']} → {b['name']} ({P(da)} → {P(db)})." + (f" Passes: {', '.join(data)}." if data else "") + " No policy covers it.", [a["id"], b["id"]], "Add a policy")
         lv = live["tasks"].get(e["id"])
         if lv and lv["declared"] is False:
-            add("not_in_contract", "bad", "Not in the contract", f"{a['name']} → {b['name']} is drawn here, but {a['name']}'s contract v{lv['contract_version']} does not declare the handoff.", [a["id"], b["id"]], "Review in Agent assurance")
+            add("not_in_contract", "bad", "Not in the contract", f"{a['name']} → {b['name']} is drawn here, but {a['name']}'s contract v{lv['contract_version']} does not declare the handoff.", [a["id"], b["id"]], "Review in AI Agents")
     for u in live["unmodelled"]:
         add("seen_not_modelled", "bad" if u["declared"] is False else "info", "Seen at runtime, not in the organisation",
             f"{P(u['from'])} handed work to {u['to_name']} {u['count']} time(s) in the last 30 days" + ("; its contract does not declare it." if u["declared"] is False else "."), [u["from"]] + ([u["to"]] if u["to"] else []), "Add the task link")
     for s in systems:
         if s["type"] == "agent" and not live["agents"].get(s["id"], {}).get("registered"):
-            add("not_registered", "info", "Not in Agent assurance", f"{s['name']} is in the organisation but not registered as an agent yet.", [s["id"]], "")
+            add("not_registered", "info", "Not in AI Agents", f"{s['name']} is in the organisation but not registered as an agent yet.", [s["id"]], "")
     if live["unmapped_agents"]:
         names = ", ".join(a["name"] for a in live["unmapped_agents"][:4]) + (f" and {len(live['unmapped_agents']) - 4} more" if len(live["unmapped_agents"]) > 4 else "")
         add("unmapped_agents", "info", "Agents not in the organisation", f"{len(live['unmapped_agents'])} registered agent(s) have no place in the organisation yet: {names}.", [], "Add them")
     for m in (n for n in nodes if n["type"] == "model"):
         if live.get("models", {}).get(m["id"], {}).get("designs", 1) == 0:
-            add("no_model_design", "info", "Not in the Model studio", f"{m['name']} is in the organisation but has no design in the Model studio yet.", [m["id"]], "Create it")
+            add("no_model_design", "info", "Not in AI Models", f"{m['name']} is in the organisation but has no design in AI Models yet.", [m["id"]], "Create it")
     for t in (n for n in nodes if n["type"] == "threat"):
         if not any(e["kind"] == "mitigates" and e["to"] == t["id"] for e in edges):
             add("threat_unprotected", "bad", "Threat with no protection", f"{t['name']}: nothing mitigates it yet.", [t["id"]], "Add a protection")
@@ -308,11 +308,11 @@ def state(session: Session) -> Dict[str, Any]:
     return {"organisation": {"name": org.name}, "nodes": nodes, "edges": edges, "live": live, "checks": res["checks"], "violations": res["violations"], "counts": dict(counts)}
 
 
-# ── The organisation's agents become entries in Agent assurance ────────────
+# ── The organisation's agents become entries in AI Agents ────────────
 
 def register_org_agents(session: Session, org: Any, only: Optional[List[str]] = None) -> List[str]:
-    """Creates the Agent assurance inventory entry for each AI agent of the organisation that has none, so it can be designed and ratified there. An
-    entry that exists is left alone. The agents come first; the AI models follow when the Model studio starts a design from them. Does not commit."""
+    """Creates the AI Agents inventory entry for each AI agent of the organisation that has none, so it can be designed and ratified there. An
+    entry that exists is left alone. The agents come first; the AI models follow when AI Models starts a design from them. Does not commit."""
     import removal
     nodes = {n.ext_id: n for n in session.scalars(select(CompanyNode).where(CompanyNode.organisation_id == org.id).order_by(CompanyNode.created_at, CompanyNode.ext_id))}
     have = {k for (k,) in session.execute(select(Agent.agent_key))}
@@ -333,7 +333,7 @@ def register_org_agents(session: Session, org: Any, only: Optional[List[str]] = 
 
 @router.post("/sync-agents")
 def sync_agents(session: Session = Depends(get_session)) -> Dict[str, Any]:
-    """Creates the Agent assurance entry for every agent, then the Model studio design for every model, of the organisation that has none yet (idempotent)."""
+    """Creates the AI Agents entry for every agent, then AI Models design for every model, of the organisation that has none yet (idempotent)."""
     org = current_organisation(session)
     made = register_org_agents(session, org)
     models = register_org_models(session, org)
@@ -341,13 +341,13 @@ def sync_agents(session: Session = Depends(get_session)) -> Dict[str, Any]:
     return {"created": made, "models_created": models}
 
 
-# ── The organisation's models become designs in the Model studio ───────────
+# ── The organisation's models become designs in AI Models ───────────
 
 ACTOR_EDGE = {"TRAINER": ("TRAINS", "trains"), "VALIDATOR": ("VALIDATES", "validates"), "DEPLOYER": ("DEPLOYS", "deploys"), "OPERATOR": ("OPERATES", "operates")}
 
 
 def build_model_document(res: Dict[str, Any], ext_id: str) -> Dict[str, Any]:
-    """A Model studio design document for one organisation model: the departments, the people in each lifecycle role, the model, where it runs
+    """A AI Models design document for one organisation model: the departments, the people in each lifecycle role, the model, where it runs
     and what it was trained on, with the same positions the studio gives an imported description (applyGenerated). Pure code."""
     desc = res["description"]
     counter = [1]
@@ -419,8 +419,8 @@ def build_model_document(res: Dict[str, Any], ext_id: str) -> Dict[str, Any]:
 
 
 def register_org_models(session: Session, org: Any, only: Optional[List[str]] = None) -> List[str]:
-    """Creates a Model studio design for each AI model of the organisation that has none, so the model appears in the ST-AI studio the moment the
-    company is described, as its agents appear in Agent assurance. The design starts from what the organisation knows and the constraints start
+    """Creates a AI Models design for each AI model of the organisation that has none, so the model appears in AI Models the moment the
+    company is described, as its agents appear in AI Agents. The design starts from what the organisation knows and the constraints start
     as not yet determined. A design that exists is left alone. Does not commit; returns the ids of the models that got a design."""
     import secrets
 
@@ -738,7 +738,7 @@ def _clean_edge_props(kind: str, props: Dict[str, Any]) -> Dict[str, Any]:
 class ClearIn(BaseModel):
     confirm: str = Field(max_length=200)                      # the organisation's name, typed out: a stray API call cannot clear it
     new_name: Optional[str] = Field(None, max_length=120)     # optionally start the new company under its own name
-    remove_everywhere: bool = True                            # also clear Agent assurance and the Model studio: start from scratch
+    remove_everywhere: bool = True                            # also clear AI Agents and AI Models: start from scratch
 
 
 def clear_impact(session: Session) -> Dict[str, Any]:
@@ -762,7 +762,7 @@ def get_clear_impact(session: Session = Depends(get_session)) -> Dict[str, Any]:
 @router.delete("")
 def clear_company(body: ClearIn, session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> Dict[str, Any]:
     """Starts from scratch. Deletes the company (every node and connection) and, unless remove_everywhere is false, everything built on it: the
-    organisation, Agent assurance and the Model studio are one platform, so every agent and AI model, their designs, every contract, finding,
+    organisation, AI Agents and AI Models are one platform, so every agent and AI model, their designs, every contract, finding,
     drift item and runtime event, the evidence packs and the coverage assignments go with it. Users, API keys, policies, regulations and the audit
     log are kept (and the audit log records who did this and what it took). Administrators only."""
     from db.models import CoverageAssignment, EvidencePack, RemovedContract
@@ -878,7 +878,7 @@ def node_removal_impact(ext_id: str, session: Session = Depends(get_session)) ->
 
 @router.delete("/nodes/{ext_id}")
 def delete_node(ext_id: str, session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> Dict[str, Any]:
-    """Deletes an item. An AI agent or AI model is removed from the whole platform with it (Agent assurance and the Model studio are the same
+    """Deletes an item. An AI agent or AI model is removed from the whole platform with it (AI Agents and AI Models are the same
     platform as the organisation), which only an administrator may do."""
     import removal
     org = current_organisation(session)
@@ -887,7 +887,7 @@ def delete_node(ext_id: str, session: Session = Depends(get_session), user: Auth
         raise HTTPException(status_code=404, detail="That item is not in the organisation.")
     if row.type in ("agent", "model"):
         if user.role != "admin":
-            raise HTTPException(status_code=403, detail="Only an administrator can remove an AI agent or model: it is removed from Agent assurance and the Model studio as well.")
+            raise HTTPException(status_code=403, detail="Only an administrator can remove an AI agent or model: it is removed from AI Agents and AI Models as well.")
         done = removal.remove_agent(session, removal.node_key(row), user) if row.type == "agent" else removal.remove_model(session, ext_id, user)
         return {"deleted": ext_id, "removed": done}
     others = list(session.scalars(select(CompanyNode).where(CompanyNode.organisation_id == org.id, CompanyNode.ext_id != ext_id)))
@@ -1563,7 +1563,7 @@ def agent_seed(session: Session, ext_id: str) -> Dict[str, Any]:
 
 
 def model_description(session: Session, ext_id: str) -> Dict[str, Any]:
-    """A deployment description (the format the Model studio already imports) for one model: its departments, the people in each lifecycle role, and where it runs."""
+    """A deployment description (the format AI Models already imports) for one model: its departments, the people in each lifecycle role, and where it runs."""
     from compliance_schema import DeploymentDescription
     N, edges = _graph(session)
     m = _system(N, ext_id, "model")
@@ -1586,7 +1586,7 @@ def model_description(session: Session, ext_id: str) -> Dict[str, Any]:
         t = N[e["to"]]
         sub = next((s for rx, s in MODEL_ROLES if rx.search(e["label"])), None)
         if sub is None:
-            skipped.append(f"{t['name']} ({e['label'] or 'no role'}): the model studio has no place for this role")
+            skipped.append(f"{t['name']} ({e['label'] or 'no role'}): AI Models has no place for this role")
             continue
         actors.append({"temp_id": f"act-{len(actors) + 1}", "subtype": sub, "identity": t["name"], "department_temp_id": add_dept(t["props"].get("department")) if t["type"] in PEOPLE else None})
     envs = [{"temp_id": f"env-{e['from']}", "name": N[e["from"]]["name"], "description": N[e["from"]]["props"].get("sub", "")} for e in edges if e["kind"] == "hosts" and e["to"] == ext_id and e["from"] in N]

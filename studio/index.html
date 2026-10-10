@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script>try{document.documentElement.dataset.theme=localStorage.getItem('astra-theme')==='dark'?'dark':'light'}catch(e){document.documentElement.dataset.theme='light'}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ASTRA · Agent assurance prototype</title>
+<title>ASTRA · AI Agents</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 /* ---------- Themes: every colour below is a setting. Light is the platform's original look; dark is the same layout in darker tones. ---------- */
@@ -347,7 +347,7 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
     try {
       res = await fetch(BASE + path, Object.assign({ credentials: 'same-origin' }, opts, { headers: Object.assign({ 'Content-Type': 'application/json', 'X-ASTRA-CSRF': '1' }, (opts && opts.headers) || {}) }));
     } catch (e) {
-      const err = new Error('Cannot reach the ST-AI backend. Is it running?');
+      const err = new Error('Cannot reach the ASTRA backend. Is it running?');
       err.network = true;
       throw err;
     }
@@ -439,7 +439,7 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       verifyAudit: () => call('/api/audit/verify'),
       download: async (path, fallback) => {
         let res;
-        try { res = await fetch(BASE + path, { credentials: 'same-origin' }); } catch (e) { const err = new Error('Cannot reach the ST-AI backend. Is it running?'); err.network = true; throw err; }
+        try { res = await fetch(BASE + path, { credentials: 'same-origin' }); } catch (e) { const err = new Error('Cannot reach the ASTRA backend. Is it running?'); err.network = true; throw err; }
         if (res.status === 401 && STAI.onUnauthorized) STAI.onUnauthorized();
         if (!res.ok) { let body = null; try { body = await res.json(); } catch (e) { /* not JSON */ } throw new Error(errText(body && body.detail !== undefined ? body.detail : body, res.status + ' ' + res.statusText)); }
         const m = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '');
@@ -527,7 +527,7 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
   function nav(active) {
     return `<nav class="side" aria-label="Main">
       <a class="navback" href="#/" title="Back to the main menu">\u2190 Main menu</a>
-      <div class="brand"><b>ASTRA</b><span>Agent assurance</span></div>
+      <div class="brand"><b>ASTRA</b><span>AI Agents</span></div>
       <button type="button" class="tenant" data-act="orgRename" title="Rename organisation"><strong>${esc(ORG.name)}</strong><small>Organisation · click to rename</small></button>
       <div class="navlinks">${NAV.map(([k, l, b]) => (k === 'agents' ? [k, l, AG.loaded && AG.list.length ? String(AG.list.length) : ''] : (k === 'drift' ? [k, l, FD.loaded ? String(FD.drift.filter((x) => x.status === 'OPEN').length || '') : ''] : (k === 'findings' ? [k, l, FD.loaded ? String(FD.findings.filter((x) => x.status === 'OPEN').length || '') : ''] : (k === 'coverage' ? [k, l, CV.loaded && CV.data.agents_in_scope ? CV.data.covered + '/' + (CV.data.covered + CV.data.partial + CV.data.gap + CV.data.no_data) : ''] : (k === 'runtime' ? [k, l, RT.loaded ? String(RT.data.agents.filter((a) => a.status === 'live').length || '') : ''] : (k === 'workspace' ? [k, l, FD.loaded ? String(FD.drift.filter((x) => x.status === 'OPEN' && x.source !== 'DEMO').length || '') : ''] : [k, l, b]))))))).map(([k, l, b]) => `<a href="#/${k}"${k === active ? ' class="on" aria-current="page"' : ''}><span>${l}</span><small>${b}</small></a>`).join('')}</div>
       ${whoBox()}
@@ -1909,12 +1909,12 @@ kill_switch:
 
   // The page frame every lifecycle page shares: heading, the design in use, the current score, and a note when nothing has been designed yet.
   function lfFrame(sub, title, eyebrow, body, ev) {
-    if (!BOOT.ready) return hdr('ST-AI · model lifecycle', BOOT.error ? 'Backend unavailable' : 'Connecting to the backend…') + (BOOT.error ? `<div class="note alert" role="alert"><strong>Could not load the catalogue</strong><span>${esc(BOOT.error)}</span><button class="btn2 btn-s" style="align-self:flex-start" data-act="mRetryBoot">Retry</button></div>` : '');
+    if (!BOOT.ready) return hdr('AI Models · model lifecycle', BOOT.error ? 'Backend unavailable' : 'Connecting to the backend…') + (BOOT.error ? `<div class="note alert" role="alert"><strong>Could not load the catalogue</strong><span>${esc(BOOT.error)}</span><button class="btn2 btn-s" style="align-self:flex-start" data-act="mRetryBoot">Retry</button></div>` : '');
     const p = ev && ev.score && ev.score.pcs_result;
     const badge = ev && ev.scoreError ? '<span class="pill bad">Score rejected</span>' : (p ? `<span class="lf-badge"><span class="mono">PCS ${STAI.pyFixed(p.pcs_final, 1)}</span><span class="pill ${TIER_CLS[p.tier]}">${p.tier}</span><span class="pill ${GATE_CLS[p.gate]}">${p.gate.replace('_', ' ')}</span></span>` : `<span class="pill muted">${ev && ev.pending ? 'Scoring…' : 'No score'}</span>`);
     const picker = `<div class="fld" style="gap:2px"><label for="m-design" style="font-size:12px">Model design</label><select id="m-design" class="inp" style="min-height:38px;max-width:280px" data-chg="mOpen">${M.designKey ? '' : '<option value="" selected>(none yet)</option>'}${M.designs.map((d) => opt(d.design_key, `${d.name} · ${d.node_count} elements`, M.designKey)).join('')}</select></div>`;
     const head = hdr(eyebrow, title, picker + badge);
-    if (lfEmpty()) return head + `<section class="card" style="padding:24px;display:flex;flex-direction:column;gap:10px"><h2>No model design yet</h2><p style="margin:0">These pages describe a model that has been designed. Draw one in the Model studio, or start from a model in the organisation.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn" href="#/model">Open Model studio</a><a class="btn2" href="#/">Choose from the organisation</a></div></section>`;
+    if (lfEmpty()) return head + `<section class="card" style="padding:24px;display:flex;flex-direction:column;gap:10px"><h2>No model design yet</h2><p style="margin:0">These pages describe a model that has been designed. Draw one in the model designer, or start from a model in the organisation.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn" href="#/model">Open the model designer</a><a class="btn2" href="#/">Choose from the organisation</a></div></section>`;
     return head + (M.saveState === 'conflict' ? saveStateHtml() : '') + body;
   }
   // Under every lifecycle page: what the facts declared here do to the score, compared with the design alone.
@@ -1926,13 +1926,13 @@ kill_switch:
     const arrow = delta === null ? '' : delta > 0 ? `▲ +${delta}` : delta < 0 ? `▼ ${delta}` : 'no change';
     const left = hasFacts && base ? `<div class="stack" style="gap:2px"><span class="cap">Design alone</span><span class="lf-big mono">${STAI.pyFixed(base.pcs_final, 1)}</span><span class="pill ${TIER_CLS[base.tier]}" style="align-self:flex-start">${base.tier}</span></div><span class="lf-arrow" aria-hidden="true">→</span>` : '';
     const dcls = delta === null ? 'muted' : delta > 0 ? 'bad' : delta < 0 ? 'ok' : 'muted';
-    return `<section class="card lf-effect" aria-label="Effect on the score">${left}<div class="stack" style="gap:2px"><span class="cap">${hasFacts ? 'With the facts declared in the lifecycle' : 'No lifecycle facts declared yet'}</span><span class="lf-big mono">${STAI.pyFixed(p.pcs_final, 1)}</span><span style="display:flex;gap:6px;flex-wrap:wrap"><span class="pill ${TIER_CLS[p.tier]}">${p.tier}</span><span class="pill ${GATE_CLS[p.gate]}">${p.gate.replace('_', ' ')}</span>${arrow ? `<span class="pill ${dcls}">${arrow}</span>` : ''}</span></div><span class="cap" style="flex:1 1 260px">${hasFacts ? 'Recomputed by the ST-AI engine every time a fact below changes. A higher score means more risk, so a rise (red) is a worse position than the design alone.' : 'Declare what is true of the running model below and the score is recomputed against the design.'}${p.gate === 'BLOCKED' ? ` <a href="#/model/overview">See what blocks the gate.</a>` : ''}</span></section>`;
+    return `<section class="card lf-effect" aria-label="Effect on the score">${left}<div class="stack" style="gap:2px"><span class="cap">${hasFacts ? 'With the facts declared in the lifecycle' : 'No lifecycle facts declared yet'}</span><span class="lf-big mono">${STAI.pyFixed(p.pcs_final, 1)}</span><span style="display:flex;gap:6px;flex-wrap:wrap"><span class="pill ${TIER_CLS[p.tier]}">${p.tier}</span><span class="pill ${GATE_CLS[p.gate]}">${p.gate.replace('_', ' ')}</span>${arrow ? `<span class="pill ${dcls}">${arrow}</span>` : ''}</span></div><span class="cap" style="flex:1 1 260px">${hasFacts ? 'Recomputed by the scoring engine every time a fact below changes. A higher score means more risk, so a rise (red) is a worse position than the design alone.' : 'Declare what is true of the running model below and the score is recomputed against the design.'}${p.gate === 'BLOCKED' ? ` <a href="#/model/overview">See what blocks the gate.</a>` : ''}</span></section>`;
   }
 
   function lfOverview() {
     const ev = evaluate();
     let body;
-    if (ev.scoreError) body = `<div class="note alert" role="alert"><strong>Score rejected</strong><span>${esc(ev.scoreError)}</span><a href="#/model">Open the Model studio to fix it</a></div>`;
+    if (ev.scoreError) body = `<div class="note alert" role="alert"><strong>Score rejected</strong><span>${esc(ev.scoreError)}</span><a href="#/model">Open the model designer to fix it</a></div>`;
     else if (!ev.score) body = `<section class="card" style="padding:24px"><p style="margin:0" class="cap">${ev.pending ? 'Scoring the design…' : 'Waiting for the backend.'}</p></section>`;
     else {
       const p = ev.score.pcs_result, t = p.terms, pv = p.pillar_vector, rv = t.risk_vector || {}, tiers = rv.tiers || {};
@@ -1955,7 +1955,7 @@ kill_switch:
         ${blockers.length || t.warnings.length || t.recommendations.length ? `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:14px"><h2>What needs doing</h2>${list('Blockers', blockers, 'alert')}${list('Warnings', t.warnings, 'plain')}${list('Recommendations', t.recommendations, 'good')}</section>` : `<div class="note good"><strong>Nothing to fix</strong><span>The engine has no blockers, warnings or recommendations for this model.</span></div>`}
         ${lfCard('Formula terms', 'The inputs of the Pre-deployment Compliance Score, all derived from what is declared and never typed in.', `<div class="lf-terms">${terms.map(([s, v, l]) => `<div class="lf-term"><span class="mono lf-ts">${s}</span><b class="mono">${STAI.pyFloat(typeof v === 'number' ? Math.round(v * 1000) / 1000 : v)}</b><span class="cap" style="font-size:12px">${l}</span></div>`).join('')}</div><details><summary class="cap" style="cursor:pointer">Derivation log (${(t.derivation_log || []).length} steps)</summary><pre class="code" style="font-size:11.5px;white-space:pre-wrap">${esc((t.derivation_log || []).join('\n'))}</pre></details>`)}`;
     }
-    return lfFrame('overview', esc(M.name), 'ST-AI · model overview', body, ev);
+    return lfFrame('overview', esc(M.name), 'AI Models · model overview', body, ev);
   }
 
   function lfRuntime() {
@@ -1978,7 +1978,7 @@ kill_switch:
         lfCount('hallucination_incident_count', 'Hallucination incidents', 'Times a made-up answer was acted on or reached a user.') +
         lfCount('misuse_incident_count', 'Misuse incidents', 'Times the model was used outside its intended purpose.')) +
         `<div class="stack" style="gap:2px"><strong style="font-size:13px">Root causes found</strong><div class="lf-grid">${LF_ROOT_CAUSES.map((c) => `<label class="chk lf-chk"><input type="checkbox" data-chg="lfCause" data-arg="${c}"${(M.life.root_causes || []).indexOf(c) >= 0 ? ' checked' : ''}><span>${lfHuman(c)}</span></label>`).join('')}</div></div>`);
-    return lfFrame('runtime', 'Runtime', 'ST-AI · layers 6, 7, 9 and 10', body, ev);
+    return lfFrame('runtime', 'Runtime', 'AI Models · layers 6, 7, 9 and 10', body, ev);
   }
 
   function lfGovernance() {
@@ -2002,7 +2002,7 @@ kill_switch:
         lfCheck('operator_training_complete', 'Operators are trained', 'Everyone who reviews the output has been trained for it.') +
         lfCheck('hitl_verified_substantive', 'Human review is substantive', 'Reviewers genuinely check, rather than approving what the model says.') +
         lfSelect('automation_bias_risk', 'Automation-bias risk', 'The tendency of reviewers to go along with the model.', 'Not assessed')));
-    return lfFrame('governance', 'Governance', 'ST-AI · layers 8, 9 and 10', body, ev);
+    return lfFrame('governance', 'Governance', 'AI Models · layers 8, 9 and 10', body, ev);
   }
 
   function lfIncidents() {
@@ -2031,7 +2031,7 @@ kill_switch:
       `<section class="card" style="padding:8px 0"><div class="ph" style="display:flex;justify-content:space-between;align-items:center;gap:12px"><h2>Incident log</h2><span class="cap">${list.length} logged</span></div>${list.length ? list.map(row).join('') : '<p class="cap" style="padding:8px 20px 16px;margin:0">No incidents logged for this model.</p>'}</section>` +
       lfCard('Log an incident', 'Each open incident feeds back into the score, closing the NIST AI RMF Manage loop.', add) +
       `<div class="note plain" style="font-size:13px"><strong>How incidents change the score</strong><span>An open severe (4) or critical (5) incident adds 0.10 to the likelihood. Three or more drift, bias or hallucination incidents in 90 days add 0.05 to the bias term. A critical incident open for more than 72 hours blocks the gate.</span></div>`;
-    return lfFrame('incidents', 'Incidents', 'ST-AI · NIST AI RMF Manage', body, ev);
+    return lfFrame('incidents', 'Incidents', 'AI Models · NIST AI RMF Manage', body, ev);
   }
 
   function lfDecommission() {
@@ -2048,7 +2048,7 @@ kill_switch:
         lfCheck('legal_hold_active', 'A legal hold is active', 'Something must be kept for a case or a regulator, so disposal waits.') +
         lfCheck('post_retirement_verified', 'Retirement has been verified', 'Someone independent has confirmed that nothing remains.'))) +
       (rel.length ? `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:8px"><h2>What the engine says</h2>${rel.map((x) => `<div class="note plain" style="font-size:13px">${esc(lfClean(x))}</div>`).join('')}</section>` : '');
-    return lfFrame('decommission', 'Decommissioning', 'ST-AI · layer 11', body, ev);
+    return lfFrame('decommission', 'Decommissioning', 'AI Models · layer 11', body, ev);
   }
 
   async function lfLoadCrosswalk() {
@@ -2064,7 +2064,7 @@ kill_switch:
     const p = ev.score && ev.score.pcs_result, tiers = (p && p.terms.risk_vector && p.terms.risk_vector.tiers) || {};
     const regs = M.nodes.filter((n) => n.kind === 'REGULATORY_REQ');
     const ST = { SATISFIED: ['ok', 'Satisfied'], PARTIAL: ['warn', 'Partial'], NOT_YET_DETERMINED: ['muted', 'Not yet determined'], UNSATISFIED: ['bad', 'Not met'] };
-    const regCard = lfCard('Regulatory requirements in this design', 'The clauses drawn on the Model studio canvas and where each stands. Organisation-wide rules are on the <a href="#/regulations">Regulations</a> page.', regs.length ? `<div>${regs.map((n) => { const s = ST[n.data.status] || ['muted', lfHuman(n.data.status)]; return `<div class="lrow" style="padding-left:0;padding-right:0"><span class="stack"><span style="font-weight:500">${esc([n.data.instrument, n.data.clause].filter(Boolean).join(' · ') || 'Requirement')}</span><span class="cap">${n.data.evidence ? esc(n.data.evidence) : 'No evidence recorded'}${n.data.riskTier ? ' · ' + esc(n.data.riskTier) : ''}</span></span><span class="pill ${s[0]}">${esc(s[1])}</span></div>`; }).join('')}</div>` : '<p class="cap" style="margin:0">No regulatory requirement is drawn in this design. Add one from the Governance group in the Model studio.</p>');
+    const regCard = lfCard('Regulatory requirements in this design', 'The clauses drawn on the model designer canvas and where each stands. Organisation-wide rules are on the <a href="#/regulations">Regulations</a> page.', regs.length ? `<div>${regs.map((n) => { const s = ST[n.data.status] || ['muted', lfHuman(n.data.status)]; return `<div class="lrow" style="padding-left:0;padding-right:0"><span class="stack"><span style="font-weight:500">${esc([n.data.instrument, n.data.clause].filter(Boolean).join(' · ') || 'Requirement')}</span><span class="cap">${n.data.evidence ? esc(n.data.evidence) : 'No evidence recorded'}${n.data.riskTier ? ' · ' + esc(n.data.riskTier) : ''}</span></span><span class="pill ${s[0]}">${esc(s[1])}</span></div>`; }).join('')}</div>` : '<p class="cap" style="margin:0">No regulatory requirement is drawn in this design. Add one from the Governance group in the model designer.</p>');
     let xw;
     if (LF.cwErr) xw = `<div class="note alert"><strong>Could not load the crosswalk</strong><span>${esc(LF.cwErr)}</span></div>`;
     else if (!cw) xw = '<section class="card" style="padding:24px"><p class="cap" style="margin:0">Loading the standards crosswalk…</p></section>';
@@ -2073,12 +2073,12 @@ kill_switch:
       const keep = (rows) => rows.filter((r) => !want || r.standard === want);
       const rowsHtml = (rows) => keep(rows).map((r) => `<div class="lf-xrow"><span class="lf-std" style="--sc:${esc((cw.standards.find((s) => s.name === r.standard) || {}).colour || '#5a6680')}">${esc(r.standard)}</span><span class="mono" style="font-size:12.5px">${esc(r.clause)}</span><span style="font-size:13.5px">${esc(r.title)}</span><span class="pill ${r.relevance === 'primary' ? 'ok' : 'muted'}">${esc(r.relevance)}</span></div>`).join('');
       const group = (title, sub, obj, withTier) => lfCard(title, sub, Object.keys(obj).map((k) => { const rows = keep(obj[k]); if (!rows.length) return ''; const tr = withTier ? tiers[k.toLowerCase()] : null; return `<details class="lf-det"${tr === 'CRITICAL' || tr === 'HIGH' ? ' open' : ''}><summary><b>${esc(lfHuman(k))}</b>${tr ? `<span class="pill ${TIER_CLS[tr]}" style="margin-left:8px">${tr}</span>` : ''}<span class="cap" style="margin-left:auto">${rows.length}</span></summary>${rowsHtml(obj[k])}</details>`; }).join('') || '<p class="cap" style="margin:0">No clause from this standard here.</p>');
-      xw = `<section class="card" style="padding:14px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><label class="cap" for="lf-std">Show only</label><select id="lf-std" class="reqsel" data-chg="lfStd"><option value="">All standards</option>${stds.map((s) => opt(s, `${s} (${cw.coverage[s] || 0})`, want)).join('')}</select><span class="cap">Every ST-AI rule is mapped to the clause that anchors it, so evidence from this platform can be shown to an auditor without re-mapping.</span></section>` +
+      xw = `<section class="card" style="padding:14px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><label class="cap" for="lf-std">Show only</label><select id="lf-std" class="reqsel" data-chg="lfStd"><option value="">All standards</option>${stds.map((s) => opt(s, `${s} (${cw.coverage[s] || 0})`, want)).join('')}</select><span class="cap">Every scoring rule is mapped to the clause that anchors it, so evidence from this platform can be shown to an auditor without re-mapping.</span></section>` +
         group('Risk pillars', 'The six pillars and the standards that define the same concept. Pillars at a high tier for this model are opened.', cw.pillars, true) +
         group('Gate conditions', 'The reasons a model can be blocked and the law or standard behind each.', cw.block_reasons, false) +
         group('Lifecycle phases', 'Which clauses govern each stage of the model’s life.', cw.phases, false);
     }
-    return lfFrame('standards', 'Regulations & standards', 'ST-AI · NIST · ISO · EU AI Act · GDPR', regCard + xw, ev);
+    return lfFrame('standards', 'Regulations & standards', 'AI Models · NIST · ISO · EU AI Act · GDPR', regCard + xw, ev);
   }
 
   function lfIncId() { const n = M.incidents.reduce((m, i) => Math.max(m, parseInt(String(i.id).replace(/\D/g, ''), 10) || 0), 0); return 'INC-' + String(n + 1).padStart(3, '0'); }
@@ -2116,14 +2116,14 @@ kill_switch:
   function modelNav(active) {
     return `<nav class="side" aria-label="Model module">
       <a class="navback" href="#/" title="Back to the main menu">\u2190 Main menu</a>
-      <div class="brand"><b>ASTRA</b><span>Model studio \u00b7 ST-AI</span></div>
+      <div class="brand"><b>ASTRA</b><span>AI Models</span></div>
       <button type="button" class="tenant" data-act="orgRename" title="Rename organisation"><strong>${esc(ORG.name)}</strong><small>Organisation · click to rename</small></button>
-      <div class="navlinks">${[['/overview', 'Overview', '', 'overview'], ['', 'Model studio', M.nodes.length || '', 'model'], ['/runtime', 'Runtime', '', 'runtime'], ['/governance', 'Governance', '', 'governance'], ['/incidents', 'Incidents', M.incidents.filter((i) => i.status === 'OPEN' || i.status === 'INVESTIGATING').length || '', 'incidents'], ['/decommission', 'Decommissioning', '', 'decommission'], ['/standards', 'Regulations & standards', '', 'standards'], ['/contracts', 'Compiled contracts', M.contracts.length || '', 'contracts']].map(([to, l, b, k]) => `<a href="#/model${to}"${active === k ? ' class="on" aria-current="page"' : ''}><span>${l}</span><small>${b}</small></a>`).join('')}</div>
+      <div class="navlinks">${[['/overview', 'Overview', '', 'overview'], ['', 'Model designer', M.nodes.length || '', 'model'], ['/runtime', 'Runtime', '', 'runtime'], ['/governance', 'Governance', '', 'governance'], ['/incidents', 'Incidents', M.incidents.filter((i) => i.status === 'OPEN' || i.status === 'INVESTIGATING').length || '', 'incidents'], ['/decommission', 'Decommissioning', '', 'decommission'], ['/standards', 'Regulations & standards', '', 'standards'], ['/contracts', 'Compiled contracts', M.contracts.length || '', 'contracts']].map(([to, l, b, k]) => `<a href="#/model${to}"${active === k ? ' class="on" aria-current="page"' : ''}><span>${l}</span><small>${b}</small></a>`).join('')}</div>
       ${whoBox()}
-      <div class="demo">Connected to the ST-AI backend</div></nav>`;
+      <div class="demo">Connected to ASTRA</div></nav>`;
   }
   function modelStudio() {
-    if (!BOOT.ready) return `<header class="hdr"><div><span class="cap">Model-level design \u00b7 ST-AI Design Studio</span><h1>${BOOT.error ? 'Backend unavailable' : 'Connecting to the backend\u2026'}</h1></div></header>${BOOT.error ? `<div class="note alert" role="alert" style="flex-direction:row;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><span class="stack"><strong>Could not load the constraint catalogue and assessment domains</strong><span style="font-size:13px">${esc(BOOT.error)}</span></span><button class="btn2 btn-s" data-act="mRetryBoot">Retry</button></div>` : `<p class="cap">Loading the constraint catalogue and assessment domains from the ST-AI backend.</p>`}`;
+    if (!BOOT.ready) return `<header class="hdr"><div><span class="cap">AI Models \u00b7 Model designer</span><h1>${BOOT.error ? 'Backend unavailable' : 'Connecting to the backend\u2026'}</h1></div></header>${BOOT.error ? `<div class="note alert" role="alert" style="flex-direction:row;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><span class="stack"><strong>Could not load the constraint catalogue and assessment domains</strong><span style="font-size:13px">${esc(BOOT.error)}</span></span><button class="btn2 btn-s" data-act="mRetryBoot">Retry</button></div>` : `<p class="cap">Loading the constraint catalogue and assessment domains from the ASTRA backend.</p>`}`;
     const ev = evaluate();
     const p = ev.score && ev.score.pcs_result;
     const badge = ev.scoreError ? `<span class="pill bad">Score rejected</span>` : (p ? `<button class="m-badge" data-act="mPanel" data-arg="pcs" title="Open the PCS breakdown"><span class="mono">PCS ${STAI.pyFixed(p.pcs_final, 1)}</span><span class="pill ${TIER_CLS[p.tier]}">${p.tier}</span><span class="pill ${GATE_CLS[p.gate]}">${p.gate.replace('_', ' ')}</span></button>` : `<span class="pill muted">${ev.pending ? 'Scoring\u2026' : 'No score'}</span>`);
@@ -2132,7 +2132,7 @@ kill_switch:
     let panel = M.panel === 'risk' ? riskPanel(ev) : M.panel === 'pcs' ? pcsPanel(ev) : M.panel === 'issues' ? issuesPanel(ev) : inspector();
     const cm = M.compileMsg;
     const msg = cm ? `<div class="note ${cm.tone}" role="status" style="flex-direction:row;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><span class="stack"><strong>${esc(cm.title)}</strong><span style="font-size:13px">${esc(cm.text)}</span></span>${cm.action === 'contract' ? `<a class="btn2 btn-s" href="#/model/contracts">View contract</a>` : (cm.action === 'risk' ? `<button class="btn2 btn-s" data-act="mPanel" data-arg="risk">Open risk assessment</button>` : '')}</div>` : '';
-    return `<header class="hdr" style="align-items:center"><div><span class="cap">Model-level design \u00b7 ST-AI Design Studio</span><input class="m-name" aria-label="Deployment name" value="${esc(M.name)}" data-chg="mName">${saveStateHtml()}</div>
+    return `<header class="hdr" style="align-items:center"><div><span class="cap">AI Models \u00b7 Model designer</span><input class="m-name" aria-label="Deployment name" value="${esc(M.name)}" data-chg="mName">${saveStateHtml()}</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><div class="fld" style="gap:2px"><label for="m-design" style="font-size:12px">Saved design</label><select id="m-design" class="inp" style="min-height:38px;max-width:260px" data-chg="mOpen">${M.designKey ? '' : '<option value="" selected>(new, not saved yet)</option>'}${M.designs.map((d) => opt(d.design_key, `${d.name} \u00b7 ${d.node_count} elements`, M.designKey)).join('')}</select></div><div class="fld" style="gap:2px"><label for="m-domain" style="font-size:12px">Assessment domain</label><select id="m-domain" class="inp" style="min-height:38px" data-chg="mDomain">${Object.values(STAI.DOMAINS).map((d) => opt(d.domain_id, d.name, M.domain)).join('')}</select></div>${badge}</div></header>
       <div class="m-toolbar"><button class="btn2 btn-s" data-act="mNew">New</button>${M.designKey ? '<button class="btn2 btn-s" data-act="mDeleteDesign">Delete design</button>' : ''}${mOrgSelect()}<button class="btn2 btn-s" data-act="mExample">Load example</button><button class="btn2 btn-s" data-act="mImportOpen">Import JSON</button><button class="btn2 btn-s" data-act="mChatOpen">Assistant</button><button class="btn2 btn-s" data-act="mPanel" data-arg="issues">Validate${nIssues ? ` <span class="pill ${ev.issues.some((i) => i.severity === 'error') ? 'bad' : 'warn'}" style="margin-left:6px">${nIssues}</span>` : ''}</button><span class="m-zoom" role="group" aria-label="Zoom"><button class="btn2 btn-s" data-act="mZoom" data-arg="out" aria-label="Zoom out">−</button><span class="mono">${Math.round((M.zoom || 1) * 100)}%</span><button class="btn2 btn-s" data-act="mZoom" data-arg="in" aria-label="Zoom in">+</button><button class="btn2 btn-s" data-act="mZoom" data-arg="fit">Fit</button><button class="btn2 btn-s" data-act="vwOpen" data-arg="model" title="Open the architecture in a large view">Enlarge</button></span><span style="flex:1"></span><button class="btn btn-s" data-act="mCompile">Compile contract</button></div>
       ${mOrgBanner()}${backendBanner(ev)}${msg}
@@ -2430,8 +2430,8 @@ kill_switch:
     return `<div class="landing"><div class="landing-in"><div class="brand" style="padding:0"><b style="color:var(--fg-141a22);font-size:26px">ASTRA</b><span style="color:var(--fg-4a5563);font-size:14px">Assurance for AI agents and AI models</span></div>
       <h1 style="font-size:32px;margin-top:8px">Choose a module</h1><p class="cap" style="font-size:15px;margin:0 0 8px">Choose the module that fits what you're assessing: an AI agent, or an AI model deployment. Each works on its own.</p>
       <div class="landing-grid">
-        <a class="choice landing-card" href="#/overview"><span class="pill ok" style="align-self:flex-start">Agent</span><h2 style="font-size:22px">Agent assurance</h2><span class="cap" style="font-size:14px">Design agents in the Secure Tropos studio, register running agents, review drift, ratify contracts and export Assurance Packs.</span><span style="display:flex;gap:8px;flex-wrap:wrap"><span class="pill muted">Design studio</span><span class="pill muted">Drift review</span><span class="pill muted">OWASP ASI</span><span class="pill muted">Risk score</span></span><span style="font-weight:600;color:var(--fg-1e4fcb)">Open agent module \u2192</span></a>
-        <a class="choice landing-card" href="#/model/overview"><span class="pill" style="align-self:flex-start;background:var(--bg-ede7fb);color:var(--fg-4c1d95)">Model</span><h2 style="font-size:22px">Model studio</h2><span class="cap" style="font-size:14px">Map an AI model deployment's actors, departments, data and constraints, score it with the ST-AI PCS engine and compile a contract once it is green.</span><span style="display:flex;gap:8px;flex-wrap:wrap"><span class="pill muted">PCS engine</span><span class="pill muted">GDPR \u00b7 EU AI Act</span><span class="pill muted">Constraint bundles</span><span class="pill muted">Contracts</span></span><span style="font-weight:600;color:var(--fg-1e4fcb)">Open model module \u2192</span></a>
+        <a class="choice landing-card" href="#/overview"><span class="pill ok" style="align-self:flex-start">Agent</span><h2 style="font-size:22px">AI Agents</h2><span class="cap" style="font-size:14px">Design agents in the Secure Tropos studio, register running agents, review drift, ratify contracts and export Assurance Packs.</span><span style="display:flex;gap:8px;flex-wrap:wrap"><span class="pill muted">Design studio</span><span class="pill muted">Drift review</span><span class="pill muted">OWASP ASI</span><span class="pill muted">Risk score</span></span><span style="font-weight:600;color:var(--fg-1e4fcb)">Open agent module \u2192</span></a>
+        <a class="choice landing-card" href="#/model/overview"><span class="pill" style="align-self:flex-start;background:var(--bg-ede7fb);color:var(--fg-4c1d95)">Model</span><h2 style="font-size:22px">AI Models</h2><span class="cap" style="font-size:14px">Map an AI model deployment's actors, departments, data and constraints, score it with the PCS engine and compile a contract once it is green.</span><span style="display:flex;gap:8px;flex-wrap:wrap"><span class="pill muted">PCS engine</span><span class="pill muted">GDPR \u00b7 EU AI Act</span><span class="pill muted">Constraint bundles</span><span class="pill muted">Contracts</span></span><span style="font-weight:600;color:var(--fg-1e4fcb)">Open model module \u2192</span></a>
       </div><span class="cap">Signed in as ${esc(ME.full_name)} (${esc(ROLE_LABEL[ME.role])}) \u00b7 <button class="btn3" data-act="acctSignOut">Sign out</button>${can('admin') ? ' \u00b7 <a href="#/users">Users</a>' : ''}${can('audit') ? ' \u00b7 <a href="#/audit">Audit log</a>' : ''}</span></div></div>`;
   }
 
@@ -2491,7 +2491,7 @@ kill_switch:
     let graph = null; const names = {};
     if (ed.subject === 'MODEL') { if (M.nodes.length) { graph = buildDesignGraph(); M.nodes.forEach((n) => { names[n.id] = nodeTitle(n); }); } }
     else if (S.studio.drafted) { graph = agentGraphPayload(); S.studio.nodes.forEach((n) => { names[n.id] = n.name; }); }
-    if (!graph) { PS.test = { error: ed.subject === 'MODEL' ? 'There is no model design to test against yet. Open the Model studio and build or load one.' : 'There is no agent design to test against yet. Open the Agent design studio and draft one.' }; return; }
+    if (!graph) { PS.test = { error: ed.subject === 'MODEL' ? 'There is no model design to test against yet. Open the model designer and build or load one.' : 'There is no agent design to test against yet. Open the Agent design studio and draft one.' }; return; }
     PS.test = { busy: true };
     try {
       const r = await STAI.api.testPolicy({ subject: ed.subject, severity: ed.severity, message: ed.message, spec: toBody(ed, 'DRAFT').spec, design_graph: graph });
@@ -2957,10 +2957,10 @@ kill_switch:
         <a href="#/policies"${active === 'policies' ? ' class="on" aria-current="page"' : ''}><span>Policies</span><small></small></a>
         <a href="#/regulations"${active === 'regulations' ? ' class="on" aria-current="page"' : ''}><span>Regulations</span><small></small></a>
         <div class="navgrp">Modules</div>
-        <a href="#/overview"><span>Agent assurance</span><small>\u2192</small></a>
-        <a href="#/model/overview"><span>Model studio \u00b7 ST-AI</span><small>\u2192</small></a></div>
+        <a href="#/overview"><span>AI Agents</span><small>\u2192</small></a>
+        <a href="#/model/overview"><span>AI Models</span><small>\u2192</small></a></div>
       ${whoBox()}</nav>`;
-  const orgModules = () => `<section class="og-two" aria-label="Continue to a module"><a class="choice" href="#/overview" style="padding:18px 20px;gap:6px"><span class="pill ok" style="align-self:flex-start">Agent</span><b style="font-size:17px">Agent assurance</b><span class="cap">Design agents, register running agents, review drift and findings, and watch them live.</span></a><a class="choice" href="#/model/overview" style="padding:18px 20px;gap:6px"><span class="pill" style="align-self:flex-start;background:var(--bg-ede7fb);color:var(--fg-4c1d95)">Model</span><b style="font-size:17px">Model studio \u00b7 ST-AI</b><span class="cap">Assess an AI model deployment: its actors, data and constraints, and compile a contract.</span></a></section>`;
+  const orgModules = () => `<section class="og-two" aria-label="Continue to a module"><a class="choice" href="#/overview" style="padding:18px 20px;gap:6px"><span class="pill ok" style="align-self:flex-start">Agent</span><b style="font-size:17px">AI Agents</b><span class="cap">Design agents, register running agents, review drift and findings, and watch them live.</span></a><a class="choice" href="#/model/overview" style="padding:18px 20px;gap:6px"><span class="pill" style="align-self:flex-start;background:var(--bg-ede7fb);color:var(--fg-4c1d95)">Model</span><b style="font-size:17px">AI Models</b><span class="cap">Assess an AI model deployment: its actors, data and constraints, and compile a contract.</span></a></section>`;
   // The sidebar shows the organisation's name, and an import can rename it (administrators): keep the two in step.
   function coSetData(d) { CO.data = d; if (d && d.organisation && d.organisation.name) ORG.name = d.organisation.name; }
   async function loadCompany() {
@@ -2976,7 +2976,7 @@ kill_switch:
   async function loadCompanyQuiet() { coSetData(await STAI.api.companyGet()); CO.loaded = true; CO.error = null; }
 
   const OG_TYPE = { department: 'Department', person: 'Person', role: 'Role (a group)', external: 'Outside party', agent: 'AI agent', model: 'AI model', data_store: 'Data store', goal: 'Goal', operation: 'Operation', policy: 'Policy', threat: 'Threat', protection: 'Protection', rule: 'Rule', environment: 'Environment', step: 'Step', decision: 'Decision' };
-  const OG_VIEWS = [['org', 'Organisation map'], ['organisational', 'Organisational view'], ['agents', 'Agents & tasks'], ['data', 'Data mapping'], ['privacy', 'Privacy by design'], ['breach', 'Breach response plan'], ['models', 'Models · ST-AI']];
+  const OG_VIEWS = [['org', 'Organisation map'], ['organisational', 'Organisational view'], ['agents', 'Agents & tasks'], ['data', 'Data mapping'], ['privacy', 'Privacy by design'], ['breach', 'Breach response plan'], ['models', 'Models']];
   const OG_HINT = { org: 'Departments, people and the AI systems that work for them. Arcs under the departments: tasks handed to agents in other departments.', organisational: 'Actors, what they do, the goals those serve and the policies that govern them. AI agents are actors.',
     agents: 'Agents grouped by department. Click a task arrow to see what is passed and whether the agent’s contract declares it.', data: 'Which agents and models touch which data, and whose data it is.',
     privacy: 'Data, the threats against it, and the protections in place. A dashed red frame marks a threat with no protection yet.', breach: 'Who does what, in which order and by when, if an agent leaks or misuses data. Amber dot: a gap in the plan.',
@@ -3092,7 +3092,7 @@ kill_switch:
       if (dp) s += ogE('path', { d: `M${p.cx} ${p.y} V${dp.y + dp.h}`, stroke: isA ? 'var(--ln-0e7490)' : 'var(--ln-4c1d95)', 'stroke-width': 1.5, 'stroke-dasharray': '4 3', fill: 'none', class: rel && !rel.has(sy.id) ? 'og-dim' : undefined });
       const lv = ix.live.agents[sy.id];
       s += ogG({ ...ogAct(sy.id), class: 'og-hit' + ogDim(rel, sy.id) }, ogE('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx: isA ? 10 : 23, fill: isA ? 'var(--bg-ddf3f8)' : 'var(--bg-ede7fb)', stroke: isA ? 'var(--ln-0e7490)' : 'var(--ln-4c1d95)', 'stroke-width': CO.sel === sy.id ? 3 : 1.6 }) +
-        ogE('text', { x: p.cx, y: p.y + 19, 'font-size': 12, 'font-weight': 700, 'text-anchor': 'middle', fill: isA ? 'var(--fg-0e7490)' : 'var(--fg-4c1d95)' }, ogT(sy.name, Math.floor(p.w / 7.4))) + ogE('text', { x: p.cx, y: p.y + 34, 'font-size': 10, 'text-anchor': 'middle', fill: 'var(--fg-4a5563)' }, isA ? (lv && lv.registered ? 'AI agent · registered' : 'AI agent') : 'AI model · ST-AI') +
+        ogE('text', { x: p.cx, y: p.y + 19, 'font-size': 12, 'font-weight': 700, 'text-anchor': 'middle', fill: isA ? 'var(--fg-0e7490)' : 'var(--fg-4c1d95)' }, ogT(sy.name, Math.floor(p.w / 7.4))) + ogE('text', { x: p.cx, y: p.y + 34, 'font-size': 10, 'text-anchor': 'middle', fill: 'var(--fg-4a5563)' }, isA ? (lv && lv.registered ? 'AI agent · registered' : 'AI agent') : 'AI model') +
         (!sy.props.owner ? ogE('circle', { cx: p.x + p.w - 8, cy: p.y + 8, r: 6, fill: 'var(--bg-b45309)' }) : ''));
     });
     if (flt !== 'model') ix.d.edges.filter((e) => e.kind === 'task' && pos[e.from] && pos[e.to]).forEach((e, i) => {
@@ -3281,7 +3281,7 @@ kill_switch:
     const works = (ix.out[m.id] || []).filter((e) => e.kind === 'works_with'), open = CO.data.checks.filter((c) => c.refs.includes(m.id) && c.level !== 'info');
     const lv = ix.live.agents[m.id];
     const kv = (k, v) => `<div class="og-kv"><span>${k}</span><b style="text-align:right">${v}</b></div>`;
-    return `<div class="card" style="margin-top:10px"><div class="stack" style="padding:12px 14px 0"><h2>Model card</h2><span class="cap">What the organisation knows about ${esc(m.name)}. The Model studio holds its assessment and contract.</span></div><div class="og-two" style="padding:6px 14px 12px"><div>${kv('Purpose', esc(m.props.purpose || '—'))}${kv('Version', esc(m.props.version || '—') + (m.props.origin ? ' · ' + esc(m.props.origin) : ''))}${kv('Data', esc(m.props.data_note || '—'))}${kv('Risk class', m.props.risk_class ? `<span class="pill ${/high/i.test(m.props.risk_class) ? 'bad' : 'muted'}">${esc(m.props.risk_class)}</span>` : '—')}</div>
+    return `<div class="card" style="margin-top:10px"><div class="stack" style="padding:12px 14px 0"><h2>Model card</h2><span class="cap">What the organisation knows about ${esc(m.name)}. AI Models holds its assessment and contract.</span></div><div class="og-two" style="padding:6px 14px 12px"><div>${kv('Purpose', esc(m.props.purpose || '—'))}${kv('Version', esc(m.props.version || '—') + (m.props.origin ? ' · ' + esc(m.props.origin) : ''))}${kv('Data', esc(m.props.data_note || '—'))}${kv('Risk class', m.props.risk_class ? `<span class="pill ${/high/i.test(m.props.risk_class) ? 'bad' : 'muted'}">${esc(m.props.risk_class)}</span>` : '—')}</div>
       <div>${kv('Department', esc(m.props.department && ix.N[m.props.department] ? ix.N[m.props.department].name : '—'))}${kv('Owner', esc(m.props.owner ? ix.nm(m.props.owner) : 'none'))}${kv('People and rules around it', works.length + ' people · ' + ix.T('rule').filter((r) => (ix.out[r.id] || []).some((e) => works.some((w) => w.to === e.to))).length + ' rules')}${kv('Open checks', open.length ? open.map((c) => `<span class="pill bad">${esc(c.title)}</span>`).join(' ') : '<span class="pill ok">none</span>')}</div></div></div>`;
   }
 
@@ -3323,7 +3323,7 @@ kill_switch:
           <div class="og-kv"><span>Crosses departments</span><b>${x ? '<span class="pill warn">Yes</span>' : 'No'}</b></div>
           <div class="og-kv"><span>In ${esc(a.name)}’s contract</span><b>${!lv || lv.declared === null ? '<span class="pill muted">No active contract</span>' : (lv.declared ? `<span class="pill ok">Declared in v${esc(lv.contract_version)}</span>` : `<span class="pill bad">Not declared in v${esc(lv.contract_version)}</span>`)}</b></div>
           <div class="og-kv"><span>Seen by the runtime SDK</span><span>${lv && lv.observed ? `${lv.observed} time(s), last ${esc(String(lv.last_seen).slice(0, 16).replace('T', ' '))}` : 'not in the last 30 days'}</span></div>` : ''}
-          <div style="display:flex;gap:8px;flex-wrap:wrap">${det ? '<a class="btn2 btn-s" href="#/agents">Open in Agent assurance</a>' : ''}${ed ? '<button class="btn3 btn-s" data-act="coDelEdge" data-arg="' + esc(e.id) + '">Delete connection</button>' : ''}</div></div>`;
+          <div style="display:flex;gap:8px;flex-wrap:wrap">${det ? '<a class="btn2 btn-s" href="#/agents">Open in AI Agents</a>' : ''}${ed ? '<button class="btn3 btn-s" data-act="coDelEdge" data-arg="' + esc(e.id) + '">Delete connection</button>' : ''}</div></div>`;
       }
     }
     const n = ix.N[CO.sel];
@@ -3337,8 +3337,8 @@ kill_switch:
       <div class="fld"><label>Name</label><input class="inp" style="min-height:38px" value="${esc(n.name)}" data-chg="coField" data-arg="${esc(n.id)}|name"${ed ? '' : ' disabled'}></div>${fields.map(([k, l, kd]) => ogField(n.id, 'props.' + k, l, kd, n.props[k], ix, ed)).join('')}
       ${bad ? `<div class="note alert" style="font-size:13px"><strong>Broken rule</strong>${esc((n.props.rule_id && CO.data.violations[n.props.rule_id]) || 'Marked as broken.')}</div>` : ''}
       ${chk.map((c) => `<div class="note ${c.level === 'bad' ? 'alert' : 'plain'}" style="font-size:13px"><strong>${esc(c.title)}</strong>${esc(c.detail)}</div>`).join('')}
-      ${n.type === 'agent' || n.type === 'model' ? `<h3 style="font-size:14px;margin-top:4px">Agent assurance</h3>${sysLive ? (sysLive.registered ? `<div class="og-kv"><span>Registered</span><b>${esc(sysLive.agent_key)}</b></div><div class="og-kv"><span>Active contract</span><b>${sysLive.contract_version ? 'v' + esc(sysLive.contract_version) : 'none'}</b></div><div class="og-kv"><span>Last seen by the SDK</span><span>${sysLive.last_seen_at ? esc(String(sysLive.last_seen_at).slice(0, 16).replace('T', ' ')) : 'never'}</span></div>` : '<span class="cap">Not registered in Agent assurance. A registered agent with the same name is linked automatically.</span>') : '<span class="cap">AI models are assessed in the Model studio.</span>'}` : ''}
-      ${n.type === 'agent' && ed ? `<button class="btn btn-s" style="align-self:flex-start" data-act="sFromOrg" data-arg="${esc(n.id)}">Design in the Agent studio</button>` : ''}${n.type === 'model' && ed ? `<button class="btn btn-s" style="align-self:flex-start" data-act="mFromOrg" data-arg="${esc(n.id)}">${(CO.data.live.models[n.id] || {}).design_key ? 'Open in the Model studio' : 'Start a model design'}</button>` : ''}
+      ${n.type === 'agent' || n.type === 'model' ? `<h3 style="font-size:14px;margin-top:4px">AI Agents</h3>${sysLive ? (sysLive.registered ? `<div class="og-kv"><span>Registered</span><b>${esc(sysLive.agent_key)}</b></div><div class="og-kv"><span>Active contract</span><b>${sysLive.contract_version ? 'v' + esc(sysLive.contract_version) : 'none'}</b></div><div class="og-kv"><span>Last seen by the SDK</span><span>${sysLive.last_seen_at ? esc(String(sysLive.last_seen_at).slice(0, 16).replace('T', ' ')) : 'never'}</span></div>` : '<span class="cap">Not registered in AI Agents. A registered agent with the same name is linked automatically.</span>') : '<span class="cap">AI models are assessed in AI Models.</span>'}` : ''}
+      ${n.type === 'agent' && ed ? `<button class="btn btn-s" style="align-self:flex-start" data-act="sFromOrg" data-arg="${esc(n.id)}">Design in the Agent studio</button>` : ''}${n.type === 'model' && ed ? `<button class="btn btn-s" style="align-self:flex-start" data-act="mFromOrg" data-arg="${esc(n.id)}">${(CO.data.live.models[n.id] || {}).design_key ? 'Open in AI Models' : 'Start a model design'}</button>` : ''}
       <h3 style="font-size:14px;margin-top:4px">Connections</h3>${ogEdgeRows(ix, n.id, ed)}${n.type === 'department' ? '' : ''}
       ${ed ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px"><button class="btn2 btn-s" data-act="coConnectFrom" data-arg="${esc(n.id)}">+ Connection</button><button class="btn3 btn-s" data-act="coDelete">Delete</button></div>` : ''}</div>`;
   }
@@ -3364,7 +3364,7 @@ kill_switch:
         <div class="og-drop"><b>Choose a JSON or YAML file</b><div class="cap">up to 512 KB · ${im.filename ? 'loaded: <span class="mono">' + esc(im.filename) + '</span>' : 'or paste it below'}</div><input type="file" accept=".json,.yaml,.yml,application/json,text/yaml" data-chg="coFile" style="margin-top:8px"></div>
         <textarea class="inp" rows="6" style="padding:10px;font-family:'IBM Plex Mono',monospace;font-size:12px" placeholder="…or paste the file here" data-chg="coContent">${esc(im.content)}</textarea>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-s" data-act="coPreview"${im.content.trim() && !im.busy ? '' : ' disabled'}>${im.busy ? 'Checking…' : 'Preview'}</button><button class="btn2 btn-s" data-act="coSample">Use the sample company</button><button class="btn2 btn-s" data-act="coTemplate">Download a template</button></div>
-        ${im.err ? `<div class="note alert" role="alert" style="font-size:13px">${esc(im.err)}</div>` : ''}${im.result ? `<div class="note good" role="status" style="font-size:13px"><strong>Imported</strong>${im.result.created} new, ${im.result.updated} changed, ${im.result.connections} new connections.${im.result.renamed ? ' The organisation is now called ' + esc(im.result.renamed) + '.' : ''}${(im.result.agents_created || []).length ? ' ' + im.result.agents_created.length + ' agent' + (im.result.agents_created.length === 1 ? '' : 's') + ' created in Agent assurance: design them there.' : ''}${(im.result.models_created || []).length ? ' ' + im.result.models_created.length + ' model design' + (im.result.models_created.length === 1 ? '' : 's') + ' created in the Model studio.' : ''}</div>` : ''}
+        ${im.err ? `<div class="note alert" role="alert" style="font-size:13px">${esc(im.err)}</div>` : ''}${im.result ? `<div class="note good" role="status" style="font-size:13px"><strong>Imported</strong>${im.result.created} new, ${im.result.updated} changed, ${im.result.connections} new connections.${im.result.renamed ? ' The organisation is now called ' + esc(im.result.renamed) + '.' : ''}${(im.result.agents_created || []).length ? ' ' + im.result.agents_created.length + ' agent' + (im.result.agents_created.length === 1 ? '' : 's') + ' created in AI Agents: design them there.' : ''}${(im.result.models_created || []).length ? ' ' + im.result.models_created.length + ' model design' + (im.result.models_created.length === 1 ? '' : 's') + ' created in AI Models.' : ''}</div>` : ''}
         ${im.preview ? ogPlan(im.preview, im.skip, 'coSkip') + `<button class="btn" style="align-self:flex-start" data-act="coApply"${im.preview.ok && im.preview.summary.create + im.preview.summary.update > 0 && !im.busy ? '' : ' disabled'}>Import ${im.preview.summary.create + im.preview.summary.update} items</button>` : ''}</div>
         <div class="stack"><h3 style="font-size:15px">What the file looks like</h3><pre class="code" style="max-height:340px;font-size:12px">${esc(OG_EX)}</pre><span class="cap">Only departments are needed. People, outside parties, AI systems (with <span class="mono">hands_tasks_to</span> and <span class="mono">uses_data</span>), data stores, and modelling <span class="mono">elements</span> and <span class="mono">links</span> are optional. Ids keep a person the same person when a file is imported again, so a re-import updates instead of duplicating.</span></div></div>`;
     else if (CO.tab === 'chat') body = `<div class="og-two"><div class="stack" style="gap:10px">
@@ -3394,8 +3394,8 @@ kill_switch:
     const rows = agents.map((a) => { const lv = L.agents[a.id]; return `<div class="og-kv" style="align-items:center"><span><b>${esc(a.name)}</b><br><span class="cap">${esc(ix.N[a.props.department] ? ix.N[a.props.department].name : 'no department')}</span></span><span style="text-align:right">${lv && lv.registered ? `<span class="pill ${lv.contract_version ? 'ok' : 'warn'}">${lv.contract_version ? 'contract v' + esc(lv.contract_version) : 'registered, no contract'}</span><br><span class="cap">seen ${lv.last_seen_at ? esc(String(lv.last_seen_at).slice(0, 16).replace('T', ' ')) : 'never'}</span>` : '<span class="pill muted">not registered</span>'}</span></div>`; }).join('');
     const un = L.unmapped_agents, hs = L.unmodelled, missing = agents.filter((a) => !(L.agents[a.id] || {}).registered);
     const mods = ix.T('model'), noDesign = mods.filter((m) => !((L.models || {})[m.id] || {}).design_key);
-    const mrows = mods.map((m) => { const lv = (L.models || {})[m.id] || {}; return `<div class="og-kv" style="align-items:center"><span><b>${esc(m.name)}</b><br><span class="cap">${esc(ix.N[m.props.department] ? ix.N[m.props.department].name : 'no department')}${m.props.risk_class ? ' \u00b7 ' + esc(m.props.risk_class) + ' risk' : ''}</span></span><span style="text-align:right">${lv.design_key ? `<span class="pill ok">design in the Model studio</span><br><button class="og-link" data-act="mFromOrg" data-arg="${esc(m.id)}">Open it</button>` : '<span class="pill muted">no design yet</span>'}</span></div>`; }).join('');
-    return `<section class="stack" style="gap:10px"><div><h2>4 · Linked to Agent assurance and the Model studio</h2><span class="cap">Describing the company creates its agents in Agent assurance and its AI models in the Model studio, where you design, assess and ratify them. The organisation matches an agent to the registered agent with the same name, and reads its contract and runtime reports.</span>${(missing.length || noDesign.length) && ed ? `<div style="margin-top:6px"><button class="btn" data-act="coSyncAgents">Create ${[missing.length ? missing.length + ' agent' + (missing.length === 1 ? '' : 's') + ' in Agent assurance' : '', noDesign.length ? noDesign.length + ' model design' + (noDesign.length === 1 ? '' : 's') + ' in the Model studio' : ''].filter(Boolean).join(' and ')}</button> <span class="cap">${esc(missing.concat(noDesign).map((a) => a.name).join(', '))} ${missing.length + noDesign.length === 1 ? 'is' : 'are'} in the organisation but not there yet.</span></div>` : ''}</div>
+    const mrows = mods.map((m) => { const lv = (L.models || {})[m.id] || {}; return `<div class="og-kv" style="align-items:center"><span><b>${esc(m.name)}</b><br><span class="cap">${esc(ix.N[m.props.department] ? ix.N[m.props.department].name : 'no department')}${m.props.risk_class ? ' \u00b7 ' + esc(m.props.risk_class) + ' risk' : ''}</span></span><span style="text-align:right">${lv.design_key ? `<span class="pill ok">design in AI Models</span><br><button class="og-link" data-act="mFromOrg" data-arg="${esc(m.id)}">Open it</button>` : '<span class="pill muted">no design yet</span>'}</span></div>`; }).join('');
+    return `<section class="stack" style="gap:10px"><div><h2>4 · Linked to AI Agents and AI Models</h2><span class="cap">Describing the company creates its agents in AI Agents and its models in AI Models, where you design, assess and ratify them. The organisation matches an agent to the registered agent with the same name, and reads its contract and runtime reports.</span>${(missing.length || noDesign.length) && ed ? `<div style="margin-top:6px"><button class="btn" data-act="coSyncAgents">Create ${[missing.length ? missing.length + ' agent' + (missing.length === 1 ? '' : 's') + ' in AI Agents' : '', noDesign.length ? noDesign.length + ' model design' + (noDesign.length === 1 ? '' : 's') + ' in AI Models' : ''].filter(Boolean).join(' and ')}</button> <span class="cap">${esc(missing.concat(noDesign).map((a) => a.name).join(', '))} ${missing.length + noDesign.length === 1 ? 'is' : 'are'} in the organisation but not there yet.</span></div>` : ''}</div>
       <div class="cols"><div class="card og-pad stack" style="gap:6px"><h3 style="font-size:15px">Agents in the organisation</h3>${rows || '<span class="cap">No agents yet.</span>'}${mrows ? '<h3 style="font-size:15px;margin-top:8px">AI models in the organisation</h3>' + mrows : ''}</div>
       <div class="card og-pad stack" style="gap:8px"><h3 style="font-size:15px">Registered agents not in the organisation</h3>${un.length ? un.map((a) => `<div class="og-kv" style="align-items:center"><span><b>${esc(a.name)}</b><br><span class="cap">${esc(a.origin.toLowerCase())}${a.owner ? ' · ' + esc(a.owner) : ''}</span></span>${ed ? `<button class="btn2 btn-s" data-act="coAddUnmapped" data-arg="${esc(a.agent_key)}">Add to the organisation</button>` : ''}</div>`).join('') : '<span class="cap">Every registered agent has a place in the organisation.</span>'}
         <h3 style="font-size:15px;margin-top:8px">Handoffs seen at runtime, not drawn here</h3>${hs.length ? hs.map((h, i) => `<div class="og-kv" style="align-items:center"><span><b>${esc(ix.nm(h.from))} → ${esc(h.to_name)}</b><br><span class="cap">${h.count} time(s) in 30 days${h.declared === false ? ' · <span style="color:var(--fg-b42318)">not in its contract</span>' : ''}</span></span>${ed ? `<button class="btn2 btn-s" data-act="coAddHandoff" data-arg="${i}">Add the task link</button>` : ''}</div>`).join('') : '<span class="cap">None: everything the SDK has seen is drawn.</span>'}</div></div></section>`;
@@ -3405,7 +3405,7 @@ kill_switch:
   function organisation() {
     if (!CO.loaded && !CO.loading && !CO.error) loadCompany();
     if (!CO.starters) { CO.starters = []; STAI.api.companyStarters().then((r) => { CO.starters = r; renderIfIdle('organisation'); }).catch(() => {}); }
-    const eyebrow = 'One organisation, used by Agent assurance and the Model studio';
+    const eyebrow = 'One organisation, used by AI Agents and AI Models';
     if (CO.error && !CO.loaded) return hdr(eyebrow, 'Organisation') + `<div class="note alert" role="alert"><strong>Could not load the organisation</strong><span style="font-size:13px">${esc(CO.error)}</span><button class="btn2 btn-s" data-act="coReload" style="align-self:flex-start">Retry</button></div>`;
     if (!CO.loaded) return hdr(eyebrow, 'Organisation') + '<p class="cap">Loading…</p>';
     const ix = coIx(), c = CO.data.counts, ed = can('write');
@@ -3467,8 +3467,8 @@ kill_switch:
       if (n.type === 'agent' || n.type === 'model') {
         let i;
         try { i = await STAI.api.companyRemovalImpact(n.id); } catch (e) { CO.err = e.message; render(true); return; }
-        const parts = n.type === 'agent' ? [`its entry in Agent assurance`, `${i.designs} design(s)`, `${i.contracts} contract(s)`, `${i.findings} finding(s)`, `${i.drift_items} drift item(s)`, `${i.runtime_events} runtime event(s)`] : [`${i.designs} Model studio design(s) started from it`, `${i.contracts} contract(s) compiled from them`];
-        if (!window.confirm(`Delete ${n.name} from the whole platform?\n\nThe organisation, Agent assurance and the Model studio are one platform, so this removes: ${parts.join(', ')}, and its ${i.organisation_connections} connection(s) here.\n\nIt cannot be undone.`)) return;
+        const parts = n.type === 'agent' ? [`its entry in AI Agents`, `${i.designs} design(s)`, `${i.contracts} contract(s)`, `${i.findings} finding(s)`, `${i.drift_items} drift item(s)`, `${i.runtime_events} runtime event(s)`] : [`${i.designs} model design(s) started from it`, `${i.contracts} contract(s) compiled from them`];
+        if (!window.confirm(`Delete ${n.name} from the whole platform?\n\nThe organisation, AI Agents and AI Models are one platform, so this removes: ${parts.join(', ')}, and its ${i.organisation_connections} connection(s) here.\n\nIt cannot be undone.`)) return;
         CO.sel = null; await coAfter(() => STAI.api.companyDeleteNode(n.id)); coStale(); render(true); return;
       }
       if (!window.confirm(`Delete ${n.name}? Its connections go with it.`)) return;
@@ -3517,7 +3517,7 @@ kill_switch:
     },
     coApplyDraft: async () => {
       const ch = CO.chat; if (!ch.doc) return;
-      try { const r = await STAI.api.companyImport(JSON.stringify(ch.doc), 'assistant-draft.json', ch.skip); coSetData(r.company); AG.loaded = false; syncModelStudio(); ch.log.push({ who: 'bot', text: `Added ${r.created} items and ${r.connections} connections.${(r.agents_created || []).length ? ' ' + r.agents_created.length + ' agent(s) were created in Agent assurance.' : ''}${(r.models_created || []).length ? ' ' + r.models_created.length + ' model design(s) were created in the Model studio.' : ''}` }); ch.doc = null; ch.plan = null; CO.notice = null; } catch (e) { ch.log.push({ who: 'bot', text: e.message, err: true }); }
+      try { const r = await STAI.api.companyImport(JSON.stringify(ch.doc), 'assistant-draft.json', ch.skip); coSetData(r.company); AG.loaded = false; syncModelStudio(); ch.log.push({ who: 'bot', text: `Added ${r.created} items and ${r.connections} connections.${(r.agents_created || []).length ? ' ' + r.agents_created.length + ' agent(s) were created in AI Agents.' : ''}${(r.models_created || []).length ? ' ' + r.models_created.length + ' model design(s) were created in AI Models.' : ''}` }); ch.doc = null; ch.plan = null; CO.notice = null; } catch (e) { ch.log.push({ who: 'bot', text: e.message, err: true }); }
       render(true);
     },
     coAddUnmapped: async (key) => { const a = CO.data.live.unmapped_agents.find((x) => x.agent_key === key); if (!a) return; await coAfter(() => STAI.api.companyAddNode({ type: 'agent', name: a.name, props: { agent_key: a.agent_key } })); render(true); },
@@ -3560,9 +3560,9 @@ kill_switch:
 
   function coClearPanel() {
     const k = CO.clear, name = ORG.name, i = k.impact, n = (x, w) => `${x} ${w}${x === 1 ? '' : 's'}`;
-    const platform = i ? `${n(i.agents, 'agent')} in Agent assurance (${n(i.agent_designs, 'agent design')}), ${n(i.model_designs, 'Model studio design')}, ${n(i.contracts, 'contract')}, ${n(i.findings, 'finding')}, ${n(i.drift_items, 'drift item')}, ${n(i.runtime_events, 'runtime event')}, ${n(i.evidence_packs, 'evidence pack')} and ${n(i.coverage_assignments, 'coverage assignment')}` : 'the agents, models and everything built on them';
+    const platform = i ? `${n(i.agents, 'agent')} in AI Agents (${n(i.agent_designs, 'agent design')}), ${n(i.model_designs, 'model design')}, ${n(i.contracts, 'contract')}, ${n(i.findings, 'finding')}, ${n(i.drift_items, 'drift item')}, ${n(i.runtime_events, 'runtime event')}, ${n(i.evidence_packs, 'evidence pack')} and ${n(i.coverage_assignments, 'coverage assignment')}` : 'the agents, models and everything built on them';
     return `<section class="card" role="alertdialog" aria-label="Start from scratch" style="padding:20px;border:2px solid var(--ln-8c1f17);display:flex;flex-direction:column;gap:12px;max-width:780px"><h2 style="color:var(--fg-8c1f17)">Start from scratch</h2>
-      <span class="cap">The organisation, Agent assurance and the Model studio are one platform: the company is linked to its agents and AI models, which are designed for deployment in it, assessed, and watched at runtime. This clears the company (<b>${i ? i.nodes : CO.data.nodes.length} items</b>, <b>${i ? i.connections : CO.data.edges.length} connections</b>) and, below, everything built on it, so you begin with a new session. <b>It cannot be undone</b>.</span>
+      <span class="cap">The organisation, AI Agents and AI Models are one platform: the company is linked to its agents and AI models, which are designed for deployment in it, assessed, and watched at runtime. This clears the company (<b>${i ? i.nodes : CO.data.nodes.length} items</b>, <b>${i ? i.connections : CO.data.edges.length} connections</b>) and, below, everything built on it, so you begin with a new session. <b>It cannot be undone</b>.</span>
       <label class="chk" style="align-items:flex-start;min-height:0"><input type="checkbox" data-chg="coClearEverywhere"${k.everywhere ? ' checked' : ''}><span><b>Clear the whole platform too</b> (recommended)${k.everywhere ? ': ' + platform + '. Users, API keys, policies, regulations and the audit log are kept.' : '. Unticked, only the company is cleared and the agents, models, contracts and findings stay where they are.'}</span></label>
       <div>${dlBtn('/api/company/export', 'Download a backup of the company (JSON)')}</div>
       <div class="fld"><label for="co-clear-confirm">To confirm, type the organisation\u2019s name: <b>${esc(name)}</b></label><input id="co-clear-confirm" class="inp" autocomplete="off" value="${esc(k.confirm)}" data-chg="coClearConfirm"></div>
@@ -3602,10 +3602,10 @@ kill_switch:
   });
   Object.assign(C, { coClearConfirm: (v) => { CO.clear.confirm = v; }, coClearNew: (v) => { CO.clear.newName = v; }, coClearEverywhere: (v) => { CO.clear.everywhere = !!v; } });
 
-  /* ---------- Removing agents and models across the platform, and the organisation's agents in Agent assurance (Task 15) ---------- */
+  /* ---------- Removing agents and models across the platform, and the organisation's agents in AI Agents (Task 15) ---------- */
   function coAgentNode(key) { return CO.data ? CO.data.nodes.find((n) => n.type === 'agent' && (n.props.agent_key || ogSlug(n.name).slice(0, 80)) === key) : null; }
   const coStale = () => { CO.loaded = false; AG.loaded = false; FD.loaded = false; CV.loaded = false; RT.loaded = false; PK.loaded = false; OV.loaded = false; syncModelStudio(); };
-  // Designs the organisation creates for its models appear in the Model studio's list; an empty studio opens the newest one.
+  // Designs the organisation creates for its models appear in the AI Models list; an empty studio opens the newest one.
   async function syncModelStudio() {
     if (!M.loaded) return;                                  // the studio has not been opened yet: it loads its own designs
     try {
@@ -3631,9 +3631,9 @@ kill_switch:
     coSyncAgents: async () => {
       try {
         const r = await STAI.api.companySyncAgents(), parts = [];
-        if (r.created.length) parts.push(`${r.created.length} agent${r.created.length === 1 ? '' : 's'} in Agent assurance (${r.created.join(', ')})`);
-        if (r.models_created.length) parts.push(`${r.models_created.length} model design${r.models_created.length === 1 ? '' : 's'} in the Model studio`);
-        CO.notice = parts.length ? 'Created ' + parts.join(' and ') + '.' : 'Every agent and model of the organisation is already in Agent assurance and the Model studio.';
+        if (r.created.length) parts.push(`${r.created.length} agent${r.created.length === 1 ? '' : 's'} in AI Agents (${r.created.join(', ')})`);
+        if (r.models_created.length) parts.push(`${r.models_created.length} model design${r.models_created.length === 1 ? '' : 's'} in AI Models`);
+        CO.notice = parts.length ? 'Created ' + parts.join(' and ') + '.' : 'Every agent and model of the organisation is already in AI Agents and AI Models.';
       } catch (e) { CO.err = e.message; }
       coStale(); render(true);
     }
@@ -3730,8 +3730,8 @@ kill_switch:
     if (mainEl && ME.role === 'auditor') mainEl.insertAdjacentHTML('afterbegin', '<div class="note plain" role="status"><strong>Read-only</strong><span style="font-size:13px">Your role is auditor: you can view everything and the audit log, but not change anything.</span></div>');
     if (keepScroll) Object.keys(keep).forEach((q) => { const el = document.querySelector(q); if (el) { el.scrollLeft = keep[q][0]; el.scrollTop = keep[q][1]; } });
     window.scrollTo(0, keepScroll ? y : 0);
-    const titles = { m_overview: 'ASTRA \u00b7 Model overview', m_runtime: 'ASTRA \u00b7 Model runtime', m_governance: 'ASTRA \u00b7 Model governance', m_incidents: 'ASTRA \u00b7 Model incidents', m_decommission: 'ASTRA \u00b7 Model decommissioning', m_standards: 'ASTRA \u00b7 Regulations and standards', home: 'ASTRA \u00b7 Choose a module', model: 'ASTRA \u00b7 Model studio', modelcontracts: 'ASTRA \u00b7 Compiled contracts', policies: 'ASTRA \u00b7 Policies', regulations: 'ASTRA \u00b7 Regulations', organisation: 'ASTRA \u00b7 Organisation', users: 'ASTRA \u00b7 Users', audit: 'ASTRA \u00b7 Audit log' };
-    document.title = titles[r] || 'ASTRA \u00b7 Agent assurance prototype';
+    const titles = { m_overview: 'ASTRA \u00b7 Model overview', m_runtime: 'ASTRA \u00b7 Model runtime', m_governance: 'ASTRA \u00b7 Model governance', m_incidents: 'ASTRA \u00b7 Model incidents', m_decommission: 'ASTRA \u00b7 Model decommissioning', m_standards: 'ASTRA \u00b7 Regulations and standards', home: 'ASTRA \u00b7 Choose a module', model: 'ASTRA \u00b7 Model designer', modelcontracts: 'ASTRA \u00b7 Compiled contracts', policies: 'ASTRA \u00b7 Policies', regulations: 'ASTRA \u00b7 Regulations', organisation: 'ASTRA \u00b7 Organisation', users: 'ASTRA \u00b7 Users', audit: 'ASTRA \u00b7 Audit log' };
+    document.title = titles[r] || 'ASTRA \u00b7 AI Agents';
     agentAutosaveCheck();
   }
   document.addEventListener('click', (e) => {
