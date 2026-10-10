@@ -297,6 +297,27 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
 .vw-ctl{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.vw-ctl button{min-height:34px;padding:0 12px;border:1px solid var(--ln-c5ccd6);border-radius:8px;background:var(--bg-ffffff);color:var(--fg-141a22);cursor:pointer;font-size:14px}.vw-ctl button:hover{border-color:var(--ln-1e4fcb)}.vw-ctl .vw-x{background:var(--bg-1e4fcb);border-color:var(--ln-1e4fcb);color:#fff}
 .vw-body{flex:1;overflow:auto;padding:16px}.vw-size{position:relative}.vw-in{transform-origin:0 0;position:relative;background:var(--bg-ffffff)}
 .vw-body .m-plane-v{position:relative}
+
+/* ---------- One look for every element: the Organisation view's shapes and colours, in the agent and model studios too ---------- */
+.node.el-actor,.m-node.el-actor{background:var(--bg-ffffff);border:2px dotted var(--ln-e58aa0);border-radius:8px}
+.node.el-agent,.m-node.el-agent{background:var(--bg-e8f7fa);border:2px dotted var(--ln-0e7490);border-radius:8px}
+.node.agent.el-agent{border-style:solid}
+.node.el-model,.m-node.el-model{background:var(--bg-ede7fb);border:2px solid var(--ln-4c1d95);border-radius:18px}
+.node.el-goal,.m-node.el-goal{background:var(--bg-d4e157);border:2.4px solid var(--ln-111111);border-radius:8px}
+.node.el-task,.m-node.el-task{background:var(--bg-b07fd8);border:1.6px solid var(--ln-444444);border-radius:8px}
+.node.el-policy,.m-node.el-policy{background:var(--bg-a8e6b8);border:1.8px solid var(--ln-2b7a3f);border-radius:8px}
+.node.el-data,.m-node.el-data{background:var(--bg-fff3c4);border:1.8px solid var(--ln-9a7b00);border-radius:10px}
+.node.el-env,.m-node.el-env{background:var(--bg-f4f7fb);border:1.6px dashed var(--ln-8793a3);border-radius:10px}
+.node.el-decision,.m-node.el-decision{background:var(--bg-fbe9d3);border:1.8px solid var(--ln-b45309);border-radius:8px}
+.node.el-actor::before,.node.el-agent::before,.m-node.el-actor::before,.m-node.el-agent::before{content:'';position:absolute;left:-7px;top:-7px;width:11px;height:11px;border-radius:50%;background:var(--bg-f4a6b8);border:1px solid var(--ln-444444)}
+.node.el-agent::before,.m-node.el-agent::before{background:var(--bg-0e7490)}
+.el-goal,.el-task,.el-policy,.el-data{color:#141a22}
+.el-goal .tag,.el-task .tag,.el-policy .tag,.el-data .tag,.el-goal .m-sub,.el-task .m-sub,.el-policy .m-sub,.el-data .m-sub{color:#38414d}
+.m-node.el-goal .m-kind,.m-node.el-task .m-kind,.m-node.el-policy .m-kind,.m-node.el-data .m-kind{color:#38414d!important}
+.m-node.dept{background:var(--bg-ffffff);border:1.5px solid var(--ln-8793a3)}
+.node.sel,.m-node.sel{border-color:var(--ln-1e4fcb)}
+.m-node.risk-red{border:2px solid var(--ln-b42318)}.m-node.risk-amber{border:2px solid var(--ln-d97706)}.m-node.risk-green{border:2px solid var(--ln-1e7f4f)}
+.pal-ico{vertical-align:middle;margin-right:6px;flex:none}.m-pal:not(.m-bundle){flex-direction:row;align-items:center}
 </style>
 </head>
 <body>
@@ -802,6 +823,9 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
   }
 
   /* ---------- Design studio ---------- */
+  const AGENT_EL = { agent: 'agent', human: 'actor', external: 'actor', goal: 'goal', tool: 'task', mcp: 'task', data: 'data', memory: 'data', input: 'data', approval: 'decision', guardrail: 'policy', constraint: 'policy' };
+  const AGENT_OG = { agent: 'agent', human: 'person', external: 'external', goal: 'goal', tool: 'operation', mcp: 'operation', data: 'data_store', memory: 'data_store', input: 'data_store', approval: 'decision', guardrail: 'policy', constraint: 'policy' };
+  const palIco = (ogType) => `<svg class="pal-ico" width="30" height="22" viewBox="-50 -34 100 68" aria-hidden="true">${ogShape({ type: ogType, props: {} }, 0, 0)}</svg>`;
   const TAGS = { agent: 'Agent', human: 'Human actor', input: 'Input', external: 'External system', goal: 'Goal', tool: 'Tool', mcp: 'MCP server', data: 'Data store', memory: 'Memory', approval: 'Human approval', guardrail: 'Guardrail', constraint: 'Constraint' };
   const RULES = { agent: 'R-01', goal: 'R-04', human: 'R-02', input: 'R-03', external: 'R-03', tool: 'R-11', mcp: 'R-12', data: 'R-13', memory: 'R-14', approval: 'R-16', guardrail: 'R-21', constraint: 'R-22' };
   function studioSeed(pattern) {
@@ -1023,7 +1047,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
       const a = xy(e.from), b = xy(e.to), x1 = a.x + 84, y1 = a.y + 26, x2 = b.x + 84, y2 = b.y + 26, dx = x2 - x1, dy = y2 - y1;
       return { line: `<div class="edge" style="left:${x1}px;top:${y1}px;width:${Math.round(Math.hypot(dx, dy))}px;transform:rotate(${(Math.atan2(dy, dx) * 180 / Math.PI).toFixed(1)}deg)"></div>`, label: `<span class="elabel" style="left:${Math.round((x1 + x2) / 2)}px;top:${Math.round((y1 + y2) / 2)}px">${esc(e.label)}</span>` };
     });
-    const nodesHtml = st.nodes.map((x) => { const q = xy(x.id); const cls = 'node' + (x.primary ? ' agent' : '') + (x.type === 'goal' ? ' goal' : '') + (st.sel === x.id ? ' sel' : ''); return `<button class="${cls}" style="left:${q.x}px;top:${q.y}px" data-act="sSel" data-arg="${x.id}" aria-label="${esc(TAGS[x.type] + ' ' + x.name)}"><span class="tag">${TAGS[x.type]}</span><span class="nm">${esc(x.name)}</span>${A.flags[x.id] ? `<span class="badge">${A.flags[x.id]}</span>` : ''}</button>`; }).join('');
+    const nodesHtml = st.nodes.map((x) => { const q = xy(x.id); const cls = 'node el-' + (AGENT_EL[x.type] || 'task') + (x.primary ? ' agent' : '') + (x.type === 'goal' ? ' goal' : '') + (st.sel === x.id ? ' sel' : ''); return `<button class="${cls}" style="left:${q.x}px;top:${q.y}px" data-act="sSel" data-arg="${x.id}" aria-label="${esc(TAGS[x.type] + ' ' + x.name)}"><span class="tag">${TAGS[x.type]}</span><span class="nm">${esc(x.name)}</span>${A.flags[x.id] ? `<span class="badge">${A.flags[x.id]}</span>` : ''}</button>`; }).join('');
     const applicable = A.rows.filter((r) => r.status !== 'Not applicable').length, covered = A.rows.filter((r) => r.status === 'Covered').length;
     let panel = '';
     if (st.panel === 'analysis') {
@@ -1081,7 +1105,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     }
     const R = computeRCR();
     out += rcrPanel(R);
-    return out + `<section aria-label="Add elements" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="cap">Add</span>${pal.map(([t, l]) => `<button class="chip" data-act="sAdd" data-arg="${t}">+ ${l}</button>`).join('')}</section>
+    return out + `<section aria-label="Add elements" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="cap">Add</span>${pal.map(([t, l]) => `<button class="chip" data-act="sAdd" data-arg="${t}">${palIco(AGENT_OG[t])}${l}</button>`).join('')}</section>
     <div class="studiocols"><section class="card" style="overflow:auto;padding:16px;min-height:420px"><div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap"><span style="font-size:13px;font-weight:600">Agent architecture view</span><span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="cap">Secure Tropos with agent elements · click to edit</span><button class="btn2 btn-s" data-act="vwOpen" data-arg="agent">Enlarge view</button></span></div>
     <div class="canvas" data-viewable="agent" style="height:${canvasH}px">${edgesHtml.map((e) => e.line).join('')}${edgesHtml.map((e) => e.label).join('')}${nodesHtml}</div></section>
     <section class="card" style="padding:16px 20px 20px;display:flex;flex-direction:column;gap:14px">${segTabs([['analysis', 'ASI'], ['compliance', 'Compliance'], ['props', 'Properties'], ['yaml', 'YAML']], st.panel, 'sPanel')}${panel}</section></div>`;
@@ -1425,6 +1449,8 @@ kill_switch:
     REGULATORY_REQ: { label: 'Regulatory requirement', color: 'var(--fg-9d174d)' }, CONSENT_RECORD: { label: 'Consent record', color: 'var(--fg-15803d)' },
     LEGAL_BASIS: { label: 'Legal basis', color: 'var(--fg-15803d)' }, DATA_CATEGORY: { label: 'Data category', color: 'var(--fg-15803d)' }
   };
+  const MODEL_EL = { ACTOR: 'actor', AI_MODEL: 'model', TRAINING_DATASET: 'data', DATA_CATEGORY: 'data', CONSENT_RECORD: 'data', DEPLOYMENT_ENV: 'env', CONSTRAINT: 'policy', REGULATORY_REQ: 'policy', LEGAL_BASIS: 'policy' };
+  const MODEL_OG = { DEPARTMENT: 'department', ACTOR: 'person', AI_MODEL: 'model', TRAINING_DATASET: 'data_store', DATA_CATEGORY: 'data_store', CONSENT_RECORD: 'data_store', DEPLOYMENT_ENV: 'environment', CONSTRAINT: 'policy', REGULATORY_REQ: 'policy', LEGAL_BASIS: 'policy' };
   const SUBTYPES = ['TRAINER', 'VALIDATOR', 'DEPLOYER', 'OPERATOR', 'CONSUMER'];
   const CSTATUS = ['NOT_YET_DETERMINED', 'UNMET', 'SATISFIED'];
   const CSTATUS_LABEL = { NOT_YET_DETERMINED: 'Not yet determined', UNMET: 'Unmet', SATISFIED: 'Satisfied' };
@@ -1723,7 +1749,7 @@ kill_switch:
     const ordered = M.nodes.filter((n) => n.kind === 'DEPARTMENT').concat(M.nodes.filter((n) => n.kind !== 'DEPARTMENT'));
     const nodes = ordered.map((n) => {
       const s = size(n), on = sel && sel.type === 'node' && sel.id === n.id, risk = ev.byNode[n.id];
-      const cls = 'm-node' + (n.kind === 'DEPARTMENT' ? ' dept' : '') + (on ? ' sel' : '') + (risk ? ' risk-' + risk.toLowerCase() : '');
+      const cls = 'm-node' + (n.kind === 'DEPARTMENT' ? ' dept' : ' el-' + (MODEL_EL[n.kind] || 'policy')) + (on ? ' sel' : '') + (risk ? ' risk-' + risk.toLowerCase() : '');
       const inner = n.kind === 'DEPARTMENT'
         ? `<span class="m-dept-pill">${esc(n.data.name || 'Department')}</span><span class="m-resize" data-resize="${n.id}" aria-hidden="true"></span>`
         : `<span class="m-kind" style="color:${MK[n.kind].color}">${MK[n.kind].label}</span><span class="m-title">${esc(nodeTitle(n))}</span><span class="m-sub">${esc(nodeSub(n))}</span>`;
@@ -1799,7 +1825,7 @@ kill_switch:
 
   /* ----- palette ----- */
   function palette() {
-    const b = (act, arg, label) => `<button class="m-pal" data-act="${act}" data-arg="${arg}">+ ${label}</button>`;
+    const b = (act, arg, label) => `<button class="m-pal" data-act="${act}" data-arg="${arg}">${palIco(MODEL_OG[act === 'mAddActor' ? 'ACTOR' : arg] || 'policy')}${label}</button>`;
     return `<div class="m-pal-group"><span class="m-pal-h">Organisation</span>${b('mAdd', 'DEPARTMENT', 'Department')}${SUBTYPES.map((s) => b('mAddActor', s, s.charAt(0) + s.slice(1).toLowerCase())).join('')}</div>
       <div class="m-pal-group"><span class="m-pal-h">Model</span>${b('mAdd', 'AI_MODEL', 'AI model')}${b('mAdd', 'TRAINING_DATASET', 'Training dataset')}${b('mAdd', 'DEPLOYMENT_ENV', 'Deployment env')}</div>
       <div class="m-pal-group"><span class="m-pal-h">Governance</span>${b('mAdd', 'CONSTRAINT', 'Security constraint')}${b('mAdd', 'REGULATORY_REQ', 'Regulatory req')}${b('mAdd', 'CONSENT_RECORD', 'Consent record')}${b('mAdd', 'LEGAL_BASIS', 'Legal basis')}${b('mAdd', 'DATA_CATEGORY', 'Data category')}</div>
