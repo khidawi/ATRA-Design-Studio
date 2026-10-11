@@ -402,6 +402,25 @@ Tools are followed across files (absolute and relative imports, `TOOLS = [...]` 
 
 **What a static scan cannot know**: a tool assembled at run time, an agent built in a loop, a prompt kept in a database, an agent defined in a repository that was not connected. So every element is a proposal, the imported design says it came from a static scan and is not verified against the running agent, and the runtime SDK (Live runtime) remains the way to see what an agent actually does.
 
+## Identity-provider connectors (Entra ID, Okta, Auth0, Keycloak)
+
+AI Agents → **Identity providers** starts from the service accounts and OAuth clients that your identity provider holds for AI agents. Code: `backend/idp_providers.py` (read-only clients), `backend/idp_manifest.py` (identity to proposal, credential hygiene), `backend/idp_connect.py` (connections, scans, import); tests: `python -m tests.test_idp`.
+
+An identity says what an agent is *allowed* to do and who is responsible for it, not how it is built. So each tagged identity becomes an agent proposal whose **permissions are its tools** (write-capable ones marked, privileged and tenant-wide ones flagged), whose owner comes from the provider where it has one, and whose goal comes from its description. The framework, data and approvals are left for the design, or for the repository connector (connect both and the identity's permissions are **merged** into the design the repository produced, without replacing it; an agent with an active contract goes to Drift review instead). A later scan marks an agent **Changed** when a permission was added, which is the event that matters most.
+
+| Provider | How an identity is marked as an agent | What is read | What to set up |
+|---|---|---|---|
+| Microsoft Entra ID | a tag on the service principal, or a name prefix | service principals, owners, application and delegated permissions, credential dates (Microsoft Graph) | an app registration with `Application.Read.All` and `Directory.Read.All` and a client secret |
+| Okta | membership of a group (such as AI-Agents), a label prefix, or text in the description | OAuth service apps, granted scopes, secret dates | an API token under a read-only administrator |
+| Auth0 | client metadata (`astra-agent=true`) or a name prefix | machine-to-machine clients and their grants | a machine-to-machine app on the Management API with `read:clients` and `read:client_grants` |
+| Keycloak | a client attribute (`astra-agent=true`) or a client ID prefix | clients with service accounts, client scopes, service-account roles | a client with a service account holding `view-clients` and `view-users` |
+
+**Hygiene it reports** (never the credential values): no owner recorded; the identity disabled; a secret or certificate expired or expiring within 30 days; a secret older than 180 days that does not expire; two secrets active at once; privileged permissions (directory or role management, `.manage`, `ReadWrite.All`, impersonation, admin roles) and tenant-wide ones (`*.All`). These appear on each identity and in its preview, and map to OWASP agentic risk ASI03 (identity and privilege abuse).
+
+**Safety**: the credential used to read the provider is encrypted at rest with `ASTRA_SECRET_KEY` (the same key as the repository connector; the platform refuses to connect without one) and is never returned or logged; only read requests are made, with a time limit, a size limit and no redirects; a next-page address on another host is refused; an Okta, Keycloak or Auth0 address must be https and public (a private address needs `ASTRA_REPO_ALLOW_PRIVATE_HOSTS=1`); a filter value is checked before it goes into a query. Connecting needs the engineer role or above, and every connect, scan and import is in the audit log.
+
+**What it does not do yet**: it reads on demand (press *Scan now*; there is no scheduled rescan or provider event hook), and it does not read sign-in activity, so it cannot say that an agent identity has gone unused.
+
 ## API keys (pipelines and collectors)
 
 An administrator makes keys on the **Users** screen (**API keys**), or with `POST /api/keys`. No key exists until one is made. A key is

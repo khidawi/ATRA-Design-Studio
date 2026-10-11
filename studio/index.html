@@ -456,6 +456,15 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       repoPreview: (id, key) => call('/api/repos/' + encodeURIComponent(id) + '/agents/' + encodeURIComponent(key)),
       repoImport: (id, body) => post('/api/repos/' + encodeURIComponent(id) + '/import', body),
       repoSecret: (id) => post('/api/repos/' + encodeURIComponent(id) + '/webhook-secret', {}),
+      idpCaps: () => call('/api/idps/capabilities'),
+      idpList: () => call('/api/idps'),
+      idpCreate: (body) => post('/api/idps', body),
+      idpUpdate: (id, body) => call('/api/idps/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(body) }),
+      idpDelete: (id) => call('/api/idps/' + encodeURIComponent(id), { method: 'DELETE' }),
+      idpScan: (id) => post('/api/idps/' + encodeURIComponent(id) + '/scan', {}),
+      idpLatest: (id) => call('/api/idps/' + encodeURIComponent(id) + '/scan'),
+      idpPreview: (id, key) => call('/api/idps/' + encodeURIComponent(id) + '/agents/' + encodeURIComponent(key)),
+      idpImport: (id, body) => post('/api/idps/' + encodeURIComponent(id) + '/import', body),
       previewAgentImport: (body) => post('/api/agents/import/preview', body),
       importAgent: (body) => post('/api/agents/import', body),
       companyGet: () => call('/api/company'),
@@ -531,7 +540,7 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
     drift: { sel: null }
   };
 
-  const NAV = [['overview', 'Overview', ''], ['agents', 'Agents', '12'], ['repos', 'Repositories', ''], ['studio', 'Design studio', ''], ['drift', 'Drift review', '3'], ['findings', 'Findings', '4'], ['coverage', 'Coverage', '7/10'], ['packs', 'Trust and packs', ''], ['runtime', 'Live runtime', ''], ['workspace', 'Compliance workspace', '2']];
+  const NAV = [['overview', 'Overview', ''], ['agents', 'Agents', '12'], ['repos', 'Repositories', ''], ['idps', 'Identity providers', ''], ['studio', 'Design studio', ''], ['drift', 'Drift review', '3'], ['findings', 'Findings', '4'], ['coverage', 'Coverage', '7/10'], ['packs', 'Trust and packs', ''], ['runtime', 'Live runtime', ''], ['workspace', 'Compliance workspace', '2']];
   const PARENT = { newagent: 'agents', addagent: 'agents', contract: 'agents', pack: 'packs' };
 
   function nav(active) {
@@ -775,7 +784,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
       else if (a.contract_count) first = `<a href="#/contract?agent=${esc(a.agent_key)}" style="font-weight:500">View contract</a>`;
       return `<span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${first}${designBtn(a)}</span>`;
     };
-    const empty = `<section class="card" style="padding:24px;display:flex;flex-direction:column;gap:12px;max-width:760px"><h3>No agents in the inventory yet</h3><span class="cap">An agent appears here when you ratify a design from the design studio or register one by hand. Finding agents in a repository, telemetry or an identity provider needs connectors, which are not built yet. To explore the screens first, load the demo agents (sample data from the prototype, easy to remove).</span><div class="prow"><a class="btn" href="#/studio">Design an agent</a><a class="btn2" href="#/addagent">Register an agent</a><button class="btn2" data-act="agLoadDemo"${AG.busy ? ' disabled' : ''}>Load demo agents</button></div></section>`;
+    const empty = `<section class="card" style="padding:24px;display:flex;flex-direction:column;gap:12px;max-width:760px"><h3>No agents in the inventory yet</h3><span class="cap">An agent appears here when you ratify a design from the design studio or register one by hand. Agents can be found in a repository (Repositories) or an identity provider (Identity providers); discovery from telemetry needs a connector that is not built yet. To explore the screens first, load the demo agents (sample data from the prototype, easy to remove).</span><div class="prow"><a class="btn" href="#/studio">Design an agent</a><a class="btn2" href="#/addagent">Register an agent</a><button class="btn2" data-act="agLoadDemo"${AG.busy ? ' disabled' : ''}>Load demo agents</button></div></section>`;
     const table = `<div>${segTabs([['all', `All (${AG.list.length})`], ['assured', `Assured (${n('ASSURED')})`], ['ratify', `To ratify (${n('TO_RATIFY')})`], ['designed', `Designed (${n('DESIGNED')})`], ['unowned', `Unowned (${n('UNOWNED')})`]], st.tab, 'agTab')}</div>
       <section class="card tbl"><div class="grow head"><span>Agent</span><span>Owner</span><span>Framework</span><span>Tools</span><span>Status</span><span>Mode</span><span>Last finding</span><span>Action</span></div>
       ${rows.map((a) => `<div class="grow"><span class="mono" style="font-weight:500">${esc(a.name)}${a.origin === 'DEMO' ? ' <span class="pill muted">demo</span>' : ''}${a.origin === 'DISCOVERED' ? ' <span class="pill warn" title="Seen by the runtime SDK, not registered by a person">discovered</span>' : ''}${a.origin === 'ORG' ? ' <span class="pill muted" title="Created from the organisation">organisation</span>' : ''}</span><span>${esc(a.owner || 'No owner')}</span><span>${esc(a.framework)}</span><span>${a.tools_count}</span><span><span class="pill ${pills[a.status]}">${STATUS_LABEL[a.status]}</span></span><span>${MODE_LABEL[a.mode]}</span><span class="cap">${esc(a.last_finding || a.note || '\u2014')}</span><span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${action(a)}${can('admin') ? `<button class="btn3 btn-s" data-act="agDelete" data-arg="${esc(a.agent_key)}" title="Remove this agent from the whole platform">Delete</button>` : ''}</span></div>`).join('')}</section>`;
@@ -811,13 +820,12 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
       <div style="display:flex;gap:6px;flex-wrap:wrap">${p.nodes.map((n) => `<span class="pill muted" title="${esc(n.type)}">${esc(n.type)}: ${esc(n.name)}${n.type === 'tool' ? (n.p.write ? ' (write)' : ' (read)') : (n.type === 'mcp' ? (n.p.signed ? ' (signed)' : ' (unsigned)') : '')}</span>`).join('')}</div>
       ${list('Recognised', p.recognised)}${list('Guessed from names: please confirm', p.inferred, 'var(--fg-b45309)')}${list('Needs attention', p.warnings, 'var(--ln-b42318)')}${list('Not used or not read', p.ignored)}
       <div class="stack" style="gap:4px"><span style="font-size:12px;font-weight:600;color:var(--fg-4a5563)">OWASP Agentic checks on this model (${p.analysis.covered} of ${p.analysis.applicable} covered)</span>${p.analysis.rows.map((r) => `<span class="cap"><span class="pill ${pill[r.status]}">${esc(r.status)}</span> ${esc(r.id)} ${esc(r.name)}: ${esc(r.why)}</span>`).join('')}</div>
-      <span class="cap">${will} Every element is a proposal. ${p.source ? `Found in ${esc(p.source.path)}:${p.source.line} at commit ${esc(p.source.commit.slice(0, 7))} by a static scan, so nothing here is verified against the running agent; only where it was found is kept, not the source.` : `Nothing here is verified against code; only the file\u2019s hash (sha256:${esc(p.sha256.slice(0, 12))}\u2026) is kept, not its content.`}</span></div>`;
+      <span class="cap">${will} Every element is a proposal. ${p.source && p.source.provider ? `Read from ${esc(p.source.provider)} (${esc(p.source.identity.replace(/-/g, ' '))}). The permissions are what the identity is allowed to do, not proof of what the agent does. ${p.existing.merges ? 'This agent already has a design, so these permissions will be added to it and nothing else will change. ' : ''}Credential values were never read.` : p.source ? `Found in ${esc(p.source.path)}:${p.source.line} at commit ${esc(p.source.commit.slice(0, 7))} by a static scan, so nothing here is verified against the running agent; only where it was found is kept, not the source.` : `Nothing here is verified against code; only the file\u2019s hash (sha256:${esc(p.sha256.slice(0, 12))}\u2026) is kept, not its content.`}</span></div>`;
   }
   function addagent() {
     loadImportFormats();
     const st = S.add, im = S.imp, fm = im.formats || [], p = im.preview;
-    const src = [['From an identity provider', 'Start from a service account or OAuth client tagged as an agent.']];
-    const result = im.result ? `<div class="note good" role="status"><strong>${im.result.outcome === 'drift' ? 'Waiting in Drift review' : (im.result.outcome === 'updated' ? 'Draft design updated' : 'Draft design created')}</strong><span style="font-size:13px">${esc(im.result.summary)}</span><div class="prow">${im.result.outcome === 'drift' ? '<a class="btn" href="#/drift">Open Drift review</a>' : `<button class="btn" data-act="agOpenDesign" data-arg="${esc(im.result.design_key)}">Open the design</button>`}<a class="btn2" href="#/agents">Back to inventory</a><button class="btn2" data-act="impReset">Import another</button></div></div>` : '';
+        const result = im.result ? `<div class="note good" role="status"><strong>${im.result.outcome === 'drift' ? 'Waiting in Drift review' : (im.result.outcome === 'updated' ? 'Draft design updated' : 'Draft design created')}</strong><span style="font-size:13px">${esc(im.result.summary)}</span><div class="prow">${im.result.outcome === 'drift' ? '<a class="btn" href="#/drift">Open Drift review</a>' : `<button class="btn" data-act="agOpenDesign" data-arg="${esc(im.result.design_key)}">Open the design</button>`}<a class="btn2" href="#/agents">Back to inventory</a><button class="btn2" data-act="impReset">Import another</button></div></div>` : '';
     return hdr('', 'Register an existing agent', '', ['newagent', 'Add agent']) +
       `<section class="card" style="padding:24px;display:flex;flex-direction:column;gap:14px;max-width:920px"><div class="stack"><h3>Import a definition file</h3><span class="cap">Upload or paste an agent definition (JSON or YAML) and ASTRA generates its Secure Tropos model: tools, MCP servers, memory, data, delegations, approvals and guardrails, with the OWASP checks on it. Supported: ${fm.length ? fm.map((f) => esc(f.label)).join('; ') : 'loading\u2026'}. Environment values, headers, tokens and commands are never read or stored.</span></div>
       <div class="prow" style="flex-wrap:wrap;gap:12px;align-items:flex-end"><label class="cap">Format<br><select class="reqsel" data-chg="impField" data-arg="format">${opt('auto', 'Detect automatically', im.format)}${fm.map((f) => opt(f.id, f.label, im.format)).join('')}</select></label>
@@ -829,7 +837,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
         <button class="btn2"${im.busy || !im.content.trim() ? ' disabled' : ''} data-act="impPreview">Preview the model</button><button class="btn"${im.busy || !p ? ' disabled' : ''} data-act="impCreate">${p && p.existing.will === 'drift' ? 'Submit as a proposed change' : 'Create the agent design'}</button></div>
       ${im.err ? `<div class="note alert" role="alert"><span style="font-size:13px;white-space:pre-wrap">${esc(im.err)}</span></div>` : ''}${p && !im.result ? importPreviewHtml(p) : ''}${result}</section>
       <section class="card" style="padding:24px;display:flex;flex-direction:column;gap:20px;max-width:920px;margin-top:16px"><div class="stack"><h3>Or register by hand</h3><span class="cap">For an agent you have no file for. It joins the inventory as unowned until you give it an owner, then waits for a model to be ratified. Partial provenance: nothing here is verified against code.</span></div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px"><a class="opt" href="#/runtime" style="text-decoration:none"><span style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600">From the runtime SDK</span><span class="pill ok">Available</span></span><span class="cap">Add the SDK to an agent and it appears here by itself, unowned, the first time it runs. See Live runtime.</span></a><a class="opt" href="#/repos" style="text-decoration:none"><span style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600">Connect a repository</span><span class="pill ok">Available</span></span><span class="cap">Scans LangGraph, OpenAI Agents SDK and CrewAI definitions plus MCP configs, and brings the agents in.</span></a>${src.map(([t, d]) => `<div class="opt" style="opacity:.6;cursor:not-allowed"><span style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600">${t}</span><span class="pill muted">Needs a connector</span></span><span class="cap">${d} Not built yet.</span></div>`).join('')}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px"><a class="opt" href="#/runtime" style="text-decoration:none"><span style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600">From the runtime SDK</span><span class="pill ok">Available</span></span><span class="cap">Add the SDK to an agent and it appears here by itself, unowned, the first time it runs. See Live runtime.</span></a><a class="opt" href="#/repos" style="text-decoration:none"><span style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600">Connect a repository</span><span class="pill ok">Available</span></span><span class="cap">Scans LangGraph, OpenAI Agents SDK and CrewAI definitions plus MCP configs, and brings the agents in.</span></a><a class="opt" href="#/idps" style="text-decoration:none"><span style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600">From an identity provider</span><span class="pill ok">Available</span></span><span class="cap">Starts from the service accounts and OAuth clients tagged as agents in Entra ID, Okta, Auth0 or Keycloak.</span></a></div>
       <div class="prow" style="flex-wrap:wrap;gap:12px"><div class="fld" style="min-width:240px"><label for="rg-name">Agent name</label><input id="rg-name" class="inp mono" data-chg="aReg" data-arg="name" value="${esc(st.name)}" placeholder="payouts-agent"></div>
       <div class="fld" style="min-width:200px"><label for="rg-owner">Owner (optional)</label><input id="rg-owner" class="inp" data-chg="aReg" data-arg="owner" value="${esc(st.owner)}" placeholder="Payments eng"></div>
       <div class="fld" style="min-width:200px"><label for="rg-fw">Framework</label><input id="rg-fw" class="inp" data-chg="aReg" data-arg="framework" value="${esc(st.framework)}" placeholder="LangGraph"></div>
@@ -1626,6 +1634,160 @@ kill_switch:
       try { const r = await STAI.api.repoSecret(id); RP.secret = { id, value: r.webhook_secret, path: r.webhook_path }; RP.list = await STAI.api.repoList(); } catch (x) { RP.err = x.message; }
     },
     rpSecretHide: () => { RP.secret = null; }
+  });
+
+  /* ======================= IDENTITY PROVIDER CONNECTORS (AI Agents) ======================= */
+  // Connect Microsoft Entra ID, Okta, Auth0 or Keycloak (read only). Service accounts and OAuth clients tagged as agents become proposals: their permissions are the agent's tools.
+  const IP = { loaded: false, loading: false, error: null, caps: null, list: [], sel: null, scan: null, scanFor: null, busy: null, err: null, msg: null, open: false, picks: new Set(),
+    preview: null, previewKey: null, results: null, edit: null, q: '', fstatus: '', limit: 40, form: { provider: '', name: '', cfg: {}, secret: '', mode: '', value: '' } };
+  const ipProv = (id) => ((IP.caps && IP.caps.providers) || []).find((p) => p.id === id);
+  const ipSecretLabel = { entra: 'Client secret', okta: 'API token', auth0: 'Client secret', keycloak: 'Client secret' };
+  const ipFreshForm = (provider) => { const p = ipProv(provider) || (IP.caps && IP.caps.providers[0]); return { provider: p ? p.id : '', name: '', cfg: {}, secret: '', mode: p ? p.modes[0].id : '', value: '' }; };
+  async function loadIdps() {
+    IP.loading = true; IP.error = null;
+    try {
+      const [caps, list] = await Promise.all([STAI.api.idpCaps(), STAI.api.idpList()]);
+      IP.caps = caps; IP.list = list; IP.loaded = true;
+      if (!IP.form.provider) IP.form = ipFreshForm('entra');
+      if (IP.sel && !list.some((x) => x.id === IP.sel)) { IP.sel = null; IP.scan = null; }
+      if (!IP.sel && list.length) { IP.sel = list[0].id; await loadIpScan(IP.sel); }
+    } catch (e) { IP.error = e.message; }
+    IP.loading = false; renderIfIdle('idps');
+  }
+  async function loadIpScan(id) { try { IP.scan = await STAI.api.idpLatest(id); IP.scanFor = id; } catch (e) { IP.scan = null; IP.err = e.message; } }
+  const ipRuleText = (c) => { const p = ipProv(c.provider), m = p && p.modes.find((x) => x.id === c.rule.mode); return m ? m.label + (c.rule.value ? ': ' + c.rule.value : '') : ''; };
+  function ipConnectForm() {
+    const f = IP.form, caps = IP.caps || {}, p = ipProv(f.provider);
+    if (!p) return '';
+    const fld = (id, label, ctl, help) => `<div class="fld" style="min-width:220px;flex:1 1 220px"><label for="${id}">${label}</label>${ctl}${help ? `<span class="cap" style="font-size:12.5px">${help}</span>` : ''}</div>`;
+    const inputs = p.fields.map((x) => x.options
+      ? fld('ip-' + x.id, x.label, `<select id="ip-${x.id}" class="inp" data-chg="ipCfg" data-arg="${x.id}">${x.options.map(([v, l]) => opt(v, l, f.cfg[x.id] || x.options[0][0])).join('')}</select>`)
+      : fld('ip-' + x.id, x.label + (x.required ? '' : ' (optional)'), `<input id="ip-${x.id}" class="inp mono" style="max-width:none;width:100%" data-chg="ipCfg" data-arg="${x.id}" value="${esc(f.cfg[x.id] || '')}" placeholder="${esc(x.placeholder || '')}" autocomplete="off">`)).join('');
+    const mode = p.modes.find((m) => m.id === f.mode) || p.modes[0];
+    return `<section class="card" style="padding:20px 24px;display:flex;flex-direction:column;gap:14px"><div class="stack" style="gap:2px"><h2>Connect an identity provider</h2><span class="cap">ASTRA only reads. It never creates, changes or deletes anything in the identity provider.</span></div>
+      <div class="prow" style="align-items:flex-start;gap:14px">${fld('ip-provider', 'Identity provider', `<select id="ip-provider" class="inp" data-chg="ipProvider">${caps.providers.map((x) => opt(x.id, x.label, f.provider)).join('')}</select>`)}${fld('ip-name', 'Name (optional)', `<input id="ip-name" class="inp" style="max-width:none;width:100%" data-chg="ipField" data-arg="name" value="${esc(f.name)}" placeholder="${esc(p.label)} · production">`)}</div>
+      <div class="note plain" style="font-size:12.5px"><strong>What to set up in ${esc(p.label)}</strong><span>${esc(p.permissions_help)}</span></div>
+      <div class="prow" style="align-items:flex-start;gap:14px">${inputs}${fld('ip-secret', ipSecretLabel[p.id] || 'Secret', `<input id="ip-secret" class="inp mono" style="max-width:none;width:100%" type="password" autocomplete="new-password" data-chg="ipField" data-arg="secret" value="${esc(f.secret)}"${caps.secrets_ready ? '' : ' disabled'} placeholder="${caps.secrets_ready ? '' : 'token storage is not set up'}">`, caps.secrets_ready ? 'Stored encrypted. Never shown again.' : 'An administrator must set ASTRA_SECRET_KEY first (see the README).')}</div>
+      <div class="prow" style="align-items:flex-start;gap:14px">${fld('ip-mode', 'An identity is an agent when', `<select id="ip-mode" class="inp" data-chg="ipField" data-arg="mode">${p.modes.map((m) => opt(m.id, m.label, f.mode)).join('')}</select>`, mode.help)}
+        ${mode.value ? fld('ip-value', 'Value', `<input id="ip-value" class="inp mono" style="max-width:none;width:100%" data-chg="ipField" data-arg="value" value="${esc(f.value)}" placeholder="${p.id === 'entra' ? 'astra-agent' : (p.id === 'okta' ? 'AI-Agents' : (mode.id === 'name_prefix' ? 'agent-' : 'astra-agent=true'))}">`) : ''}</div>
+      ${IP.err ? `<div class="note alert" role="alert"><span style="font-size:13px;white-space:pre-wrap">${esc(IP.err)}</span></div>` : ''}
+      <div style="display:flex;gap:10px"><button class="btn" data-act="ipConnect"${IP.busy || !caps.secrets_ready ? ' disabled' : ''}>${IP.busy === 'connect' ? 'Signing in…' : 'Connect'}</button><button class="btn2" data-act="ipForm">Cancel</button></div></section>`;
+  }
+  function ipConnCard(c) {
+    const on = IP.sel === c.id, st = { OK: ['ok', 'Connected'], ERROR: ['bad', 'Problem'], NEVER: ['muted', 'Not read yet'] }[c.status], p = ipProv(c.provider);
+    const ed = IP.edit && IP.edit.id === c.id ? IP.edit : null;
+    const mode = ed && p ? (p.modes.find((m) => m.id === ed.mode) || p.modes[0]) : null;
+    const edit = ed && p ? `<div class="stack" style="gap:10px;padding-top:6px;border-top:1px solid var(--ln-edf0f3)"><div class="prow" style="gap:12px;align-items:flex-end">
+        <label class="cap">An identity is an agent when<br><select class="inp" style="max-width:300px" data-chg="ipEditField" data-arg="mode">${p.modes.map((m) => opt(m.id, m.label, ed.mode)).join('')}</select></label>
+        ${mode.value ? `<label class="cap">Value<br><input class="inp mono" style="max-width:240px" data-chg="ipEditField" data-arg="value" value="${esc(ed.value)}"></label>` : ''}
+        <label class="cap">Replace the ${esc((ipSecretLabel[c.provider] || 'secret').toLowerCase())}<br><input class="inp mono" type="password" autocomplete="new-password" style="max-width:240px" data-chg="ipEditField" data-arg="secret" value="${esc(ed.secret)}" placeholder="•••••••• (stored)"></label></div>
+      <div class="prow" style="gap:8px"><button class="btn btn-s" data-act="ipEditSave"${IP.busy ? ' disabled' : ''}>Save</button><button class="btn2 btn-s" data-act="ipEdit" data-arg="">Close</button></div></div>` : '';
+    return `<section class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:10px${on ? ';border-color:var(--ln-1e4fcb)' : ''}">
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start"><span class="stack" style="gap:3px;min-width:0"><span style="font-weight:600;font-size:15px">${esc(c.name)} <span class="pill muted">${esc(c.provider_label)}</span> <span class="pill ${st[0]}">${st[1]}</span></span>
+        <span class="cap">Account ${esc(c.account)} · an identity is an agent when: ${esc(ipRuleText(c))}</span>
+        <span class="cap">${c.last_scan_at ? 'Read ' + esc(cwhen(c.last_scan_at)) : 'Not read yet'} · ${c.imported_agents} agent${c.imported_agents === 1 ? '' : 's'} imported · connected by ${esc(c.created_by)}</span></span>
+        <span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-s" data-act="ipScan" data-arg="${esc(c.id)}"${IP.busy ? ' disabled' : ''}>${IP.busy === 'scan:' + c.id ? 'Reading…' : 'Scan now'}</button>${on ? '' : `<button class="btn2 btn-s" data-act="ipSel" data-arg="${esc(c.id)}">Show results</button>`}<button class="btn2 btn-s" data-act="ipEdit" data-arg="${esc(c.id)}">Settings</button><button class="btn3 btn-s" data-act="ipDisconnect" data-arg="${esc(c.id)}">Disconnect</button></span></div>
+      ${c.status === 'ERROR' && c.last_error ? `<div class="note alert" role="alert"><span style="font-size:13px">${esc(c.last_error)}</span></div>` : ''}${edit}</section>`;
+  }
+  function ipResults(c) {
+    const s = IP.scan;
+    if (!s || IP.scanFor !== c.id) return `<section class="card" style="padding:20px 24px"><p class="cap" style="margin:0">${c.status === 'NEVER' ? 'Press “Scan now” to read the identity provider.' : 'Loading the latest scan…'}</p></section>`;
+    const row = (a) => {
+      const st = RP_STATUS[a.status] || ['muted', a.status], picked = IP.picks.has(a.key), openp = IP.previewKey === a.key;
+      return `<div class="lrow" style="align-items:flex-start"><label class="chk" style="min-height:0;align-items:flex-start;gap:12px;flex:1 1 380px"><input type="checkbox" data-chg="ipPick" data-arg="${esc(a.key)}"${picked ? ' checked' : ''} aria-label="Select ${esc(a.name)}"><span class="stack" style="gap:3px;min-width:0"><span style="font-weight:600"><span class="mono">${esc(a.name)}</span> <span class="pill ${st[0]}">${st[1]}</span>${a.enabled ? '' : ' <span class="pill muted">Disabled</span>'}${a.counts.privileged ? ` <span class="pill bad">${a.counts.privileged} privileged</span>` : ''}${a.hygiene.length ? ` <span class="pill warn">${a.hygiene.length} credential or ownership issue${a.hygiene.length === 1 ? '' : 's'}</span>` : ''}${a.has_contract ? ' <span class="pill warn">Has an active contract</span>' : ''}</span>
+        <span class="cap">${esc(a.kind.replace(/-/g, ' '))} · ${a.counts.permissions} permission${a.counts.permissions === 1 ? '' : 's'}, ${a.counts.write} able to write${a.privileged.length ? ' · ' + esc(a.privileged.slice(0, 3).join(', ')) : ''}</span>
+        ${a.hygiene.slice(0, 3).map((h) => `<span class="cap" style="color:var(--fg-b45309)">${esc(h)}</span>`).join('')}</span></label>
+        <span style="display:flex;gap:8px"><button class="btn2 btn-s" data-act="ipPreview" data-arg="${esc(a.key)}">${openp ? 'Hide the model' : 'Preview the model'}</button></span></div>${openp && IP.preview ? `<div style="padding:0 20px 14px">${importPreviewHtml(IP.preview)}</div>` : ''}`;
+    };
+    const pickable = s.agents.filter((a) => a.status === 'new' || a.status === 'changed').map((a) => a.key);
+    const q = IP.q.trim().toLowerCase();
+    const matching = s.agents.filter((a) => (!IP.fstatus || a.status === IP.fstatus) && (!q || (a.name + ' ' + a.kind).toLowerCase().includes(q)));
+    const visible = matching.slice(0, IP.limit);
+    const filters = s.agents.length > 8 ? `<div class="prow" style="padding:0 20px 8px;gap:10px"><input class="inp" style="max-width:280px" type="search" data-chg="ipQuery" aria-label="Search the identities found" placeholder="Search by name" value="${esc(IP.q)}">
+        <select class="reqsel" data-chg="ipStatus" aria-label="Show identities by status">${opt('', 'All statuses', IP.fstatus)}${opt('new', 'New', IP.fstatus)}${opt('changed', 'Changed', IP.fstatus)}${opt('unchanged', 'Imported, unchanged', IP.fstatus)}${opt('exists', 'Already in the inventory', IP.fstatus)}</select>
+        <span class="cap">Showing ${visible.length} of ${matching.length}</span></div>` : '';
+    const more = matching.length > visible.length ? `<div style="padding:10px 20px"><button class="btn2 btn-s" data-act="ipMore">Show ${Math.min(40, matching.length - visible.length)} more</button></div>` : '';
+    const results = IP.results ? `<div class="note ${IP.results.some((r) => !r.ok) ? 'plain' : 'good'}" role="status" style="gap:6px"><strong>Import result</strong>${IP.results.map((r) => `<span style="font-size:13px"><span class="mono">${esc(r.key)}</span>: ${r.ok ? esc(r.summary) + (r.merged ? ' Its permissions were merged into the design that was already there.' : '') : '<span style="color:var(--fg-b42318)">' + esc(r.error) + '</span>'}</span>`).join('')}<span class="cap"><a href="#/agents">Open the inventory</a> · <a href="#/drift">Drift review</a></span></div>` : '';
+    return `<section class="card" style="padding:8px 0"><div class="ph" style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><span class="stack" style="gap:2px"><h2>Identities tagged as agents</h2><span class="cap">${esc(cwhen(s.scanned_at))} · ${s.stats.agents} agent${s.stats.agents === 1 ? '' : 's'} · ${s.stats.with_privileged} with privileged permissions · ${s.stats.with_hygiene_issues} with credential or ownership issues</span></span>
+        <span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn2 btn-s" data-act="ipPickNew"${pickable.length ? '' : ' disabled'}>Select new and changed</button><button class="btn btn-s" data-act="ipImport"${IP.picks.size && !IP.busy ? '' : ' disabled'}>${IP.busy === 'import' ? 'Importing…' : `Import ${IP.picks.size || ''} selected`}</button></span></div>
+      ${filters}${s.agents.length ? (visible.length ? visible.map(row).join('') + more : '<p class="cap" style="padding:8px 20px 16px;margin:0">No identity matches that search.</p>') : '<p class="cap" style="padding:8px 20px 16px;margin:0">No identity matched the rule. Check the tag, group or prefix in Settings, and that the identity is a service account or OAuth client.</p>'}
+      ${s.removed.length ? `<div class="note plain" style="margin:12px 20px"><strong>No longer matching</strong><span style="font-size:13px">${s.removed.map((k) => `<span class="mono">${esc(k)}</span>`).join(', ')} was imported from here but is not tagged as an agent any more (or has been deleted). If the agent is retired, decommission it; ASTRA does not remove it for you.</span></div>` : ''}</section>
+      ${results}${s.notes.length ? `<section class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:8px"><h2>Things to know</h2>${s.notes.map((n) => `<div class="note plain" style="font-size:13px">${esc(n)}</div>`).join('')}</section>` : ''}
+      <div class="note plain" style="font-size:12.5px"><strong>What an identity can and cannot tell you</strong><span>It says what the agent is allowed to do and who is responsible for it, so its permissions become its tools (write-capable ones marked). It does not say how the agent is built, what data it reads or who approves its actions: add that in the design, or connect its repository too. Importing an agent that is already in the inventory merges the permissions into its design; one with an active contract goes to Drift review instead.</span></div>`;
+  }
+  function idpsScreen() {
+    if (!IP.loaded && !IP.loading && !IP.error) loadIdps();
+    const head = hdr('AI Agents · Connectors', 'Identity providers', !IP.open ? '<button class="btn" data-act="ipForm">Connect an identity provider</button>' : '');
+    if (IP.error) return head + `<div class="note alert" role="alert"><strong>Could not load</strong><span>${esc(IP.error)}</span><button class="btn2 btn-s" style="align-self:flex-start" data-act="ipRetry">Retry</button></div>`;
+    if (!IP.loaded) return head + '<p class="cap">Loading…</p>';
+    const caps = IP.caps || {}, sel = IP.list.find((c) => c.id === IP.sel);
+    const intro = `<div class="note plain" style="gap:6px"><strong>How it works</strong><span style="font-size:13px">Tag your agents' service accounts and OAuth clients in ${esc(caps.providers.map((p) => p.label).join(', '))}. ASTRA reads them (read only), lists what each one may do, who owns it and whether its credentials are looked after, and proposes each as an agent. Nothing is imported until you choose it. Credential values are never read, only their dates.</span></div>`;
+    const secretsNote = caps.secrets_ready ? '' : `<div class="note alert" role="status"><strong>Credential storage is not set up</strong><span style="font-size:13px">An administrator sets <span class="mono">ASTRA_SECRET_KEY</span> so the credential used to read the identity provider can be stored encrypted. The README says how.</span></div>`;
+    return head + intro + secretsNote + (IP.open ? ipConnectForm() : '') + (IP.msg ? `<div class="note good" role="status" style="font-size:13px">${esc(IP.msg)}</div>` : '') + (!IP.err || IP.open ? '' : `<div class="note alert" role="alert"><span style="font-size:13px;white-space:pre-wrap">${esc(IP.err)}</span></div>`) +
+      (IP.list.length ? IP.list.map(ipConnCard).join('') : (IP.open ? '' : '<section class="card" style="padding:24px"><p style="margin:0">No identity provider is connected yet.</p></section>')) + (sel ? ipResults(sel) : '');
+  }
+  SCREENS.idps = idpsScreen;
+  const ipFail = (e) => { IP.err = e.message; IP.busy = null; };
+  Object.assign(C, {
+    ipProvider: (v) => { IP.form = Object.assign(ipFreshForm(v), { name: IP.form.name }); },
+    ipCfg: (v, k) => { IP.form.cfg[k] = v; },
+    ipField: (v, k) => { IP.form[k] = v; if (k === 'mode') IP.form.value = ''; },
+    ipEditField: (v, k) => { if (IP.edit) { IP.edit[k] = v; if (k === 'mode') IP.edit.value = ''; } },
+    ipPick: (v, k) => { if (v) IP.picks.add(k); else IP.picks.delete(k); },
+    ipQuery: (v) => { IP.q = v; IP.limit = 40; },
+    ipStatus: (v) => { IP.fstatus = v; IP.limit = 40; }
+  });
+  Object.assign(H, {
+    ipRetry: () => { IP.error = null; IP.loaded = false; },
+    ipMore: () => { IP.limit += 40; },
+    ipForm: () => { IP.open = !IP.open; IP.err = null; if (IP.open) IP.form = ipFreshForm('entra'); },
+    ipConnect: async () => {
+      const f = IP.form; IP.err = null; IP.msg = null; IP.busy = 'connect'; render(true);
+      try {
+        const r = await STAI.api.idpCreate({ provider: f.provider, name: f.name || null, config: f.cfg, secret: f.secret, rule: { mode: f.mode, value: f.value } });
+        IP.open = false; IP.busy = null; IP.sel = r.id; IP.scan = null; IP.scanFor = null; IP.picks = new Set(); IP.results = null; IP.preview = null; IP.previewKey = null;
+        IP.form = ipFreshForm('entra'); IP.list = await STAI.api.idpList(); IP.msg = `${r.name} is connected (${r.account}). Scan it to see the agents it holds.`;
+      } catch (e) { ipFail(e); }
+      render(true);
+    },
+    ipSel: async (id) => { IP.sel = id; IP.q = ''; IP.fstatus = ''; IP.limit = 40; IP.picks = new Set(); IP.results = null; IP.preview = null; IP.previewKey = null; IP.scan = null; IP.err = null; await loadIpScan(id); },
+    ipScan: async (id) => {
+      IP.err = null; IP.msg = null; IP.busy = 'scan:' + id; IP.sel = id; IP.results = null; IP.preview = null; IP.previewKey = null; IP.picks = new Set(); render(true);
+      try { IP.scan = await STAI.api.idpScan(id); IP.scanFor = id; IP.list = await STAI.api.idpList(); IP.busy = null; }
+      catch (e) { ipFail(e); try { IP.list = await STAI.api.idpList(); } catch (x) { /* shown next load */ } }
+      render(true);
+    },
+    ipPickNew: () => { IP.scan.agents.filter((a) => a.status === 'new' || a.status === 'changed').forEach((a) => IP.picks.add(a.key)); },
+    ipPreview: async (key) => {
+      if (IP.previewKey === key) { IP.previewKey = null; IP.preview = null; return; }
+      IP.previewKey = key; IP.preview = null; IP.err = null; render(true);
+      try { IP.preview = await STAI.api.idpPreview(IP.sel, key); } catch (e) { IP.err = e.message; IP.previewKey = null; }
+      render(true);
+    },
+    ipImport: async () => {
+      if (IP.picks.size > 25 && !window.confirm(`Import ${IP.picks.size} agents? Each becomes a draft design (or a drift item when it has an active contract) that someone then has to own and ratify.`)) return;
+      IP.busy = 'import'; IP.err = null; render(true);
+      try {
+        const r = await STAI.api.idpImport(IP.sel, { agents: Array.from(IP.picks) });
+        IP.results = r.results; IP.picks = new Set(); IP.previewKey = null; IP.preview = null;
+        await loadIpScan(IP.sel); IP.list = await STAI.api.idpList(); AG.loaded = false; FD.loaded = false; OV.loaded = false;
+      } catch (e) { IP.err = e.message; }
+      IP.busy = null; render(true);
+    },
+    ipDisconnect: async (id) => {
+      const c = IP.list.find((x) => x.id === id); if (!c || !window.confirm(`Disconnect ${c.name}? The agents already imported from it stay in the inventory.`)) return;
+      try { await STAI.api.idpDelete(id); IP.list = await STAI.api.idpList(); if (IP.sel === id) { IP.sel = IP.list.length ? IP.list[0].id : null; IP.scan = null; IP.scanFor = null; if (IP.sel) await loadIpScan(IP.sel); } IP.msg = `${c.name} was disconnected.`; }
+      catch (e) { IP.err = e.message; }
+    },
+    ipEdit: (id) => { const c = IP.list.find((x) => x.id === id); IP.edit = c ? { id, mode: c.rule.mode, value: c.rule.value || '', secret: '' } : null; },
+    ipEditSave: async () => {
+      const e = IP.edit; if (!e) return; IP.busy = 'edit'; IP.err = null; render(true);
+      try {
+        const body = { rule: { mode: e.mode, value: e.value } }; if (e.secret) body.secret = e.secret;
+        await STAI.api.idpUpdate(e.id, body); IP.list = await STAI.api.idpList(); IP.edit = null; IP.msg = 'Saved. The next scan uses the new rule.';
+      } catch (x) { IP.err = x.message; }
+      IP.busy = null; render(true);
+    }
   });
 
   /* ======================= MODEL MODULE (ST-AI Design Studio) ======================= */
@@ -3917,7 +4079,7 @@ kill_switch:
     if (mainEl && ME.role === 'auditor') mainEl.insertAdjacentHTML('afterbegin', '<div class="note plain" role="status"><strong>Read-only</strong><span style="font-size:13px">Your role is auditor: you can view everything and the audit log, but not change anything.</span></div>');
     if (keepScroll) Object.keys(keep).forEach((q) => { const el = document.querySelector(q); if (el) { el.scrollLeft = keep[q][0]; el.scrollTop = keep[q][1]; } });
     window.scrollTo(0, keepScroll ? y : 0);
-    const titles = { repos: 'ASTRA \u00b7 Repositories', m_overview: 'ASTRA \u00b7 Model overview', m_runtime: 'ASTRA \u00b7 Model runtime', m_governance: 'ASTRA \u00b7 Model governance', m_incidents: 'ASTRA \u00b7 Model incidents', m_decommission: 'ASTRA \u00b7 Model decommissioning', m_standards: 'ASTRA \u00b7 Regulations and standards', home: 'ASTRA \u00b7 Choose a module', model: 'ASTRA \u00b7 Model designer', modelcontracts: 'ASTRA \u00b7 Compiled contracts', policies: 'ASTRA \u00b7 Policies', regulations: 'ASTRA \u00b7 Regulations', organisation: 'ASTRA \u00b7 Organisation', users: 'ASTRA \u00b7 Users', audit: 'ASTRA \u00b7 Audit log' };
+    const titles = { idps: 'ASTRA \u00b7 Identity providers', repos: 'ASTRA \u00b7 Repositories', m_overview: 'ASTRA \u00b7 Model overview', m_runtime: 'ASTRA \u00b7 Model runtime', m_governance: 'ASTRA \u00b7 Model governance', m_incidents: 'ASTRA \u00b7 Model incidents', m_decommission: 'ASTRA \u00b7 Model decommissioning', m_standards: 'ASTRA \u00b7 Regulations and standards', home: 'ASTRA \u00b7 Choose a module', model: 'ASTRA \u00b7 Model designer', modelcontracts: 'ASTRA \u00b7 Compiled contracts', policies: 'ASTRA \u00b7 Policies', regulations: 'ASTRA \u00b7 Regulations', organisation: 'ASTRA \u00b7 Organisation', users: 'ASTRA \u00b7 Users', audit: 'ASTRA \u00b7 Audit log' };
     document.title = titles[r] || 'ASTRA \u00b7 AI Agents';
     agentAutosaveCheck();
   }

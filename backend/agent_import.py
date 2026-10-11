@@ -87,7 +87,7 @@ FORMATS = {
     "langgraph": "langgraph.json",
     "openai-agents": "OpenAI Agents SDK agent definition",
 }
-SOURCE_LABELS = {**FORMATS, "repository": "Repository scan (LangGraph, OpenAI Agents SDK, CrewAI, MCP)"}   # a repository scan is not a file format a person can choose
+SOURCE_LABELS = {**FORMATS, "repository": "Repository scan (LangGraph, OpenAI Agents SDK, CrewAI, MCP)", "identity-provider": "Identity provider (service account or OAuth client)"}   # a repository scan is not a file format a person can choose
 
 
 def detect(doc: Any) -> str:
@@ -643,7 +643,7 @@ def apply_converted(session: Session, actor: str, c: Converted, prov: Dict[str, 
     from drift import _build            # imported here: drift imports agent_registry, which this module also uses
     key = agent_key(c.agent_name)
     org = current_organisation(session)
-    src = "the repository scan" if prov.get("source") == "repository" else "the file"
+    src = {"repository": "the repository scan", "identity-provider": "the identity provider"}.get(prov.get("source"), "the file")
     agent = session.scalar(select(Agent).where(Agent.agent_key == key))
     if agent is not None and agent.origin == "DEMO":
         raise HTTPException(status_code=409, detail=f"{key} is a demo agent. Remove the demo agents or rename this one.")

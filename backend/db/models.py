@@ -589,3 +589,52 @@ class RepoImport(Base):
     commit_sha: Mapped[str] = mapped_column(String(40), nullable=False)
     outcome: Mapped[str] = mapped_column(String(10), nullable=False)               # created | updated | drift
     imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class IdpConnection(Base):
+    """An identity provider (Entra ID, Okta, Auth0, Keycloak) the organisation has connected to find the service accounts and OAuth clients tagged as AI agents.
+    Only read access. The credential used to read it is kept encrypted (idp_connect.py) and is never returned by the API."""
+
+    __tablename__ = "idp_connections"
+    __table_args__ = (UniqueConstraint("organisation_id", "name", name="uq_idp_connection_name"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    provider: Mapped[str] = mapped_column(String(12), nullable=False)               # entra | okta | auth0 | keycloak
+    account: Mapped[str] = mapped_column(String(200), nullable=False, server_default="")   # the tenant or organisation name the provider reported
+    config: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)           # tenant, client id, address: nothing secret
+    secret_enc: Mapped[str] = mapped_column(Text, nullable=False)
+    rule: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)             # how an identity is marked as an agent
+    status: Mapped[str] = mapped_column(String(10), nullable=False, server_default="NEVER")
+    last_scan_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[Optional[str]] = mapped_column(String(400))
+    created_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class IdpScan(Base):
+    """One reading of an identity provider: the identities tagged as agents, and what they hold."""
+
+    __tablename__ = "idp_scans"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    connection_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("idp_connections.id", ondelete="CASCADE"), nullable=False, index=True)
+    result: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    created_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class IdpImport(Base):
+    """Which identity an agent was last imported from, and the fingerprint of its permissions, so a later scan can tell a permission was added."""
+
+    __tablename__ = "idp_imports"
+    __table_args__ = (UniqueConstraint("connection_id", "agent_key", name="uq_idp_import"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    connection_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("idp_connections.id", ondelete="CASCADE"), nullable=False)
+    agent_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    external_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    outcome: Mapped[str] = mapped_column(String(10), nullable=False)
+    imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
