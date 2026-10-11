@@ -532,3 +532,60 @@ class RemovedContract(Base):
     removed_by: Mapped[str] = mapped_column(String(200), nullable=False)
     reason: Mapped[str] = mapped_column(String(200), nullable=False, server_default="")
     removed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class RepoConnection(Base):
+    """A source repository the organisation has connected so its agent definitions can be found and kept in step. The access token and the
+    webhook secret are kept encrypted (repo_connect.py); neither is ever returned by the API after it was created."""
+
+    __tablename__ = "repo_connections"
+    __table_args__ = (UniqueConstraint("organisation_id", "url", "branch", "subpath", name="uq_repo_connection"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    provider: Mapped[str] = mapped_column(String(12), nullable=False)               # github | gitlab | bitbucket | azure | git
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    branch: Mapped[str] = mapped_column(String(120), nullable=False, server_default="")      # empty: the repository's default branch
+    subpath: Mapped[str] = mapped_column(String(200), nullable=False, server_default="")     # scan only this folder
+    token_enc: Mapped[Optional[str]] = mapped_column(Text)
+    webhook_secret_enc: Mapped[Optional[str]] = mapped_column(Text)
+    auto_sync: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    include_tests: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    status: Mapped[str] = mapped_column(String(10), nullable=False, server_default="NEVER")  # NEVER | OK | ERROR
+    last_scan_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    last_commit: Mapped[Optional[str]] = mapped_column(String(40))
+    last_error: Mapped[Optional[str]] = mapped_column(String(400))
+    created_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class RepoScan(Base):
+    """One scan of a connected repository: the commit that was read and what was found in it."""
+
+    __tablename__ = "repo_scans"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    connection_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("repo_connections.id", ondelete="CASCADE"), nullable=False, index=True)
+    commit_sha: Mapped[str] = mapped_column(String(40), nullable=False)
+    trigger: Mapped[str] = mapped_column(String(12), nullable=False)                 # manual | webhook
+    result: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    created_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class RepoImport(Base):
+    """Which repository definition an agent was last imported from, and the fingerprint of it, so a later scan can tell what changed."""
+
+    __tablename__ = "repo_imports"
+    __table_args__ = (UniqueConstraint("connection_id", "agent_key", name="uq_repo_import"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    connection_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("repo_connections.id", ondelete="CASCADE"), nullable=False)
+    agent_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    path: Mapped[str] = mapped_column(String(300), nullable=False)
+    line: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    commit_sha: Mapped[str] = mapped_column(String(40), nullable=False)
+    outcome: Mapped[str] = mapped_column(String(10), nullable=False)               # created | updated | drift
+    imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

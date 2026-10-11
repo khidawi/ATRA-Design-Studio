@@ -32,6 +32,12 @@ services:
       OLLAMA_MODEL: llama3.1
       OLLAMA_TIMEOUT_SECONDS: "280"
       DATABASE_URL: postgresql+psycopg://stai:${POSTGRES_PASSWORD:-stai}@db:5432/stai
+      # Encrypts the repository access tokens and webhook secrets kept in the database. Generate one with:
+      #   docker compose run --rm backend python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+      # Several keys may be listed, comma separated, to rotate (the first encrypts, all decrypt). Keep it with your backups: without it stored tokens cannot be read.
+      ASTRA_SECRET_KEY: ${ASTRA_SECRET_KEY:-}
+      # Set to 1 to allow a repository on a private address (a self-hosted GitLab inside the company network).
+      ASTRA_REPO_ALLOW_PRIVATE_HOSTS: ${ASTRA_REPO_ALLOW_PRIVATE_HOSTS:-0}
     depends_on:
       ollama:
         condition: service_started

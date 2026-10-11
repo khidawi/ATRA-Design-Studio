@@ -65,6 +65,7 @@ from runtime import router as runtime_router
 from company import router as company_router
 from removal import router as removal_router
 from packs import router as packs_router
+from repo_connect import router as repo_router
 from findings import router as findings_router
 from design_store import router as design_store_router, store_contract
 from ingestion import fail_interrupted_runs, router as ingestion_router
@@ -103,6 +104,7 @@ app.include_router(findings_router)
 app.include_router(drift_router)
 app.include_router(coverage_router)
 app.include_router(packs_router)
+app.include_router(repo_router)
 app.include_router(overview_router)
 app.include_router(runtime_router)
 app.include_router(company_router)

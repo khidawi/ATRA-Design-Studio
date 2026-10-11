@@ -372,6 +372,36 @@ Drift review (source "Imported from <file>"), which compliance approves or decli
 from a pipeline once collectors get API keys; today a call needs a signed-in session (`POST /api/agents/import/preview`, `POST /api/agents/import`).
 Tests: `python -m tests.test_agent_import`.
 
+## Repository connectors (LangGraph, OpenAI Agents SDK, CrewAI, MCP)
+
+AI Agents → **Repositories** connects a source repository, finds the agents defined in it and brings them into the inventory. Code: `backend/repo_scan.py` (the scanner), `backend/repo_connect.py` (connections, git, webhook, import); tests: `python -m tests.test_repo_scan` and `python -m tests.test_repo_connect`.
+
+**What it finds**
+
+| Source | Recognised |
+|---|---|
+| LangGraph | `create_react_agent(...)`, `StateGraph(...)...compile(...)` (named from `compile(name=)` or `langgraph.json`), tools from `ToolNode`, `bind_tools` and `tools=`, checkpointers and stores (database-backed means long-term memory), `interrupt()` and `interrupt_before/after` (human approvals), pre/post model hooks (guardrails), `MultiServerMCPClient` servers |
+| OpenAI Agents SDK | `Agent(name, instructions, tools, handoffs, input/output_guardrails, mcp_servers)`, `@function_tool`, web search, file search (vector stores), code interpreter, computer use, hosted MCP with `require_approval`, `agent.as_tool()` |
+| CrewAI | `Agent(role, goal, tools, allow_delegation)` in Python and in `agents.yaml` (`config=self.agents_config[...]`), `Crew(memory=True)`, `Task(human_input=True)` |
+| MCP configuration | `.mcp.json`, `mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`, `claude_desktop_config.json`: server name and transport, whether an `npx`/`uvx` package is pinned, and which keys hold an inline credential. Developer-tool configurations are told apart from application ones |
+| Also | A2A agent cards (`agent-card.json`), `langgraph.json` |
+
+Tools are followed across files (absolute and relative imports, `TOOLS = [...]` lists). Whether a tool writes is read from its body (`requests.post`, an `INSERT`, `subprocess`, a file opened for writing) and, failing that, from its name; every guess is listed under "Guessed from names" for a person to confirm. Each agent carries a confidence (high, medium, low) and the file and line it came from.
+
+**How to use it**: connect an https repository address (optionally a branch, a folder for a monorepo, and an access token for a private one), press **Scan now**, preview any agent (the model it would become with the OWASP agentic checks on it), tick the ones to bring in and **Import**. An imported agent starts as a draft design. If the agent already has an active contract nothing is overwritten: the change arrives in **Drift review** for compliance to decide. A later scan marks each agent New, Changed, Imported-unchanged or Already-in-the-inventory (by a fingerprint of its definition), and lists agents that left the repository.
+
+**Keeping it in step**: create a push webhook (Settings → "Set up the push webhook"; the secret is shown once). Add it in GitHub or GitLab (payload URL `https://<your-host>/api/repos/webhook/<id>`, content type `application/json`, event *push*). A signed push to the connected branch rescans the repository; with **auto-sync** on, an agent that was imported from here and has changed is brought in on its own (as a draft update, or a drift item when it has a contract). Webhooks are authenticated by their signature (`X-Hub-Signature-256`, or GitLab's `X-Gitlab-Token`), not by a session.
+
+**Setting it up for production**
+* Generate a key and give it to the backend: `docker compose run --rm backend python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`, then `ASTRA_SECRET_KEY=<key>` in `.env` (never commit it; keep it with your backups, because stored tokens cannot be read without it). Several keys can be listed, comma separated, to rotate: the first encrypts, all decrypt. Without a key, public repositories still work; the platform refuses to store a token it cannot encrypt.
+* The access token needs read access to the code only (a GitHub fine-grained token with *Contents: read*, a GitLab `read_repository` token, a Bitbucket repository read token).
+* A repository on a private address (a self-hosted GitLab inside the company network) is refused unless `ASTRA_REPO_ALLOW_PRIVATE_HOSTS=1` is set.
+* Connecting needs the engineer role or above; an auditor can see the connections and results. Every connect, scan, import and webhook scan is in the audit log.
+
+**What it does to protect your code and secrets**: nothing from a repository is ever executed or imported (Python is parsed to a syntax tree, configuration is read as data); `.env`, key, certificate and credential files are never opened, and symbolic links are ignored; the token is encrypted at rest, never returned by the API, never logged, and sent to git through its environment scoped to the repository's own host; only https addresses are accepted, and a host that resolves to a private or link-local address is refused (DNS is checked when connecting, so a host that later changes where it points is not caught); a scan is a shallow clone into a temporary folder that is deleted afterwards, with git hooks and submodules off, a 120-second limit and a 300 MB limit; the result keeps agent names, tool names, files and lines, and the fingerprint, never source code, prompts, commands, addresses or credentials.
+
+**What a static scan cannot know**: a tool assembled at run time, an agent built in a loop, a prompt kept in a database, an agent defined in a repository that was not connected. So every element is a proposal, the imported design says it came from a static scan and is not verified against the running agent, and the runtime SDK (Live runtime) remains the way to see what an agent actually does.
+
 ## API keys (pipelines and collectors)
 
 An administrator makes keys on the **Users** screen (**API keys**), or with `POST /api/keys`. No key exists until one is made. A key is

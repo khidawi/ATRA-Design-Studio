@@ -87,6 +87,7 @@ FORMATS = {
     "langgraph": "langgraph.json",
     "openai-agents": "OpenAI Agents SDK agent definition",
 }
+SOURCE_LABELS = {**FORMATS, "repository": "Repository scan (LangGraph, OpenAI Agents SDK, CrewAI, MCP)"}   # a repository scan is not a file format a person can choose
 
 
 def detect(doc: Any) -> str:
@@ -443,6 +444,11 @@ def convert(content: str, fmt: Optional[str] = None, primary: Optional[str] = No
         m, found = CONVERTERS[kind](doc, primary)
     except (KeyError, TypeError, AttributeError, IndexError):
         raise ImportProblem(f"The file does not match the {FORMATS[kind]} layout. Check it against the example for that format.")
+    return finish(m, kind, found, hashlib.sha256(content.encode("utf-8")).hexdigest(), rename)
+
+
+def finish(m: Dict[str, Any], kind: str, found: List[str], sha: str, rename: Optional[str] = None) -> Converted:
+    """A manifest, however it was obtained (a file, or a repository scan), becomes the proposed model."""
     if rename and _clean(rename):
         m["name"] = _clean(rename)
     if not m["name"]:
@@ -454,7 +460,7 @@ def convert(content: str, fmt: Optional[str] = None, primary: Optional[str] = No
     nodes, edges = build(m)
     counts = {t: sum(1 for n in nodes if n["type"] == t) for t in ("tool", "mcp", "memory", "data", "input", "guardrail", "constraint", "approval")}
     m["recognised"] += [f"{v} {k}{'s' if v != 1 else ''}" for k, v in counts.items() if v]
-    return Converted(format=kind, format_label=FORMATS[kind], sha256=hashlib.sha256(content.encode("utf-8")).hexdigest(), agents_found=found, agent_name=m["name"],
+    return Converted(format=kind, format_label=SOURCE_LABELS[kind], sha256=sha, agents_found=found, agent_name=m["name"],
                      owner=m["owner"], framework=m["framework"], autonomy=m["autonomy"] or "approval", nodes=nodes, edges=edges, recognised=m["recognised"],
                      inferred=m["inferred"], ignored=m["ignored"], warnings=m["warnings"])
 
@@ -625,41 +631,47 @@ class ImportOut(BaseModel):
 
 @router.post("", response_model=ImportOut, status_code=201)
 def import_agent(body: ImportRequest, session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> ImportOut:
-    from drift import _build            # imported here: drift imports agent_registry, which this module also uses
     c = _convert_or_422(body)
+    prov = {"source": "file", "format": c.format, "filename": _clean(body.filename or "pasted text", 200), "sha256": c.sha256, "imported_by": user.name,
+            "imported_at": datetime.now(timezone.utc).isoformat(), "note": "Generated from a file; nothing here is verified against code.",
+            "label": f"Imported from {_clean(body.filename or 'pasted text', 200)} (sha256:{c.sha256[:12]}), not verified against code"}
+    return apply_converted(session, user.name, c, prov, body.profile)
+
+
+def apply_converted(session: Session, actor: str, c: Converted, prov: Dict[str, Any], profile: Optional[str]) -> ImportOut:
+    """Turns a proposed model into a draft design, or, when the agent already has an active contract, into a drift item. Commits."""
+    from drift import _build            # imported here: drift imports agent_registry, which this module also uses
     key = agent_key(c.agent_name)
     org = current_organisation(session)
-    prov = {"source": "file", "format": c.format, "filename": _clean(body.filename or "pasted text", 200), "sha256": c.sha256, "imported_by": user.name,
-            "imported_at": datetime.now(timezone.utc).isoformat(), "note": "Generated from a file; nothing here is verified against code."}
+    src = "the repository scan" if prov.get("source") == "repository" else "the file"
     agent = session.scalar(select(Agent).where(Agent.agent_key == key))
     if agent is not None and agent.origin == "DEMO":
         raise HTTPException(status_code=409, detail=f"{key} is a demo agent. Remove the demo agents or rename this one.")
     design = session.get(Design, agent.design_id) if agent is not None and agent.design_id else None
     base = dict(design.document) if design is not None else {}
-    doc = {**base, "nodes": c.nodes, "edges": c.edges, "n": 100 + len(c.nodes), "profile": body.profile or base.get("profile") or "payments",
+    doc = {**base, "nodes": c.nodes, "edges": c.edges, "n": 100 + len(c.nodes), "profile": profile or base.get("profile") or "payments",
            "req": base.get("req") or {}, "policy": base.get("policy") or "block", "ratified": False, "provenance": prov}
     contract = _active(session, key) if agent is not None else None
 
     if contract is not None and design is not None:
-        label = f"Imported from {prov['filename']} (sha256:{c.sha256[:12]}), not verified against code"
-        item = _build(session, agent, contract, doc, "IMPORT", label, design.design_key)
+        item = _build(session, agent, contract, doc, "IMPORT", prov["label"], design.design_key)
         for old in session.scalars(select(DriftItem).where(DriftItem.agent_key == key, DriftItem.status == "OPEN", DriftItem.source == "IMPORT")):
             old.status, old.decision_note = "SUPERSEDED", "Replaced by a newer import."
         session.add(item)
         session.commit()
         session.refresh(item)
         return ImportOut(outcome="drift", agent=_out(session, agent), design_key=design.design_key, drift_id=str(item.id),
-                         summary=f"{key} already has contract {contract.document['version']}, so nothing was overwritten: the file is waiting in Drift review as a proposed change.")
+                         summary=f"{key} already has contract {contract.document['version']}, so nothing was overwritten: {src} is waiting in Drift review as a proposed change.")
 
     tools = sum(1 for n in c.nodes if n["type"] in ("tool", "mcp"))
     if design is not None:
         design.document, design.version, design.name = doc, design.version + 1, c.agent_name
-        outcome, summary = "updated", f"The draft design for {key} was replaced with the file's model."
+        outcome, summary = "updated", f"The draft design for {key} was replaced with the model from {src}."
     else:
         design = Design(design_key="d-" + _secrets.token_hex(5), organisation_id=org.id, subject="AGENT", name=c.agent_name, domain_key=AGENT_DOMAIN, document=doc)
         session.add(design)
         session.flush()
-        outcome, summary = "created", f"A draft design for {key} was generated from the file. Review it, add what the file could not say, then ratify."
+        outcome, summary = "created", f"A draft design for {key} was generated from {src}. Review it, add what it could not say, then ratify."
     if agent is None:
         agent = Agent(agent_key=key, organisation_id=org.id, name=c.agent_name, origin="REGISTERED", mode="OBSERVE")
         session.add(agent)

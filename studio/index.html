@@ -446,6 +446,16 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
         return { blob: await res.blob(), name: m ? m[1] : fallback };
       },
       agentImportFormats: () => call('/api/agents/import/formats'),
+      repoCaps: () => call('/api/repos/capabilities'),
+      repoList: () => call('/api/repos'),
+      repoCreate: (body) => post('/api/repos', body),
+      repoUpdate: (id, body) => call('/api/repos/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(body) }),
+      repoDelete: (id) => call('/api/repos/' + encodeURIComponent(id), { method: 'DELETE' }),
+      repoScan: (id) => post('/api/repos/' + encodeURIComponent(id) + '/scan', {}),
+      repoLatest: (id) => call('/api/repos/' + encodeURIComponent(id) + '/scan'),
+      repoPreview: (id, key) => call('/api/repos/' + encodeURIComponent(id) + '/agents/' + encodeURIComponent(key)),
+      repoImport: (id, body) => post('/api/repos/' + encodeURIComponent(id) + '/import', body),
+      repoSecret: (id) => post('/api/repos/' + encodeURIComponent(id) + '/webhook-secret', {}),
       previewAgentImport: (body) => post('/api/agents/import/preview', body),
       importAgent: (body) => post('/api/agents/import', body),
       companyGet: () => call('/api/company'),
@@ -521,7 +531,7 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
     drift: { sel: null }
   };
 
-  const NAV = [['overview', 'Overview', ''], ['agents', 'Agents', '12'], ['studio', 'Design studio', ''], ['drift', 'Drift review', '3'], ['findings', 'Findings', '4'], ['coverage', 'Coverage', '7/10'], ['packs', 'Trust and packs', ''], ['runtime', 'Live runtime', ''], ['workspace', 'Compliance workspace', '2']];
+  const NAV = [['overview', 'Overview', ''], ['agents', 'Agents', '12'], ['repos', 'Repositories', ''], ['studio', 'Design studio', ''], ['drift', 'Drift review', '3'], ['findings', 'Findings', '4'], ['coverage', 'Coverage', '7/10'], ['packs', 'Trust and packs', ''], ['runtime', 'Live runtime', ''], ['workspace', 'Compliance workspace', '2']];
   const PARENT = { newagent: 'agents', addagent: 'agents', contract: 'agents', pack: 'packs' };
 
   function nav(active) {
@@ -795,12 +805,12 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
       <div style="display:flex;gap:6px;flex-wrap:wrap">${p.nodes.map((n) => `<span class="pill muted" title="${esc(n.type)}">${esc(n.type)}: ${esc(n.name)}${n.type === 'tool' ? (n.p.write ? ' (write)' : ' (read)') : (n.type === 'mcp' ? (n.p.signed ? ' (signed)' : ' (unsigned)') : '')}</span>`).join('')}</div>
       ${list('Recognised', p.recognised)}${list('Guessed from names: please confirm', p.inferred, 'var(--fg-b45309)')}${list('Needs attention', p.warnings, 'var(--ln-b42318)')}${list('Not used or not read', p.ignored)}
       <div class="stack" style="gap:4px"><span style="font-size:12px;font-weight:600;color:var(--fg-4a5563)">OWASP Agentic checks on this model (${p.analysis.covered} of ${p.analysis.applicable} covered)</span>${p.analysis.rows.map((r) => `<span class="cap"><span class="pill ${pill[r.status]}">${esc(r.status)}</span> ${esc(r.id)} ${esc(r.name)}: ${esc(r.why)}</span>`).join('')}</div>
-      <span class="cap">${will} Every element is a proposal. Nothing here is verified against code; only the file\u2019s hash (sha256:${esc(p.sha256.slice(0, 12))}\u2026) is kept, not its content.</span></div>`;
+      <span class="cap">${will} Every element is a proposal. ${p.source ? `Found in ${esc(p.source.path)}:${p.source.line} at commit ${esc(p.source.commit.slice(0, 7))} by a static scan, so nothing here is verified against the running agent; only where it was found is kept, not the source.` : `Nothing here is verified against code; only the file\u2019s hash (sha256:${esc(p.sha256.slice(0, 12))}\u2026) is kept, not its content.`}</span></div>`;
   }
   function addagent() {
     loadImportFormats();
     const st = S.add, im = S.imp, fm = im.formats || [], p = im.preview;
-    const src = [['Connect a repository', 'Scans LangGraph, Agents SDK and CrewAI definitions plus MCP configs.'], ['From an identity provider', 'Start from a service account or OAuth client tagged as an agent.']];
+    const src = [['From an identity provider', 'Start from a service account or OAuth client tagged as an agent.']];
     const result = im.result ? `<div class="note good" role="status"><strong>${im.result.outcome === 'drift' ? 'Waiting in Drift review' : (im.result.outcome === 'updated' ? 'Draft design updated' : 'Draft design created')}</strong><span style="font-size:13px">${esc(im.result.summary)}</span><div class="prow">${im.result.outcome === 'drift' ? '<a class="btn" href="#/drift">Open Drift review</a>' : `<button class="btn" data-act="agOpenDesign" data-arg="${esc(im.result.design_key)}">Open the design</button>`}<a class="btn2" href="#/agents">Back to inventory</a><button class="btn2" data-act="impReset">Import another</button></div></div>` : '';
     return hdr('', 'Register an existing agent', '', ['newagent', 'Add agent']) +
       `<section class="card" style="padding:24px;display:flex;flex-direction:column;gap:14px;max-width:920px"><div class="stack"><h3>Import a definition file</h3><span class="cap">Upload or paste an agent definition (JSON or YAML) and ASTRA generates its Secure Tropos model: tools, MCP servers, memory, data, delegations, approvals and guardrails, with the OWASP checks on it. Supported: ${fm.length ? fm.map((f) => esc(f.label)).join('; ') : 'loading\u2026'}. Environment values, headers, tokens and commands are never read or stored.</span></div>
@@ -813,7 +823,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
         <button class="btn2"${im.busy || !im.content.trim() ? ' disabled' : ''} data-act="impPreview">Preview the model</button><button class="btn"${im.busy || !p ? ' disabled' : ''} data-act="impCreate">${p && p.existing.will === 'drift' ? 'Submit as a proposed change' : 'Create the agent design'}</button></div>
       ${im.err ? `<div class="note alert" role="alert"><span style="font-size:13px;white-space:pre-wrap">${esc(im.err)}</span></div>` : ''}${p && !im.result ? importPreviewHtml(p) : ''}${result}</section>
       <section class="card" style="padding:24px;display:flex;flex-direction:column;gap:20px;max-width:920px;margin-top:16px"><div class="stack"><h3>Or register by hand</h3><span class="cap">For an agent you have no file for. It joins the inventory as unowned until you give it an owner, then waits for a model to be ratified. Partial provenance: nothing here is verified against code.</span></div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px"><a class="opt" href="#/runtime" style="text-decoration:none"><span style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600">From the runtime SDK</span><span class="pill ok">Available</span></span><span class="cap">Add the SDK to an agent and it appears here by itself, unowned, the first time it runs. See Live runtime.</span></a>${src.map(([t, d]) => `<div class="opt" style="opacity:.6;cursor:not-allowed"><span style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600">${t}</span><span class="pill muted">Needs a connector</span></span><span class="cap">${d} Not built yet.</span></div>`).join('')}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px"><a class="opt" href="#/runtime" style="text-decoration:none"><span style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600">From the runtime SDK</span><span class="pill ok">Available</span></span><span class="cap">Add the SDK to an agent and it appears here by itself, unowned, the first time it runs. See Live runtime.</span></a><a class="opt" href="#/repos" style="text-decoration:none"><span style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600">Connect a repository</span><span class="pill ok">Available</span></span><span class="cap">Scans LangGraph, OpenAI Agents SDK and CrewAI definitions plus MCP configs, and brings the agents in.</span></a>${src.map(([t, d]) => `<div class="opt" style="opacity:.6;cursor:not-allowed"><span style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600">${t}</span><span class="pill muted">Needs a connector</span></span><span class="cap">${d} Not built yet.</span></div>`).join('')}</div>
       <div class="prow" style="flex-wrap:wrap;gap:12px"><div class="fld" style="min-width:240px"><label for="rg-name">Agent name</label><input id="rg-name" class="inp mono" data-chg="aReg" data-arg="name" value="${esc(st.name)}" placeholder="payouts-agent"></div>
       <div class="fld" style="min-width:200px"><label for="rg-owner">Owner (optional)</label><input id="rg-owner" class="inp" data-chg="aReg" data-arg="owner" value="${esc(st.owner)}" placeholder="Payments eng"></div>
       <div class="fld" style="min-width:200px"><label for="rg-fw">Framework</label><input id="rg-fw" class="inp" data-chg="aReg" data-arg="framework" value="${esc(st.framework)}" placeholder="LangGraph"></div>
@@ -1440,6 +1450,177 @@ kill_switch:
     pFw: (v, k) => { PK.form[k] = v; },
     pPeriod: (v) => { PK.form.period = v; }
   };
+
+  /* ======================= REPOSITORY CONNECTORS (AI Agents) ======================= */
+  // Connect a source repository; ASTRA reads it (never runs it) and lists the LangGraph, OpenAI Agents SDK and CrewAI agents and the MCP servers in it.
+  const RP = { loaded: false, loading: false, error: null, caps: null, list: [], sel: null, scan: null, scanFor: null, busy: null, err: null, msg: null, open: false, picks: new Set(),
+    preview: null, previewKey: null, results: null, secret: null, edit: null, q: '', fstatus: '', limit: 40,
+    form: { url: '', name: '', branch: '', subpath: '', token: '', webhook: false, auto_sync: false, include_tests: false } };
+  async function loadRepos() {
+    RP.loading = true; RP.error = null;
+    try {
+      const [caps, list] = await Promise.all([STAI.api.repoCaps(), STAI.api.repoList()]);
+      RP.caps = caps; RP.list = list; RP.loaded = true;
+      if (RP.sel && !list.some((x) => x.id === RP.sel)) { RP.sel = null; RP.scan = null; }
+      if (!RP.sel && list.length) { RP.sel = list[0].id; await loadScan(RP.sel); }
+    } catch (e) { RP.error = e.message; }
+    RP.loading = false; renderIfIdle('repos');
+  }
+  async function loadScan(id) {
+    try { RP.scan = await STAI.api.repoLatest(id); RP.scanFor = id; } catch (e) { RP.scan = null; RP.err = e.message; }
+  }
+  const RP_STATUS = { new: ['ok', 'New'], changed: ['warn', 'Changed'], unchanged: ['muted', 'Imported, unchanged'], exists: ['warn', 'Already in the inventory'] };
+  const RP_CONF = { high: ['ok', 'High confidence'], medium: ['warn', 'Medium confidence'], low: ['bad', 'Low confidence'] };
+  const RP_PROV = { github: 'GitHub', gitlab: 'GitLab', bitbucket: 'Bitbucket', azure: 'Azure DevOps', git: 'Git' };
+  function rpConnectForm() {
+    const f = RP.form, caps = RP.caps || {};
+    const fld = (id, label, ctl, help) => `<div class="fld" style="min-width:220px;flex:1 1 220px"><label for="${id}">${label}</label>${ctl}${help ? `<span class="cap" style="font-size:12.5px">${help}</span>` : ''}</div>`;
+    return `<section class="card" style="padding:20px 24px;display:flex;flex-direction:column;gap:14px"><div class="stack" style="gap:2px"><h2>Connect a repository</h2><span class="cap">Use the repository's https address. The access token needs read access to the code only.</span></div>
+      <div class="prow" style="align-items:flex-start;gap:14px">${fld('rp-url', 'Repository address', `<input id="rp-url" class="inp mono" style="max-width:none;width:100%" data-chg="rpField" data-arg="url" value="${esc(f.url)}" placeholder="https://github.com/your-org/your-repo" autocomplete="off">`)}
+        ${fld('rp-name', 'Name (optional)', `<input id="rp-name" class="inp" style="max-width:none;width:100%" data-chg="rpField" data-arg="name" value="${esc(f.name)}" placeholder="payments-agents">`)}</div>
+      <div class="prow" style="align-items:flex-start;gap:14px">${fld('rp-branch', 'Branch', `<input id="rp-branch" class="inp mono" style="max-width:none;width:100%" data-chg="rpField" data-arg="branch" value="${esc(f.branch)}" placeholder="the default branch">`)}
+        ${fld('rp-sub', 'Only this folder (optional)', `<input id="rp-sub" class="inp mono" style="max-width:none;width:100%" data-chg="rpField" data-arg="subpath" value="${esc(f.subpath)}" placeholder="services/agents">`, 'For a large monorepo.')}
+        ${fld('rp-token', 'Access token (private repositories)', `<input id="rp-token" class="inp mono" style="max-width:none;width:100%" type="password" autocomplete="new-password" data-chg="rpField" data-arg="token" value="${esc(f.token)}" placeholder="${caps.secrets_ready ? 'ghp_… or a GitLab / Bitbucket token' : 'token storage is not set up'}"${caps.secrets_ready ? '' : ' disabled'}>`, caps.secrets_ready ? 'Stored encrypted. It is never shown again and never leaves the platform except to the repository’s own host.' : 'Public repositories work without one. To store a token, an administrator sets ASTRA_SECRET_KEY (see the README).')}</div>
+      <div class="prow" style="gap:22px"><label class="chk"><input type="checkbox" data-chg="rpField" data-arg="include_tests"${f.include_tests ? ' checked' : ''}><span>Also read test folders</span></label>
+        <label class="chk"><input type="checkbox" data-chg="rpField" data-arg="webhook"${f.webhook ? ' checked' : ''}${caps.secrets_ready ? '' : ' disabled'}><span>Rescan on every push (webhook)</span></label>
+        <label class="chk"><input type="checkbox" data-chg="rpField" data-arg="auto_sync"${f.auto_sync && f.webhook ? ' checked' : ''}${caps.secrets_ready && f.webhook ? '' : ' disabled'}><span>Bring pushed changes to imported agents in automatically</span></label></div>
+      ${RP.err ? `<div class="note alert" role="alert"><span style="font-size:13px;white-space:pre-wrap">${esc(RP.err)}</span></div>` : ''}
+      <div style="display:flex;gap:10px"><button class="btn" data-act="rpConnect"${RP.busy ? ' disabled' : ''}>${RP.busy === 'connect' ? 'Checking access…' : 'Connect'}</button><button class="btn2" data-act="rpForm">Cancel</button></div></section>`;
+  }
+  function rpConnCard(c) {
+    const on = RP.sel === c.id, st = { OK: ['ok', 'Connected'], ERROR: ['bad', 'Problem'], NEVER: ['muted', 'Not scanned yet'] }[c.status];
+    const ed = RP.edit && RP.edit.id === c.id ? RP.edit : null;
+    const edit = ed ? `<div class="stack" style="gap:10px;padding-top:6px;border-top:1px solid var(--ln-edf0f3)"><div class="prow" style="gap:12px;align-items:flex-end">
+        <label class="cap">Branch<br><input class="inp mono" style="max-width:200px" data-chg="rpEditField" data-arg="branch" value="${esc(ed.branch)}"></label>
+        <label class="cap">Folder<br><input class="inp mono" style="max-width:220px" data-chg="rpEditField" data-arg="subpath" value="${esc(ed.subpath)}"></label>
+        <label class="cap">Replace the token<br><input class="inp mono" type="password" autocomplete="new-password" style="max-width:240px" data-chg="rpEditField" data-arg="token" value="${esc(ed.token)}" placeholder="${c.has_token ? '•••••••• (stored)' : 'none stored'}"></label></div>
+      <div class="prow" style="gap:20px"><label class="chk"><input type="checkbox" data-chg="rpEditField" data-arg="include_tests"${ed.include_tests ? ' checked' : ''}><span>Also read test folders</span></label>
+        <label class="chk"><input type="checkbox" data-chg="rpEditField" data-arg="auto_sync"${ed.auto_sync ? ' checked' : ''}${c.webhook_enabled ? '' : ' disabled'}><span>Bring pushed changes to imported agents in automatically</span></label></div>
+      <div class="prow" style="gap:8px"><button class="btn btn-s" data-act="rpEditSave"${RP.busy ? ' disabled' : ''}>Save</button>${c.has_token ? '<button class="btn2 btn-s" data-act="rpClearToken">Remove the stored token</button>' : ''}<button class="btn2 btn-s" data-act="rpSecret" data-arg="${esc(c.id)}">${c.webhook_enabled ? 'Make a new webhook secret' : 'Set up the push webhook'}</button><button class="btn2 btn-s" data-act="rpEdit" data-arg="">Close</button></div></div>` : '';
+    const secret = RP.secret && RP.secret.id === c.id ? `<div class="note good" role="status" style="gap:6px"><strong>Add this webhook in your repository, then copy the secret now: it is not shown again</strong>
+        <span class="cap" style="font-size:12.5px">Payload URL: <span class="mono">${esc(location.origin + RP.secret.path)}</span> · content type application/json · event: push. GitHub: Settings → Webhooks. GitLab: Settings → Webhooks (the secret goes in "Secret token").</span>
+        <span class="mono" style="word-break:break-all;font-size:13px">${esc(RP.secret.value)}</span><button class="btn2 btn-s" style="align-self:flex-start" data-act="rpSecretHide">I have copied it</button></div>` : '';
+    return `<section class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:10px${on ? ';border-color:var(--ln-1e4fcb)' : ''}">
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start"><span class="stack" style="gap:3px;min-width:0"><span style="font-weight:600;font-size:15px">${esc(c.name)} <span class="pill muted">${RP_PROV[c.provider] || 'Git'}</span> <span class="pill ${st[0]}">${st[1]}</span>${c.webhook_enabled ? ' <span class="pill ok">Webhook</span>' : ''}${c.auto_sync ? ' <span class="pill ok">Auto-sync</span>' : ''}${c.has_token ? ' <span class="pill muted">Token stored</span>' : ''}</span>
+        <span class="cap mono" style="word-break:break-all">${esc(c.url)}${c.branch ? ' · ' + esc(c.branch) : ''}${c.subpath ? ' · /' + esc(c.subpath) : ''}</span>
+        <span class="cap">${c.last_scan_at ? 'Scanned ' + esc(cwhen(c.last_scan_at)) + (c.last_commit ? ' at commit ' + esc(c.last_commit.slice(0, 7)) : '') : 'Not scanned yet'} · ${c.imported_agents} agent${c.imported_agents === 1 ? '' : 's'} imported · connected by ${esc(c.created_by)}</span></span>
+        <span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-s" data-act="rpScan" data-arg="${esc(c.id)}"${RP.busy ? ' disabled' : ''}>${RP.busy === 'scan:' + c.id ? 'Reading…' : 'Scan now'}</button>${on ? '' : `<button class="btn2 btn-s" data-act="rpSel" data-arg="${esc(c.id)}">Show results</button>`}<button class="btn2 btn-s" data-act="rpEdit" data-arg="${esc(c.id)}">Settings</button><button class="btn3 btn-s" data-act="rpDisconnect" data-arg="${esc(c.id)}">Disconnect</button></span></div>
+      ${c.status === 'ERROR' && c.last_error ? `<div class="note alert" role="alert"><span style="font-size:13px">${esc(c.last_error)}</span></div>` : ''}${secret}${edit}</section>`;
+  }
+  function rpResults(c) {
+    const s = RP.scan;
+    if (!s || RP.scanFor !== c.id) return `<section class="card" style="padding:20px 24px"><p class="cap" style="margin:0">${c.status === 'NEVER' ? 'Press “Scan now” to read the repository.' : 'Loading the latest scan…'}</p></section>`;
+    const row = (a) => {
+      const st = RP_STATUS[a.status] || ['muted', a.status], cf = RP_CONF[a.confidence] || ['muted', a.confidence], picked = RP.picks.has(a.key), openp = RP.previewKey === a.key;
+      const counts = Object.entries(a.counts).filter(([, n]) => n).map(([k, n]) => `${n} ${k}`).join(' · ') || 'no tools or servers found';
+      return `<div class="lrow" style="align-items:flex-start"><label class="chk" style="min-height:0;align-items:flex-start;gap:12px;flex:1 1 360px"><input type="checkbox" data-chg="rpPick" data-arg="${esc(a.key)}"${picked ? ' checked' : ''} aria-label="Select ${esc(a.name)}"><span class="stack" style="gap:3px;min-width:0"><span style="font-weight:600"><span class="mono">${esc(a.name)}</span> <span class="pill ${st[0]}">${st[1]}</span> <span class="pill ${cf[0]}">${cf[1]}</span>${a.has_contract ? ' <span class="pill warn">Has an active contract</span>' : ''}</span>
+        <span class="cap">${esc(a.framework)} · <span class="mono">${esc(a.path)}:${a.line}</span> · ${esc(counts)}</span>${a.warnings.length ? `<span class="cap" style="color:var(--fg-b45309)">${esc(a.warnings[0])}</span>` : ''}</span></label>
+        <span style="display:flex;gap:8px"><button class="btn2 btn-s" data-act="rpPreview" data-arg="${esc(a.key)}">${openp ? 'Hide the model' : 'Preview the model'}</button></span></div>${openp && RP.preview ? `<div style="padding:0 20px 14px">${importPreviewHtml(RP.preview)}</div>` : ''}`;
+    };
+    const pickable = s.agents.filter((a) => a.status === 'new' || a.status === 'changed').map((a) => a.key);
+    const q = RP.q.trim().toLowerCase();
+    const matching = s.agents.filter((a) => (!RP.fstatus || a.status === RP.fstatus) && (!q || (a.name + ' ' + a.path + ' ' + a.framework).toLowerCase().includes(q)));
+    const visible = matching.slice(0, RP.limit);
+    const filters = s.agents.length > 8 ? `<div class="prow" style="padding:0 20px 8px;gap:10px"><input class="inp" style="max-width:280px" type="search" data-chg="rpQuery" aria-label="Search the agents found" placeholder="Search by name, file or framework" value="${esc(RP.q)}">
+        <select class="reqsel" data-chg="rpStatus" aria-label="Show agents by status">${opt('', 'All statuses', RP.fstatus)}${opt('new', 'New', RP.fstatus)}${opt('changed', 'Changed', RP.fstatus)}${opt('unchanged', 'Imported, unchanged', RP.fstatus)}${opt('exists', 'Already in the inventory', RP.fstatus)}</select>
+        <span class="cap">Showing ${visible.length} of ${matching.length}${matching.length !== s.agents.length ? ' (' + s.agents.length + ' found)' : ''}</span></div>` : '';
+    const more = matching.length > visible.length ? `<div style="padding:10px 20px"><button class="btn2 btn-s" data-act="rpMore">Show ${Math.min(40, matching.length - visible.length)} more</button></div>` : '';
+    const mcp = s.mcp_servers.filter((m) => m.transport !== 'client');
+    const results = RP.results ? `<div class="note ${RP.results.some((r) => !r.ok) ? 'plain' : 'good'}" role="status" style="gap:6px"><strong>Import result</strong>${RP.results.map((r) => `<span style="font-size:13px"><span class="mono">${esc(r.key)}</span>: ${r.ok ? esc(r.summary) : '<span style="color:var(--fg-b42318)">' + esc(r.error) + '</span>'}</span>`).join('')}<span class="cap"><a href="#/agents">Open the inventory</a> · <a href="#/drift">Drift review</a></span></div>` : '';
+    return `<section class="card" style="padding:8px 0"><div class="ph" style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><span class="stack" style="gap:2px"><h2>What the repository defines</h2><span class="cap">Commit <span class="mono">${esc(s.commit.slice(0, 7))}</span> · ${esc(cwhen(s.scanned_at))} · ${s.stats.parsed} Python file${s.stats.parsed === 1 ? '' : 's'} read of ${s.stats.python}${s.trigger === 'webhook' ? ' · triggered by a push' : ''}</span></span>
+        <span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn2 btn-s" data-act="rpPickNew"${pickable.length ? '' : ' disabled'}>Select new and changed</button><button class="btn btn-s" data-act="rpImport"${RP.picks.size && !RP.busy ? '' : ' disabled'}>${RP.busy === 'import' ? 'Importing…' : `Import ${RP.picks.size || ''} selected`}</button></span></div>
+      ${filters}${s.agents.length ? (visible.length ? visible.map(row).join('') + more : '<p class="cap" style="padding:8px 20px 16px;margin:0">No agent matches that search.</p>') : '<p class="cap" style="padding:8px 20px 16px;margin:0">No agent definitions were recognised in this repository. ASTRA looks for LangGraph graphs and create_react_agent calls, OpenAI Agents SDK Agent(...) definitions, CrewAI agents (Python and agents.yaml) and MCP configurations.</p>'}
+      ${s.removed.length ? `<div class="note plain" style="margin:12px 20px"><strong>No longer in the repository</strong><span style="font-size:13px">${s.removed.map((k) => `<span class="mono">${esc(k)}</span>`).join(', ')} was imported from here but is not defined in this commit any more. If it has been retired, decommission it; ASTRA does not remove it for you.</span></div>` : ''}</section>
+      ${results}
+      ${mcp.length ? `<section class="card" style="padding:8px 0"><div class="ph"><h2>MCP servers in the configuration files</h2><span class="cap">Names and transports only. A command, an address or a credential is never kept.</span></div>${mcp.map((m) => `<div class="lrow"><span class="stack" style="gap:2px"><span class="mono" style="font-weight:600">${esc(m.name)}</span><span class="cap mono">${esc(m.path)}</span></span><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><span class="pill muted">${esc(m.transport)}</span><span class="pill ${m.scope === 'developer-tool' ? 'muted' : 'ok'}">${m.scope === 'developer-tool' ? 'Developer tool, not an agent' : 'Application'}</span>${m.pinned === false ? `<span class="pill warn">Unpinned package ${esc(m.package)}</span>` : ''}${m.credentials_inline.length ? `<span class="pill bad">Inline credential: ${esc(m.credentials_inline.join(', '))}</span>` : ''}</span></div>`).join('')}</section>` : ''}
+      ${s.notes.length ? `<section class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:8px"><h2>Things to fix or know</h2>${s.notes.map((n) => `<div class="note ${/credential|unpinned/.test(n) ? 'alert' : 'plain'}" style="font-size:13px">${esc(n)}</div>`).join('')}</section>` : ''}
+      <div class="note plain" style="font-size:12.5px"><strong>What this scan can and cannot tell you</strong><span>It reads the source without running it. It cannot see a tool assembled at run time or a prompt kept elsewhere, so every element is a proposal: what it guessed is listed under “Guessed from names” in the preview, for you to confirm. An agent that already has an active contract is never overwritten: a change arrives in Drift review for compliance to decide.</span></div>`;
+  }
+  function reposScreen() {
+    if (!RP.loaded && !RP.loading && !RP.error) loadRepos();
+    const head = hdr('AI Agents · Connectors', 'Repositories', RP.form && !RP.open ? '<button class="btn" data-act="rpForm">Connect a repository</button>' : '');
+    if (RP.error) return head + `<div class="note alert" role="alert"><strong>Could not load</strong><span>${esc(RP.error)}</span><button class="btn2 btn-s" style="align-self:flex-start" data-act="rpRetry">Retry</button></div>`;
+    if (!RP.loaded) return head + '<p class="cap">Loading…</p>';
+    const caps = RP.caps || {}, sel = RP.list.find((c) => c.id === RP.sel);
+    const intro = `<div class="note plain" style="gap:6px"><strong>How it works</strong><span style="font-size:13px">ASTRA reads the repository, parses the source without running it, and proposes each agent it finds: its tools (and whether they write), MCP servers, memory, hand-offs, approvals and guardrails. Nothing is imported until you choose it, and an agent that already has an active contract is never overwritten. Files that usually hold secrets (.env, keys) are never opened. Supported: ${esc((caps.frameworks || []).join(', '))}.</span></div>`;
+    const secretsNote = caps.secrets_ready ? '' : `<div class="note alert" role="status"><strong>Token storage is not set up</strong><span style="font-size:13px">Public repositories can be read. To connect a private one, an administrator sets <span class="mono">ASTRA_SECRET_KEY</span> so the token and webhook secret can be stored encrypted. The README says how.</span></div>`;
+    return head + intro + secretsNote + (RP.open ? rpConnectForm() : '') + (RP.msg ? `<div class="note good" role="status" style="font-size:13px">${esc(RP.msg)}</div>` : '') + (!RP.err || RP.open ? '' : `<div class="note alert" role="alert"><span style="font-size:13px;white-space:pre-wrap">${esc(RP.err)}</span></div>`) +
+      (RP.list.length ? RP.list.map(rpConnCard).join('') : (RP.open ? '' : `<section class="card" style="padding:24px"><p style="margin:0">No repository is connected yet.</p></section>`)) + (sel ? rpResults(sel) : '');
+  }
+  SCREENS.repos = reposScreen;
+  const rpErr = (e) => { RP.err = e.message; RP.busy = null; };
+  Object.assign(C, {
+    rpField: (v, k) => { RP.form[k] = v; if (k === 'webhook' && !v) RP.form.auto_sync = false; },
+    rpEditField: (v, k) => { if (RP.edit) RP.edit[k] = v; },
+    rpPick: (v, k) => { if (v) RP.picks.add(k); else RP.picks.delete(k); },
+    rpQuery: (v) => { RP.q = v; RP.limit = 40; },
+    rpStatus: (v) => { RP.fstatus = v; RP.limit = 40; }
+  });
+  Object.assign(H, {
+    rpMore: () => { RP.limit += 40; },
+    rpRetry: () => { RP.error = null; RP.loaded = false; },
+    rpForm: () => { RP.open = !RP.open; RP.err = null; if (RP.open) RP.form = { url: '', name: '', branch: '', subpath: '', token: '', webhook: false, auto_sync: false, include_tests: false }; },
+    rpConnect: async () => {
+      const f = RP.form; RP.err = null; RP.msg = null; RP.busy = 'connect'; render(true);
+      try {
+        const r = await STAI.api.repoCreate({ url: f.url, name: f.name || null, branch: f.branch, subpath: f.subpath, token: f.token || null, webhook: f.webhook, auto_sync: f.auto_sync && f.webhook, include_tests: f.include_tests });
+        RP.open = false; RP.busy = null; RP.sel = r.id; RP.scan = null; RP.scanFor = null; RP.picks = new Set(); RP.results = null; RP.preview = null; RP.previewKey = null;
+        RP.form = { url: '', name: '', branch: '', subpath: '', token: '', webhook: false, auto_sync: false, include_tests: false };
+        RP.list = await STAI.api.repoList();
+        RP.secret = r.webhook_secret ? { id: r.id, value: r.webhook_secret, path: r.webhook_path } : null;
+        RP.msg = `${r.name} is connected. Scan it to see what it defines.`;
+      } catch (e) { rpErr(e); }
+      render(true);
+    },
+    rpSel: async (id) => { RP.sel = id; RP.q = ''; RP.fstatus = ''; RP.limit = 40; RP.picks = new Set(); RP.results = null; RP.preview = null; RP.previewKey = null; RP.scan = null; RP.err = null; await loadScan(id); },
+    rpScan: async (id) => {
+      RP.err = null; RP.msg = null; RP.busy = 'scan:' + id; RP.sel = id; RP.results = null; RP.preview = null; RP.previewKey = null; RP.picks = new Set(); render(true);
+      try { RP.scan = await STAI.api.repoScan(id); RP.scanFor = id; RP.list = await STAI.api.repoList(); RP.busy = null; }
+      catch (e) { rpErr(e); try { RP.list = await STAI.api.repoList(); } catch (x) { /* shown next load */ } }
+      render(true);
+    },
+    rpPickNew: () => { RP.scan.agents.filter((a) => a.status === 'new' || a.status === 'changed').forEach((a) => RP.picks.add(a.key)); },
+    rpPreview: async (key) => {
+      if (RP.previewKey === key) { RP.previewKey = null; RP.preview = null; return; }
+      RP.previewKey = key; RP.preview = null; RP.err = null; render(true);
+      try { RP.preview = await STAI.api.repoPreview(RP.sel, key); RP.preview.sha256 = RP.preview.sha256 || ''; } catch (e) { RP.err = e.message; RP.previewKey = null; }
+      render(true);
+    },
+    rpImport: async () => {
+      if (RP.picks.size > 25 && !window.confirm(`Import ${RP.picks.size} agents? Each becomes a draft design (or a drift item when it has an active contract) that someone then has to own and ratify.`)) return;
+      RP.busy = 'import'; RP.err = null; render(true);
+      try {
+        const r = await STAI.api.repoImport(RP.sel, { agents: Array.from(RP.picks) });
+        RP.results = r.results; RP.picks = new Set(); RP.previewKey = null; RP.preview = null;
+        await loadScan(RP.sel); RP.list = await STAI.api.repoList(); AG.loaded = false; FD.loaded = false; OV.loaded = false;
+      } catch (e) { RP.err = e.message; }
+      RP.busy = null; render(true);
+    },
+    rpDisconnect: async (id) => {
+      const c = RP.list.find((x) => x.id === id); if (!c || !window.confirm(`Disconnect ${c.name}? The agents already imported from it stay in the inventory.`)) return;
+      try { await STAI.api.repoDelete(id); RP.list = await STAI.api.repoList(); if (RP.sel === id) { RP.sel = RP.list.length ? RP.list[0].id : null; RP.scan = null; RP.scanFor = null; if (RP.sel) await loadScan(RP.sel); } RP.msg = `${c.name} was disconnected.`; }
+      catch (e) { RP.err = e.message; }
+    },
+    rpEdit: (id) => { const c = RP.list.find((x) => x.id === id); RP.edit = c ? { id, branch: c.branch, subpath: c.subpath, token: '', include_tests: c.include_tests, auto_sync: c.auto_sync } : null; },
+    rpEditSave: async () => {
+      const e = RP.edit; if (!e) return; RP.busy = 'edit'; RP.err = null; render(true);
+      try {
+        const body = { branch: e.branch, subpath: e.subpath, include_tests: e.include_tests, auto_sync: e.auto_sync }; if (e.token) body.token = e.token;
+        await STAI.api.repoUpdate(e.id, body); RP.list = await STAI.api.repoList(); RP.edit = null; RP.msg = 'Saved. The next scan uses the new settings.';
+      } catch (x) { RP.err = x.message; }
+      RP.busy = null; render(true);
+    },
+    rpClearToken: async () => {
+      if (!RP.edit || !window.confirm('Remove the stored token? A private repository can then no longer be read until you add one again.')) return;
+      try { await STAI.api.repoUpdate(RP.edit.id, { token: '' }); RP.list = await STAI.api.repoList(); RP.msg = 'The stored token was removed.'; } catch (x) { RP.err = x.message; }
+    },
+    rpSecret: async (id) => {
+      const c = RP.list.find((x) => x.id === id);
+      if (c && c.webhook_enabled && !window.confirm('Make a new secret? The old one stops working, so update the webhook in the repository.')) return;
+      try { const r = await STAI.api.repoSecret(id); RP.secret = { id, value: r.webhook_secret, path: r.webhook_path }; RP.list = await STAI.api.repoList(); } catch (x) { RP.err = x.message; }
+    },
+    rpSecretHide: () => { RP.secret = null; }
+  });
 
   /* ======================= MODEL MODULE (ST-AI Design Studio) ======================= */
   const MK = {
@@ -3730,7 +3911,7 @@ kill_switch:
     if (mainEl && ME.role === 'auditor') mainEl.insertAdjacentHTML('afterbegin', '<div class="note plain" role="status"><strong>Read-only</strong><span style="font-size:13px">Your role is auditor: you can view everything and the audit log, but not change anything.</span></div>');
     if (keepScroll) Object.keys(keep).forEach((q) => { const el = document.querySelector(q); if (el) { el.scrollLeft = keep[q][0]; el.scrollTop = keep[q][1]; } });
     window.scrollTo(0, keepScroll ? y : 0);
-    const titles = { m_overview: 'ASTRA \u00b7 Model overview', m_runtime: 'ASTRA \u00b7 Model runtime', m_governance: 'ASTRA \u00b7 Model governance', m_incidents: 'ASTRA \u00b7 Model incidents', m_decommission: 'ASTRA \u00b7 Model decommissioning', m_standards: 'ASTRA \u00b7 Regulations and standards', home: 'ASTRA \u00b7 Choose a module', model: 'ASTRA \u00b7 Model designer', modelcontracts: 'ASTRA \u00b7 Compiled contracts', policies: 'ASTRA \u00b7 Policies', regulations: 'ASTRA \u00b7 Regulations', organisation: 'ASTRA \u00b7 Organisation', users: 'ASTRA \u00b7 Users', audit: 'ASTRA \u00b7 Audit log' };
+    const titles = { repos: 'ASTRA \u00b7 Repositories', m_overview: 'ASTRA \u00b7 Model overview', m_runtime: 'ASTRA \u00b7 Model runtime', m_governance: 'ASTRA \u00b7 Model governance', m_incidents: 'ASTRA \u00b7 Model incidents', m_decommission: 'ASTRA \u00b7 Model decommissioning', m_standards: 'ASTRA \u00b7 Regulations and standards', home: 'ASTRA \u00b7 Choose a module', model: 'ASTRA \u00b7 Model designer', modelcontracts: 'ASTRA \u00b7 Compiled contracts', policies: 'ASTRA \u00b7 Policies', regulations: 'ASTRA \u00b7 Regulations', organisation: 'ASTRA \u00b7 Organisation', users: 'ASTRA \u00b7 Users', audit: 'ASTRA \u00b7 Audit log' };
     document.title = titles[r] || 'ASTRA \u00b7 AI Agents';
     agentAutosaveCheck();
   }
