@@ -70,7 +70,7 @@ a.lrow:hover{background:var(--bg-f8f9fb);color:var(--fg-141a22)}
 .ph{padding:16px 20px 12px}
 .act{display:grid;grid-template-columns:88px minmax(0,1fr);gap:12px;padding:12px 20px;border-top:1px solid var(--ln-edf0f3)}
 .tbl{overflow-x:auto}
-.grow{display:grid;grid-template-columns:1.4fr 1.2fr 1.3fr .5fr 1.2fr .9fr 1.4fr 1.1fr;gap:12px;align-items:center;padding:12px 20px;border-bottom:1px solid var(--ln-edf0f3);min-width:980px}
+.grow{display:grid;grid-template-columns:1.4fr 1.1fr 1.2fr .5fr 1.1fr .8fr 1.2fr 2fr;gap:12px;align-items:center;padding:12px 20px;border-bottom:1px solid var(--ln-edf0f3);min-width:1180px}
 .grow.head{font-size:12px;font-weight:500;color:var(--fg-4a5563);border-bottom:1px solid var(--ln-dde1e7)}
 .field{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;padding:14px 20px;border-top:1px solid var(--ln-edf0f3)}
 .map{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:10px 20px;border-top:1px solid var(--ln-edf0f3)}
@@ -760,14 +760,20 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     const map = { assured: 'ASSURED', ratify: 'TO_RATIFY', designed: 'DESIGNED', unowned: 'UNOWNED' };
     const n = (k) => AG.list.filter((a) => a.status === k).length, demo = AG.list.some((a) => a.origin === 'DEMO');
     const rows = AG.list.filter((a) => st.tab === 'all' || a.status === map[st.tab]);
-    const action = (a) => {
-      if (a.status === 'UNOWNED') return `<button class="btn2 btn-s" data-act="agAssign" data-arg="${esc(a.agent_key)}">Assign owner</button>`;
-      if (a.origin === 'DEMO') { const to = a.status === 'DESIGNED' ? 'drift' : 'contract'; return `<a href="#/${to}" style="font-weight:500">${a.status === 'TO_RATIFY' ? 'Review draft' : (a.status === 'DESIGNED' ? 'Review drift' : 'View contract')}</a>`; }
-      if (a.contract_count) return `<a href="#/contract?agent=${esc(a.agent_key)}" style="font-weight:500">View contract</a>`;
-      if (a.design_key) return `<button class="btn2 btn-s" data-act="agOpenDesign" data-arg="${esc(a.design_key)}">Open design</button>`;
+    // Every agent that is not a demo gets the blue button that opens it in the design studio (its saved design, or a new one started from what the organisation knows).
+    const designBtn = (a) => {
+      if (a.origin === 'DEMO') return '';
+      if (a.design_key) return `<button class="btn btn-s" data-act="agOpenDesign" data-arg="${esc(a.design_key)}">Open in design studio</button>`;
       const on = coAgentNode(a.agent_key);
-      if (on) return `<button class="btn2 btn-s" data-act="sFromOrg" data-arg="${esc(on.id)}" title="Start the design from what the organisation knows about this agent">Design it</button>`;
-      return '<a href="#/studio" style="font-weight:500">Design it</a>';
+      if (on) return `<button class="btn btn-s" data-act="sFromOrg" data-arg="${esc(on.id)}" title="Start the design from what the organisation knows about this agent">Open in design studio</button>`;
+      return '<a class="btn btn-s" href="#/studio">Open in design studio</a>';
+    };
+    const action = (a) => {
+      let first = '';
+      if (a.status === 'UNOWNED') first = `<button class="btn2 btn-s" data-act="agAssign" data-arg="${esc(a.agent_key)}">Assign owner</button>`;
+      else if (a.origin === 'DEMO') { const to = a.status === 'DESIGNED' ? 'drift' : 'contract'; first = `<a href="#/${to}" style="font-weight:500">${a.status === 'TO_RATIFY' ? 'Review draft' : (a.status === 'DESIGNED' ? 'Review drift' : 'View contract')}</a>`; }
+      else if (a.contract_count) first = `<a href="#/contract?agent=${esc(a.agent_key)}" style="font-weight:500">View contract</a>`;
+      return `<span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${first}${designBtn(a)}</span>`;
     };
     const empty = `<section class="card" style="padding:24px;display:flex;flex-direction:column;gap:12px;max-width:760px"><h3>No agents in the inventory yet</h3><span class="cap">An agent appears here when you ratify a design from the design studio or register one by hand. Finding agents in a repository, telemetry or an identity provider needs connectors, which are not built yet. To explore the screens first, load the demo agents (sample data from the prototype, easy to remove).</span><div class="prow"><a class="btn" href="#/studio">Design an agent</a><a class="btn2" href="#/addagent">Register an agent</a><button class="btn2" data-act="agLoadDemo"${AG.busy ? ' disabled' : ''}>Load demo agents</button></div></section>`;
     const table = `<div>${segTabs([['all', `All (${AG.list.length})`], ['assured', `Assured (${n('ASSURED')})`], ['ratify', `To ratify (${n('TO_RATIFY')})`], ['designed', `Designed (${n('DESIGNED')})`], ['unowned', `Unowned (${n('UNOWNED')})`]], st.tab, 'agTab')}</div>
