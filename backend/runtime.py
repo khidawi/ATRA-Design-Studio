@@ -68,6 +68,14 @@ class EventIn(BaseModel):
     scope: Optional[Literal["long_term", "session"]] = None
     at: Optional[datetime] = None
     trace_id: Optional[str] = Field(None, max_length=64)
+    # what OpenTelemetry telemetry adds (telemetry.py); never prompts, arguments or results
+    error: Optional[bool] = None
+    duration_ms: Optional[int] = Field(None, ge=0, le=86_400_000)
+    model: Optional[str] = Field(None, max_length=80)
+    tokens_in: Optional[int] = Field(None, ge=0)
+    tokens_out: Optional[int] = Field(None, ge=0)
+    calls: Optional[int] = Field(None, ge=0)
+    via: Optional[str] = Field(None, max_length=12)
 
 
 class BatchIn(BaseModel):
@@ -151,11 +159,20 @@ def _active(session: Session, key: str) -> Optional[Contract]:
     return session.scalar(select(Contract).where(Contract.object_type == "AGENT", Contract.deployment_id == key, Contract.status == "ACTIVE").order_by(Contract.issued_at.desc()))
 
 
+ATTR_KEYS = ("write", "signed", "scope", "trace_id", "error", "duration_ms", "model", "tokens_in", "tokens_out", "calls", "via")
+
+
 @router.post("/events", response_model=BatchOut)
 def ingest_events(body: BatchIn, session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> JSONResponse:
     wait = _throttle(str(user.id), len(body.events))
     if wait is not None:
         return JSONResponse({"detail": f"Too many events from this key; slow down and retry in {wait} s (limit {RATE_PER_MINUTE} a minute)."}, status_code=429, headers={"Retry-After": str(wait)})
+    return JSONResponse(ingest_batch(session, user.name, body).model_dump(mode="json"), status_code=202)
+
+
+def ingest_batch(session: Session, actor: str, body: BatchIn) -> BatchOut:
+    """Records a batch of one agent's events, checks each against its active contract, raises findings and runtime drift. Commits.
+    Used by the SDK endpoint above and by the OpenTelemetry receiver (telemetry.py), so both are judged the same way."""
     key = agent_key(body.agent)
     if len(key) < 2:
         raise HTTPException(status_code=422, detail="The agent name needs letters or digits.")
@@ -167,7 +184,7 @@ def ingest_events(body: BatchIn, session: Session = Depends(get_session), user: 
         if not body.discover:
             raise HTTPException(status_code=404, detail=f"The platform has no agent called {key!r} and discovery is off for this call.")
         agent = Agent(agent_key=key, organisation_id=org.id, name=body.agent.strip()[:80], framework=body.framework or "Reported by the runtime SDK", status="UNOWNED", mode="OBSERVE",
-                      origin="DISCOVERED", note=f"Discovered at runtime by {user.name}")
+                      origin="DISCOVERED", note=f"Discovered at runtime by {actor}")
         session.add(agent)
         session.flush()
         discovered = True
@@ -202,17 +219,16 @@ def ingest_events(body: BatchIn, session: Session = Depends(get_session), user: 
                     if obs is not None:
                         newly.append(obs)
         session.add(RuntimeEvent(organisation_id=org.id, agent_key=key, at=_clamp(ev.at, now), type=ev.type, name=(ev.name or "")[:200],
-                                 attrs={k: v for k, v in data.items() if k in ("write", "signed", "scope", "trace_id")}, verdict=verdict, contract_version=version,
-                                 finding_key=finding_key, reported_by=user.name))
+                                 attrs={k: v for k, v in data.items() if k in ATTR_KEYS}, verdict=verdict, contract_version=version,
+                                 finding_key=finding_key, reported_by=actor))
         results.append(ResultOut(verdict=verdict, finding_key=finding_key))
-    drift_id = _runtime_drift(session, agent, contract, newly, user.name) if (contract is not None and newly) else None
+    drift_id = _runtime_drift(session, agent, contract, newly, actor) if (contract is not None and newly) else None
     session.commit()
     if random.random() < 0.02:                                  # keep the table bounded without a scheduler
         session.execute(delete(RuntimeEvent).where(RuntimeEvent.received_at < now - timedelta(days=RETENTION_DAYS)))
         session.commit()
-    out = BatchOut(agent_key=key, discovered=discovered, contract_version=version, accepted=len(results), divergent=sum(1 for r in results if r.verdict == "DIVERGENT"),
-                   findings=raised, drift_item=drift_id, results=results)
-    return JSONResponse(out.model_dump(mode="json"), status_code=202)
+    return BatchOut(agent_key=key, discovered=discovered, contract_version=version, accepted=len(results), divergent=sum(1 for r in results if r.verdict == "DIVERGENT"),
+                    findings=raised, drift_item=drift_id, results=results)
 
 
 class AllowedOut(BaseModel):

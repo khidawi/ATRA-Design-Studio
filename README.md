@@ -421,6 +421,22 @@ An identity says what an agent is *allowed* to do and who is responsible for it,
 
 **What it does not do yet**: it reads on demand (press *Scan now*; there is no scheduled rescan or provider event hook), and it does not read sign-in activity, so it cannot say that an agent identity has gone unused.
 
+## Telemetry discovery (OpenTelemetry)
+
+AI Agents → **Telemetry** finds and watches agents from the OpenTelemetry traces an organisation already produces, with no ASTRA SDK. Code: `backend/telemetry_otlp.py` (reading OTLP, mapping spans), `backend/telemetry.py` (the endpoint, observed profiles, designs); the events go through the same pipeline as the SDK's (`runtime.ingest_batch`); tests: `python -m tests.test_telemetry`.
+
+**Sending telemetry**: create an API key with the role **collector** (Users → API keys; it can send events and nothing else), then point an OpenTelemetry Collector's `otlphttp` exporter at `https://<your-host>/api/telemetry` with the header `Authorization: Bearer <key>`, or set `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://<your-host>/api/telemetry/v1/traces` and `OTEL_EXPORTER_OTLP_TRACES_HEADERS` on an application. OTLP/HTTP is accepted as protobuf or JSON, with or without gzip, and answered in the format it arrived in. The Telemetry page shows the exact settings, what has arrived, and what could not be understood.
+
+**What it understands**: the OpenTelemetry GenAI conventions (`gen_ai.operation.name`, `gen_ai.agent.name`, `gen_ai.tool.name`, `gen_ai.request.model`, `gen_ai.usage.*`), OpenInference (`openinference.span.kind`: the instrumentations for the OpenAI Agents SDK, LangChain and LangGraph, CrewAI and LlamaIndex), OpenLLMetry (`traceloop.*`), MCP spans (`mcp.method.name`, `mcp.server.name`), database spans (`db.system` with `db.namespace`) and the OpenAI Agents SDK's handoff spans. An agent span, or the nearest agent span above a tool span, says which agent it was; otherwise, if you turn it on, the service name does. An agent run inside another is a delegation. Agent names are matched like everywhere else, so an agent with the same name as one imported from a repository or an identity provider is the same inventory entry.
+
+**What becomes of it**: each tool call, MCP connection, delegation and data access is a runtime event, judged against the agent's active contract exactly like an SDK event: an agent ASTRA has not seen is registered as **discovered** and unowned (it counts against ASI10 until someone owns it); a tool, server, delegation or data store the contract does not allow becomes a finding and a runtime drift item for compliance to decide. The Telemetry page also lists what each agent was seen doing (tools with call counts and whether a write was seen, MCP servers, delegations, data, models, token counts, errors) and can **build a draft design from it**, or merge what is new into an existing draft. An agent with an active contract is left alone: what it does beyond the contract already reaches Drift review.
+
+**Spans arrive child first**: a span is exported when it ends, and an agent's own span ends last, so a tool call usually reaches ASTRA before the agent run that contains it. Spans that cannot be placed yet wait in memory for two minutes (by trace) and are attributed when their agent's span arrives; after that they are counted as "not placed" with a few span names, so you can see what to instrument. A restart forgets what was waiting, which loses a few seconds of telemetry.
+
+**What it never keeps**: prompts, completions, message content, tool arguments and results, span events. Only names, kinds, timings, the model name, token counts and the trace id. Tool names must match the names in the agent's design (a differently spelled name is reported as a tool the contract does not allow), and whether a tool writes is inferred from its name unless a write is observed.
+
+**Limits and protections**: a request is limited to 16 MB (also after decompression, so a gzip bomb is refused) and 20,000 spans; a key is rate limited to 1,200 events a minute and answered `429` with `Retry-After`, which OTLP exporters honour; a request that is not valid OTLP is a `400` with a reason. Request records are kept for 14 days. Only traces are read: logs and metrics are not.
+
 ## API keys (pipelines and collectors)
 
 An administrator makes keys on the **Users** screen (**API keys**), or with `POST /api/keys`. No key exists until one is made. A key is

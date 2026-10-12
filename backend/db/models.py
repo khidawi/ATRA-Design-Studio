@@ -638,3 +638,37 @@ class IdpImport(Base):
     fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     outcome: Mapped[str] = mapped_column(String(10), nullable=False)
     imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class TelemetrySettings(Base):
+    """How the organisation wants OpenTelemetry spans read: how an agent is recognised, and whether an agent the platform has not seen is registered."""
+
+    __tablename__ = "telemetry_settings"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False, unique=True)
+    agent_from_service: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))   # a span with no agent name belongs to the agent named like its service
+    discover: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+
+
+class TelemetryIngest(Base):
+    """One request to the OTLP endpoint and what became of its spans: kept for two weeks so the person setting telemetry up can see what is understood."""
+
+    __tablename__ = "telemetry_ingest"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False, index=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    key_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    spans: Mapped[int] = mapped_column(Integer, nullable=False)
+    mapped: Mapped[int] = mapped_column(Integer, nullable=False)
+    ignored: Mapped[int] = mapped_column(Integer, nullable=False)
+    unattributed: Mapped[int] = mapped_column(Integer, nullable=False)
+    agents: Mapped[int] = mapped_column(Integer, nullable=False)
+    events: Mapped[int] = mapped_column(Integer, nullable=False)
+    divergent: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    invalid: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    unknown: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    waiting: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    samples: Mapped[List[str]] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    duration_ms: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")

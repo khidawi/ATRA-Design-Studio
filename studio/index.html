@@ -465,6 +465,10 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       idpLatest: (id) => call('/api/idps/' + encodeURIComponent(id) + '/scan'),
       idpPreview: (id, key) => call('/api/idps/' + encodeURIComponent(id) + '/agents/' + encodeURIComponent(key)),
       idpImport: (id, body) => post('/api/idps/' + encodeURIComponent(id) + '/import', body),
+      telStatus: () => call('/api/telemetry/status'),
+      telAgents: (days) => call('/api/telemetry/agents?days=' + encodeURIComponent(days)),
+      telSettings: (body) => call('/api/telemetry/settings', { method: 'PUT', body: JSON.stringify(body) }),
+      telDesign: (key, body) => post('/api/telemetry/agents/' + encodeURIComponent(key) + '/design', body),
       previewAgentImport: (body) => post('/api/agents/import/preview', body),
       importAgent: (body) => post('/api/agents/import', body),
       companyGet: () => call('/api/company'),
@@ -540,7 +544,7 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
     drift: { sel: null }
   };
 
-  const NAV = [['overview', 'Overview', ''], ['agents', 'Agents', '12'], ['repos', 'Repositories', ''], ['idps', 'Identity providers', ''], ['studio', 'Design studio', ''], ['drift', 'Drift review', '3'], ['findings', 'Findings', '4'], ['coverage', 'Coverage', '7/10'], ['packs', 'Trust and packs', ''], ['runtime', 'Live runtime', ''], ['workspace', 'Compliance workspace', '2']];
+  const NAV = [['overview', 'Overview', ''], ['agents', 'Agents', '12'], ['repos', 'Repositories', ''], ['idps', 'Identity providers', ''], ['telemetry', 'Telemetry', ''], ['studio', 'Design studio', ''], ['drift', 'Drift review', '3'], ['findings', 'Findings', '4'], ['coverage', 'Coverage', '7/10'], ['packs', 'Trust and packs', ''], ['runtime', 'Live runtime', ''], ['workspace', 'Compliance workspace', '2']];
   const PARENT = { newagent: 'agents', addagent: 'agents', contract: 'agents', pack: 'packs' };
 
   function nav(active) {
@@ -784,7 +788,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
       else if (a.contract_count) first = `<a href="#/contract?agent=${esc(a.agent_key)}" style="font-weight:500">View contract</a>`;
       return `<span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${first}${designBtn(a)}</span>`;
     };
-    const empty = `<section class="card" style="padding:24px;display:flex;flex-direction:column;gap:12px;max-width:760px"><h3>No agents in the inventory yet</h3><span class="cap">An agent appears here when you ratify a design from the design studio or register one by hand. Agents can be found in a repository (Repositories) or an identity provider (Identity providers); discovery from telemetry needs a connector that is not built yet. To explore the screens first, load the demo agents (sample data from the prototype, easy to remove).</span><div class="prow"><a class="btn" href="#/studio">Design an agent</a><a class="btn2" href="#/addagent">Register an agent</a><button class="btn2" data-act="agLoadDemo"${AG.busy ? ' disabled' : ''}>Load demo agents</button></div></section>`;
+    const empty = `<section class="card" style="padding:24px;display:flex;flex-direction:column;gap:12px;max-width:760px"><h3>No agents in the inventory yet</h3><span class="cap">An agent appears here when you ratify a design from the design studio or register one by hand. Agents can be found in a repository (Repositories), an identity provider (Identity providers) or OpenTelemetry traces (Telemetry). To explore the screens first, load the demo agents (sample data from the prototype, easy to remove).</span><div class="prow"><a class="btn" href="#/studio">Design an agent</a><a class="btn2" href="#/addagent">Register an agent</a><button class="btn2" data-act="agLoadDemo"${AG.busy ? ' disabled' : ''}>Load demo agents</button></div></section>`;
     const table = `<div>${segTabs([['all', `All (${AG.list.length})`], ['assured', `Assured (${n('ASSURED')})`], ['ratify', `To ratify (${n('TO_RATIFY')})`], ['designed', `Designed (${n('DESIGNED')})`], ['unowned', `Unowned (${n('UNOWNED')})`]], st.tab, 'agTab')}</div>
       <section class="card tbl"><div class="grow head"><span>Agent</span><span>Owner</span><span>Framework</span><span>Tools</span><span>Status</span><span>Mode</span><span>Last finding</span><span>Action</span></div>
       ${rows.map((a) => `<div class="grow"><span class="mono" style="font-weight:500">${esc(a.name)}${a.origin === 'DEMO' ? ' <span class="pill muted">demo</span>' : ''}${a.origin === 'DISCOVERED' ? ' <span class="pill warn" title="Seen by the runtime SDK, not registered by a person">discovered</span>' : ''}${a.origin === 'ORG' ? ' <span class="pill muted" title="Created from the organisation">organisation</span>' : ''}</span><span>${esc(a.owner || 'No owner')}</span><span>${esc(a.framework)}</span><span>${a.tools_count}</span><span><span class="pill ${pills[a.status]}">${STATUS_LABEL[a.status]}</span></span><span>${MODE_LABEL[a.mode]}</span><span class="cap">${esc(a.last_finding || a.note || '\u2014')}</span><span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${action(a)}${can('admin') ? `<button class="btn3 btn-s" data-act="agDelete" data-arg="${esc(a.agent_key)}" title="Remove this agent from the whole platform">Delete</button>` : ''}</span></div>`).join('')}</section>`;
@@ -837,7 +841,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
         <button class="btn2"${im.busy || !im.content.trim() ? ' disabled' : ''} data-act="impPreview">Preview the model</button><button class="btn"${im.busy || !p ? ' disabled' : ''} data-act="impCreate">${p && p.existing.will === 'drift' ? 'Submit as a proposed change' : 'Create the agent design'}</button></div>
       ${im.err ? `<div class="note alert" role="alert"><span style="font-size:13px;white-space:pre-wrap">${esc(im.err)}</span></div>` : ''}${p && !im.result ? importPreviewHtml(p) : ''}${result}</section>
       <section class="card" style="padding:24px;display:flex;flex-direction:column;gap:20px;max-width:920px;margin-top:16px"><div class="stack"><h3>Or register by hand</h3><span class="cap">For an agent you have no file for. It joins the inventory as unowned until you give it an owner, then waits for a model to be ratified. Partial provenance: nothing here is verified against code.</span></div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px"><a class="opt" href="#/runtime" style="text-decoration:none"><span style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600">From the runtime SDK</span><span class="pill ok">Available</span></span><span class="cap">Add the SDK to an agent and it appears here by itself, unowned, the first time it runs. See Live runtime.</span></a><a class="opt" href="#/repos" style="text-decoration:none"><span style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600">Connect a repository</span><span class="pill ok">Available</span></span><span class="cap">Scans LangGraph, OpenAI Agents SDK and CrewAI definitions plus MCP configs, and brings the agents in.</span></a><a class="opt" href="#/idps" style="text-decoration:none"><span style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600">From an identity provider</span><span class="pill ok">Available</span></span><span class="cap">Starts from the service accounts and OAuth clients tagged as agents in Entra ID, Okta, Auth0 or Keycloak.</span></a></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px"><a class="opt" href="#/runtime" style="text-decoration:none"><span style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600">From the runtime SDK</span><span class="pill ok">Available</span></span><span class="cap">Add the SDK to an agent and it appears here by itself, unowned, the first time it runs. See Live runtime.</span></a><a class="opt" href="#/repos" style="text-decoration:none"><span style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600">Connect a repository</span><span class="pill ok">Available</span></span><span class="cap">Scans LangGraph, OpenAI Agents SDK and CrewAI definitions plus MCP configs, and brings the agents in.</span></a><a class="opt" href="#/idps" style="text-decoration:none"><span style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600">From an identity provider</span><span class="pill ok">Available</span></span><span class="cap">Starts from the service accounts and OAuth clients tagged as agents in Entra ID, Okta, Auth0 or Keycloak.</span></a><a class="opt" href="#/telemetry" style="text-decoration:none"><span style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600">From OpenTelemetry</span><span class="pill ok">Available</span></span><span class="cap">Finds and watches agents that already emit OpenTelemetry traces, with no SDK, and checks them against their contracts.</span></a></div>
       <div class="prow" style="flex-wrap:wrap;gap:12px"><div class="fld" style="min-width:240px"><label for="rg-name">Agent name</label><input id="rg-name" class="inp mono" data-chg="aReg" data-arg="name" value="${esc(st.name)}" placeholder="payouts-agent"></div>
       <div class="fld" style="min-width:200px"><label for="rg-owner">Owner (optional)</label><input id="rg-owner" class="inp" data-chg="aReg" data-arg="owner" value="${esc(st.owner)}" placeholder="Payments eng"></div>
       <div class="fld" style="min-width:200px"><label for="rg-fw">Framework</label><input id="rg-fw" class="inp" data-chg="aReg" data-arg="framework" value="${esc(st.framework)}" placeholder="LangGraph"></div>
@@ -1787,6 +1791,87 @@ kill_switch:
         await STAI.api.idpUpdate(e.id, body); IP.list = await STAI.api.idpList(); IP.edit = null; IP.msg = 'Saved. The next scan uses the new rule.';
       } catch (x) { IP.err = x.message; }
       IP.busy = null; render(true);
+    }
+  });
+
+  /* ======================= TELEMETRY DISCOVERY (AI Agents) ======================= */
+  // Agents that already emit OpenTelemetry traces are found and watched without the ASTRA SDK: spans arrive at /api/telemetry/v1/traces and become runtime events.
+  const TL = { loaded: false, loading: false, error: null, status: null, agents: [], busy: null, msg: null, err: null, days: 7, timer: null, open: {} };
+  async function loadTelemetry(quiet) {
+    if (!quiet) { TL.loading = true; TL.error = null; }
+    try {
+      const [status, agents] = await Promise.all([STAI.api.telStatus(), STAI.api.telAgents(TL.days)]);
+      TL.status = status; TL.agents = agents; TL.loaded = true; TL.error = null;
+    } catch (e) { if (!quiet) TL.error = e.message; }
+    TL.loading = false;
+    clearTimeout(TL.timer);
+    TL.timer = setTimeout(() => { if (route() === 'telemetry' && !TL.busy) loadTelemetry(true).then(() => renderIfIdle('telemetry')); }, 15000);
+    if (!quiet) renderIfIdle('telemetry');
+  }
+  const tlAgo = (iso) => { if (!iso) return 'never'; const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000); return s < 90 ? 'a moment ago' : s < 5400 ? Math.round(s / 60) + ' min ago' : s < 129600 ? Math.round(s / 3600) + ' h ago' : Math.round(s / 86400) + ' days ago'; };
+  const tlCode = (t) => `<pre class="code" style="font-size:12px;white-space:pre-wrap;margin:0">${esc(t)}</pre>`;
+  function tlSetup(url, host) {
+    const collector = `exporters:\n  otlphttp/astra:\n    endpoint: ${url}\n    headers:\n      Authorization: "Bearer \${env:ASTRA_COLLECTOR_KEY}"\n\nservice:\n  pipelines:\n    traces/astra:\n      receivers: [otlp]\n      exporters: [otlphttp/astra]`;
+    const env = `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=${url}/v1/traces\nOTEL_EXPORTER_OTLP_TRACES_HEADERS=Authorization=Bearer <your collector key>\nOTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http/protobuf`;
+    return `<details class="card" style="padding:16px 20px"${TL.status && TL.status.last_received_at ? '' : ' open'}><summary style="cursor:pointer;font-weight:600">How to send telemetry to ASTRA</summary><div class="stack" style="gap:14px;margin-top:12px">
+      <div class="stack" style="gap:4px"><b>1 · Make a key that can only send</b><span class="cap">Open <a href="#/users">Users</a>, create an API key with the role <b>collector</b> and copy it. It can send telemetry and nothing else, so a leaked key cannot read or change anything.</span></div>
+      <div class="stack" style="gap:6px"><b>2 · Point an OpenTelemetry Collector at ASTRA</b><span class="cap">Add this exporter to the collector that already receives your agents' traces (the key goes in the environment variable, not in the file):</span>${tlCode(collector)}</div>
+      <div class="stack" style="gap:6px"><b>Or send straight from the application</b><span class="cap">Any OpenTelemetry SDK, using its standard settings:</span>${tlCode(env)}</div>
+      <div class="stack" style="gap:6px"><b>3 · Name the agent in the spans</b><span class="cap">ASTRA understands the OpenTelemetry GenAI conventions (<span class="mono">gen_ai.agent.name</span>, <span class="mono">gen_ai.tool.name</span>), OpenInference (the instrumentations for the OpenAI Agents SDK, LangChain and LangGraph, CrewAI and LlamaIndex) and OpenLLMetry. An agent span, or an ancestor of a tool span, tells ASTRA which agent it was. If your spans carry no agent name, turn on “Use the service name” below.</span></div>
+      <div class="note plain" style="font-size:12.5px"><strong>What ASTRA keeps</strong><span>Tool, server and data-store names, timings, the model name and token counts. Prompts, answers, tool arguments and results are never read or stored. Use the same tool names as in the agent's design: a name that differs is reported as a tool the contract does not allow.</span></div></div></details>`;
+  }
+  function tlAgent(a) {
+    const open = !!TL.open[a.agent_key], origin = a.origin === 'DISCOVERED' ? ['warn', 'Discovered'] : (a.origin === 'ORG' ? ['muted', 'Organisation'] : ['ok', 'Registered']);
+    const list = (title, items, fmt) => items.length ? `<div class="stack" style="gap:3px"><span style="font-size:12px;font-weight:600;color:var(--fg-4a5563)">${title}</span><span style="display:flex;gap:6px;flex-wrap:wrap">${items.map(fmt).join('')}</span></div>` : '';
+    const chip = (x) => `<span class="pill muted">${esc(x.name)} · ${x.count}</span>`;
+    const action = a.has_contract ? `<span class="pill ok" title="Anything outside the contract becomes a finding and a drift item">Checked against its contract</span><a class="btn2 btn-s" href="#/runtime">Live runtime</a>`
+      : `<button class="btn btn-s" data-act="telDesign" data-arg="${esc(a.agent_key)}"${TL.busy ? ' disabled' : ''}>${TL.busy === a.agent_key ? 'Building…' : (a.has_design ? 'Add what it did to its design' : 'Create a design from what it did')}</button>`;
+    return `<div class="lrow" style="align-items:flex-start;flex-direction:column"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;width:100%;align-items:flex-start"><span class="stack" style="gap:3px;min-width:0"><span style="font-weight:600"><span class="mono">${esc(a.name)}</span> <span class="pill ${origin[0]}">${origin[1]}</span>${a.owner ? '' : ' <span class="pill bad">No owner</span>'}${a.divergent ? ` <span class="pill bad">${a.divergent} outside its contract</span>` : ''}${a.errors ? ` <span class="pill warn">${a.errors} errors</span>` : ''}</span>
+        <span class="cap">${esc(a.framework)} · seen ${tlAgo(a.last_at)} · ${a.events} event${a.events === 1 ? '' : 's'} · ${a.tools.length} tool${a.tools.length === 1 ? '' : 's'}, ${a.mcp_servers.length} MCP server${a.mcp_servers.length === 1 ? '' : 's'}, ${a.delegations.length} delegation${a.delegations.length === 1 ? '' : 's'}, ${a.data.length} data store${a.data.length === 1 ? '' : 's'}${a.models.length ? ' · ' + esc(a.models.join(', ')) : ''}${a.tokens_in + a.tokens_out ? ' · ' + (a.tokens_in + a.tokens_out).toLocaleString() + ' tokens' : ''}</span></span>
+        <span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn2 btn-s" data-act="telOpen" data-arg="${esc(a.agent_key)}">${open ? 'Hide what it did' : 'What it did'}</button>${action}</span></div>
+      ${open ? `<div class="stack" style="gap:10px;padding-top:6px;width:100%">${list('Tools (calls)', a.tools, (x) => `<span class="pill ${x.write ? 'warn' : 'muted'}" title="${x.write ? 'A write was observed or its name suggests one' : 'No write seen'}">${esc(x.name)} · ${x.count}${x.write ? ' · write' : ''}</span>`)}${list('MCP servers', a.mcp_servers, chip)}${list('Delegated to', a.delegations, chip)}${list('Data stores', a.data, (x) => `<span class="pill ${x.write ? 'warn' : 'muted'}">${esc(x.name)} · ${x.count}${x.write ? ' · write' : ''}</span>`)}</div>` : ''}</div>`;
+  }
+  function telemetryScreen() {
+    if (!TL.loaded && !TL.loading && !TL.error) loadTelemetry();
+    const head = hdr('AI Agents · Connectors', 'Telemetry', `<label class="cap">Window <select class="reqsel" data-chg="telDays" aria-label="How far back to look">${[1, 3, 7, 14].map((d) => opt(String(d), d === 1 ? 'Last 24 hours' : `Last ${d} days`, String(TL.days))).join('')}</select></label>`);
+    if (TL.error) return head + `<div class="note alert" role="alert"><strong>Could not load</strong><span>${esc(TL.error)}</span><button class="btn2 btn-s" style="align-self:flex-start" data-act="telRetry">Retry</button></div>`;
+    if (!TL.loaded) return head + '<p class="cap">Loading…</p>';
+    const st = TL.status, url = location.origin + st.endpoint_path;
+    const intro = `<div class="note plain" style="gap:6px"><strong>How it works</strong><span style="font-size:13px">If your agents already emit OpenTelemetry traces, point them (or the collector that receives them) at ASTRA. Each agent run, tool call, MCP call and database access becomes a runtime event: an agent ASTRA has not seen is registered as discovered and unowned, and one with an active contract is checked against it, so a tool the contract does not allow becomes a finding and a drift item for compliance to decide. No SDK is needed, and prompts and answers are never read.</span></div>`;
+    const tile = (n, l, cls) => `<div class="lf-tile${cls ? ' ' + cls : ''}"><b class="mono">${n}</b><span class="cap">${l}</span></div>`;
+    const none = !st.last_received_at;
+    const unattr = st.unattributed_24h ? `<div class="note warn" role="status" style="gap:6px"><strong>${st.unattributed_24h} span${st.unattributed_24h === 1 ? '' : 's'} could not be placed with an agent</strong><span style="font-size:13px">They looked like tool, model or data calls but carried no agent name and no agent span above them, so nothing was created. Examples: ${st.samples.map((x) => `<span class="mono">${esc(x)}</span>`).join(', ')}. Add <span class="mono">gen_ai.agent.name</span> (or an agent span) in the instrumentation, or turn on “Use the service name” below.</span></div>` : '';
+    const unknown = st.unknown_agents_24h && !st.settings.discover ? `<div class="note plain" role="status"><span style="font-size:13px">${st.unknown_agents_24h} agent${st.unknown_agents_24h === 1 ? '' : 's'} sent telemetry but ${st.unknown_agents_24h === 1 ? 'is' : 'are'} not registered, and registering unknown agents is turned off.</span></div>` : '';
+    const settings = `<section class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:8px"><h2>How agents are recognised</h2>
+      <label class="chk"><input type="checkbox" data-chg="telSetting" data-arg="discover"${st.settings.discover ? ' checked' : ''}><span class="stack" style="gap:1px"><span>Register an agent ASTRA has not seen</span><span class="cap" style="font-size:12.5px">It appears in the inventory as discovered and unowned, and counts against ASI10 until someone owns it. Turn this off to accept telemetry only from agents already registered.</span></span></label>
+      <label class="chk"><input type="checkbox" data-chg="telSetting" data-arg="agent_from_service"${st.settings.agent_from_service ? ' checked' : ''}><span class="stack" style="gap:1px"><span>Use the service name when a span names no agent</span><span class="cap" style="font-size:12.5px">For an application that is one agent: its <span class="mono">service.name</span> becomes the agent's name. Leave it off if a service runs several agents or other code, or it will register the service itself.</span></span></label></section>`;
+    const agents = TL.agents.length ? TL.agents.map(tlAgent).join('') : `<p class="cap" style="padding:8px 20px 16px;margin:0">${none ? 'No telemetry has arrived yet. Follow the steps above; this list fills in as agents run.' : 'No agent was seen in this window.'}</p>`;
+    const recent = st.recent.length ? `<section class="card" style="padding:8px 0"><div class="ph"><h2>Recent requests</h2><span class="cap">What each request from your collector became</span></div>${st.recent.map((r) => `<div class="lrow"><span class="stack" style="gap:2px"><span class="mono" style="font-size:12.5px">${esc(cwhen(r.at))} · ${esc(r.key_name)}</span><span class="cap">${r.spans} spans → ${r.agents} agent${r.agents === 1 ? '' : 's'}, ${r.events} events${r.waiting ? ', ' + r.waiting + ' waiting for their agent’s span' : ''}${r.invalid ? ', ' + r.invalid + ' refused' : ''}${r.unattributed ? ', ' + r.unattributed + ' not placed' : ''}${r.divergent ? ', ' + r.divergent + ' outside a contract' : ''} · ${r.duration_ms} ms</span></span></div>`).join('')}</section>` : '';
+    return head + intro + (TL.msg ? `<div class="note good" role="status" style="font-size:13px">${esc(TL.msg)} <a href="#/studio">Open the design studio</a> · <a href="#/agents">Inventory</a></div>` : '') + (TL.err ? `<div class="note alert" role="alert"><span style="font-size:13px;white-space:pre-wrap">${esc(TL.err)}</span></div>` : '') +
+      `<section class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><span class="stack" style="gap:2px"><h2>Endpoint</h2><span class="mono" style="word-break:break-all">${esc(url)}/v1/traces</span></span><span class="pill ${none ? 'muted' : 'ok'}">${none ? 'Nothing received yet' : 'Last received ' + tlAgo(st.last_received_at)}</span></div>
+        <div class="lf-tiles">${tile(st.requests_24h, 'Requests, last 24 hours')}${tile(st.spans_24h.toLocaleString(), 'Spans received')}${tile(st.events_24h.toLocaleString(), 'Events recorded')}${tile(st.unattributed_24h, 'Spans not placed', st.unattributed_24h ? 'warn' : '')}${tile(st.divergent_24h, 'Outside a contract', st.divergent_24h ? 'bad' : '')}</div></section>` +
+      unattr + unknown + tlSetup(url) + settings +
+      `<section class="card" style="padding:8px 0"><div class="ph" style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><span class="stack" style="gap:2px"><h2>Agents seen in telemetry</h2><span class="cap">What each one was seen doing in the window. A design built from this holds only what it did, so a tool it has not used yet is not in it.</span></span></div>${agents}</section>` + recent;
+  }
+  SCREENS.telemetry = telemetryScreen;
+  Object.assign(C, {
+    telDays: (v) => { TL.days = parseInt(v, 10) || 7; TL.loaded = false; },
+    telSetting: async (v, k) => {
+      const next = Object.assign({}, TL.status.settings, { [k]: !!v }); TL.err = null;
+      try { await STAI.api.telSettings(next); TL.status.settings = next; } catch (e) { TL.err = e.message; }
+    }
+  });
+  Object.assign(H, {
+    telRetry: () => { TL.error = null; TL.loaded = false; },
+    telOpen: (key) => { TL.open[key] = !TL.open[key]; },
+    telDesign: async (key) => {
+      TL.busy = key; TL.err = null; TL.msg = null; render(true);
+      try {
+        const r = await STAI.api.telDesign(key, { days: TL.days });
+        TL.msg = r.summary + (r.merged ? ' What it did was merged into the design that was already there.' : '');
+        AG.loaded = false; FD.loaded = false; OV.loaded = false; await loadTelemetry(true);
+      } catch (e) { TL.err = e.message; }
+      TL.busy = null; render(true);
     }
   });
 
@@ -4079,7 +4164,7 @@ kill_switch:
     if (mainEl && ME.role === 'auditor') mainEl.insertAdjacentHTML('afterbegin', '<div class="note plain" role="status"><strong>Read-only</strong><span style="font-size:13px">Your role is auditor: you can view everything and the audit log, but not change anything.</span></div>');
     if (keepScroll) Object.keys(keep).forEach((q) => { const el = document.querySelector(q); if (el) { el.scrollLeft = keep[q][0]; el.scrollTop = keep[q][1]; } });
     window.scrollTo(0, keepScroll ? y : 0);
-    const titles = { idps: 'ASTRA \u00b7 Identity providers', repos: 'ASTRA \u00b7 Repositories', m_overview: 'ASTRA \u00b7 Model overview', m_runtime: 'ASTRA \u00b7 Model runtime', m_governance: 'ASTRA \u00b7 Model governance', m_incidents: 'ASTRA \u00b7 Model incidents', m_decommission: 'ASTRA \u00b7 Model decommissioning', m_standards: 'ASTRA \u00b7 Regulations and standards', home: 'ASTRA \u00b7 Choose a module', model: 'ASTRA \u00b7 Model designer', modelcontracts: 'ASTRA \u00b7 Compiled contracts', policies: 'ASTRA \u00b7 Policies', regulations: 'ASTRA \u00b7 Regulations', organisation: 'ASTRA \u00b7 Organisation', users: 'ASTRA \u00b7 Users', audit: 'ASTRA \u00b7 Audit log' };
+    const titles = { telemetry: 'ASTRA \u00b7 Telemetry', idps: 'ASTRA \u00b7 Identity providers', repos: 'ASTRA \u00b7 Repositories', m_overview: 'ASTRA \u00b7 Model overview', m_runtime: 'ASTRA \u00b7 Model runtime', m_governance: 'ASTRA \u00b7 Model governance', m_incidents: 'ASTRA \u00b7 Model incidents', m_decommission: 'ASTRA \u00b7 Model decommissioning', m_standards: 'ASTRA \u00b7 Regulations and standards', home: 'ASTRA \u00b7 Choose a module', model: 'ASTRA \u00b7 Model designer', modelcontracts: 'ASTRA \u00b7 Compiled contracts', policies: 'ASTRA \u00b7 Policies', regulations: 'ASTRA \u00b7 Regulations', organisation: 'ASTRA \u00b7 Organisation', users: 'ASTRA \u00b7 Users', audit: 'ASTRA \u00b7 Audit log' };
     document.title = titles[r] || 'ASTRA \u00b7 AI Agents';
     agentAutosaveCheck();
   }

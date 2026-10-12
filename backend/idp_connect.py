@@ -308,8 +308,11 @@ def _found(session: Session, c: IdpConnection, key: str) -> Dict[str, Any]:
 
 # ── Merging into an agent that is already known ─────────────────────────────
 
-def _merged(session: Session, key: str, conv):
-    """When the agent already has a design, add the identity's permissions to it instead of replacing it."""
+EDGE_LABEL = {"tool": "uses", "mcp": "connects", "data": "reads", "agent": "delegates", "memory": "stores"}
+
+
+def _merged(session: Session, key: str, conv, types: Tuple[str, ...] = ("tool",)):
+    """When the agent already has a design, add what the new source found (the identity's permissions, what telemetry observed) to it instead of replacing it."""
     agent = session.scalar(select(Agent).where(Agent.agent_key == key))
     design = session.get(Design, agent.design_id) if agent is not None and agent.design_id else None
     if design is None:
@@ -323,20 +326,21 @@ def _merged(session: Session, key: str, conv):
     taken = {n["id"] for n in nodes}
     added = 0
     for n in conv.nodes:
-        if n["type"] != "tool" or ("tool", n["name"]) in have:
+        if n["type"] not in types or n.get("primary") or (n["type"], n["name"]) in have:
             continue
         nid, i = f"idp{added + 1}", added + 1
         while nid in taken:
             i += 1
             nid = f"idp{i}"
         taken.add(nid)
-        nodes.append({"id": nid, "type": "tool", "name": n["name"], "p": n["p"], "primary": False})
-        edges.append({"from": primary["id"], "to": nid, "label": "uses"})
+        nodes.append({"id": nid, "type": n["type"], "name": n["name"], "p": n["p"], "primary": False})
+        edges.append({"from": primary["id"], "to": nid, "label": EDGE_LABEL.get(n["type"], "uses")})
+        have.add((n["type"], n["name"]))
         added += 1
     if len(nodes) > MAX_NODES:
         raise HTTPException(status_code=422, detail="Merging the identity's permissions would make the design larger than an agent model can hold.")
     merged = conv.model_copy(update={"nodes": nodes, "edges": edges})
-    merged.recognised = list(conv.recognised) + [f"merged into the existing design: {added} permission(s) added as tools, nothing else changed"]
+    merged.recognised = list(conv.recognised) + [f"merged into the existing design: {added} element(s) added, nothing else changed"]
     return merged, True
 
 
