@@ -117,3 +117,21 @@ bounded queue, enforcement, async decorator, multi-agent batching, the OpenAI ad
    and **Drift review** (one runtime item listing those four capabilities, for compliance to approve or decline).
 
 With `--enforce`, the wrapped shell tool is refused before it runs, and the attempt is still reported. Only `@astra.tool` functions are refused: delegations, server connections and memory writes are reported, not blocked.
+
+## Watching a model in production
+
+For an AI model (not an agent) use `ModelMonitor`: it sends what the model was given and what it answered to a production monitor created on the model's **Runtime** page in ASTRA.
+
+```python
+from astra_runtime import ModelMonitor
+
+mon = ModelMonitor("credit-model")           # ASTRA_URL and ASTRA_KEY (a collector key) from the environment
+
+mon.log(inputs={"age": 41, "plan": "gold"}, output="approve", confidence=0.82, latency_ms=41, segments={"gender": "F"})
+
+@mon.track(inputs=lambda applicant: {"age": applicant.age}, output=lambda r: r.decision, confidence=lambda r: r.score)
+def predict(applicant): ...                   # logs every call with its latency; an exception is logged as an error, then re-raised
+```
+
+It behaves like the runtime client: it never raises into your code, never blocks it (a bounded queue and a background thread, batches of 200, Retry-After honoured) and uses only the standard library. Pass `sample=0.1` to send a random tenth of very high traffic: drift shows up in a sample just as well. `label=` is the true answer when you already know it (accuracy is then judged); `flags={"refusal": True}` counts events your code defines. ASTRA keeps statistics, never the records: send only the fields the monitor's schema declares.
+

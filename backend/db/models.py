@@ -672,3 +672,65 @@ class TelemetryIngest(Base):
     waiting: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     samples: Mapped[List[str]] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
     duration_ms: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+
+
+class ModelMonitor(Base):
+    """A production monitor for one AI model: what its inputs and outputs look like when it is really used, compared with what normal looks like.
+    Holds statistics only (model_stats.py): never the records themselves."""
+
+    __tablename__ = "model_monitors"
+    __table_args__ = (UniqueConstraint("organisation_id", "key", name="uq_model_monitor_key"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    key: Mapped[str] = mapped_column(String(80), nullable=False)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    design_key: Mapped[Optional[str]] = mapped_column(String(40))                 # the model design in the AI Models module this watches
+    task: Mapped[str] = mapped_column(String(16), nullable=False)                 # classification | regression | generative
+    spec: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    thresholds: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    baseline: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB)
+    buffer: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB)               # what the learning phase has accumulated, until the baseline is frozen
+    baseline_target: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1000")
+    retention_days: Mapped[int] = mapped_column(Integer, nullable=False, server_default="30")
+    status: Mapped[str] = mapped_column(String(12), nullable=False, server_default="LEARNING")   # LEARNING | OK | WATCH | DRIFT | LOW_VOLUME | NO_DATA
+    reasons: Mapped[List[Any]] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    signals: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    records_total: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default="0")
+    rejected_total: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default="0")
+    last_record_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    last_eval_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    created_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class ModelWindow(Base):
+    """One hour of a monitor's aggregates."""
+
+    __tablename__ = "model_windows"
+    __table_args__ = (UniqueConstraint("monitor_id", "window_start", name="uq_model_window"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    monitor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("model_monitors.id", ondelete="CASCADE"), nullable=False, index=True)
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    acc: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+
+
+class ModelIncident(Base):
+    """An incident raised by production monitoring. A person changes its status; monitoring only opens it and notes when the signal has gone."""
+
+    __tablename__ = "model_incidents"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    seq: Mapped[int] = mapped_column(Integer, Identity(start=1), unique=True)
+    monitor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("model_monitors.id", ondelete="CASCADE"), nullable=False, index=True)
+    kind: Mapped[str] = mapped_column(String(24), nullable=False)                 # DRIFT_DETECTION | BIAS_BREACH | MODEL_FAILURE
+    severity: Mapped[int] = mapped_column(Integer, nullable=False)
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    detail: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    status: Mapped[str] = mapped_column(String(14), nullable=False, server_default="OPEN")
+    detected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    recovered_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    resolved_by: Mapped[Optional[str]] = mapped_column(String(200))

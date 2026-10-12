@@ -318,6 +318,20 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
 .node.sel,.m-node.sel{border-color:var(--ln-1e4fcb)}
 .m-node.risk-red{border:2px solid var(--ln-b42318)}.m-node.risk-amber{border:2px solid var(--ln-d97706)}.m-node.risk-green{border:2px solid var(--ln-1e7f4f)}
 .pal-ico{vertical-align:middle;margin-right:6px;flex:none}.m-pal:not(.m-bundle){flex-direction:row;align-items:center}
+
+/* ---------- Production monitoring of a model ---------- */
+.mon-tbl{display:flex;flex-direction:column}
+.mon-tr{display:grid;grid-template-columns:1.5fr 1.7fr .6fr .8fr auto;gap:10px;align-items:center;padding:8px 4px;border-top:1px solid var(--ln-edf0f3);font-size:13px}
+.mon-th2{font-size:12px;font-weight:600;color:var(--fg-4a5563);border-top:0}
+.mon-psi{position:relative;display:inline-block;width:120px;vertical-align:middle;margin-right:8px}.mon-psi .meter{display:block;height:8px}
+.mon-tick{position:absolute;top:-3px;bottom:-3px;width:1px;background:var(--ln-8793a3)}
+.mon-open{padding:6px 4px 12px;border-top:1px dashed var(--ln-edf0f3)}
+.mon-dist{display:flex;flex-direction:column;gap:4px;max-width:560px}
+.mon-d-row{display:grid;grid-template-columns:110px 1fr 120px;gap:8px;align-items:center;font-size:12px}
+.mon-d-l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mon-d-b{display:flex;flex-direction:column;gap:2px}
+.mon-b{display:block;height:6px;border-radius:3px;background:var(--ln-c5ccd6)}.mon-n{display:block;height:6px;border-radius:3px;background:var(--bg-1e4fcb)}
+.mon-key{display:inline-block;width:10px;height:6px;border-radius:3px;margin-right:3px;vertical-align:middle}
+.mon-chart{width:100%;max-width:640px;height:auto}.mon-th{stroke-width:1;stroke-dasharray:4 3}.mon-th.w{stroke:var(--ln-d97706)}.mon-th.d{stroke:var(--ln-b42318)}.mon-tx{font-size:9px;fill:var(--fg-4a5563)}
 </style>
 </head>
 <body>
@@ -468,6 +482,17 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       telStatus: () => call('/api/telemetry/status'),
       telAgents: (days) => call('/api/telemetry/agents?days=' + encodeURIComponent(days)),
       telSettings: (body) => call('/api/telemetry/settings', { method: 'PUT', body: JSON.stringify(body) }),
+      monCaps: () => call('/api/model-monitor/capabilities'),
+      monInfer: (body) => post('/api/model-monitor/infer-schema', body),
+      monCreate: (body) => post('/api/model-monitor', body),
+      monGet: (key) => call('/api/model-monitor/' + encodeURIComponent(key)),
+      monPatch: (key, body) => call('/api/model-monitor/' + encodeURIComponent(key), { method: 'PATCH', body: JSON.stringify(body) }),
+      monDelete: (key) => call('/api/model-monitor/' + encodeURIComponent(key), { method: 'DELETE' }),
+      monFreeze: (key) => post('/api/model-monitor/' + encodeURIComponent(key) + '/baseline/freeze', {}),
+      monReset: (key) => post('/api/model-monitor/' + encodeURIComponent(key) + '/baseline/reset', {}),
+      monSeries: (key, hours) => call('/api/model-monitor/' + encodeURIComponent(key) + '/series?hours=' + encodeURIComponent(hours)),
+      monSignals: (designKey) => call('/api/model-monitor/signals?design_key=' + encodeURIComponent(designKey)),
+      monIncidentStatus: (id, body) => call('/api/model-monitor/incidents/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(body) }),
       telDesign: (key, body) => post('/api/telemetry/agents/' + encodeURIComponent(key) + '/design', body),
       previewAgentImport: (body) => post('/api/agents/import/preview', body),
       importAgent: (body) => post('/api/agents/import', body),
@@ -2049,12 +2074,13 @@ kill_switch:
     const regulatory_requirements = nodes.filter((n) => n.kind === 'REGULATORY_REQ').map((n) => ({ id: n.id, instrument: n.data.instrument || n.id, clause: n.data.clause, risk_tier: n.data.riskTier || undefined, status: n.data.status, evidence: n.data.evidence || undefined }));
     const consent_records = nodes.filter((n) => n.kind === 'CONSENT_RECORD').map((n) => { const lb = nodes.find((x) => x.id === neighborsOfKind(n.id, 'LEGAL_BASIS')[0]); return { id: n.id, diaprod_consent_id: n.data.diaprodConsentId || undefined, legal_basis: lb ? lb.data.basis : '', data_category_ids: neighborsOfKind(n.id, 'DATA_CATEGORY'), validated_at: n.data.validatedAt || undefined, validation_source: n.data.validationSource }; });
     const registry = { actors, departments, deployment_context, system_type: m ? m.data.hostingEnvironment : undefined, data_categories, consent_records, regulatory_requirements, governance_state: { constraints_declared } };
-    if (Object.keys(M.life).length) {
-      registry.lifecycle = Object.assign({}, M.life);
+    const obs = monObserved();
+    if (Object.keys(M.life).length || obs) {
+      registry.lifecycle = Object.assign({}, M.life, obs || {});
       if (M.life.hallucination_constraint_declared !== undefined) registry.hallucination_constraint_declared = !!M.life.hallucination_constraint_declared;
       if (M.life.confidence_signal) registry.confidence_signal = M.life.confidence_signal;
     }
-    if (M.incidents.length) registry.incident_register = M.incidents.map((i) => { const o = { id: i.id, type: i.type, severity: i.severity, status: i.status, detected_at: i.detected_at }; ['occurred_at', 'mitigated_at', 'resolved_at', 'title', 'description', 'root_cause', 'lessons_learned', 'owner'].forEach((k) => { if (i[k]) o[k] = i[k]; }); return o; });
+    if (M.incidents.length || monIncidentsHere().length) registry.incident_register = M.incidents.concat(monIncidentsHere().map((i) => ({ id: i.id, type: i.type, severity: i.severity, status: i.status, detected_at: i.detected_at, resolved_at: i.resolved_at, title: i.title, owner: 'Production monitoring' }))).map((i) => { const o = { id: i.id, type: i.type, severity: i.severity, status: i.status, detected_at: i.detected_at }; ['occurred_at', 'mitigated_at', 'resolved_at', 'title', 'description', 'root_cause', 'lessons_learned', 'owner'].forEach((k) => { if (i[k]) o[k] = i[k]; }); return o; });
     return { registry, constraintNodeIds };
   }
   /* ----- backend evaluation: score + assessment come from the FastAPI service, debounced and cached by input signature ----- */
@@ -2290,7 +2316,10 @@ kill_switch:
   const LF_INC_TYPES = ['DRIFT_DETECTION', 'BIAS_BREACH', 'SECURITY_EVENT', 'MODEL_FAILURE', 'SUPPLY_CHAIN', 'REGULATORY_INQUIRY', 'DATA_BREACH', 'AVAILABILITY_OUTAGE', 'HALLUCINATION_HARM', 'HUMAN_OVERRIDE_FAILED'];
   const LF_INC_STATUS = ['OPEN', 'INVESTIGATING', 'MITIGATED', 'RESOLVED', 'POST_MORTEM'];
   const LF_SEV = { 1: ['Low', 'LOW'], 2: ['Moderate', 'MODERATE'], 3: ['High', 'HIGH'], 4: ['Severe', 'HIGH'], 5: ['Critical', 'CRITICAL'] };
-  const lfCheck = (k, label, help) => `<label class="chk lf-chk"><input type="checkbox" data-chg="lfSet" data-arg="${k}"${lfGet(k) ? ' checked' : ''}><span class="stack" style="gap:1px"><span>${label}</span>${help ? `<span class="cap" style="font-size:12.5px">${help}</span>` : ''}</span></label>`;
+  const lfCheck = (k, label, help) => {
+    const seen = typeof monObserved === 'function' && (monObserved() || {})[k];
+    return `<label class="chk lf-chk"><input type="checkbox" data-chg="lfSet" data-arg="${k}"${seen || lfGet(k) ? ' checked' : ''}${seen ? ' disabled' : ''}><span class="stack" style="gap:1px"><span>${label}${seen ? ' <span class="pill bad">Seen in production</span>' : ''}</span>${help ? `<span class="cap" style="font-size:12.5px">${help}</span>` : ''}</span></label>`;
+  };
   const lfSelect = (k, label, help, unset) => `<div class="fld"><label for="lf-${k}">${label}</label><select id="lf-${k}" class="inp" data-chg="lfSel" data-arg="${k}"><option value="">${unset || 'Not stated'}</option>${LF_ENUM[k].map((v) => opt(v, lfHuman(v), M.life[k])).join('')}</select>${help ? `<span class="cap" style="font-size:12.5px">${help}</span>` : ''}</div>`;
   const lfCount = (k, label, help) => `<div class="fld"><label for="lf-${k}">${label}</label><input id="lf-${k}" class="inp" type="number" min="0" step="1" style="max-width:140px" data-chg="lfNum" data-arg="${k}" value="${M.life[k] === undefined ? '' : esc(M.life[k])}" placeholder="0">${help ? `<span class="cap" style="font-size:12.5px">${help}</span>` : ''}</div>`;
   const lfCard = (title, sub, body) => `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:12px"><div class="stack" style="gap:2px"><h2>${title}</h2>${sub ? `<span class="cap">${sub}</span>` : ''}</div>${body}</section>`;
@@ -2343,6 +2372,7 @@ kill_switch:
 
   // The page frame every lifecycle page shares: heading, the design in use, the current score, and a note when nothing has been designed yet.
   function lfFrame(sub, title, eyebrow, body, ev) {
+    monEnsure();
     if (!BOOT.ready) return hdr('AI Models · model lifecycle', BOOT.error ? 'Backend unavailable' : 'Connecting to the backend…') + (BOOT.error ? `<div class="note alert" role="alert"><strong>Could not load the catalogue</strong><span>${esc(BOOT.error)}</span><button class="btn2 btn-s" style="align-self:flex-start" data-act="mRetryBoot">Retry</button></div>` : '');
     const p = ev && ev.score && ev.score.pcs_result;
     const badge = ev && ev.scoreError ? '<span class="pill bad">Score rejected</span>' : (p ? `<span class="lf-badge"><span class="mono">PCS ${STAI.pyFixed(p.pcs_final, 1)}</span><span class="pill ${TIER_CLS[p.tier]}">${p.tier}</span><span class="pill ${GATE_CLS[p.gate]}">${p.gate.replace('_', ' ')}</span></span>` : `<span class="pill muted">${ev && ev.pending ? 'Scoring…' : 'No score'}</span>`);
@@ -2355,12 +2385,12 @@ kill_switch:
   function lfEffect(ev) {
     if (!ev.score) return '';
     const p = ev.score.pcs_result, base = REMOTE.base && REMOTE.base.pcs_result;
-    const hasFacts = Object.keys(M.life).length || M.incidents.length;
+    const hasFacts = Object.keys(M.life).length || M.incidents.length || monObserved() || monIncidentsHere().length;
     const delta = base ? Math.round((p.pcs_final - base.pcs_final) * 10) / 10 : null;
     const arrow = delta === null ? '' : delta > 0 ? `▲ +${delta}` : delta < 0 ? `▼ ${delta}` : 'no change';
     const left = hasFacts && base ? `<div class="stack" style="gap:2px"><span class="cap">Design alone</span><span class="lf-big mono">${STAI.pyFixed(base.pcs_final, 1)}</span><span class="pill ${TIER_CLS[base.tier]}" style="align-self:flex-start">${base.tier}</span></div><span class="lf-arrow" aria-hidden="true">→</span>` : '';
     const dcls = delta === null ? 'muted' : delta > 0 ? 'bad' : delta < 0 ? 'ok' : 'muted';
-    return `<section class="card lf-effect" aria-label="Effect on the score">${left}<div class="stack" style="gap:2px"><span class="cap">${hasFacts ? 'With the facts declared in the lifecycle' : 'No lifecycle facts declared yet'}</span><span class="lf-big mono">${STAI.pyFixed(p.pcs_final, 1)}</span><span style="display:flex;gap:6px;flex-wrap:wrap"><span class="pill ${TIER_CLS[p.tier]}">${p.tier}</span><span class="pill ${GATE_CLS[p.gate]}">${p.gate.replace('_', ' ')}</span>${arrow ? `<span class="pill ${dcls}">${arrow}</span>` : ''}</span></div><span class="cap" style="flex:1 1 260px">${hasFacts ? 'Recomputed by the scoring engine every time a fact below changes. A higher score means more risk, so a rise (red) is a worse position than the design alone.' : 'Declare what is true of the running model below and the score is recomputed against the design.'}${p.gate === 'BLOCKED' ? ` <a href="#/model/overview">See what blocks the gate.</a>` : ''}</span></section>`;
+    return `<section class="card lf-effect" aria-label="Effect on the score">${left}<div class="stack" style="gap:2px"><span class="cap">${hasFacts ? 'With the facts declared in the lifecycle' : 'No lifecycle facts declared yet'}</span><span class="lf-big mono">${STAI.pyFixed(p.pcs_final, 1)}</span><span style="display:flex;gap:6px;flex-wrap:wrap"><span class="pill ${TIER_CLS[p.tier]}">${p.tier}</span><span class="pill ${GATE_CLS[p.gate]}">${p.gate.replace('_', ' ')}</span>${arrow ? `<span class="pill ${dcls}">${arrow}</span>` : ''}</span></div><span class="cap" style="flex:1 1 260px">${hasFacts ? 'Recomputed by the scoring engine every time a fact below changes. A higher score means more risk, so a rise (red) is a worse position than the design alone.' : 'Declare what is true of the running model below and the score is recomputed against the design.'}${p.gate === 'BLOCKED' ? ` <a href="#/model/overview">See what blocks the gate.</a>` : ''}${delta === 0 && hasFacts && p.gate === 'BLOCKED' ? ' The number does not move while a blocker holds it; the facts still change the pillars on the overview.' : ''}</span></section>`;
   }
 
   function lfOverview() {
@@ -2377,14 +2407,14 @@ kill_switch:
       const terms = [['L', t.L, 'Likelihood of failure'], ['I', t.I, 'Impact'], ['Δ', t.delta, 'Detection delay'], ['τ', t.tau, 'Time to respond'], ['Dm', t.Dm, 'Domain multiplier'], ['Wr', t.Wr, 'Reach weight'], ['Ws', t.Ws, 'Sensitivity weight'], ['Wf', t.Wf, 'Feedback weight'], ['Wh', t.Wh, 'Human-oversight weight'], ['RCF', t.rcf_adj, 'Role concentration'], ['εb', t.eps_b, 'Bias term'], ['εia', t.eps_ia, 'Importance-gap term']].filter((x) => x[1] !== null && x[1] !== undefined);
       const cardLink = (to, label, line) => `<a class="lf-link" href="#/model/${to}"><b>${label}</b><span class="cap">${line}</span></a>`;
       const openInc = M.incidents.filter((i) => ['OPEN', 'INVESTIGATING'].indexOf(i.status) >= 0).length, n = Object.keys(M.life).length;
-      body = `<section class="note ${tone[0]} lf-gate" role="status"><div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><span class="rcr-score">${STAI.pyFixed(p.pcs_final, 1)}</span><span class="stack" style="gap:6px"><span style="display:flex;gap:6px;flex-wrap:wrap"><span class="pill ${TIER_CLS[p.tier]}">${p.tier} tier</span><span class="pill ${GATE_CLS[p.gate]}">${tone[1]}</span></span><span style="font-size:13.5px">${tone[2]}</span></span></div>${rv.gate_blocked ? `<span style="font-size:13px"><b>${esc(rv.blocking_dimension)}</b> is at or above 80, which blocks the gate on its own.</span>` : ''}</section>
+      body = monBanner() + `<section class="note ${tone[0]} lf-gate" role="status"><div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><span class="rcr-score">${STAI.pyFixed(p.pcs_final, 1)}</span><span class="stack" style="gap:6px"><span style="display:flex;gap:6px;flex-wrap:wrap"><span class="pill ${TIER_CLS[p.tier]}">${p.tier} tier</span><span class="pill ${GATE_CLS[p.gate]}">${tone[1]}</span></span><span style="font-size:13.5px">${tone[2]}</span></span></div>${rv.gate_blocked ? `<span style="font-size:13px"><b>${esc(rv.blocking_dimension)}</b> is at or above 80, which blocks the gate on its own.</span>` : ''}</section>
         <div class="lf-two">
           ${lfCard('Six-pillar risk vector', 'Four textbook pillars (ISO 31000, NIST SP 800-30) and two AI-specific pillars (EU AI Act, NIST AI RMF). Each pillar is 100 × its PCS terms ÷ their maximum.', `<div class="lf-radarbox">${lfRadar(pv, tiers)}</div><span class="cap" style="text-align:center">Polygon colour = the worst pillar's tier · dot colour = that pillar's own tier · composite ${STAI.pyFixed(rv.composite, 1)} (balanced profile)</span><div class="lf-legend"><span><i class="tc-LOW lf-sw"></i> Low</span><span><i class="tc-MODERATE lf-sw"></i> Moderate</span><span><i class="tc-HIGH lf-sw"></i> High</span><span><i class="tc-CRITICAL lf-sw"></i> Critical</span></div>`)}
           ${lfCard('Pillar breakdown', 'One row per pillar, coloured by its tier.', `<div class="stack" style="gap:8px">${pillars}</div>`)}
         </div>
         <div class="lf-two">
           ${lfCard('Inherent risk', 'Where likelihood meets severity before any control is counted.', lfHeat(pv.likelihood || 0, pv.severity || 0))}
-          ${lfCard('Lifecycle status', 'What has been declared about this model since design. Open a page to add to it.', `<div class="lf-links">${cardLink('runtime', 'Runtime', n ? `${n} fact${n === 1 ? '' : 's'} declared` : 'Nothing declared yet')}${cardLink('governance', 'Governance', 'DPIA, oversight, liability, training')}${cardLink('incidents', 'Incidents', M.incidents.length ? `${M.incidents.length} logged, ${openInc} open` : 'None logged')}${cardLink('decommission', 'Decommissioning', lfGet('decommissioning_status') && M.life.decommissioning_status ? lfHuman(M.life.decommissioning_status) : 'Not planned')}${cardLink('standards', 'Regulations & standards', 'NIST · ISO · EU AI Act · GDPR')}${cardLink('contracts', 'Compiled contracts', `${M.contracts.length} compiled`)}</div>`)}
+          ${lfCard('Lifecycle status', 'What has been declared about this model since design. Open a page to add to it.', `<div class="lf-links">${cardLink('runtime', 'Runtime', monLine(n))}${cardLink('governance', 'Governance', 'DPIA, oversight, liability, training')}${cardLink('incidents', 'Incidents', M.incidents.length ? `${M.incidents.length} logged, ${openInc} open` : 'None logged')}${cardLink('decommission', 'Decommissioning', lfGet('decommissioning_status') && M.life.decommissioning_status ? lfHuman(M.life.decommissioning_status) : 'Not planned')}${cardLink('standards', 'Regulations & standards', 'NIST · ISO · EU AI Act · GDPR')}${cardLink('contracts', 'Compiled contracts', `${M.contracts.length} compiled`)}</div>`)}
         </div>
         ${blockers.length || t.warnings.length || t.recommendations.length ? `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:14px"><h2>What needs doing</h2>${list('Blockers', blockers, 'alert')}${list('Warnings', t.warnings, 'plain')}${list('Recommendations', t.recommendations, 'good')}</section>` : `<div class="note good"><strong>Nothing to fix</strong><span>The engine has no blockers, warnings or recommendations for this model.</span></div>`}
         ${lfCard('Formula terms', 'The inputs of the Pre-deployment Compliance Score, all derived from what is declared and never typed in.', `<div class="lf-terms">${terms.map(([s, v, l]) => `<div class="lf-term"><span class="mono lf-ts">${s}</span><b class="mono">${STAI.pyFloat(typeof v === 'number' ? Math.round(v * 1000) / 1000 : v)}</b><span class="cap" style="font-size:12px">${l}</span></div>`).join('')}</div><details><summary class="cap" style="cursor:pointer">Derivation log (${(t.derivation_log || []).length} steps)</summary><pre class="code" style="font-size:11.5px;white-space:pre-wrap">${esc((t.derivation_log || []).join('\n'))}</pre></details>`)}`;
@@ -2394,7 +2424,7 @@ kill_switch:
 
   function lfRuntime() {
     const ev = evaluate();
-    const body = lfEffect(ev) +
+    const body = lfEffect(ev) + lfMonitoring() +
       lfCard('Deployment', 'Layer 6: how the model was released and what happens if it has to be pulled back.', lfGrid(
         lfSelect('deployment_mode', 'Release approach', 'Canary, shadow and blue/green releases limit the damage of a bad version.', 'Standard release (default)') +
         lfSelect('rollback_mode', 'Rollback', 'How a faulty version is reverted. If it cannot be, the risk goes up.', 'Manual (default)') +
@@ -2441,7 +2471,7 @@ kill_switch:
 
   function lfIncidents() {
     const ev = evaluate(), now = Date.now();
-    const list = M.incidents.slice().sort((a, b) => String(b.detected_at).localeCompare(String(a.detected_at)));
+    const list = M.incidents.concat(monIncidentsHere().map((i) => Object.assign({ _mon: true }, i))).sort((a, b) => String(b.detected_at).localeCompare(String(a.detected_at)));
     const isOpen = (i) => i.status === 'OPEN' || i.status === 'INVESTIGATING';
     const open = list.filter(isOpen), severe = open.filter((i) => i.severity >= 4);
     const stuck = open.filter((i) => i.severity === 5 && now - new Date(i.detected_at).getTime() > 72 * 3600 * 1000);
@@ -2458,7 +2488,7 @@ kill_switch:
       <div class="fld"><label for="lf-i-det">Detected (now if empty)</label><input id="lf-i-det" class="inp" type="datetime-local" data-chg="lfForm" data-arg="detected" value="${esc(F.detected)}"></div>
       <div class="fld" style="grid-column:1/-1"><label for="lf-i-desc">Details (optional)</label><textarea id="lf-i-desc" class="inp" style="min-height:64px;padding:10px 12px" data-chg="lfForm" data-arg="description">${esc(F.description)}</textarea></div></div>
       <div><button type="button" class="btn" data-act="lfAddInc">Log incident</button></div></div>`;
-    const row = (i) => { const sv = LF_SEV[i.severity] || LF_SEV[3]; return `<div class="lrow"><span class="stack" style="min-width:0;flex:1 1 320px"><span style="font-weight:500">${esc(i.title || lfHuman(i.type))} <span class="pill ${sv[1] === 'CRITICAL' ? 'bad' : sv[1] === 'HIGH' ? 'warn' : 'ok'}">${i.severity} · ${sv[0]}</span></span><span class="cap mono">${esc(i.id)} · ${esc(lfHuman(i.type))} · detected ${esc(String(i.detected_at).slice(0, 16).replace('T', ' '))}${i.resolved_at ? ' · resolved in ' + dur(new Date(i.resolved_at) - new Date(i.detected_at)) : ''}${i.owner ? ' · ' + esc(i.owner) : ''}</span>${i.description ? `<span class="cap">${esc(i.description)}</span>` : ''}</span><span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><select class="reqsel" aria-label="Status of ${esc(i.id)}" data-chg="lfIncStatus" data-arg="${esc(i.id)}">${LF_INC_STATUS.map((s) => opt(s, lfHuman(s), i.status)).join('')}</select><button class="btn3 btn-s" data-act="lfIncDel" data-arg="${esc(i.id)}">Remove</button></span></div>`; };
+    const row = (i) => { if (i._mon) return monMonIncRow(i); const sv = LF_SEV[i.severity] || LF_SEV[3]; return `<div class="lrow"><span class="stack" style="min-width:0;flex:1 1 320px"><span style="font-weight:500">${esc(i.title || lfHuman(i.type))} <span class="pill ${sv[1] === 'CRITICAL' ? 'bad' : sv[1] === 'HIGH' ? 'warn' : 'ok'}">${i.severity} · ${sv[0]}</span></span><span class="cap mono">${esc(i.id)} · ${esc(lfHuman(i.type))} · detected ${esc(String(i.detected_at).slice(0, 16).replace('T', ' '))}${i.resolved_at ? ' · resolved in ' + dur(new Date(i.resolved_at) - new Date(i.detected_at)) : ''}${i.owner ? ' · ' + esc(i.owner) : ''}</span>${i.description ? `<span class="cap">${esc(i.description)}</span>` : ''}</span><span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><select class="reqsel" aria-label="Status of ${esc(i.id)}" data-chg="lfIncStatus" data-arg="${esc(i.id)}">${LF_INC_STATUS.map((s) => opt(s, lfHuman(s), i.status)).join('')}</select><button class="btn3 btn-s" data-act="lfIncDel" data-arg="${esc(i.id)}">Remove</button></span></div>`; };
     const body = lfEffect(ev) +
       `<div class="lf-tiles">${tile(open.length, 'Open incidents')}${tile(severe.length, 'Open, severe or critical', severe.length ? 'warn' : '')}${tile(stuck.length, 'Critical, open over 72 hours', stuck.length ? 'bad' : '')}${tile(dur(mttr), 'Mean time to resolve')}</div>` +
       (stuck.length ? `<div class="note alert" role="alert"><strong>${stuck.length} critical incident${stuck.length === 1 ? ' has' : 's have'} been open for over 72 hours</strong><span style="font-size:13px">The gate stays blocked until ${stuck.length === 1 ? 'it is' : 'they are'} resolved.</span></div>` : '') +
@@ -2544,6 +2574,184 @@ kill_switch:
     },
     lfIncDel: (id) => { if (!window.confirm('Remove this incident from the log?')) return; M.incidents = M.incidents.filter((i) => i.id !== id); persist(); }
   });
+  /* ----- Production monitoring of a model: what its inputs and outputs look like where it really runs ----- */
+  const MON = { forDesign: null, loading: false, loaded: false, error: null, caps: null, list: [], signals: {}, incidents: [], detail: {}, series: {}, open: {}, showForm: false, form: null, busy: null, err: null, msg: null, timer: null, edit: null };
+  const MON_STATUS = { LEARNING: ['muted', 'Learning'], OK: ['ok', 'Stable'], WATCH: ['warn', 'Watch'], DRIFT: ['bad', 'Drift'], LOW_VOLUME: ['muted', 'Too few records'], NO_DATA: ['muted', 'No data'] };
+  const monHere = () => MON.forDesign === M.designKey;
+  async function loadMon(quiet) {
+    const dk = M.designKey;
+    if (!dk || !BOOT.ready) { MON.forDesign = dk; MON.list = []; MON.signals = {}; MON.incidents = []; MON.loaded = true; return; }
+    if (!quiet) { MON.loading = true; MON.error = null; }
+    try {
+      if (!MON.caps) MON.caps = await STAI.api.monCaps();
+      const sg = await STAI.api.monSignals(dk);
+      if (dk !== M.designKey) { MON.loading = false; return; }
+      MON.forDesign = dk; MON.list = sg.monitors; MON.signals = sg.signals; MON.incidents = sg.incidents; MON.loaded = true; MON.error = null;
+      await Promise.all(sg.monitors.map(async (m) => { MON.detail[m.key] = await STAI.api.monGet(m.key); MON.series[m.key] = await STAI.api.monSeries(m.key, 168); }));
+      if (sg.monitors.length) { MON.signals = (await STAI.api.monSignals(dk)).signals; }          // the evaluation above may have changed them
+    } catch (e) { if (!quiet) MON.error = e.message; }
+    MON.loading = false;
+    clearTimeout(MON.timer);
+    MON.timer = setTimeout(() => { if (/^m_/.test(route()) && !MON.busy) loadMon(true).then(() => renderIfIdle(route())); }, 30000);
+    if (!quiet) renderIfIdle(route());
+  }
+  function monEnsure() { if (M.designKey && !monHere() && !MON.loading) loadMon(); }
+  // What production shows, as lifecycle facts the score understands. A person can declare more; monitoring can only add.
+  function monObserved() {
+    if (!monHere()) return null;
+    const s = MON.signals || {}, o = {};
+    ['drift_detected', 'bias_breach_detected', 'domain_violation_occurred'].forEach((k) => { if (s[k]) o[k] = true; });
+    if (s.drift_detected && s.drift_type) o.drift_type = s.drift_type;
+    return Object.keys(o).length ? o : null;
+  }
+  const monIncidentsHere = () => (monHere() ? MON.incidents : []);
+  const monAgo = (iso) => { if (!iso) return 'never'; const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000); return s < 90 ? 'a moment ago' : s < 5400 ? Math.round(s / 60) + ' min ago' : s < 129600 ? Math.round(s / 3600) + ' h ago' : Math.round(s / 86400) + ' days ago'; };
+  const monPct = (x) => (x === null || x === undefined ? '—' : (x * 100).toFixed(1) + '%');
+  const monBanner = () => {
+    const bad = monHere() ? MON.list.filter((m) => m.status === 'DRIFT') : [];
+    return bad.length ? `<div class="note alert" role="status" style="gap:4px"><strong>Production monitoring reports drift</strong><span style="font-size:13px">${esc(bad.map((m) => m.name).join(', '))}: ${esc((bad[0].reasons[0] || {}).text || 'the model is behaving differently from its baseline')} It is counted in the score. <a href="#/model/runtime">See the evidence</a>.</span></div>` : '';
+  };
+  const monLine = (n) => { const m = monHere() ? MON.list[0] : null; const st = m ? MON_STATUS[m.status] : null; return (m ? `Production: ${st[1].toLowerCase()}` + (n ? ' · ' : '') : '') + (n ? `${n} fact${n === 1 ? '' : 's'} declared` : (m ? '' : 'Nothing declared yet')); };
+
+  function monBars(dist) {
+    if (!dist || !dist.labels || !dist.labels.length) return '';
+    const mx = Math.max(0.0001, ...dist.base, ...dist.now);
+    return `<div class="mon-dist">${dist.labels.map((l, i) => `<div class="mon-d-row"><span class="mon-d-l" title="${esc(l)}">${esc(l)}</span><span class="mon-d-b"><i class="mon-b" style="width:${(dist.base[i] / mx * 100).toFixed(1)}%"></i><i class="mon-n" style="width:${(dist.now[i] / mx * 100).toFixed(1)}%"></i></span><span class="mon-d-v mono">${(dist.base[i] * 100).toFixed(0)}% → ${(dist.now[i] * 100).toFixed(0)}%</span></div>`).join('')}<span class="cap" style="font-size:12px"><i class="mon-key mon-b"></i> baseline · <i class="mon-key mon-n"></i> now</span></div>`;
+  }
+  const monPsi = (v, t) => `<span class="mon-psi" title="PSI ${v}: stable below ${t.psi_watch}, drift above ${t.psi_drift}"><span class="meter"><span style="width:${Math.min(100, v / 0.5 * 100).toFixed(1)}%;background:${v >= t.psi_drift ? 'var(--bg-b42318)' : v >= t.psi_watch ? 'var(--bg-d97706)' : 'var(--bg-1e7f4f)'}"></span></span><i class="mon-tick" style="left:${t.psi_watch / 0.5 * 100}%"></i><i class="mon-tick" style="left:${t.psi_drift / 0.5 * 100}%"></i></span>`;
+  function monChart(s, d) {
+    const bs = (s && s.buckets || []).filter((b) => b.psi);
+    if (bs.length < 2) return '<p class="cap" style="margin:0">The history appears as records arrive over several hours.</p>';
+    const names = Object.keys(bs[bs.length - 1].psi).sort((a, b) => bs[bs.length - 1].psi[b] - bs[bs.length - 1].psi[a]).slice(0, 4);
+    const lines = names.map((n) => ({ n, v: bs.map((b) => (b.psi && b.psi[n] !== undefined ? b.psi[n] : null)) })).concat([{ n: d.spec.output.name + ' (output)', v: bs.map((b) => (b.output_psi !== undefined ? b.output_psi : null)) }]);
+    const colours = ['var(--bg-1e4fcb)', 'var(--bg-d97706)', 'var(--bg-1e7f4f)', 'var(--bg-4c1d95)', 'var(--bg-b42318)'];
+    const W = 600, H = 150, P = 28, t = d.thresholds, top = Math.max(0.5, ...lines.flatMap((l) => l.v.filter((x) => x !== null)));
+    const x = (i) => P + i * (W - P - 8) / (bs.length - 1), y = (v) => H - 18 - Math.min(v, top) / top * (H - 30);
+    const path = (l, c) => { let p = '', pen = false; l.v.forEach((v, i) => { if (v === null) { pen = false; return; } p += (pen ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1); pen = true; }); return `<path d="${p}" fill="none" stroke="${c}" stroke-width="2"/>`; };
+    const first = new Date(bs[0].at), last = new Date(bs[bs.length - 1].at), f = (x2) => x2.toISOString().slice(5, 10);
+    return `<svg viewBox="0 0 ${W} ${H}" class="mon-chart" role="img" aria-label="Population stability index over time per input"><line x1="${P}" x2="${W - 8}" y1="${y(t.psi_watch)}" y2="${y(t.psi_watch)}" class="mon-th w"/><line x1="${P}" x2="${W - 8}" y1="${y(t.psi_drift)}" y2="${y(t.psi_drift)}" class="mon-th d"/>
+      <text x="${P - 4}" y="${y(t.psi_watch) + 3}" text-anchor="end" class="mon-tx">${t.psi_watch}</text><text x="${P - 4}" y="${y(t.psi_drift) + 3}" text-anchor="end" class="mon-tx">${t.psi_drift}</text>
+      ${lines.map((l, i) => path(l, colours[i % colours.length])).join('')}<text x="${P}" y="${H - 3}" class="mon-tx">${f(first)}</text><text x="${W - 8}" y="${H - 3}" text-anchor="end" class="mon-tx">${f(last)}</text></svg>
+      <div class="lf-legend">${lines.map((l, i) => `<span><i style="background:${colours[i % colours.length]}"></i> ${esc(l.n)}</span>`).join('')}</div>`;
+  }
+  function monSnippets(d) {
+    const sample = (f) => (f.kind === 'numeric' ? (f.min !== undefined ? f.min : 1) : f.kind === 'boolean' ? true : f.kind === 'text' ? 'free text' : 'value');
+    const inputs = {}; d.spec.features.forEach((f) => { inputs[f.name] = sample(f); });
+    const rec = { inputs, output: d.spec.output.kind === 'numeric' ? 0.5 : 'label', confidence: 0.82, latency_ms: 41 };
+    if (d.spec.segments.length) rec.segments = { [d.spec.segments[0]]: 'group' };
+    const py = (o) => JSON.stringify(o).replace(/\btrue\b/g, 'True').replace(/\bfalse\b/g, 'False').replace(/\bnull\b/g, 'None');
+    const curl = `curl -X POST "${location.origin}${d.ingest_path}" \\\n  -H "Authorization: Bearer <your collector key>" -H "Content-Type: application/json" \\\n  -d '${JSON.stringify({ records: [rec] })}'`;
+    const code = `from astra_runtime import ModelMonitor\n\nmon = ModelMonitor("${d.name}")      # ASTRA_URL and ASTRA_KEY come from the environment\n\n# wherever the model answers:\nmon.log(inputs=${py(inputs)},\n        output=${py(rec.output)}, confidence=0.82, latency_ms=41${rec.segments ? `,\n        segments=${py(rec.segments)}` : ''})`;
+    return { curl, code };
+  }
+  function monCard(m) {
+    const d = MON.detail[m.key];
+    if (!d) return lfCard(esc(m.name), 'Production monitor', '<p class="cap" style="margin:0">Loading…</p>');
+    const st = MON_STATUS[d.status] || ['muted', d.status], ev = d.evaluation || {}, t = d.thresholds, learning = d.status === 'LEARNING';
+    const sn = monSnippets(d), tile = (n, l, cls) => `<div class="lf-tile${cls ? ' ' + cls : ''}"><b class="mono">${n}</b><span class="cap">${l}</span></div>`;
+    const sig = d.signals || {}, declared = [sig.drift_detected ? 'drift detected (' + lfHuman(sig.drift_type || 'DATA_DRIFT') + ')' : '', sig.bias_breach_detected ? 'bias breach' : '', sig.domain_violation_occurred ? 'domain violation' : ''].filter(Boolean);
+    const head = `<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><span class="stack" style="gap:3px"><span style="font-weight:600;font-size:15px">${esc(d.name)} <span class="pill ${st[0]}">${st[1]}</span></span><span class="cap">${d.task} · ${d.records_total.toLocaleString()} records received · last ${monAgo(d.last_record_at)}${d.rejected_total ? ` · ${d.rejected_total} rejected` : ''}${d.baseline ? ` · baseline from ${d.baseline.n.toLocaleString()} records (${d.baseline.source})` : ''}</span></span>
+      <span style="display:flex;gap:8px;flex-wrap:wrap">${learning && d.learning_records >= 100 ? '<button class="btn2 btn-s" data-act="monFreeze" data-arg="' + esc(d.key) + '">Take the baseline now</button>' : ''}${learning ? '' : `<button class="btn2 btn-s" data-act="monReset" data-arg="${esc(d.key)}">Learn a new baseline</button>`}<button class="btn2 btn-s" data-act="monEdit" data-arg="${esc(d.key)}">Settings</button><button class="btn3 btn-s" data-act="monDelete" data-arg="${esc(d.key)}">Remove</button></span></div>`;
+    let body = '';
+    if (learning) {
+      const n = d.learning_records || 0, pct = Math.min(100, n / d.baseline_target * 100);
+      body += `<div class="note plain" style="gap:6px"><strong>Learning what normal looks like</strong><div class="meter"><span style="width:${pct.toFixed(1)}%;background:var(--bg-1e4fcb)"></span></div><span style="font-size:13px">${n.toLocaleString()} of ${d.baseline_target.toLocaleString()} records. Once there are enough, ASTRA freezes this as the baseline and compares everything after it. Make sure the traffic so far is the behaviour you consider normal (a validated period, not an incident).</span></div>`;
+    } else if (ev.status === 'NO_DATA' || ev.status === 'LOW_VOLUME') {
+      body += `<div class="note plain"><span style="font-size:13px">${esc(ev.message || '')}</span></div>`;
+    } else {
+      const perf = ev.performance || {}, bp = perf.base || {};
+      body += `<div class="lf-tiles">${tile((ev.n || 0).toLocaleString(), 'Records judged (last ' + d.thresholds.eval_hours + ' h)')}${tile(monPct(ev.error_rate), 'Error rate' + (ev.base_error_rate !== undefined && ev.base_error_rate !== null ? ' (baseline ' + monPct(ev.base_error_rate) + ')' : ''), ev.error_rate >= d.thresholds.error_drift ? 'bad' : '')}${tile(ev.latency && ev.latency.p95 ? ev.latency.p95 + ' ms' : '—', 'Response time p95' + (ev.latency && ev.latency.base_p95 ? ' (baseline ' + ev.latency.base_p95 + ' ms)' : ''))}${perf.accuracy !== undefined ? tile(monPct(perf.accuracy), 'Accuracy on ' + perf.n + ' known answers' + (bp.accuracy !== undefined ? ' (baseline ' + monPct(bp.accuracy) + ')' : '')) : (perf.rmse !== undefined ? tile(perf.rmse.toFixed(3), 'RMSE on ' + perf.n + ' known answers') : '')}${ev.output && ev.output.positive_rate !== undefined && d.spec.output.positive !== undefined ? tile(monPct(ev.output.positive_rate), 'Favourable outcome (baseline ' + monPct(ev.output.base_positive_rate) + ')') : ''}</div>`;
+      const rs = (ev.reasons || []).slice().sort((a, b) => (a.level === 'drift' ? 0 : 1) - (b.level === 'drift' ? 0 : 1));
+      body += rs.length ? `<div class="stack" style="gap:6px"><strong style="font-size:13px">What production shows</strong>${rs.slice(0, 8).map((r) => `<div class="note ${r.level === 'drift' ? 'alert' : 'plain'}" style="font-size:13px;padding:8px 12px;flex-direction:row;gap:10px;align-items:center"><span class="pill ${r.level === 'drift' ? 'bad' : 'warn'}">${r.level === 'drift' ? 'Drift' : 'Watch'}</span><span>${esc(r.text)}</span></div>`).join('')}${declared.length ? `<span class="cap">Declared in the score as: ${esc(declared.join(', '))}.</span>` : ''}</div>` : '<div class="note good" style="font-size:13px"><strong>Stable</strong><span>Inputs and outputs look like the baseline.</span></div>';
+      body += `<div class="stack" style="gap:6px"><strong style="font-size:13px">Inputs against the baseline</strong><div class="mon-tbl"><div class="mon-tr mon-th2"><span>Input</span><span>Shift (PSI)</span><span>Missing</span><span>Out of range</span><span></span></div>${(ev.features || []).map((f) => { const k = 'f:' + d.key + ':' + f.name, op = MON.open[k]; return `<div class="mon-tr"><span><b class="mono">${esc(f.name)}</b> <span class="cap">${f.kind}</span></span><span>${f.skipped ? '<span class="cap" title="' + esc(f.skipped) + '">identifier, not compared</span>' : monPsi(f.psi, d.thresholds) + ' <span class="mono">' + f.psi.toFixed(2) + '</span>'}</span><span class="mono">${monPct(f.missing_rate)}</span><span class="mono">${f.violations || 0}</span><span>${f.skipped ? '' : `<button class="btn3 btn-s" data-act="monOpen" data-arg="${esc(k)}">${op ? 'Hide' : 'Distribution'}</button>`}</span></div>${op ? `<div class="mon-open">${monBars(f.dist)}</div>` : ''}`; }).join('')}<div class="mon-tr"><span><b class="mono">${esc(ev.output.name)}</b> <span class="cap">output</span></span><span>${monPsi(ev.output.psi, d.thresholds)} <span class="mono">${ev.output.psi.toFixed(2)}</span></span><span></span><span></span><span><button class="btn3 btn-s" data-act="monOpen" data-arg="o:${esc(d.key)}">${MON.open['o:' + d.key] ? 'Hide' : 'Distribution'}</button></span></div>${MON.open['o:' + d.key] ? `<div class="mon-open">${monBars(ev.output.dist)}</div>` : ''}${ev.confidence ? `<div class="mon-tr"><span><b class="mono">confidence</b> <span class="cap">model</span></span><span>${monPsi(ev.confidence.psi, d.thresholds)} <span class="mono">${ev.confidence.psi.toFixed(2)}</span></span><span class="cap" colspan="3">mean ${ev.confidence.mean} (baseline ${ev.confidence.base_mean})</span><span></span><span></span></div>` : ''}</div></div>`;
+      if ((ev.fairness || []).length) body += `<div class="stack" style="gap:6px"><strong style="font-size:13px">Fairness: favourable outcome by group</strong>${ev.fairness.map((f) => `<div class="note plain" style="font-size:13px;gap:4px"><span><b>${esc(f.attribute)}</b>: ${f.ratio === null ? 'not enough records per group yet' : 'lowest group is ' + f.ratio.toFixed(2) + ' of the highest (' + esc(f.lowest) + ' vs ' + esc(f.highest) + ')'} <span class="cap">(limit ${d.thresholds.parity_breach})</span></span><span class="cap">${f.groups.map((g) => esc(g.group) + ' ' + monPct(g.rate) + ' (' + g.n + ')').join(' · ')}</span></div>`).join('')}</div>`;
+      if ((ev.flags || []).length) body += `<span class="cap">${ev.flags.map((f) => esc(f.name) + ': ' + monPct(f.rate) + ' (baseline ' + monPct(f.base_rate) + ')').join(' · ')}</span>`;
+      body += `<div class="stack" style="gap:6px"><strong style="font-size:13px">How each input has moved over the last week</strong>${monChart(MON.series[d.key], d)}</div>`;
+    }
+    const ed = MON.edit && MON.edit.key === d.key ? MON.edit : null;
+    const edit = ed ? `<div class="stack" style="gap:10px;padding-top:6px;border-top:1px solid var(--ln-edf0f3)"><span class="cap">Thresholds are rules of thumb, not calibrated to this model. Change them when the defaults do not suit it.</span><div class="prow" style="gap:12px;align-items:flex-end">${[['psi_watch', 'Watch at PSI'], ['psi_drift', 'Drift at PSI'], ['parity_breach', 'Bias breach below'], ['perf_drop_drift', 'Accuracy drop = drift'], ['error_drift', 'Error rate = drift'], ['eval_hours', 'Window (hours)']].map(([k, l]) => `<label class="cap">${l}<br><input class="inp mono" style="max-width:110px" type="number" step="any" data-chg="monThr" data-arg="${k}" value="${esc(ed.thr[k])}"></label>`).join('')}</div><div class="prow" style="gap:8px"><button class="btn btn-s" data-act="monEditSave"${MON.busy ? ' disabled' : ''}>Save</button><button class="btn2 btn-s" data-act="monEdit" data-arg="">Close</button></div></div>` : '';
+    const conn = `<details class="lf-det"${learning ? ' open' : ''}><summary><b>How to send this model's traffic</b></summary><div class="stack" style="gap:10px;padding:8px 0"><span class="cap" style="font-size:12.5px">Use an API key with the role <b>collector</b> (<a href="#/users">Users → API keys</a>); it can send records and nothing else. Send only the fields the monitor declares. ASTRA keeps statistics, never the records.</span><span class="cap"><b>Python</b> (the astra_runtime SDK: batches, never blocks or raises)</span>${tlCode(sn.code)}<span class="cap"><b>Any language</b> (up to 1,000 records per request)</span>${tlCode(sn.curl)}</div></details>`;
+    return lfCard('', '', `${head}${body}${edit}${conn}`);
+  }
+  function monForm() {
+    const f = MON.form, caps = MON.caps || {}, fld = (id, label, ctl, help) => `<div class="fld" style="min-width:200px;flex:1 1 200px"><label for="${id}">${label}</label>${ctl}${help ? `<span class="cap" style="font-size:12.5px">${help}</span>` : ''}</div>`;
+    const kinds = ['numeric', 'categorical', 'boolean', 'text'];
+    const rows = f.features.map((x, i) => `<div class="mon-tr" style="grid-template-columns:1.4fr 1fr .8fr .8fr auto"><span class="mono">${esc(x.name)}</span><select class="reqsel" data-chg="monFeat" data-arg="${i}:kind" aria-label="Kind of ${esc(x.name)}">${kinds.map((k) => opt(k, k, x.kind)).join('')}</select>${x.kind === 'numeric' ? `<input class="inp" type="number" step="any" data-chg="monFeat" data-arg="${i}:min" value="${x.min === undefined ? '' : esc(x.min)}" placeholder="min" aria-label="Valid minimum of ${esc(x.name)}"><input class="inp" type="number" step="any" data-chg="monFeat" data-arg="${i}:max" value="${x.max === undefined ? '' : esc(x.max)}" placeholder="max" aria-label="Valid maximum of ${esc(x.name)}">` : '<span></span><span></span>'}<button class="btn3 btn-s" data-act="monDropFeat" data-arg="${i}">Remove</button></div>`).join('');
+    return `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:12px"><div class="stack" style="gap:2px"><h2>Connect production data</h2><span class="cap">Describe what the model is given and what it answers. ASTRA will keep statistics about them, not the records.</span></div>
+      <div class="prow" style="gap:14px;align-items:flex-start">${fld('mo-name', 'Name', `<input id="mo-name" class="inp" style="max-width:none;width:100%" data-chg="monField" data-arg="name" value="${esc(f.name)}">`)}${fld('mo-task', 'What the model does', `<select id="mo-task" class="inp" data-chg="monField" data-arg="task">${[['classification', 'Classifies (a category out)'], ['regression', 'Predicts a number'], ['generative', 'Generates text']].map(([v, l]) => opt(v, l, f.task)).join('')}</select>`)}</div>
+      <div class="fld"><label for="mo-sample">One example record, as JSON</label><textarea id="mo-sample" class="inp mono" style="min-height:96px;padding:10px 12px;font-size:12.5px" data-chg="monField" data-arg="sample" placeholder='{"inputs": {"age": 41, "plan": "gold", "income": 52000}, "output": "approve", "segments": {"gender": "F"}}'>${esc(f.sample)}</textarea><span class="cap" style="font-size:12.5px">Real values are not needed: made-up ones with the right types are enough. <button class="btn2 btn-s" data-act="monInfer">Suggest the fields</button></span></div>
+      ${f.features.length ? `<div class="stack" style="gap:6px"><strong style="font-size:13px">Inputs the model is given</strong><span class="cap" style="font-size:12.5px">Check each kind (an integer code is usually a category, not a number). For a number, the valid minimum and maximum are optional: a value outside them is reported as a domain violation. A field with a different value every time (an identifier) is counted, not compared.</span><div class="mon-tbl">${rows}</div></div>
+      <div class="prow" style="gap:14px;align-items:flex-start">${fld('mo-oname', 'Output field', `<input id="mo-oname" class="inp" style="max-width:none;width:100%" data-chg="monField" data-arg="oname" value="${esc(f.oname)}">`)}${fld('mo-okind', 'Output is', `<select id="mo-okind" class="inp" data-chg="monField" data-arg="okind">${[['categorical', 'a category'], ['numeric', 'a number'], ['boolean', 'yes / no'], ['text', 'text']].map(([v, l]) => opt(v, l, f.okind)).join('')}</select>`)}${fld('mo-pos', 'Favourable outcome (for fairness)', `<input id="mo-pos" class="inp" style="max-width:none;width:100%" data-chg="monField" data-arg="positive" value="${esc(f.positive)}" placeholder="${f.okind === 'numeric' ? 'a number, e.g. 0.5' : 'e.g. approve'}">`, 'Optional. With it, ASTRA compares how often each group gets it.')}</div>
+      <div class="prow" style="gap:14px;align-items:flex-start">${fld('mo-seg', 'Groups to compare (comma separated)', `<input id="mo-seg" class="inp" style="max-width:none;width:100%" data-chg="monField" data-arg="segments" value="${esc(f.segments)}" placeholder="gender, age_band">`)}${fld('mo-flags', 'Flags your code sets (comma separated)', `<input id="mo-flags" class="inp" style="max-width:none;width:100%" data-chg="monField" data-arg="flags" value="${esc(f.flags)}" placeholder="refusal, blocked">`, 'For example when the model refuses or an output is blocked.')}${fld('mo-target', 'Records for the baseline', `<input id="mo-target" class="inp mono" style="max-width:140px" type="number" min="100" data-chg="monField" data-arg="target" value="${esc(f.target)}">`, 'The first records are taken as normal.')}</div>` : ''}
+      ${MON.err ? `<div class="note alert" role="alert"><span style="font-size:13px;white-space:pre-wrap">${esc(MON.err)}</span></div>` : ''}
+      <div style="display:flex;gap:10px"><button class="btn" data-act="monCreate"${MON.busy || !f.features.length ? ' disabled' : ''}>${MON.busy === 'create' ? 'Creating…' : 'Create the monitor'}</button><button class="btn2" data-act="monForm">Cancel</button></div></section>`;
+  }
+  function lfMonitoring() {
+    monEnsure();
+    if (!M.designKey) return '';
+    if (!MON.loaded || (MON.loading && !monHere())) return lfCard('Production monitoring', 'Layers 7 and 9: how the model behaves where it really runs', '<p class="cap" style="margin:0">Loading…</p>');
+    if (MON.error) return `<div class="note alert" role="alert"><strong>Production monitoring could not be loaded</strong><span>${esc(MON.error)}</span></div>`;
+    const msg = MON.msg ? `<div class="note good" role="status" style="font-size:13px">${esc(MON.msg)}</div>` : '';
+    if (MON.showForm) return msg + monForm();
+    if (!MON.list.length) {
+      return msg + lfCard('Production monitoring', 'Layers 7 and 9: how the model behaves where it really runs',
+        `<p style="margin:0">Plug this model into production and ASTRA will watch its inputs and outputs: whether the data it is given has drifted from what it was validated on, whether its answers or accuracy have changed, whether one group is treated worse, and whether it receives values outside the range it was declared for. What it finds is declared in the score and, when serious, becomes an incident.</p>
+         <ul class="cap" style="margin:0;padding-left:18px"><li>The serving code sends each prediction (a few lines with the SDK, or any HTTP client).</li><li>ASTRA keeps statistics, never the records: no personal data is stored.</li><li>The first records become the baseline; everything after is compared with it.</li></ul>
+         <div><button class="btn" data-act="monForm">Connect production data</button></div>`);
+    }
+    return msg + MON.list.map(monCard).join('') + `<div><button class="btn2 btn-s" data-act="monForm">Add another monitor</button></div>`;
+  }
+  const monMonIncRow = (i) => {
+    const sv = LF_SEV[i.severity] || LF_SEV[3];
+    return `<div class="lrow"><span class="stack" style="min-width:0;flex:1 1 320px"><span style="font-weight:500">${esc(i.title)} <span class="pill ${sv[1] === 'CRITICAL' ? 'bad' : sv[1] === 'HIGH' ? 'warn' : 'ok'}">${i.severity} · ${sv[0]}</span> <span class="pill muted">Production monitoring</span></span><span class="cap mono">${esc(i.id)} · ${esc(lfHuman(i.type))} · ${esc(i.monitor)} · detected ${esc(String(i.detected_at).slice(0, 16).replace('T', ' '))}</span>${i.recovered_at && i.status === 'OPEN' ? '<span class="cap" style="color:var(--fg-1e7f4f)">The signal has gone. Close it once you are satisfied.</span>' : ''}${(i.reasons || []).slice(0, 2).map((r) => `<span class="cap">${esc(r.text)}</span>`).join('')}</span><span style="display:flex;gap:8px;align-items:center"><select class="reqsel" aria-label="Status of ${esc(i.id)}" data-chg="monIncStatus" data-arg="${esc(i.uuid)}">${LF_INC_STATUS.map((s) => opt(s, lfHuman(s), i.status)).join('')}</select></span></div>`;
+  };
+  const monDraftForm = (name) => ({ name: name || '', task: 'classification', sample: '', features: [], oname: 'prediction', okind: 'categorical', positive: '', segments: '', flags: '', target: 1000 });
+  Object.assign(C, {
+    monField: (v, k) => { MON.form[k] = k === 'target' ? parseInt(v, 10) || 1000 : v; },
+    monFeat: (v, k) => { const [i, f] = k.split(':'), x = MON.form.features[+i]; if (!x) return; if (f === 'kind') x.kind = v; else if (v === '') delete x[f]; else x[f] = parseFloat(v); },
+    monThr: (v, k) => { if (MON.edit) MON.edit.thr[k] = parseFloat(v); },
+    monIncStatus: async (v, id) => { try { await STAI.api.monIncidentStatus(id, { status: v }); await loadMon(true); } catch (e) { MON.err = e.message; } }
+  });
+  Object.assign(H, {
+    monForm: () => { MON.showForm = !MON.showForm; MON.err = null; MON.msg = null; if (MON.showForm) MON.form = monDraftForm(M.name); },
+    monDropFeat: (i) => { MON.form.features.splice(+i, 1); },
+    monInfer: async () => {
+      MON.err = null;
+      let sample; try { sample = JSON.parse(MON.form.sample); } catch (e) { MON.err = 'The example is not valid JSON: ' + e.message; render(true); return; }
+      try {
+        const r = await STAI.api.monInfer({ inputs: sample.inputs || sample, output: sample.output, segments: sample.segments || {} });
+        MON.form.features = r.features; MON.form.oname = r.output.name; MON.form.okind = r.output.kind; if (r.segments.length && !MON.form.segments) MON.form.segments = r.segments.join(', ');
+      } catch (e) { MON.err = e.message; }
+      render(true);
+    },
+    monCreate: async () => {
+      const f = MON.form, list = (s) => s.split(',').map((x) => x.trim()).filter(Boolean);
+      MON.busy = 'create'; MON.err = null; render(true);
+      try {
+        await STAI.api.monCreate({ name: f.name, design_key: M.designKey, task: f.task, features: f.features, output: { name: f.oname, kind: f.okind, positive: f.positive || null }, segments: list(f.segments), flags: list(f.flags), baseline_target: f.target });
+        MON.showForm = false; MON.forDesign = null; MON.msg = 'The monitor is created. Send traffic with the snippet below; it learns the baseline from the first ' + f.target.toLocaleString() + ' records.';
+        await loadMon(true);
+      } catch (e) { MON.err = e.message; }
+      MON.busy = null; render(true);
+    },
+    monOpen: (k) => { MON.open[k] = !MON.open[k]; },
+    monFreeze: async (key) => { try { await STAI.api.monFreeze(key); await loadMon(true); } catch (e) { MON.err = e.message; window.alert(e.message); } },
+    monReset: async (key) => {
+      if (!window.confirm('Learn a new baseline? The current baseline and the history are forgotten, and the first records that arrive become the new normal. Do this after a deliberate change to the model or its data.')) return;
+      try { await STAI.api.monReset(key); await loadMon(true); } catch (e) { window.alert(e.message); }
+    },
+    monDelete: async (key) => {
+      if (!window.confirm('Remove this monitor and its history? Incidents it raised are removed too.')) return;
+      try { await STAI.api.monDelete(key); MON.forDesign = null; await loadMon(true); } catch (e) { window.alert(e.message); }
+    },
+    monEdit: (key) => { const d = MON.detail[key]; MON.edit = d ? { key, thr: Object.assign({}, d.thresholds) } : null; },
+    monEditSave: async () => {
+      const e = MON.edit; if (!e) return; MON.busy = 'edit'; render(true);
+      try { const keep = ['psi_watch', 'psi_drift', 'parity_breach', 'perf_drop_drift', 'error_drift', 'eval_hours'], t = {}; keep.forEach((k) => { if (Number.isFinite(e.thr[k])) t[k] = e.thr[k]; }); await STAI.api.monPatch(e.key, { thresholds: t }); MON.edit = null; await loadMon(true); } catch (x) { window.alert(x.message); }
+      MON.busy = null; render(true);
+    }
+  });
+
   const LF_VIEWS = { m_overview: lfOverview, m_runtime: lfRuntime, m_governance: lfGovernance, m_incidents: lfIncidents, m_decommission: lfDecommission, m_standards: lfStandards };
 
   /* ----- shell ----- */

@@ -16,6 +16,7 @@ See README.md for the adapters (OpenAI Agents SDK, LangChain/LangGraph), enforce
 from typing import Any, Callable, Dict, Optional
 
 from .client import AstraBlocked, Client, __version__
+from .monitor import ModelMonitor
 
 _default: Optional[Client] = None
 _warned = False

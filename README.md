@@ -437,6 +437,33 @@ AI Agents → **Telemetry** finds and watches agents from the OpenTelemetry trac
 
 **Limits and protections**: a request is limited to 16 MB (also after decompression, so a gzip bomb is refused) and 20,000 spans; a key is rate limited to 1,200 events a minute and answered `429` with `Retry-After`, which OTLP exporters honour; a request that is not valid OTLP is a `400` with a reason. Request records are kept for 14 days. Only traces are read: logs and metrics are not.
 
+## Production monitoring of AI models
+
+AI Models → **Runtime** can be plugged into the model as it runs inside the organisation, so ASTRA reads how its inputs and outputs actually behave instead of relying only on what people declare. Code: `backend/model_stats.py` (the statistics, pure), `backend/model_monitor.py` (the API, the baseline, the incidents), `sdk/python/astra_runtime/monitor.py` (the client); tests: `python -m tests.test_model_stats`, `python -m tests.test_model_monitor` and, in `sdk/python`, `python -m unittest discover -s tests`.
+
+**Plugging a model in**: on the Runtime page choose **Connect production data**, paste one example record as JSON (made-up values are enough), and **Suggest the fields**. Check each field's kind (numeric, categorical, boolean, text), optionally give a numeric field its valid minimum and maximum, name the output and the favourable outcome (for fairness), the groups to compare and any flags your code sets, then **Create the monitor**. The serving code then sends each prediction with the SDK (`ModelMonitor("credit-model").log(inputs=..., output=..., confidence=..., latency_ms=..., segments=...)`, or the `@mon.track` decorator), or with any HTTP client to `POST /api/model-monitor/{key}/records` (up to 1,000 records and 2 MB per request) using an API key of role **collector**. The Runtime page shows the exact snippets for the model.
+
+**What is kept: statistics, never records.** Each record is folded into hourly aggregates: a histogram per numeric input, category counts per categorical one (capped at 50 per window, so an identifier is counted as "other"), the length distribution of a text input (never the text), the output the same way, confidence and latency buckets, an error count, right and wrong answers once the true answer (`label`) is known, the rate of the favourable outcome per group, and counts of named flags. Fields not in the schema are ignored. Aggregates are deleted after the retention period (30 days by default).
+
+**What it judges**: the first records (1,000 by default, or take the baseline by hand, or supply the training data's statistics with `PUT /baseline`) are the **baseline**; everything after is compared with it over the last 24 hours:
+
+| Signal | How | Becomes |
+|---|---|---|
+| Data drift | PSI per input (0.1 watch, 0.25 drift), or a rise in missing values | drift detected (data drift) |
+| Prediction drift | PSI of the output and of the confidence; a flag's rate rising | drift detected (prediction drift) |
+| Performance drift | accuracy falling 10 points, or RMSE 1.5 times the baseline, on records with a known answer | drift detected (performance drift) |
+| Bias | the favourable outcome rate of the lowest group over the highest below 0.8 (watch below 0.9) | bias breach |
+| Domain violation | at least five values outside the minimum or maximum declared for a field | domain violation |
+| Errors, latency | error rate 2% watch and 5% drift; response time twice and four times the baseline | an incident (errors) |
+
+The thresholds are common rules of thumb, not calibrated to any one model; they can be changed per monitor. A field with a different value in almost every record is recognised as an identifier and counted, not compared. Too few records in the window (under 100) is reported as such and not judged.
+
+**What it does to the score and the incident log**: the three signals are added to the model's Runtime facts automatically and shown as **Seen in production** (a person can declare more, monitoring cannot be unticked); serious findings open an incident (one per kind while it stays open: drift, bias, model failure) that feeds the score's incident rules and waits on the Incidents page, marked as raised by production monitoring. When the signal goes away the incident is noted as recovered but stays open until a person closes it. The score page shows the effect, and says so when a hard blocker holds the headline number and only the pillars move.
+
+**Protections**: only a key with the ingest permission can send records (a collector key can do nothing else); requests are limited in size and count and answered `429` with `Retry-After`, which the SDK honours; a record's own timestamp is believed only within the retention window; the SDK never raises into the model, never blocks it, and can send a random sample of very high traffic.
+
+**Not built yet**: reading inference logs from a database or warehouse table, and attributing the token and latency spans of an LLM that reports through OpenTelemetry to a model monitor. Today the model's own code (or a thin gateway in front of it) sends the records.
+
 ## API keys (pipelines and collectors)
 
 An administrator makes keys on the **Users** screen (**API keys**), or with `POST /api/keys`. No key exists until one is made. A key is
