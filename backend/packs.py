@@ -193,6 +193,7 @@ def build_content(session: Session, template: str, period: str, frameworks: List
 class PackSummary(BaseModel):
     pack_key: str
     template: str
+    subject: str = "AGENT"
     period_label: str
     generated_by: str
     generated_at: datetime
@@ -210,7 +211,7 @@ class PackOut(PackSummary):
 
 
 def _summary(p: EvidencePack) -> Dict[str, Any]:
-    return dict(pack_key=f"P-{p.seq}", template=p.template, period_label=p.period_label, generated_by=p.generated_by, generated_at=p.generated_at,
+    return dict(pack_key=f"P-{p.seq}", template=p.template, subject=p.subject, period_label=p.period_label, generated_by=p.generated_by, generated_at=p.generated_at,
                 claims=p.claims, evidenced=p.evidenced, gaps=p.gaps, evidence_count=p.evidence_count, content_hash=p.content_hash,
                 previous_pack_hash=p.previous_pack_hash, pack_hash=p.pack_hash)
 
@@ -228,6 +229,7 @@ def _get(session: Session, key: str) -> EvidencePack:
 
 class GenerateRequest(BaseModel):
     template: Literal["TRUST", "ASSURANCE"]
+    subject: Literal["AGENT", "MODEL"] = "AGENT"                  # a pack is about AI agents or about AI models
     period: Literal["30d", "90d", "all"] = "30d"
     frameworks: List[Literal["OWASP_AGENTIC", "RCR"]] = Field(default_factory=lambda: ["OWASP_AGENTIC", "RCR"])
     generated_by: str = Field("", max_length=120)      # ignored: the signed-in person is recorded
@@ -240,14 +242,18 @@ class GenerateRequest(BaseModel):
 
 @router.post("", response_model=PackOut, status_code=201)
 def generate(body: GenerateRequest, session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> PackOut:
-    if not body.frameworks:
+    if body.subject == "AGENT" and not body.frameworks:
         raise HTTPException(status_code=422, detail="Choose at least one framework.")
     session.execute(text("SELECT pg_advisory_xact_lock(7001)"))              # one pack at a time, so the chain has no fork
-    content = build_content(session, body.template, body.period, body.frameworks, user.name)
+    if body.subject == "MODEL":
+        from model_pack import build_model_content
+        content = build_model_content(session, body.template, body.period, user.name)
+    else:
+        content = build_content(session, body.template, body.period, body.frameworks, user.name)
     previous = session.scalar(select(EvidencePack.pack_hash).order_by(EvidencePack.seq.desc()).limit(1)) or GENESIS
     ch = sha(content)
     claims = len(content["claims"])
-    p = EvidencePack(organisation_id=current_organisation(session).id, template=body.template, period_label=PERIODS[body.period][0],
+    p = EvidencePack(organisation_id=current_organisation(session).id, template=body.template, subject=body.subject, period_label=PERIODS[body.period][0],
                      generated_by=user.name, content=content, content_hash=ch, previous_pack_hash=previous, pack_hash=pack_hash(previous, ch),
                      claims=claims, evidenced=sum(1 for c in content["claims"] if c["status"] == "evidenced"),
                      gaps=len(content["gaps"]), evidence_count=len(content["evidence"]))

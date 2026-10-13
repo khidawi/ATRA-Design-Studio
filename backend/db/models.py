@@ -372,6 +372,7 @@ class EvidencePack(Base):
     seq: Mapped[int] = mapped_column(Integer, Identity(start=1001), unique=True)
     organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
     template: Mapped[str] = mapped_column(String(10), nullable=False)
+    subject: Mapped[str] = mapped_column(String(8), nullable=False, server_default="AGENT")       # AGENT | MODEL: one chain holds both
     period_label: Mapped[str] = mapped_column(String(40), nullable=False)
     generated_by: Mapped[str] = mapped_column(String(120), nullable=False)
     generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

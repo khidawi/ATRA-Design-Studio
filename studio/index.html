@@ -1328,7 +1328,7 @@ kill_switch:
   }
 
   /* ---------- Packs (Task 7e): generated from real data, stored as hashed, chained ---------- */
-  const PK = { loaded: false, loading: false, error: null, list: [], full: {}, sel: null, busy: false, err: null, verify: {}, form: { template: 'ASSURANCE', period: '30d', asi: true, rcr: true } };
+  const PK = { loaded: false, loading: false, error: null, list: [], full: {}, sel: null, busy: false, err: null, verify: {}, form: { template: 'ASSURANCE', subject: 'AGENT', period: '30d', asi: true, rcr: true } };
   async function loadPacks() {
     PK.loading = true; PK.error = null;
     try { PK.list = await STAI.api.listPacks(); PK.loaded = true; } catch (e) { PK.error = e.message; }
@@ -1350,22 +1350,56 @@ kill_switch:
     if (!PK.loaded) return head + '<p class="cap">Loading\u2026</p>';
     const f = PK.form, trust = f.template === 'TRUST', key = PK.sel || (PK.list[0] || {}).pack_key, p = key && PK.full[key], meta = PK.list.find((x) => x.pack_key === key);
     if (key && !p) ensurePack(key);
-    const result = meta && p ? `<section class="card" style="padding:24px;display:flex;flex-direction:column;gap:14px"><div class="hdr" style="align-items:center"><div><h2>${meta.template === 'TRUST' ? 'Trust report' : 'Assurance Pack'} \u00b7 ${esc(meta.pack_key)}</h2><span class="cap">${esc(meta.period_label)} \u00b7 generated ${esc(cwhen(meta.generated_at))} by ${esc(meta.generated_by)}</span></div><span class="pill ok">Stored</span></div>
+    const result = meta && p ? `<section class="card" style="padding:24px;display:flex;flex-direction:column;gap:14px"><div class="hdr" style="align-items:center"><div><h2>${meta.template === 'TRUST' ? 'Trust report' : 'Assurance Pack'}${meta.subject === 'MODEL' ? ' for AI models' : ''} \u00b7 ${esc(meta.pack_key)}</h2><span class="cap">${esc(meta.period_label)} \u00b7 generated ${esc(cwhen(meta.generated_at))} by ${esc(meta.generated_by)}</span></div><span class="pill ok">Stored</span></div>
       <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">${[[meta.claims, 'claims'], [meta.evidenced, 'evidenced'], [meta.gaps, 'gaps stated']].map(([a, b]) => `<div class="stack"><span style="font-size:26px;font-weight:600">${a}</span><span class="cap">${b}</span></div>`).join('')}</div>
-      <span class="cap">${esc(p.content.approval_mode)}. ${meta.evidence_count} evidence items. Scope: ${p.content.scope.agents_in_scope} agent${p.content.scope.agents_in_scope === 1 ? '' : 's'} with an active contract${p.content.scope.agents_without_contract ? `, ${p.content.scope.agents_without_contract} without one` : ''}.</span>
+      <span class="cap">${esc(p.content.approval_mode)}. ${meta.evidence_count} evidence items. ${p.content.subject === 'MODEL' ? `Scope: ${p.content.scope.models_in_scope} AI model${p.content.scope.models_in_scope === 1 ? '' : 's'} with an active contract, ${p.content.scope.monitors} production monitor${p.content.scope.monitors === 1 ? '' : 's'}${p.content.scope.models_without_contract ? `, ${p.content.scope.models_without_contract} model design${p.content.scope.models_without_contract === 1 ? '' : 's'} without a contract` : ''}.` : `Scope: ${p.content.scope.agents_in_scope} agent${p.content.scope.agents_in_scope === 1 ? '' : 's'} with an active contract${p.content.scope.agents_without_contract ? `, ${p.content.scope.agents_without_contract} without one` : ''}.`}</span>
       <pre class="code" style="font-size:12px">pack     sha256:${esc(meta.pack_hash.slice(0, 32))}\u2026\nprevious ${meta.previous_pack_hash === 'GENESIS' ? 'GENESIS (first pack)' : 'sha256:' + esc(meta.previous_pack_hash.slice(0, 32)) + '\u2026'}\ncontent  sha256:${esc(meta.content_hash.slice(0, 32))}\u2026</pre>
       ${verifyText(PK.verify[meta.pack_key])}
       <div style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn" href="#/pack?key=${esc(meta.pack_key)}">Open report</a><button class="btn2" data-act="pkVerify" data-arg="${esc(meta.pack_key)}">Verify hash chain</button>${dlBtn('/api/export/packs/' + meta.pack_key + '.pdf', 'Download PDF')}${dlBtn('/api/export/packs/' + meta.pack_key + '.json', 'Download JSON')}</div></section>` : (key ? '<p class="cap">Loading the pack\u2026</p>' : '');
-    const history = PK.list.length > 1 || (PK.list.length === 1 && PK.sel) ? `<section class="card" style="padding-top:8px"><h2 class="ph">Generated packs</h2>${PK.list.map((x) => `<div class="lrow"><span class="stack"><span style="font-weight:500">${esc(x.pack_key)} \u00b7 ${x.template === 'TRUST' ? 'Trust report' : 'Assurance Pack'}</span><span class="cap">${esc(x.period_label)} \u00b7 ${esc(cwhen(x.generated_at))} \u00b7 ${x.claims} claims, ${x.gaps} gaps</span></span>${x.pack_key === key ? '<span class="cap">viewing</span>' : `<button class="btn2 btn-s" data-act="pkSel" data-arg="${esc(x.pack_key)}">View</button>`}</div>`).join('')}</section>` : '';
-    return head + `<div class="cols"><section class="card" style="padding:24px;display:flex;flex-direction:column;gap:20px"><h2>1 \u00b7 Choose a template</h2>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px"><button class="opt${trust ? ' on' : ''}" aria-pressed="${trust}" data-act="pTpl" data-arg="TRUST"><span style="font-weight:600">Trust report</span><span class="cap">For customer security reviews. Short, shareable: no agent names, owners or finding details.</span></button><button class="opt${trust ? '' : ' on'}" aria-pressed="${!trust}" data-act="pTpl" data-arg="ASSURANCE"><span style="font-weight:600">Assurance Pack</span><span class="cap">For auditors and assessors. Full evidence chain, per-agent results, stated gaps.</span></button></div>
-    <h2>2 \u00b7 Scope and frameworks</h2><div class="fld"><label for="period">Period for findings and drift</label><select id="period" class="inp" data-chg="pPeriod">${opt('30d', 'Last 30 days', f.period)}${opt('90d', 'Last 90 days', f.period)}${opt('all', 'All time', f.period)}</select></div>
-    <div><label class="chk"><input type="checkbox" data-chg="pFw" data-arg="asi"${f.asi ? ' checked' : ''}>OWASP Top 10 for Agentic Applications</label><label class="chk"><input type="checkbox" data-chg="pFw" data-arg="rcr"${f.rcr ? ' checked' : ''}>Design-time regulatory risk (GDPR, EU AI Act and other instruments)</label><label class="chk" style="color:var(--fg-4a5563)"><input type="checkbox" disabled>ISO/IEC 42001 <span class="pill muted">No rules loaded</span></label></div>
+    const history = PK.list.length > 1 || (PK.list.length === 1 && PK.sel) ? `<section class="card" style="padding-top:8px"><h2 class="ph">Generated packs</h2>${PK.list.map((x) => `<div class="lrow"><span class="stack"><span style="font-weight:500">${esc(x.pack_key)} \u00b7 ${x.template === 'TRUST' ? 'Trust report' : 'Assurance Pack'}${x.subject === 'MODEL' ? ' \u00b7 AI models' : ''}</span><span class="cap">${esc(x.period_label)} \u00b7 ${esc(cwhen(x.generated_at))} \u00b7 ${x.claims} claims, ${x.gaps} gaps</span></span>${x.pack_key === key ? '<span class="cap">viewing</span>' : `<button class="btn2 btn-s" data-act="pkSel" data-arg="${esc(x.pack_key)}">View</button>`}</div>`).join('')}</section>` : '';
+    const isModel = f.subject === 'MODEL';
+    return head + `<div class="cols"><section class="card" style="padding:24px;display:flex;flex-direction:column;gap:20px"><h2>1 \u00b7 What is it about</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px"><button class="opt${isModel ? '' : ' on'}" aria-pressed="${!isModel}" data-act="pSubj" data-arg="AGENT"><span style="font-weight:600">AI agents</span><span class="cap">Contracts, coverage of the OWASP agentic checks, findings and drift decisions.</span></button><button class="opt${isModel ? ' on' : ''}" aria-pressed="${isModel}" data-act="pSubj" data-arg="MODEL"><span style="font-weight:600">AI models</span><span class="cap">Design-time, declared and observed scores, the assurance gap, and what production monitoring shows.</span></button></div>
+    <h2>2 \u00b7 Choose a template</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px"><button class="opt${trust ? ' on' : ''}" aria-pressed="${trust}" data-act="pTpl" data-arg="TRUST"><span style="font-weight:600">Trust report</span><span class="cap">For customer security reviews. Short, shareable: no ${isModel ? 'model or monitor names' : 'agent names, owners or finding details'}.</span></button><button class="opt${trust ? '' : ' on'}" aria-pressed="${!trust}" data-act="pTpl" data-arg="ASSURANCE"><span style="font-weight:600">Assurance Pack</span><span class="cap">For auditors and assessors. Full evidence chain, per-${isModel ? 'model' : 'agent'} results, stated gaps.</span></button></div>
+    <h2>3 \u00b7 Scope${isModel ? '' : ' and frameworks'}</h2><div class="fld"><label for="period">Period for ${isModel ? 'incidents' : 'findings and drift'}</label><select id="period" class="inp" data-chg="pPeriod">${opt('30d', 'Last 30 days', f.period)}${opt('90d', 'Last 90 days', f.period)}${opt('all', 'All time', f.period)}</select></div>
+    ${isModel ? '<span class="cap">Covers every model with an active compiled contract: the score recomputed from the contract, the score on what people declared, the score once production evidence is added, where the two differ, and the state of each model\'s monitors. No prompt, reply, record or person is in it.</span>' : `<div><label class="chk"><input type="checkbox" data-chg="pFw" data-arg="asi"${f.asi ? ' checked' : ''}>OWASP Top 10 for Agentic Applications</label><label class="chk"><input type="checkbox" data-chg="pFw" data-arg="rcr"${f.rcr ? ' checked' : ''}>Design-time regulatory risk (GDPR, EU AI Act and other instruments)</label><label class="chk" style="color:var(--fg-4a5563)"><input type="checkbox" disabled>ISO/IEC 42001 <span class="pill muted">No rules loaded</span></label></div>`}
     <span class="cap">Contracts in force are always included. Gaps, simulated findings and the limits of the evidence are stated in every pack.</span>
     ${PK.err ? `<div class="note alert" role="alert"><span style="font-size:13px;white-space:pre-wrap">${esc(PK.err)}</span></div>` : ''}
-    <button class="btn" style="align-self:flex-start"${PK.busy || !can('signoff') ? ' disabled' : ''}${can('signoff') ? '' : ' title="Only compliance can generate a pack"'} data-act="pGen">${PK.busy ? 'Generating\u2026' : (trust ? 'Generate trust report' : 'Generate Assurance Pack')}</button></section>
+    <button class="btn" style="align-self:flex-start"${PK.busy || !can('signoff') ? ' disabled' : ''}${can('signoff') ? '' : ' title="Only compliance can generate a pack"'} data-act="pGen">${PK.busy ? 'Generating\u2026' : (trust ? 'Generate trust report' : 'Generate Assurance Pack')}${isModel ? ' for AI models' : ''}</button></section>
     <div style="display:flex;flex-direction:column;gap:24px">${result}${history}
     <section class="card" style="padding:24px;display:flex;flex-direction:column;gap:10px"><h2>Answer a security questionnaire</h2><p class="cap" style="margin:0">Not built yet. It would draft answers from the evidence in a pack and cite the source of each; that needs the local model to read and answer each question, which is slow on a CPU. The packs above already hold what such answers would cite.</p></section></div></div>`;
+  }
+  function packModel(p, back) {
+    const x = p.content, trust = x.template === 'TRUST', pill = { ok: 'ok', Partial: 'warn', Gap: 'bad' };
+    const sec = (title, body) => `<section class="card" style="padding:20px 24px;display:flex;flex-direction:column;gap:10px"><h2>${title}</h2>${body}</section>`;
+    const row = (a, b, c) => `<div class="lrow"><span class="stack"><span style="font-weight:500">${a}</span><span class="cap">${b || ''}</span></span>${c || ''}</div>`;
+    const sc = (v) => (v && v.pcs !== undefined ? `<b class="mono">${STAI.pyFixed(v.pcs, 1)}</b> <span class="pill ${TIER_CLS[v.tier]}">${esc(v.tier)}</span> <span class="pill ${GATE_CLS[v.gate]}">${esc(v.gate.replace('_', ' '))}</span>` : '<span class="cap">could not be scored</span>');
+    const models = x.models.map((m) => {
+      const g = m.assurance_gap.headline;
+      const mons = m.monitors.map((b, j) => {
+        const bits = [`${b.records_received.toLocaleString()} records received`, b.last_record_at ? 'last ' + esc(String(b.last_record_at).slice(0, 16).replace('T', ' ')) : 'no data yet', 'baseline ' + esc(b.baseline)];
+        if (b.versions) bits.push(`${b.versions.seen} model version${b.versions.seen === 1 ? '' : 's'} seen, ${b.versions.changes} change${b.versions.changes === 1 ? '' : 's'}`);
+        if (b.canaries) bits.push(`${b.canaries.checks} canary check${b.canaries.checks === 1 ? '' : 's'}, ${b.canaries.failing} failing`);
+        if (b.safety) bits.push(`${b.safety.checked_requests.toLocaleString()} requests checked, flagged: ${Object.keys(b.safety.flagged).length ? esc(Object.entries(b.safety.flagged).map(([k, v]) => k.replace(/_/g, ' ') + ' ' + v).join(', ')) : 'none'}`);
+        if (b.people) bits.push(`${b.people.decisions.toLocaleString()} staff decisions, ${Math.round((b.people.accepted || 0) * 100)}% accepted, median look ${b.people.median_look_seconds === null ? 'n/a' : b.people.median_look_seconds + ' s'}, wrong outputs accepted ${b.people.wrong_accepted} of ${b.people.wrong_outputs}`);
+        return row(`${trust ? 'Monitor ' + (j + 1) : esc(b.name || 'Monitor ' + (j + 1))}`, bits.join(' \u00b7 ') + (b.thresholds_loosened_past_floor.length ? ' \u00b7 ' + b.thresholds_loosened_past_floor.length + ' threshold(s) looser than the compliance floor' : ''), `<span class="pill ${b.status === 'DRIFT' ? 'bad' : b.status === 'WATCH' ? 'warn' : b.status === 'OK' ? 'ok' : 'muted'}">${esc(b.status.toLowerCase().replace('_', ' '))}</span>`);
+      }).join('');
+      return sec(esc(m.model) + (g === null ? '' : ` <span class="pill ${g > 0 || m.assurance_gap.pillars_moved.length ? 'bad' : 'muted'}">${g === 0 && m.assurance_gap.pillars_moved.length ? 'pillars moved' : 'gap ' + (g > 0 ? '+' : '') + g}</span>`),
+        `<span class="cap">Contract v${esc(m.contract.version)} \u00b7 sha256:${esc(m.contract.hash.slice(0, 16))}\u2026${m.contract.issued_by ? ' \u00b7 signed by ' + esc(m.contract.issued_by) : ''}</span>
+         <div style="display:flex;gap:24px;flex-wrap:wrap"><span class="stack"><span class="cap">Design time</span><span>${sc(m.design_time)}</span></span><span class="stack"><span class="cap">Declared</span><span>${sc(m.declared)}</span></span><span class="stack"><span class="cap">Observed</span><span>${sc(m.observed)}</span></span></div>
+         ${m.assurance_gap.pillars_moved.length ? `<span class="cap">Pillars that moved: ${m.assurance_gap.pillars_moved.map((r) => esc(r.pillar.charAt(0).toUpperCase() + r.pillar.slice(1)) + ' ' + STAI.pyFixed(r.declared || 0, 1) + ' \u2192 ' + STAI.pyFixed(r.observed, 1)).join(' \u00b7 ')}</span>` : ''}
+         ${m.contradictions.length ? `<div class="stack" style="gap:4px"><strong style="font-size:13px">Where production contradicts the declaration</strong>${m.contradictions.map((t) => `<div class="note alert" style="font-size:13px;padding:8px 12px">${esc(t)}</div>`).join('')}</div>` : ''}
+         ${mons || '<span class="cap">No production monitor is connected to this model.</span>'}`);
+    }).join('');
+    return hdr(`${esc(x.organisation)} \u00b7 ${esc(x.period.label)} \u00b7 generated ${esc(cwhen(x.generated_at))} by ${esc(x.generated_by)}`, `${trust ? 'Trust report' : 'Assurance Pack'} for AI models ${esc(p.pack_key)}`, dlBtn('/api/export/packs/' + p.pack_key + '.pdf', 'Download PDF', 'btn noprint') + '<button class="btn2 noprint" onclick="window.print()">Print</button>', back) +
+      `<div style="display:flex;flex-direction:column;gap:20px">
+      ${sec('What this pack does not claim', `<ul style="margin:0;padding-left:20px;line-height:1.6">${x.limits.map((l) => `<li>${esc(l)}</li>`).join('')}</ul><span class="cap">${esc(x.approval_mode)}. Frameworks: ${esc(x.frameworks.join('; '))}.</span>`)}
+      ${models}
+      ${sec(`Gaps stated (${x.gaps.length})`, x.gaps.length ? x.gaps.map((g) => row(esc(g.text), 'No owner assigned', `<span class="pill ${pill[g.status] || 'muted'}">${esc(g.status)}</span>`)).join('') : '<span>No gaps.</span>')}
+      ${sec(`Claims (${x.claims.length})`, x.claims.map((k) => row(esc(k.text), `${k.evidence.length} evidence reference${k.evidence.length === 1 ? '' : 's'}`, `<span class="pill ${k.status === 'evidenced' ? 'ok' : 'warn'}">${k.status === 'evidenced' ? 'evidenced' : 'gap stated'}</span>`)).join(''))}
+      ${sec('Integrity', `<pre class="code" style="font-size:12px">pack     sha256:${esc(p.pack_hash)}\nprevious ${esc(p.previous_pack_hash)}\ncontent  sha256:${esc(p.content_hash)}\n${x.evidence.length} evidence items hashed (contracts, monitor statistics, incidents)</pre><span class="cap noprint">Use Verify hash chain on the packs screen to re-check this pack, the packs before it, and every contract it cites.</span>`)}
+      </div>`;
   }
   function pack() {
     const key = new URLSearchParams(location.hash.split('?')[1] || '').get('key');
@@ -1373,6 +1407,7 @@ kill_switch:
     if (!key) return hdr('', 'Pack', '', back) + '<p class="cap">No pack chosen.</p>';
     const p = PK.full[key];
     if (!p) { ensurePack(key); return hdr('', 'Pack ' + esc(key), '', back) + (PK.error ? `<div class="note alert" role="alert">${esc(PK.error)}</div>` : '<p class="cap">Loading\u2026</p>'); }
+    if (p.content.subject === 'MODEL') return packModel(p, back);
     const x = p.content, trust = x.template === 'TRUST', pill = { Covered: 'ok', Partial: 'warn', Gap: 'bad', 'No data': 'muted' };
     const sec = (title, body) => `<section class="card" style="padding:20px 24px;display:flex;flex-direction:column;gap:10px"><h2>${title}</h2>${body}</section>`;
     const row = (a, b, c) => `<div class="lrow"><span class="stack"><span style="font-weight:500">${a}</span><span class="cap">${b || ''}</span></span>${c || ''}</div>`;
@@ -3673,11 +3708,12 @@ kill_switch:
 
   Object.assign(H, {
     pkReload: () => { PK.error = null; PK.loaded = false; },
+    pSubj: (v) => { PK.form.subject = v; PK.err = null; },
     pkSel: (key) => { PK.sel = key; },
     pGen: async () => {
       const f = PK.form, frameworks = [f.asi ? 'OWASP_AGENTIC' : null, f.rcr ? 'RCR' : null].filter(Boolean);
       PK.busy = true; PK.err = null; render(true);
-      try { const r = await STAI.api.generatePack({ template: f.template, period: f.period, frameworks }); PK.full[r.pack_key] = r; PK.sel = r.pack_key; PK.list = await STAI.api.listPacks(); }
+      try { const r = await STAI.api.generatePack(f.subject === 'MODEL' ? { template: f.template, subject: 'MODEL', period: f.period } : { template: f.template, period: f.period, frameworks }); PK.full[r.pack_key] = r; PK.sel = r.pack_key; PK.list = await STAI.api.listPacks(); }
       catch (e) { PK.err = e.message; }
       PK.busy = false; render(true);
     },

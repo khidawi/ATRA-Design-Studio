@@ -152,7 +152,46 @@ def _pack(session: Session, key: str) -> EvidencePack:
     return p
 
 
+def model_pack_blocks(p: EvidencePack) -> List[Block]:
+    x = p.content
+    trust = x["template"] == "TRUST"
+    score = lambda s: (f"{s['pcs']} ({s['tier']}, gate {s['gate']})" if s and "error" not in s else "could not be scored")   # noqa: E731
+    blocks: List[Block] = [
+        ("kv", [("Organisation", x["organisation"]), ("Subject", "AI models"), ("Period", x["period"]["label"]), ("Generated", f"{x['generated_at'][:16].replace('T', ' ')} UTC by {x['generated_by']}"),
+                ("Frameworks", "; ".join(x["frameworks"])), ("Approval", x["approval_mode"]), ("Summary", f"{p.claims} claims, {p.evidenced} evidenced, {p.gaps} gaps stated, {p.evidence_count} evidence items")]),
+        ("h", "What this pack does not claim"), ("bullets", x["limits"]),
+        ("h", f"Models in scope ({x['scope']['models_in_scope']})"),
+        ("table", (["Model", "Contract", "Design time", "Declared", "Observed", "Gap"],
+                   [[m["model"], f"v{m['contract']['version']}  sha256:{m['contract']['hash'][:14]}...", score(m["design_time"]), score(m["declared"]), score(m["observed"]),
+                     ("+" if (m["assurance_gap"]["headline"] or 0) > 0 else "") + str(m["assurance_gap"]["headline"]) if m["assurance_gap"]["headline"] is not None else ""] for m in x["models"]], [14, 26, 16, 16, 16, 6])),
+    ]
+    for m in x["models"]:
+        if m["assurance_gap"]["pillars_moved"]:
+            blocks += [("h", f"Where the pillars moved: {m['model']}"), ("table", (["Pillar", "Declared", "Observed"], [[r["pillar"], r["declared"], r["observed"]] for r in m["assurance_gap"]["pillars_moved"]], [40, 30, 30]))]
+        for j, b in enumerate(m["monitors"], 1):
+            line = [("Status", b["status"]), ("Records received", f"{b['records_received']:,}"), ("Last record", (b["last_record_at"] or "never")[:16].replace("T", " ")), ("Baseline", b["baseline"])]
+            if b["versions"]:
+                line.append(("Model versions", f"{b['versions']['seen']} seen, {b['versions']['changes']} change(s), current {b['versions']['current']}" if not trust else f"{b['versions']['seen']} seen, {b['versions']['changes']} change(s)"))
+            if b["canaries"]:
+                line.append(("Canary checks", f"{b['canaries']['checks']} check(s), {b['canaries']['runs']} runs, {b['canaries']['failing']} failing"))
+            if b["safety"]:
+                line.append(("Prompt and reply checks", f"{b['safety']['checked_requests']:,} requests; flagged: " + (", ".join(f"{k} {v}" for k, v in b["safety"]["flagged"].items()) or "none")))
+            if b["people"]:
+                pe = b["people"]
+                line.append(("How people use outputs", f"{pe['decisions']:,} decisions; accepted {round((pe['accepted'] or 0) * 100)}%; median look {pe['median_look_seconds']} s; wrong outputs accepted {pe['wrong_accepted']} of {pe['wrong_outputs']}"))
+            blocks += [("h", f"Production evidence: {m['model']} / monitor {j}"), ("kv", line)]
+    blocks += [("h", f"Gaps stated ({len(x['gaps'])})"),
+               ("table", (["Gap", "Status"], [[g["text"], g["status"]] for g in x["gaps"]], [86, 14])) if x["gaps"] else ("p", "No gaps."),
+               ("h", f"Claims ({len(x['claims'])})"),
+               ("table", (["Claim", "Status", "Evidence references"], [[k["text"], "evidenced" if k["status"] == "evidenced" else "gap stated", len(k["evidence"])] for k in x["claims"]], [66, 14, 20])),
+               ("h", "Integrity"), ("code", f"pack     sha256:{p.pack_hash}\nprevious {p.previous_pack_hash}\ncontent  sha256:{p.content_hash}"),
+               ("small", f"{p.evidence_count} evidence items are hashed (contracts, monitor statistics, incidents). Use Verify hash chain in the platform to re-check this pack, the packs before it and every contract it cites.")]
+    return blocks
+
+
 def pack_blocks(p: EvidencePack) -> List[Block]:
+    if p.content.get("subject") == "MODEL":
+        return model_pack_blocks(p)
     x = p.content
     trust = x["template"] == "TRUST"
     c, d = x["findings"]["counts"], x["drift"]["counts"]
