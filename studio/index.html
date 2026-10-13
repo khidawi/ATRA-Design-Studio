@@ -500,6 +500,8 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       monVersions: (key) => call('/api/model-monitor/' + encodeURIComponent(key) + '/versions'),
       monDecisions: (key) => call('/api/model-monitor/' + encodeURIComponent(key) + '/decisions'),
       monDecisionSettings: (key, body) => call('/api/model-monitor/' + encodeURIComponent(key) + '/decision-settings', { method: 'PUT', body: JSON.stringify(body) }),
+      monSafety: (key) => call('/api/model-monitor/' + encodeURIComponent(key) + '/safety'),
+      monCanaries: (key) => call('/api/model-monitor/' + encodeURIComponent(key) + '/canaries'),
       monIncidentStatus: (id, body) => call('/api/model-monitor/incidents/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(body) }),
       telDesign: (key, body) => post('/api/telemetry/agents/' + encodeURIComponent(key) + '/design', body),
       previewAgentImport: (body) => post('/api/agents/import/preview', body),
@@ -2583,7 +2585,7 @@ kill_switch:
     lfIncDel: (id) => { if (!window.confirm('Remove this incident from the log?')) return; M.incidents = M.incidents.filter((i) => i.id !== id); persist(); }
   });
   /* ----- Production monitoring of a model: what its inputs and outputs look like where it really runs ----- */
-  const MON = { forDesign: null, loading: false, loaded: false, error: null, caps: null, list: [], signals: {}, incidents: [], detail: {}, series: {}, ver: {}, dec: {}, open: {}, showForm: false, form: null, busy: null, err: null, msg: null, timer: null, edit: null };
+  const MON = { forDesign: null, loading: false, loaded: false, error: null, caps: null, list: [], signals: {}, incidents: [], detail: {}, series: {}, ver: {}, dec: {}, saf: {}, can: {}, open: {}, showForm: false, form: null, busy: null, err: null, msg: null, timer: null, edit: null };
   const MON_STATUS = { LEARNING: ['muted', 'Learning'], OK: ['ok', 'Stable'], WATCH: ['warn', 'Watch'], DRIFT: ['bad', 'Drift'], LOW_VOLUME: ['muted', 'Too few records'], NO_DATA: ['muted', 'No data'] };
   const monHere = () => MON.forDesign === M.designKey;
   async function loadMon(quiet) {
@@ -2595,7 +2597,7 @@ kill_switch:
       const sg = await STAI.api.monSignals(dk);
       if (dk !== M.designKey) { MON.loading = false; return; }
       MON.forDesign = dk; MON.list = sg.monitors; MON.signals = sg.signals; MON.incidents = sg.incidents; MON.loaded = true; MON.error = null;
-      await Promise.all(sg.monitors.map(async (m) => { MON.detail[m.key] = await STAI.api.monGet(m.key); MON.series[m.key] = await STAI.api.monSeries(m.key, 168); MON.ver[m.key] = await STAI.api.monVersions(m.key); MON.dec[m.key] = await STAI.api.monDecisions(m.key); }));
+      await Promise.all(sg.monitors.map(async (m) => { MON.detail[m.key] = await STAI.api.monGet(m.key); MON.series[m.key] = await STAI.api.monSeries(m.key, 168); MON.ver[m.key] = await STAI.api.monVersions(m.key); MON.dec[m.key] = await STAI.api.monDecisions(m.key); MON.saf[m.key] = await STAI.api.monSafety(m.key); MON.can[m.key] = await STAI.api.monCanaries(m.key); }));
       if (sg.monitors.length) { MON.signals = (await STAI.api.monSignals(dk)).signals; }          // the evaluation above may have changed them
     } catch (e) { if (!quiet) MON.error = e.message; }
     MON.loading = false;
@@ -2682,6 +2684,25 @@ kill_switch:
       : `<span class="cap" style="font-size:12.5px">Counted by role only. To also see whether decisions rest on one or two people, compliance can sign off counting individuals as pseudonyms. <button class="btn3 btn-s" data-act="monIndividuals" data-arg="${esc(d.key)}:on">Count individuals (compliance sign-off)</button></span>`;
     return `<div class="stack" style="gap:6px"><strong style="font-size:13px">How people use the outputs</strong><span class="cap" style="font-size:12.5px">Advice only. A fast acceptance can be an expert's; these are questions for a person to look into, and the score is told only when wrong outputs are being accepted or review is not real.</span>${tiles}${find}${roles}${ind}</div>`;
   }
+  function monSafetyPanel(d) {
+    const g = MON.saf[d.key];
+    if (!g || !g.enabled) {
+      if (d.task !== 'generative') return '';
+      return `<details class="lf-det"><summary><b>What leaves, and what comes back unsafe</b> <span class="cap">not enabled</span></summary><div class="stack" style="gap:8px;padding:8px 0"><span class="cap" style="font-size:12.5px">Add the checks for a language model: personal data or a key in a prompt (data leaving for a third party), personal data or a key in a reply, and signs of prompt injection. <button class="btn2 btn-s" data-act="monSafetyOn" data-arg="${esc(d.key)}">Turn the checks on</button></span></div></details>`;
+    }
+    const rows = g.rows.map((r) => `<div class="pp-tr" style="grid-template-columns:2.4fr .7fr .7fr 1fr"><span>${esc(r.label)}</span><span class="mono">${r.count.toLocaleString()}</span><span class="mono">${monPct(r.rate)}</span><span>${r.level ? `<span class="pill ${r.level === 'drift' ? 'bad' : 'warn'}">${r.level === 'drift' ? 'Look into' : 'Watch'}</span>` : '<span class="pill ok">None</span>'}</span></div>`).join('');
+    return `<div class="stack" style="gap:6px"><strong style="font-size:13px">What leaves, and what comes back unsafe</strong><span class="cap" style="font-size:12.5px">${g.n.toLocaleString()} requests judged. The text is scanned in your own code (the SDK's <span class="mono">prompt_text=</span> and <span class="mono">output_text=</span>); ASTRA receives only these counts. They are pattern matches, so look at a sample before concluding, but one key or credential is worth a person's time.</span><div class="pp-tbl"><div class="pp-tr pp-th" style="grid-template-columns:2.4fr .7fr .7fr 1fr"><span>Check</span><span>Requests</span><span>Share</span><span>Status</span></div>${rows}</div></div>`;
+  }
+  function monCanaryPanel(d) {
+    const g = MON.can[d.key];
+    if (!g || !g.rows.length) {
+      return `<details class="lf-det"><summary><b>Canary checks</b> <span class="cap">none yet</span></summary><div class="stack" style="gap:8px;padding:8px 0"><span class="cap" style="font-size:12.5px">A canary is a fixed question with a known good answer, asked on a schedule through the same route as real traffic. If one passed on the old model version and fails on the new one, the provider changed the model, and no baseline is needed to see it.</span>${tlCode('mon.run_canary("refund-policy", lambda: ask("What is the refund window?"), expect="30 days", model_version=current_version)')}</div></details>`;
+    }
+    const dots = (a) => a.map((x) => `<i style="display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:2px;background:var(--bg-${x ? '1e7f4f' : 'b42318'})"></i>`).join('');
+    const rows = g.rows.map((r) => `<div class="pp-tr" style="grid-template-columns:1.6fr .6fr .8fr 1.2fr 2fr"><span class="mono">${esc(r.canary)}</span><span class="mono">${r.n}</span><span class="mono">${monPct(r.fail_rate)}</span><span>${dots(r.recent)}</span><span class="cap">${r.versions.map((v) => esc(v.version) + ' ' + monPct(v.fail_rate) + ' fail').join(' · ') || 'version unknown'} · last ${monAgo(r.last_at)}</span></div>`).join('');
+    const bad = g.reasons.map((r) => `<div class="note ${r.level === 'drift' ? 'alert' : 'plain'}" style="font-size:13px;padding:8px 12px"><span>${esc(r.text)}</span></div>`).join('');
+    return `<div class="stack" style="gap:6px"><strong style="font-size:13px">Canary checks</strong><span class="cap" style="font-size:12.5px">Fixed questions with a known good answer, run through the same route as real traffic. A pass that turns into a fail on a new model version is the clearest sign the provider changed the model.</span>${bad}<div class="pp-tbl"><div class="pp-tr pp-th" style="grid-template-columns:1.6fr .6fr .8fr 1.2fr 2fr"><span>Check</span><span>Runs</span><span>Failed</span><span>Latest runs</span><span>By version</span></div>${rows}</div></div>`;
+  }
   function monCard(m) {
     const d = MON.detail[m.key];
     if (!d) return lfCard(esc(m.name), 'Production monitor', '<p class="cap" style="margin:0">Loading…</p>');
@@ -2706,7 +2727,7 @@ kill_switch:
       if ((ev.flags || []).length) body += `<span class="cap">${ev.flags.map((f) => esc(f.name) + ': ' + monPct(f.rate) + ' (baseline ' + monPct(f.base_rate) + ')').join(' · ')}</span>`;
       body += `<div class="stack" style="gap:6px"><strong style="font-size:13px">How each input has moved over the last week</strong>${monChart(MON.series[d.key], d)}</div>`;
     }
-    body += monVersionsPanel(d) + monPeoplePanel(d);
+    body += monVersionsPanel(d) + monCanaryPanel(d) + monSafetyPanel(d) + monPeoplePanel(d);
     const ed = MON.edit && MON.edit.key === d.key ? MON.edit : null;
     const edit = ed ? `<div class="stack" style="gap:10px;padding-top:6px;border-top:1px solid var(--ln-edf0f3)"><span class="cap">Thresholds are rules of thumb, not calibrated to this model. Change them when the defaults do not suit it.</span><div class="prow" style="gap:12px;align-items:flex-end">${[['psi_watch', 'Watch at PSI'], ['psi_drift', 'Drift at PSI'], ['parity_breach', 'Bias breach below'], ['perf_drop_drift', 'Accuracy drop = drift'], ['error_drift', 'Error rate = drift'], ['eval_hours', 'Window (hours)']].map(([k, l]) => `<label class="cap">${l}<br><input class="inp mono" style="max-width:110px" type="number" step="any" data-chg="monThr" data-arg="${k}" value="${esc(ed.thr[k])}"></label>`).join('')}</div><div class="prow" style="gap:8px"><button class="btn btn-s" data-act="monEditSave"${MON.busy ? ' disabled' : ''}>Save</button><button class="btn2 btn-s" data-act="monEdit" data-arg="">Close</button></div></div>` : '';
     const conn = `<details class="lf-det"${learning ? ' open' : ''}><summary><b>How to send this model's traffic</b></summary><div class="stack" style="gap:10px;padding:8px 0"><span class="cap" style="font-size:12.5px">Use an API key with the role <b>collector</b> (<a href="#/users">Users → API keys</a>); it can send records and nothing else. Send only the fields the monitor declares. ASTRA keeps statistics, never the records.</span><span class="cap"><b>Python</b> (the astra_runtime SDK: batches, never blocks or raises)</span>${tlCode(sn.code)}<span class="cap"><b>Any language</b> (up to 1,000 records per request)</span>${tlCode(sn.curl)}<span class="cap"><b>What people decided</b> (same key; <span class="mono">POST ${esc(d.ingest_path.replace(/records$/, 'decisions'))}</span> with <span class="mono">{"decisions": [...]}</span>)</span>${tlCode('mon.decision("overridden", role="loan officer", review_seconds=42, reason=True)')}</div></details>`;
@@ -2779,6 +2800,7 @@ kill_switch:
       if (!window.confirm('Learn a new baseline? The current baseline and the history are forgotten, and the first records that arrive become the new normal. Do this after a deliberate change to the model or its data.')) return;
       try { await STAI.api.monReset(key); await loadMon(true); } catch (e) { window.alert(e.message); }
     },
+    monSafetyOn: async (key) => { try { await STAI.api.monPatch(key, { safety_checks: true }); await loadMon(true); } catch (e) { window.alert(e.message); } },
     monIndividuals: async (arg) => {
       const [key, how] = arg.split(':');
       if (how === 'on' && !window.confirm('Count distinct people as well as roles? Names are never stored: each person becomes a one-way pseudonym, used only to see whether decisions rest on one or two people. This needs a compliance sign-off and is recorded under your name. Continue?')) return;

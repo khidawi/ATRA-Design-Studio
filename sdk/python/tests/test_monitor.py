@@ -28,7 +28,7 @@ class Platform:
             def do_POST(self):
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])) or b"{}")
                 platform.posts.append((self.path, self.headers.get("Authorization"), body))
-                code, resp, headers = platform.script.pop(0) if platform.script else (200, {"accepted": len(body.get("records") or body.get("decisions") or []), "rejected": 0, "status": "OK"}, {})
+                code, resp, headers = platform.script.pop(0) if platform.script else (200, {"accepted": len(body.get("records") or body.get("decisions") or body.get("results") or []), "rejected": 0, "status": "OK"}, {})
                 raw = json.dumps(resp).encode()
                 self.send_response(code)
                 self.send_header("Content-Type", "application/json")
@@ -183,6 +183,29 @@ class ModelMonitorTests(unittest.TestCase):
     def test_a_decision_never_raises(self):
         m = self.mon()
         m.decision(None, role=None, review_seconds=object())
+
+    def test_text_is_scanned_here_and_only_flags_leave(self):
+        m = self.mon()
+        m.log({"a": 1}, "ok", prompt_text="my card is 4111 1111 1111 1111, mail bob@example.com", output_text="key AKIAABCDEFGHIJKLMNOP")
+        m.flush()
+        rec = self.p.posts[0][2]["records"][0]
+        self.assertEqual(rec["flags"], {"pii_in_prompt": True, "secret_in_output": True})
+        self.assertNotIn("4111", json.dumps(self.p.posts))
+        self.assertNotIn("bob@", json.dumps(self.p.posts))
+
+    def test_canaries_go_to_their_own_endpoint_and_judge_the_answer(self):
+        m = self.mon()
+        self.assertTrue(m.run_canary("refund", lambda: "Our window is 30 days.", expect="30 DAYS", model_version="v1"))
+        self.assertFalse(m.run_canary("refund", lambda: "no idea", expect="30 days"))
+        def boom():
+            raise RuntimeError("provider down")
+        self.assertFalse(m.run_canary("refund", boom, expect="x"))
+        self.assertTrue(m.run_canary("len", lambda: "abc", expect=lambda a: len(a) == 3))
+        m.flush()
+        path, _, body = self.p.posts[0]
+        self.assertTrue(path.endswith("/canaries"))
+        self.assertEqual([r["passed"] for r in body["results"]], [True, False, False, True])
+        self.assertEqual(body["results"][0]["model_version"], "v1")
 
 if __name__ == "__main__":
     unittest.main()

@@ -55,6 +55,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 import decision_stats as ds
+import llm_safety as lsf
 import model_stats as ms
 import model_versions as mv
 from agent_registry import agent_key
@@ -71,7 +72,7 @@ RECORDS_PER_MINUTE = 120_000
 EVAL_EVERY_SECONDS = 20
 INCIDENT_STATUSES = ("OPEN", "INVESTIGATING", "MITIGATED", "RESOLVED", "POST_MORTEM")
 INCIDENT_KIND = {"DATA_DRIFT": "DRIFT_DETECTION", "PREDICTION_DRIFT": "DRIFT_DETECTION", "PERFORMANCE_DRIFT": "DRIFT_DETECTION", "BIAS_BREACH": "BIAS_BREACH",
-                 "DOMAIN_VIOLATION": "MODEL_FAILURE", "MODEL_FAILURE": "MODEL_FAILURE", "MODEL_VERSION": "SUPPLY_CHAIN", "HUMAN_REVIEW": "HUMAN_OVERRIDE_FAILED"}
+                 "DOMAIN_VIOLATION": "MODEL_FAILURE", "MODEL_FAILURE": "MODEL_FAILURE", "MODEL_VERSION": "SUPPLY_CHAIN", "HUMAN_REVIEW": "HUMAN_OVERRIDE_FAILED", "DATA_EGRESS": "DATA_BREACH", "OUTPUT_SAFETY": "SECURITY_EVENT", "CANARY": "MODEL_FAILURE"}
 DECISION_DAYS = 7
 _window: Dict[str, Deque] = defaultdict(deque)
 _last_eval: Dict[Any, float] = {}
@@ -152,8 +153,9 @@ def _spec(body: CreateBody) -> Dict[str, Any]:
             out["positive"] = float(out["positive"])
         except ValueError:
             raise HTTPException(status_code=422, detail="For a numeric output, the favourable outcome is a number.")
+    flags = list(body.flags) + ([f for f in lsf.SAFETY_FLAGS if f not in body.flags] if body.task == "generative" else [])        # a language model is checked for what leaves and what comes back
     return {"task": body.task, "features": [{k: v for k, v in f.model_dump().items() if v is not None} for f in body.features], "output": {k: v for k, v in out.items() if v is not None},
-            "segments": body.segments, "flags": body.flags}
+            "segments": body.segments, "flags": flags}
 
 
 def _thresholds(raw: Dict[str, float]) -> Dict[str, float]:
@@ -224,7 +226,22 @@ def _people_and_versions(session: Session, m: ModelMonitor, now: datetime) -> An
     if dec["n"]:
         reasons += dec["reasons"]
         sig = dec["signals"]
+    reasons += safety_evaluation(session, m, now)["reasons"]
+    if m.canaries and m.canaries.get("items"):
+        reasons += lsf.evaluate_canaries(m.canaries, (m.versions or {}).get("current"))["reasons"]
     return reasons, sig
+
+
+def safety_evaluation(session: Session, m: ModelMonitor, now: datetime) -> Dict[str, Any]:
+    """The safety flags over the evaluation window (or, while the baseline is still being learned, over what has been seen so far)."""
+    if not any(f in lsf.SAFETY_FLAGS for f in (m.spec.get("flags") or [])):
+        return {"enabled": False, "rows": [], "reasons": [], "n": 0}
+    if m.baseline is None:
+        acc = m.buffer or {}
+    else:
+        acc = _merged(_windows(session, m, now - timedelta(hours=(m.thresholds or {}).get("eval_hours", ms.DEFAULT_THRESHOLDS["eval_hours"])))) or {}
+    res = lsf.evaluate_flags(acc.get("flags", {}), acc.get("n", 0))
+    return {**res, "enabled": True}
 
 
 def decisions_evaluation(session: Session, m: ModelMonitor, now: datetime) -> Dict[str, Any]:
@@ -246,7 +263,7 @@ def _sync_incidents(session: Session, m: ModelMonitor, reasons: List[Dict[str, A
     open_ = {i.kind: i for i in session.scalars(select(ModelIncident).where(ModelIncident.monitor_id == m.id, ModelIncident.status.in_(("OPEN", "INVESTIGATING", "MITIGATED"))))}
     for kind, rs in by_kind.items():
         kinds = {r["kind"] for r in rs}
-        sev = 4 if (kind in ("BIAS_BREACH", "HUMAN_OVERRIDE_FAILED") or "PERFORMANCE_DRIFT" in kinds or "DOMAIN_VIOLATION" in kinds or len(rs) >= 3) else 3
+        sev = 4 if (kind in ("BIAS_BREACH", "HUMAN_OVERRIDE_FAILED", "DATA_BREACH", "SECURITY_EVENT") or "PERFORMANCE_DRIFT" in kinds or "DOMAIN_VIOLATION" in kinds or len(rs) >= 3) else 3
         detail = {"reasons": rs[:8], "kinds": sorted(kinds)}
         inc = open_.get(kind)
         if inc is None:
@@ -532,6 +549,7 @@ class PatchBody(BaseModel):
     thresholds: Optional[Dict[str, float]] = None
     baseline_target: Optional[int] = Field(None, ge=100, le=100_000)
     retention_days: Optional[int] = Field(None, ge=7, le=90)
+    safety_checks: Optional[bool] = None                        # add the prompt and reply checks of a language model to an existing monitor
 
 
 @router.patch("/{key}")
@@ -551,6 +569,11 @@ def update_monitor(key: str, body: PatchBody, session: Session = Depends(get_ses
         m.baseline_target = body.baseline_target
     if body.retention_days:
         m.retention_days = body.retention_days
+    if body.safety_checks:
+        spec = copy.deepcopy(m.spec)
+        spec["flags"] = list(spec.get("flags") or []) + [f for f in lsf.SAFETY_FLAGS if f not in (spec.get("flags") or [])]
+        m.spec = spec
+        flag_modified(m, "spec")
     session.commit()
     return _detail(session, m)
 
@@ -770,3 +793,54 @@ def set_decision_settings(key: str, body: DecisionSettingsBody, session: Session
     flag_modified(m, "decision_settings")
     session.commit()
     return get_decisions(key, session)
+
+
+# ── Safety checks and canaries ──────────────────────────────────────────────
+
+@router.get("/{key}/safety")
+def safety(key: str, session: Session = Depends(get_session)) -> Dict[str, Any]:
+    m = _get(session, key)
+    return safety_evaluation(session, m, datetime.now(timezone.utc))
+
+
+class CanaryIn(BaseModel):
+    canary: str = Field(min_length=1, max_length=80)
+    passed: bool
+    at: Optional[datetime] = None
+    model_version: Optional[str] = Field(None, max_length=120)
+
+
+class CanaryBatch(BaseModel):
+    results: List[CanaryIn] = Field(min_length=1, max_length=MAX_BATCH)
+
+
+@router.post("/{key}/canaries")
+def ingest_canaries(key: str, body: CanaryBatch, session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> JSONResponse:
+    wait = _throttle("c" + str(user.id), len(body.results))
+    if wait is not None:
+        return JSONResponse({"detail": f"Too many results from this key; retry in {wait} s."}, status_code=429, headers={"Retry-After": str(wait)})
+    m = _get(session, key, lock=True)
+    now = datetime.now(timezone.utc)
+    state = copy.deepcopy(m.canaries) if m.canaries and m.canaries.get("items") is not None else lsf.new_canaries()
+    accepted = rejected = 0
+    for r in sorted(body.results, key=lambda r: (r.at or now)):
+        at = r.at or now
+        at = at if at.tzinfo else at.replace(tzinfo=timezone.utc)
+        if at < now - timedelta(days=m.retention_days) or at > now + timedelta(minutes=5):
+            rejected += 1
+            continue
+        lsf.fold_canary(state, r.canary.strip(), r.passed, mv.clean(r.model_version), at.astimezone(timezone.utc).isoformat())
+        accepted += 1
+    m.canaries = state
+    flag_modified(m, "canaries")
+    session.flush()
+    _maybe_evaluate(session, m, force=True)
+    session.commit()
+    return JSONResponse({"accepted": accepted, "rejected": rejected})
+
+
+@router.get("/{key}/canaries")
+def canaries(key: str, session: Session = Depends(get_session)) -> Dict[str, Any]:
+    m = _get(session, key)
+    st = m.canaries if m.canaries and m.canaries.get("items") is not None else lsf.new_canaries()
+    return {**lsf.evaluate_canaries(st, (m.versions or {}).get("current")), "current_version": (m.versions or {}).get("current")}

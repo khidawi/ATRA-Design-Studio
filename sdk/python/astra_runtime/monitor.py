@@ -9,6 +9,12 @@ ModelMonitor: report how a model in production behaves (what it was given, what 
     # a model you call through a provider's API: say which version answered, so a silent swap behind the name is noticed
     mon.log(inputs={"topic": "refund"}, output=reply.text, model_version=reply.model)          # the model id or system fingerprint the API returns
 
+    # a language model: scan prompt and reply HERE for personal data, keys and injection attempts; only yes/no flags are sent, never the text
+    mon.log(inputs={"topic": "refund"}, output="ok", prompt_text=prompt, output_text=reply.text)
+
+    # a fixed question with a known good answer, run on a schedule through the same route: a pass that turns into a fail means the model changed
+    mon.run_canary("refund-policy", lambda: ask("What is the refund window?"), expect="30 days", model_version=...)
+
     # and what the person did with the output, by role (never a name, unless your compliance lead has signed off on counting individuals)
     mon.decision("accepted", role="loan officer", review_seconds=14, reason=False, confidence_shown=True)
 
@@ -72,12 +78,16 @@ class ModelMonitor:
     # ── reporting ─────────────────────────────────────────────────
 
     def log(self, inputs: Dict[str, Any], output: Any, *, confidence: Optional[float] = None, latency_ms: Optional[float] = None, error: Optional[bool] = None,
-            label: Any = None, segments: Optional[Dict[str, Any]] = None, flags: Optional[Dict[str, bool]] = None, at: Optional[datetime] = None, model_version: Optional[str] = None) -> None:
+            label: Any = None, segments: Optional[Dict[str, Any]] = None, flags: Optional[Dict[str, bool]] = None, at: Optional[datetime] = None, model_version: Optional[str] = None,
+            prompt_text: Optional[str] = None, output_text: Optional[str] = None) -> None:
         """Queue one prediction. Never raises. `label` is the true answer, if you already know it; `segments` are the groups to compare for fairness."""
         try:
             if self.disabled_reason or (self.sample < 1.0 and random.random() > self.sample):
                 return
             rec: Dict[str, Any] = {"inputs": inputs, "output": output, "at": (at or datetime.now(timezone.utc)).isoformat()}
+            if prompt_text is not None or output_text is not None:             # scanned here; the text itself is never sent
+                from .checks import llm_flags
+                flags = {**llm_flags(prompt_text, output_text), **(flags or {})}
             for k, v in (("confidence", confidence), ("latency_ms", latency_ms), ("error", error), ("label", label), ("segments", segments), ("flags", flags), ("model_version", model_version)):
                 if v is not None:
                     rec[k] = v
@@ -99,6 +109,34 @@ class ModelMonitor:
             self._enqueue(rec)
         except Exception as exc:                                         # pragma: no cover
             self._warn("decision", f"could not queue a decision: {exc}")
+
+    def canary(self, name: str, passed: bool, *, model_version: Optional[str] = None, at: Optional[datetime] = None) -> None:
+        """Report the result of a fixed check. Never raises."""
+        try:
+            if self.disabled_reason:
+                return
+            rec: Dict[str, Any] = {"_c": True, "canary": str(name)[:80], "passed": bool(passed), "at": (at or datetime.now(timezone.utc)).isoformat()}
+            if model_version:
+                rec["model_version"] = str(model_version)[:120]
+            self._enqueue(rec)
+        except Exception as exc:                                         # pragma: no cover
+            self._warn("canary", f"could not queue a canary result: {exc}")
+
+    def run_canary(self, name: str, ask: Callable[[], Any], expect: Any, *, model_version: Optional[str] = None) -> Optional[bool]:
+        """Run `ask()` and judge its answer: `expect` is a substring (case-insensitive) or a function answer -> bool. An exception counts as a failure. Returns the
+        verdict (None if it could not be judged). Schedule it yourself (cron, a background thread); ASTRA stores only pass or fail."""
+        try:
+            try:
+                answer = ask()
+            except Exception:
+                self.canary(name, False, model_version=model_version)
+                return False
+            ok = bool(expect(answer)) if callable(expect) else str(expect).lower() in str(answer).lower()
+            self.canary(name, ok, model_version=model_version)
+            return ok
+        except Exception as exc:                                         # pragma: no cover
+            self._warn("canary", f"could not judge a canary: {exc}")
+            return None
 
     def _enqueue(self, rec: Dict[str, Any]) -> None:
         with self._lock:
@@ -190,12 +228,16 @@ class ModelMonitor:
         with self._lock:
             if not self._q:
                 return False
-            first_is_decision = bool(self._q[0].get("_d"))
+            kind = lambda r: "decisions" if r.get("_d") else ("canaries" if r.get("_c") else "records")      # noqa: E731
+            first = kind(self._q[0])
+            first_is_decision = first != "records"
             batch: List[Dict[str, Any]] = []
-            while self._q and len(batch) < self.batch_size and bool(self._q[0].get("_d")) == first_is_decision:
+            while self._q and len(batch) < self.batch_size and kind(self._q[0]) == first:
                 batch.append(self._q.popleft())
-        if first_is_decision:
+        if first == "decisions":
             status, body = self._http({"decisions": [{k: v for k, v in d.items() if k != "_d"} for d in batch]}, "decisions")
+        elif first == "canaries":
+            status, body = self._http({"results": [{k: v for k, v in d.items() if k != "_c"} for d in batch]}, "canaries")
         else:
             status, body = self._http({"records": batch})
         if status == 200:

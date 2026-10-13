@@ -153,6 +153,38 @@ try:
             blob = json.dumps([w.acc for w in s.query(ModelDecisionWindow).all()])
             check("withdrawing it forgets who was counted", off.json()["individuals"] is False and not any(w.acc.get("people") for w in s.query(ModelDecisionWindow).all()), blob[:200])
 
+        # ── safety flags: what leaves, what comes back
+        sf = api.get(f"/api/model-monitor/{key}/safety").json()
+        check("a generative monitor is checked for safety by default", sf["enabled"] is True and {r["flag"] for r in sf["rows"]} >= {"secret_in_prompt", "pii_in_output"} and sf["reasons"] == [], sf)
+        recs = [rec("gpt-x-2026-07", answer_p=0.2, lat=420, err=0.09, at=now - timedelta(minutes=5, seconds=i)) for i in range(120)]
+        for i in range(12):
+            recs[i]["flags"] = {"pii_in_prompt": True}
+        recs[50]["flags"] = {"secret_in_output": True}
+        recs[51]["flags"] = {"secret_in_prompt": True}
+        post(col, key, "records", "records", recs)
+        sf = api.get(f"/api/model-monitor/{key}/safety").json()
+        kinds = {(r["subject"], r["level"]) for r in sf["reasons"]}
+        check("a credential in a reply is flagged however rare, and personal data in prompts by rate", ("secret_in_output", "drift") in kinds and any(k == "pii_in_prompt" for k, _ in kinds), kinds)
+        api.get(f"/api/model-monitor/{key}")
+        inc = api.get(f"/api/model-monitor/{key}/incidents").json()
+        check("they open data-breach and security incidents for a person", {"DATA_BREACH", "SECURITY_EVENT"} <= {i["type"] for i in inc}, [i["type"] for i in inc])
+        d = api.get(f"/api/model-monitor/{key}").json()
+        check("the safety flags are not also reported as drift against the baseline", not any(r["kind"] == "PREDICTION_DRIFT" and r["subject"] in ("pii_in_prompt", "secret_in_output") for r in d["evaluation"]["reasons"]))
+        check("an existing monitor can be given the checks", api.patch(f"/api/model-monitor/{key}", json={"safety_checks": True}).status_code == 200)
+
+        # ── canaries
+        check("a collector key may send canary results and read nothing", post(col, key, "canaries", "results", [{"canary": "refund", "passed": True}]).status_code == 200 and col.get(f"/api/model-monitor/{key}/canaries").status_code == 403)
+        check("an auditor cannot send them", post(aud, key, "canaries", "results", [{"canary": "refund", "passed": True}]).status_code == 403)
+        check("a malformed result is refused", post(col, key, "canaries", "results", [{"canary": "", "passed": True}]).status_code == 422 and post(col, key, "canaries", "results", []).status_code == 422)
+        res = [{"canary": "refund", "passed": True, "model_version": "gpt-x-2026-04", "at": (now - timedelta(minutes=50 - i)).isoformat()} for i in range(6)]
+        res += [{"canary": "refund", "passed": i == 0, "model_version": "gpt-x-2026-07", "at": (now - timedelta(minutes=20 - i)).isoformat()} for i in range(4)]
+        out = post(col, key, "canaries", "results", res + [{"canary": "refund", "passed": True, "at": (now - timedelta(days=90)).isoformat()}]).json()
+        check("a stale timestamp is rejected", out["rejected"] == 1 and out["accepted"] == 10, out)
+        cn = api.get(f"/api/model-monitor/{key}/canaries").json()
+        check("a check that passed on the old version and fails on the new is called out", cn["current_version"] == "gpt-x-2026-07" and cn["reasons"] and cn["reasons"][0]["level"] == "drift" and "earlier versions" in cn["reasons"][0]["text"], cn)
+        d = api.get(f"/api/model-monitor/{key}").json()
+        check("and it appears in the monitor's findings", any(r["kind"] == "CANARY" for r in d["evaluation"]["reasons"]))
+
         check("deleting the monitor removes its decisions and versions", api.delete(f"/api/model-monitor/{key}").status_code == 204)
 finally:
     try:

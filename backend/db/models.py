@@ -701,6 +701,7 @@ class ModelMonitor(Base):
     last_record_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     last_eval_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     versions: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))            # which provider model versions answered (model_versions.py)
+    canaries: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))            # fixed-question checks and their results (llm_safety.py)
     decision_settings: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))  # people mode and its sign-off, decision thresholds
     created_by: Mapped[str] = mapped_column(String(200), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

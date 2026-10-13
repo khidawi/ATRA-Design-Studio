@@ -25,6 +25,7 @@ import random
 from typing import Any, Dict, List, Optional, Tuple
 
 EPS = 1e-4
+from llm_safety import SAFETY_FLAGS  # noqa: E402
 LATENCY_EDGES = [10, 25, 50, 100, 250, 500, 1000, 2500, 5000]               # milliseconds; one more bucket above the last edge
 TEXT_EDGES = [0, 10, 50, 200, 1000, 5000]                                    # characters
 CONF_BINS = 10
@@ -458,6 +459,8 @@ def evaluate(schema: Dict[str, Any], baseline: Dict[str, Any], acc: Dict[str, An
                 reason("watch", "BIAS_BREACH", attr, ratio, t["parity_watch"], f"The favourable outcome rate for {lo['group']} is {ratio:.2f} of the rate for {hi['group']}.")
     res["flags"] = []
     for name in schema.get("flags") or []:
+        if name in SAFETY_FLAGS:                                    # judged by their own rules (llm_safety.py), not against a baseline
+            continue
         rate, base = acc["flags"].get(name, 0) / n, (baseline.get("flags") or {}).get(name, 0.0)
         res["flags"].append({"name": name, "rate": round(rate, 5), "base_rate": base})
         lv = level_of(rate - base, t["flag_watch"], t["flag_drift"])
