@@ -99,7 +99,7 @@ def is_public(method: str, path: str) -> bool:
 
 
 def required_permission(method: str, path: str) -> str:
-    if (method == "POST" and (path in ("/api/runtime/events", "/api/telemetry/v1/traces") or re.match(r"^/api/model-monitor/[^/]+/records$", path))) or (method == "GET" and path.startswith("/api/runtime/contract/")):
+    if (method == "POST" and (path in ("/api/runtime/events", "/api/telemetry/v1/traces") or re.match(r"^/api/model-monitor/[^/]+/(records|decisions)$", path))) or (method == "GET" and path.startswith("/api/runtime/contract/")):
         return "ingest"
     if method in SAFE:
         if path.startswith(("/api/users", "/api/keys")):

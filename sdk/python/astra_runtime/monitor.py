@@ -6,6 +6,12 @@ ModelMonitor: report how a model in production behaves (what it was given, what 
 
     mon.log(inputs={"age": 41, "plan": "gold"}, output="approve", confidence=0.82, latency_ms=41, segments={"gender": "F"})
 
+    # a model you call through a provider's API: say which version answered, so a silent swap behind the name is noticed
+    mon.log(inputs={"topic": "refund"}, output=reply.text, model_version=reply.model)          # the model id or system fingerprint the API returns
+
+    # and what the person did with the output, by role (never a name, unless your compliance lead has signed off on counting individuals)
+    mon.decision("accepted", role="loan officer", review_seconds=14, reason=False, confidence_shown=True)
+
     @mon.track(inputs=lambda applicant: {"age": applicant.age}, output=lambda r: r.decision, confidence=lambda r: r.score)
     def predict(applicant): ...                           # logs every call, with its latency, and an error as an error
 
@@ -66,28 +72,46 @@ class ModelMonitor:
     # ── reporting ─────────────────────────────────────────────────
 
     def log(self, inputs: Dict[str, Any], output: Any, *, confidence: Optional[float] = None, latency_ms: Optional[float] = None, error: Optional[bool] = None,
-            label: Any = None, segments: Optional[Dict[str, Any]] = None, flags: Optional[Dict[str, bool]] = None, at: Optional[datetime] = None) -> None:
+            label: Any = None, segments: Optional[Dict[str, Any]] = None, flags: Optional[Dict[str, bool]] = None, at: Optional[datetime] = None, model_version: Optional[str] = None) -> None:
         """Queue one prediction. Never raises. `label` is the true answer, if you already know it; `segments` are the groups to compare for fairness."""
         try:
             if self.disabled_reason or (self.sample < 1.0 and random.random() > self.sample):
                 return
             rec: Dict[str, Any] = {"inputs": inputs, "output": output, "at": (at or datetime.now(timezone.utc)).isoformat()}
-            for k, v in (("confidence", confidence), ("latency_ms", latency_ms), ("error", error), ("label", label), ("segments", segments), ("flags", flags)):
+            for k, v in (("confidence", confidence), ("latency_ms", latency_ms), ("error", error), ("label", label), ("segments", segments), ("flags", flags), ("model_version", model_version)):
                 if v is not None:
                     rec[k] = v
-            with self._lock:
-                if len(self._q) >= self._max_queue:
-                    self._q.popleft()
-                    self.dropped += 1
-                self._q.append(rec)
-                full = len(self._q) >= self.batch_size
-            if full:
-                self._wake.set()
+            self._enqueue(rec)
         except Exception as exc:                                         # pragma: no cover - reporting must never break the model
             self._warn("log", f"could not queue a record: {exc}")
 
+    def decision(self, action: str, *, role: str = "unspecified", review_seconds: Optional[float] = None, reason: bool = False, confidence_shown: bool = False,
+                 model_correct: Optional[bool] = None, person: Optional[str] = None, at: Optional[datetime] = None) -> None:
+        """Queue what a person did with an output: accepted, edited, overridden, escalated or ignored. Counted by role. `person` is used only if the platform has a
+        compliance sign-off for counting individuals (then it is kept as a one-way pseudonym); otherwise it is discarded by the platform. Never raises."""
+        try:
+            if self.disabled_reason:
+                return
+            rec: Dict[str, Any] = {"_d": True, "action": action, "role": role, "reason": bool(reason), "confidence_shown": bool(confidence_shown), "at": (at or datetime.now(timezone.utc)).isoformat()}
+            for k, v in (("review_seconds", review_seconds), ("model_correct", model_correct), ("person", person)):
+                if v is not None:
+                    rec[k] = v
+            self._enqueue(rec)
+        except Exception as exc:                                         # pragma: no cover
+            self._warn("decision", f"could not queue a decision: {exc}")
+
+    def _enqueue(self, rec: Dict[str, Any]) -> None:
+        with self._lock:
+            if len(self._q) >= self._max_queue:
+                self._q.popleft()
+                self.dropped += 1
+            self._q.append(rec)
+            full = len(self._q) >= self.batch_size
+        if full:
+            self._wake.set()
+
     def track(self, *, inputs: Callable[..., Dict[str, Any]], output: Callable[[Any], Any], confidence: Optional[Callable[[Any], Optional[float]]] = None,
-              segments: Optional[Callable[..., Dict[str, Any]]] = None):
+              segments: Optional[Callable[..., Dict[str, Any]]] = None, version: Optional[Callable[[Any], Optional[str]]] = None):
         """Decorator for a predict function: logs its inputs (as `inputs(*args, **kwargs)` says), its output, its latency, and an exception as an error (then re-raises)."""
         def wrap(fn: Callable) -> Callable:
             @functools.wraps(fn)
@@ -99,7 +123,7 @@ class ModelMonitor:
                     self._safe(lambda: self.log(inputs(*a, **k), None, latency_ms=(time.perf_counter() - t0) * 1000, error=True, segments=segments(*a, **k) if segments else None))
                     raise
                 self._safe(lambda: self.log(inputs(*a, **k), output(result), confidence=confidence(result) if confidence else None, latency_ms=(time.perf_counter() - t0) * 1000,
-                                            segments=segments(*a, **k) if segments else None))
+                                            segments=segments(*a, **k) if segments else None, model_version=version(result) if version else None))
                 return result
             return wrapper
         return wrap
@@ -145,8 +169,8 @@ class ModelMonitor:
             except Exception:                                            # pragma: no cover
                 pass
 
-    def _http(self, payload: Dict[str, Any]):
-        req = urllib.request.Request(f"{self.url}/api/model-monitor/{self.key}/records", data=json.dumps(payload, default=str).encode("utf-8"), method="POST",
+    def _http(self, payload: Dict[str, Any], path: str = "records"):
+        req = urllib.request.Request(f"{self.url}/api/model-monitor/{self.key}/{path}", data=json.dumps(payload, default=str).encode("utf-8"), method="POST",
                                      headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json", "User-Agent": f"astra-model-monitor/{__version__}"})
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as r:
@@ -166,13 +190,20 @@ class ModelMonitor:
         with self._lock:
             if not self._q:
                 return False
-            batch: List[Dict[str, Any]] = [self._q.popleft() for _ in range(min(self.batch_size, len(self._q)))]
-        status, body = self._http({"records": batch})
+            first_is_decision = bool(self._q[0].get("_d"))
+            batch: List[Dict[str, Any]] = []
+            while self._q and len(batch) < self.batch_size and bool(self._q[0].get("_d")) == first_is_decision:
+                batch.append(self._q.popleft())
+        if first_is_decision:
+            status, body = self._http({"decisions": [{k: v for k, v in d.items() if k != "_d"} for d in batch]}, "decisions")
+        else:
+            status, body = self._http({"records": batch})
         if status == 200:
             self.sent += len(batch)
             self._backoff = 0.0
             if isinstance(body, dict):
-                self.status = body.get("status")
+                if not first_is_decision:
+                    self.status = body.get("status")
                 self.rejected += int(body.get("rejected") or 0)
             return True
         if status in (401, 403):

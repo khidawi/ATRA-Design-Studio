@@ -332,6 +332,11 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
 .mon-b{display:block;height:6px;border-radius:3px;background:var(--ln-c5ccd6)}.mon-n{display:block;height:6px;border-radius:3px;background:var(--bg-1e4fcb)}
 .mon-key{display:inline-block;width:10px;height:6px;border-radius:3px;margin-right:3px;vertical-align:middle}
 .mon-chart{width:100%;max-width:640px;height:auto}.mon-th{stroke-width:1;stroke-dasharray:4 3}.mon-th.w{stroke:var(--ln-d97706)}.mon-th.d{stroke:var(--ln-b42318)}.mon-tx{font-size:9px;fill:var(--fg-4a5563)}
+.pp-tbl{display:flex;flex-direction:column}
+.pp-tr{display:grid;grid-template-columns:1.6fr .6fr .9fr .9fr .9fr .9fr;gap:10px;align-items:center;padding:7px 4px;border-top:1px solid var(--ln-edf0f3);font-size:13px}
+.pp-th{font-size:12px;font-weight:600;color:var(--fg-4a5563);border-top:0}
+.pp-tr.v{grid-template-columns:1.8fr .7fr 1fr 1fr .8fr .8fr}
+@media (max-width:720px){.pp-tr,.pp-tr.v{grid-template-columns:1fr 1fr 1fr}}
 </style>
 </head>
 <body>
@@ -492,6 +497,9 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       monReset: (key) => post('/api/model-monitor/' + encodeURIComponent(key) + '/baseline/reset', {}),
       monSeries: (key, hours) => call('/api/model-monitor/' + encodeURIComponent(key) + '/series?hours=' + encodeURIComponent(hours)),
       monSignals: (designKey) => call('/api/model-monitor/signals?design_key=' + encodeURIComponent(designKey)),
+      monVersions: (key) => call('/api/model-monitor/' + encodeURIComponent(key) + '/versions'),
+      monDecisions: (key) => call('/api/model-monitor/' + encodeURIComponent(key) + '/decisions'),
+      monDecisionSettings: (key, body) => call('/api/model-monitor/' + encodeURIComponent(key) + '/decision-settings', { method: 'PUT', body: JSON.stringify(body) }),
       monIncidentStatus: (id, body) => call('/api/model-monitor/incidents/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(body) }),
       telDesign: (key, body) => post('/api/telemetry/agents/' + encodeURIComponent(key) + '/design', body),
       previewAgentImport: (body) => post('/api/agents/import/preview', body),
@@ -2317,10 +2325,10 @@ kill_switch:
   const LF_INC_STATUS = ['OPEN', 'INVESTIGATING', 'MITIGATED', 'RESOLVED', 'POST_MORTEM'];
   const LF_SEV = { 1: ['Low', 'LOW'], 2: ['Moderate', 'MODERATE'], 3: ['High', 'HIGH'], 4: ['Severe', 'HIGH'], 5: ['Critical', 'CRITICAL'] };
   const lfCheck = (k, label, help) => {
-    const seen = typeof monObserved === 'function' && (monObserved() || {})[k];
-    return `<label class="chk lf-chk"><input type="checkbox" data-chg="lfSet" data-arg="${k}"${seen || lfGet(k) ? ' checked' : ''}${seen ? ' disabled' : ''}><span class="stack" style="gap:1px"><span>${label}${seen ? ' <span class="pill bad">Seen in production</span>' : ''}</span>${help ? `<span class="cap" style="font-size:12.5px">${help}</span>` : ''}</span></label>`;
+    const ob = typeof monObserved === 'function' ? (monObserved() || {})[k] : undefined, seen = ob === true, contra = ob === false;
+    return `<label class="chk lf-chk"><input type="checkbox" data-chg="lfSet" data-arg="${k}"${!contra && (seen || lfGet(k)) ? ' checked' : ''}${seen || contra ? ' disabled' : ''}><span class="stack" style="gap:1px"><span>${label}${seen ? ' <span class="pill bad">Seen in production</span>' : ''}${contra ? ' <span class="pill bad">Not supported by production</span>' : ''}</span>${help ? `<span class="cap" style="font-size:12.5px">${help}</span>` : ''}</span></label>`;
   };
-  const lfSelect = (k, label, help, unset) => `<div class="fld"><label for="lf-${k}">${label}</label><select id="lf-${k}" class="inp" data-chg="lfSel" data-arg="${k}"><option value="">${unset || 'Not stated'}</option>${LF_ENUM[k].map((v) => opt(v, lfHuman(v), M.life[k])).join('')}</select>${help ? `<span class="cap" style="font-size:12.5px">${help}</span>` : ''}</div>`;
+  const lfSelect = (k, label, help, unset) => { const ob = typeof monObserved === 'function' ? (monObserved() || {})[k] : undefined; return `<div class="fld"><label for="lf-${k}">${label}${ob ? ' <span class="pill bad">Seen in production</span>' : ''}</label><select id="lf-${k}" class="inp" data-chg="lfSel" data-arg="${k}"${ob ? ' disabled' : ''}><option value="">${unset || 'Not stated'}</option>${LF_ENUM[k].map((v) => opt(v, lfHuman(v), ob || M.life[k])).join('')}</select>${help ? `<span class="cap" style="font-size:12.5px">${help}</span>` : ''}</div>`; };
   const lfCount = (k, label, help) => `<div class="fld"><label for="lf-${k}">${label}</label><input id="lf-${k}" class="inp" type="number" min="0" step="1" style="max-width:140px" data-chg="lfNum" data-arg="${k}" value="${M.life[k] === undefined ? '' : esc(M.life[k])}" placeholder="0">${help ? `<span class="cap" style="font-size:12.5px">${help}</span>` : ''}</div>`;
   const lfCard = (title, sub, body) => `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:12px"><div class="stack" style="gap:2px"><h2>${title}</h2>${sub ? `<span class="cap">${sub}</span>` : ''}</div>${body}</section>`;
   const lfGrid = (inner) => `<div class="lf-grid">${inner}</div>`;
@@ -2575,7 +2583,7 @@ kill_switch:
     lfIncDel: (id) => { if (!window.confirm('Remove this incident from the log?')) return; M.incidents = M.incidents.filter((i) => i.id !== id); persist(); }
   });
   /* ----- Production monitoring of a model: what its inputs and outputs look like where it really runs ----- */
-  const MON = { forDesign: null, loading: false, loaded: false, error: null, caps: null, list: [], signals: {}, incidents: [], detail: {}, series: {}, open: {}, showForm: false, form: null, busy: null, err: null, msg: null, timer: null, edit: null };
+  const MON = { forDesign: null, loading: false, loaded: false, error: null, caps: null, list: [], signals: {}, incidents: [], detail: {}, series: {}, ver: {}, dec: {}, open: {}, showForm: false, form: null, busy: null, err: null, msg: null, timer: null, edit: null };
   const MON_STATUS = { LEARNING: ['muted', 'Learning'], OK: ['ok', 'Stable'], WATCH: ['warn', 'Watch'], DRIFT: ['bad', 'Drift'], LOW_VOLUME: ['muted', 'Too few records'], NO_DATA: ['muted', 'No data'] };
   const monHere = () => MON.forDesign === M.designKey;
   async function loadMon(quiet) {
@@ -2587,7 +2595,7 @@ kill_switch:
       const sg = await STAI.api.monSignals(dk);
       if (dk !== M.designKey) { MON.loading = false; return; }
       MON.forDesign = dk; MON.list = sg.monitors; MON.signals = sg.signals; MON.incidents = sg.incidents; MON.loaded = true; MON.error = null;
-      await Promise.all(sg.monitors.map(async (m) => { MON.detail[m.key] = await STAI.api.monGet(m.key); MON.series[m.key] = await STAI.api.monSeries(m.key, 168); }));
+      await Promise.all(sg.monitors.map(async (m) => { MON.detail[m.key] = await STAI.api.monGet(m.key); MON.series[m.key] = await STAI.api.monSeries(m.key, 168); MON.ver[m.key] = await STAI.api.monVersions(m.key); MON.dec[m.key] = await STAI.api.monDecisions(m.key); }));
       if (sg.monitors.length) { MON.signals = (await STAI.api.monSignals(dk)).signals; }          // the evaluation above may have changed them
     } catch (e) { if (!quiet) MON.error = e.message; }
     MON.loading = false;
@@ -2602,6 +2610,9 @@ kill_switch:
     const s = MON.signals || {}, o = {};
     ['drift_detected', 'bias_breach_detected', 'domain_violation_occurred'].forEach((k) => { if (s[k]) o[k] = true; });
     if (s.drift_detected && s.drift_type) o.drift_type = s.drift_type;
+    if (s.hitl_verified_substantive === false) o.hitl_verified_substantive = false;       // review looks perfunctory or is not catching mistakes
+    const rk = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];       // production can raise a declared risk, never lower it
+    if (s.automation_bias_risk && rk.indexOf(s.automation_bias_risk) > Math.max(0, rk.indexOf(M.life.automation_bias_risk))) o.automation_bias_risk = s.automation_bias_risk;
     return Object.keys(o).length ? o : null;
   }
   const monIncidentsHere = () => (monHere() ? MON.incidents : []);
@@ -2644,6 +2655,33 @@ kill_switch:
     const code = `from astra_runtime import ModelMonitor\n\nmon = ModelMonitor("${d.name}")      # ASTRA_URL and ASTRA_KEY come from the environment\n\n# wherever the model answers:\nmon.log(inputs=${py(inputs)},\n        output=${py(rec.output)}, confidence=0.82, latency_ms=41${rec.segments ? `,\n        segments=${py(rec.segments)}` : ''})`;
     return { curl, code };
   }
+  const monDur = (s) => (s === null || s === undefined ? '—' : s < 90 ? s + ' s' : Math.round(s / 60) + ' min');
+  function monVersionsPanel(d) {
+    const v = MON.ver[d.key];
+    if (!v || !v.tracking) {
+      return `<details class="lf-det"><summary><b>Which version of the model answers</b> <span class="cap">not tracked</span></summary><div class="stack" style="gap:8px;padding:8px 0"><span class="cap" style="font-size:12.5px">If this model is called through a provider's API, the provider can change the model behind its name without telling you. Send the model id or fingerprint the API returns with each answer (<span class="mono">model_version</span>) and ASTRA will notice the day it changes and whether the answers moved. It only advises: nothing is stopped.</span>${tlCode('mon.log(inputs=..., output=reply.text, model_version=reply.model)')}</div></details>`;
+    }
+    const cur = v.current, evs = v.events.slice().reverse();
+    const rows = v.versions.map((x) => `<div class="pp-tr v"><span class="mono" title="${esc(x.version)}" style="overflow:hidden;text-overflow:ellipsis">${esc(x.version)}${x.version === cur ? ' <span class="pill ok">current</span>' : ''}</span><span class="mono">${x.n.toLocaleString()}</span><span class="cap">${esc(String(x.first_seen).slice(0, 16).replace('T', ' '))}</span><span class="cap">${esc(String(x.last_seen).slice(0, 16).replace('T', ' '))}</span><span class="mono">${monPct(x.error_rate)}</span><span class="mono">${x.latency_p50 ? x.latency_p50 + ' ms' : '—'}</span></div>`).join('');
+    const changes = evs.length ? evs.slice(0, 5).map((e) => `<div class="note ${e.shifts.length ? 'alert' : 'plain'}" style="font-size:13px;padding:8px 12px;gap:3px"><span><b>${esc(String(e.at).slice(0, 16).replace('T', ' '))}</b>: <span class="mono">${esc(e.from)}</span> → <span class="mono">${esc(e.to)}</span></span>${e.shifts.length ? e.shifts.map((x) => `<span>${esc(x.text)}</span>`).join('') : `<span class="cap">${e.old_n >= 100 && e.new_n >= 100 ? 'Answers, errors, response time and confidence look alike.' : 'Not enough answers from one of them yet to compare.'}</span>`}</div>`).join('') : '<span class="cap">No change of version seen.</span>';
+    return `<div class="stack" style="gap:6px"><strong style="font-size:13px">Which version of the model answers</strong><span class="cap" style="font-size:12.5px">Advice only: ASTRA reports a change and what moved, it does not stop or reroute anything. A change of version means the approval you gave may no longer describe the model.</span>${changes}<div class="pp-tbl"><div class="pp-tr v pp-th"><span>Version</span><span>Answers</span><span>First seen</span><span>Last seen</span><span>Errors</span><span>Median time</span></div>${rows}</div></div>`;
+  }
+  function monPeoplePanel(d) {
+    const g = MON.dec[d.key];
+    const code = 'mon.decision("accepted", role="loan officer", review_seconds=14, model_correct=None)   # accepted | edited | overridden | escalated | ignored';
+    if (!g || !g.n) {
+      return `<details class="lf-det"><summary><b>How people use the outputs</b> <span class="cap">no decisions yet</span></summary><div class="stack" style="gap:8px;padding:8px 0"><span class="cap" style="font-size:12.5px">The risk of a model is also in what people do with its output. Send what the person decided (accepted, edited, overrode, escalated, ignored), their <b>role</b> and how long they looked. ASTRA shows whether review looks real: how much is accepted in seconds, and whether wrong outputs get accepted. Counted by role; names are not stored unless compliance signs off.</span>${tlCode(code)}</div></details>`;
+    }
+    const tile = (n, l, cls) => `<div class="lf-tile${cls ? ' ' + cls : ''}"><b class="mono">${n}</b><span class="cap">${l}</span></div>`;
+    const rs = (g.reasons || []).slice().sort((a, b) => (a.level === 'drift' ? 0 : 1) - (b.level === 'drift' ? 0 : 1));
+    const tiles = `<div class="lf-tiles">${tile(g.n.toLocaleString(), 'Decisions in the last ' + g.days + ' days' + (g.coverage !== null && g.coverage !== undefined ? ' (' + monPct(g.coverage) + ' of outputs)' : ''))}${tile(monPct(g.accepted), 'Accepted as given', g.accepted >= 0.98 ? 'bad' : '')}${tile(monPct(g.changed), 'Edited or overridden')}${tile(monDur(g.review_p50), 'Median time looking', g.review_p50 !== null && g.review_p50 < 5 ? 'bad' : '')}${g.wrong ? tile(g.wrong_accepted + ' of ' + g.wrong, 'Wrong outputs that were accepted', g.wrong && g.wrong_accepted / g.wrong >= 0.5 ? 'bad' : '') : ''}</div>`;
+    const find = rs.length ? rs.slice(0, 6).map((r) => `<div class="note ${r.level === 'drift' ? 'alert' : 'plain'}" style="font-size:13px;padding:8px 12px;flex-direction:row;gap:10px;align-items:center"><span class="pill ${r.level === 'drift' ? 'bad' : 'warn'}">${r.level === 'drift' ? 'Look into' : 'Watch'}</span><span>${esc(r.text)}</span></div>`).join('') : (g.sufficient ? '<div class="note good" style="font-size:13px"><strong>Review looks real</strong><span>People are changing or rejecting outputs, taking time over them, and catching wrong ones.</span></div>' : `<span class="cap">Fewer than ${g.thresholds.min_decisions} decisions so far; nothing is judged yet.</span>`);
+    const roles = `<div class="pp-tbl"><div class="pp-tr pp-th"><span>Role</span><span>Decisions</span><span>Accepted</span><span>Changed</span><span>Median look</span><span>Wrong accepted</span></div>${g.roles.map((r) => `<div class="pp-tr"><span class="mono">${esc(r.role)}</span><span class="mono">${r.n.toLocaleString()}</span><span class="mono">${monPct(r.accepted)}</span><span class="mono">${monPct(r.edited + r.overridden)}</span><span class="mono">${monDur(r.review_p50)}</span><span class="mono">${r.wrong ? r.wrong_accepted + ' of ' + r.wrong : '—'}</span></div>`).join('')}</div>`;
+    const ind = g.individuals
+      ? `<span class="cap" style="font-size:12.5px">Distinct people are counted as pseudonyms (a one-way hash, never a name), signed off by ${esc(g.signed_off_by || 'compliance')}${g.signed_off_at ? ' on ' + esc(String(g.signed_off_at).slice(0, 10)) : ''}. ${g.distinct_people ? g.distinct_people + ' people seen; the busiest made ' + monPct(g.top_person_share) + '.' : ''} <button class="btn3 btn-s" data-act="monIndividuals" data-arg="${esc(d.key)}:off">Stop counting individuals</button></span>`
+      : `<span class="cap" style="font-size:12.5px">Counted by role only. To also see whether decisions rest on one or two people, compliance can sign off counting individuals as pseudonyms. <button class="btn3 btn-s" data-act="monIndividuals" data-arg="${esc(d.key)}:on">Count individuals (compliance sign-off)</button></span>`;
+    return `<div class="stack" style="gap:6px"><strong style="font-size:13px">How people use the outputs</strong><span class="cap" style="font-size:12.5px">Advice only. A fast acceptance can be an expert's; these are questions for a person to look into, and the score is told only when wrong outputs are being accepted or review is not real.</span>${tiles}${find}${roles}${ind}</div>`;
+  }
   function monCard(m) {
     const d = MON.detail[m.key];
     if (!d) return lfCard(esc(m.name), 'Production monitor', '<p class="cap" style="margin:0">Loading…</p>');
@@ -2668,9 +2706,10 @@ kill_switch:
       if ((ev.flags || []).length) body += `<span class="cap">${ev.flags.map((f) => esc(f.name) + ': ' + monPct(f.rate) + ' (baseline ' + monPct(f.base_rate) + ')').join(' · ')}</span>`;
       body += `<div class="stack" style="gap:6px"><strong style="font-size:13px">How each input has moved over the last week</strong>${monChart(MON.series[d.key], d)}</div>`;
     }
+    body += monVersionsPanel(d) + monPeoplePanel(d);
     const ed = MON.edit && MON.edit.key === d.key ? MON.edit : null;
     const edit = ed ? `<div class="stack" style="gap:10px;padding-top:6px;border-top:1px solid var(--ln-edf0f3)"><span class="cap">Thresholds are rules of thumb, not calibrated to this model. Change them when the defaults do not suit it.</span><div class="prow" style="gap:12px;align-items:flex-end">${[['psi_watch', 'Watch at PSI'], ['psi_drift', 'Drift at PSI'], ['parity_breach', 'Bias breach below'], ['perf_drop_drift', 'Accuracy drop = drift'], ['error_drift', 'Error rate = drift'], ['eval_hours', 'Window (hours)']].map(([k, l]) => `<label class="cap">${l}<br><input class="inp mono" style="max-width:110px" type="number" step="any" data-chg="monThr" data-arg="${k}" value="${esc(ed.thr[k])}"></label>`).join('')}</div><div class="prow" style="gap:8px"><button class="btn btn-s" data-act="monEditSave"${MON.busy ? ' disabled' : ''}>Save</button><button class="btn2 btn-s" data-act="monEdit" data-arg="">Close</button></div></div>` : '';
-    const conn = `<details class="lf-det"${learning ? ' open' : ''}><summary><b>How to send this model's traffic</b></summary><div class="stack" style="gap:10px;padding:8px 0"><span class="cap" style="font-size:12.5px">Use an API key with the role <b>collector</b> (<a href="#/users">Users → API keys</a>); it can send records and nothing else. Send only the fields the monitor declares. ASTRA keeps statistics, never the records.</span><span class="cap"><b>Python</b> (the astra_runtime SDK: batches, never blocks or raises)</span>${tlCode(sn.code)}<span class="cap"><b>Any language</b> (up to 1,000 records per request)</span>${tlCode(sn.curl)}</div></details>`;
+    const conn = `<details class="lf-det"${learning ? ' open' : ''}><summary><b>How to send this model's traffic</b></summary><div class="stack" style="gap:10px;padding:8px 0"><span class="cap" style="font-size:12.5px">Use an API key with the role <b>collector</b> (<a href="#/users">Users → API keys</a>); it can send records and nothing else. Send only the fields the monitor declares. ASTRA keeps statistics, never the records.</span><span class="cap"><b>Python</b> (the astra_runtime SDK: batches, never blocks or raises)</span>${tlCode(sn.code)}<span class="cap"><b>Any language</b> (up to 1,000 records per request)</span>${tlCode(sn.curl)}<span class="cap"><b>What people decided</b> (same key; <span class="mono">POST ${esc(d.ingest_path.replace(/records$/, 'decisions'))}</span> with <span class="mono">{"decisions": [...]}</span>)</span>${tlCode('mon.decision("overridden", role="loan officer", review_seconds=42, reason=True)')}</div></details>`;
     return lfCard('', '', `${head}${body}${edit}${conn}`);
   }
   function monForm() {
@@ -2739,6 +2778,12 @@ kill_switch:
     monReset: async (key) => {
       if (!window.confirm('Learn a new baseline? The current baseline and the history are forgotten, and the first records that arrive become the new normal. Do this after a deliberate change to the model or its data.')) return;
       try { await STAI.api.monReset(key); await loadMon(true); } catch (e) { window.alert(e.message); }
+    },
+    monIndividuals: async (arg) => {
+      const [key, how] = arg.split(':');
+      if (how === 'on' && !window.confirm('Count distinct people as well as roles? Names are never stored: each person becomes a one-way pseudonym, used only to see whether decisions rest on one or two people. This needs a compliance sign-off and is recorded under your name. Continue?')) return;
+      if (how === 'off' && !window.confirm('Stop counting individuals? Everything counted about people so far is forgotten.')) return;
+      try { await STAI.api.monDecisionSettings(key, { individuals: how === 'on' }); await loadMon(true); } catch (e) { window.alert(e.message); }
     },
     monDelete: async (key) => {
       if (!window.confirm('Remove this monitor and its history? Incidents it raised are removed too.')) return;

@@ -700,6 +700,8 @@ class ModelMonitor(Base):
     rejected_total: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default="0")
     last_record_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     last_eval_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    versions: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))            # which provider model versions answered (model_versions.py)
+    decision_settings: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))  # people mode and its sign-off, decision thresholds
     created_by: Mapped[str] = mapped_column(String(200), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
@@ -716,6 +718,18 @@ class ModelWindow(Base):
     acc: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
 
 
+class ModelDecisionWindow(Base):
+    """One hour of the decisions people made about a model's outputs: counters by role, never who or what (decision_stats.py)."""
+
+    __tablename__ = "model_decision_windows"
+    __table_args__ = (UniqueConstraint("monitor_id", "window_start", name="uq_model_decision_window"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    monitor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("model_monitors.id", ondelete="CASCADE"), nullable=False, index=True)
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    acc: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+
+
 class ModelIncident(Base):
     """An incident raised by production monitoring. A person changes its status; monitoring only opens it and notes when the signal has gone."""
 
@@ -724,7 +738,7 @@ class ModelIncident(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     seq: Mapped[int] = mapped_column(Integer, Identity(start=1), unique=True)
     monitor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("model_monitors.id", ondelete="CASCADE"), nullable=False, index=True)
-    kind: Mapped[str] = mapped_column(String(24), nullable=False)                 # DRIFT_DETECTION | BIAS_BREACH | MODEL_FAILURE
+    kind: Mapped[str] = mapped_column(String(24), nullable=False)                 # DRIFT_DETECTION | BIAS_BREACH | MODEL_FAILURE | SUPPLY_CHAIN | HUMAN_REVIEW
     severity: Mapped[int] = mapped_column(Integer, nullable=False)
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     detail: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))

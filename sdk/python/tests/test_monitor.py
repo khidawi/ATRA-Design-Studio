@@ -28,7 +28,7 @@ class Platform:
             def do_POST(self):
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])) or b"{}")
                 platform.posts.append((self.path, self.headers.get("Authorization"), body))
-                code, resp, headers = platform.script.pop(0) if platform.script else (200, {"accepted": len(body["records"]), "rejected": 0, "status": "OK"}, {})
+                code, resp, headers = platform.script.pop(0) if platform.script else (200, {"accepted": len(body.get("records") or body.get("decisions") or []), "rejected": 0, "status": "OK"}, {})
                 raw = json.dumps(resp).encode()
                 self.send_response(code)
                 self.send_header("Content-Type", "application/json")
@@ -151,6 +151,38 @@ class ModelMonitorTests(unittest.TestCase):
 
         self.assertEqual(predict(4), 8)
 
+    def test_a_version_and_a_decision_go_to_their_own_endpoints(self):
+        m = self.mon()
+        m.log({"a": 1}, "yes", model_version="gpt-x-2026-04")
+        m.decision("accepted", role="loan officer", review_seconds=12, model_correct=True, person="alice")
+        m.decision("overridden", role="loan officer")
+        m.log({"a": 2}, "no")
+        self.assertTrue(m.flush())
+        by_path = [(path.rsplit("/", 1)[-1], body) for path, _, body in self.p.posts]
+        self.assertEqual([x[0] for x in by_path], ["records", "decisions", "records"])
+        self.assertEqual(by_path[0][1]["records"][0]["model_version"], "gpt-x-2026-04")
+        d = by_path[1][1]["decisions"]
+        self.assertEqual([x["action"] for x in d], ["accepted", "overridden"])
+        self.assertNotIn("_d", d[0])
+        self.assertEqual(m.sent, 4)
+
+    def test_track_can_say_which_version_answered(self):
+        m = self.mon()
+
+        class R:
+            text, model = "hi", "gpt-x-2026-07"
+
+        @m.track(inputs=lambda q: {"q": q}, output=lambda r: r.text, version=lambda r: r.model)
+        def ask(q):
+            return R()
+
+        ask("x")
+        m.flush()
+        self.assertEqual(self.p.posts[0][2]["records"][0]["model_version"], "gpt-x-2026-07")
+
+    def test_a_decision_never_raises(self):
+        m = self.mon()
+        m.decision(None, role=None, review_seconds=object())
 
 if __name__ == "__main__":
     unittest.main()

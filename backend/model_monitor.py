@@ -16,6 +16,10 @@ Production monitoring of AI models: plug a model that is running inside the orga
   GET    /api/model-monitor/{key}/incidents   the incidents monitoring raised
   PATCH  /api/model-monitor/incidents/{id}    a person changes an incident's status
   GET    /api/model-monitor/signals           for a model design: what production shows, as the ST-AI score understands it
+  GET    /api/model-monitor/{key}/versions    which provider model versions answered, the changes, and whether behaviour moved
+  POST   /api/model-monitor/{key}/decisions   what people did with the outputs (an API key of role collector); roles, not people
+  GET    /api/model-monitor/{key}/decisions   how review is going: acceptance, review time, wrong outputs accepted
+  PUT    /api/model-monitor/{key}/decision-settings   thresholds; counting distinct people (as pseudonyms) needs a compliance sign-off
 
 The point of reading production is that a model is only as safe as it is where it really runs. A design says what was intended; the score is declared by
 people. This reads what is happening: an input whose distribution has moved away from what the model was validated on (data drift), a model that
@@ -26,6 +30,10 @@ score understands (the Runtime facts of the model design) and, when it is seriou
 What is kept is statistics, never records: hourly histograms, category counts, text lengths (never text), confidence and latency buckets, counts of
 right and wrong answers, rates by group (model_stats.py). Nothing in them identifies a person. An input that is a free identifier is capped at fifty
 categories per window, and the rest is counted as "other". Only fields declared in the schema are read; anything else in a record is ignored.
+
+Third-party models change without notice: a record may carry `model_version` (the model id or fingerprint the provider reports) and a new version
+becomes a change event, compared with the one before it (model_versions.py). People's use of the outputs is read from decision records, by role
+(decision_stats.py). Both only advise: nothing is stopped or rerouted, and a finding is worded as a question for a person, not a verdict.
 
 Protections: ingestion needs a key with the ingest permission (a collector key can do only this); batches are limited to 1,000 records and 2 MB; a key
 is rate limited and answered 429 with Retry-After; a record's own timestamp is honoured only within the retention window; and a monitor's aggregates are
@@ -46,10 +54,12 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
+import decision_stats as ds
 import model_stats as ms
+import model_versions as mv
 from agent_registry import agent_key
-from auth import AuthUser, current_user
-from db.models import Design, ModelIncident, ModelMonitor, ModelWindow
+from auth import AuthUser, current_user, has
+from db.models import Design, ModelDecisionWindow, ModelIncident, ModelMonitor, ModelWindow
 from db.session import get_session
 from organisation import current_organisation
 
@@ -61,7 +71,8 @@ RECORDS_PER_MINUTE = 120_000
 EVAL_EVERY_SECONDS = 20
 INCIDENT_STATUSES = ("OPEN", "INVESTIGATING", "MITIGATED", "RESOLVED", "POST_MORTEM")
 INCIDENT_KIND = {"DATA_DRIFT": "DRIFT_DETECTION", "PREDICTION_DRIFT": "DRIFT_DETECTION", "PERFORMANCE_DRIFT": "DRIFT_DETECTION", "BIAS_BREACH": "BIAS_BREACH",
-                 "DOMAIN_VIOLATION": "MODEL_FAILURE", "MODEL_FAILURE": "MODEL_FAILURE"}
+                 "DOMAIN_VIOLATION": "MODEL_FAILURE", "MODEL_FAILURE": "MODEL_FAILURE", "MODEL_VERSION": "SUPPLY_CHAIN", "HUMAN_REVIEW": "HUMAN_OVERRIDE_FAILED"}
+DECISION_DAYS = 7
 _window: Dict[str, Deque] = defaultdict(deque)
 _last_eval: Dict[Any, float] = {}
 
@@ -182,19 +193,49 @@ def evaluate_monitor(session: Session, m: ModelMonitor, now: Optional[datetime] 
     now = now or datetime.now(timezone.utc)
     t = {**ms.DEFAULT_THRESHOLDS, **(m.thresholds or {})}
     m.last_eval_at = now
+    extra, extra_sig = _people_and_versions(session, m, now)
     if m.baseline is None:
         n = (m.buffer or {}).get("n", 0)
-        m.status, m.reasons, m.signals = "LEARNING", [], {}
-        return {"status": "LEARNING", "n": n, "reasons": [], "message": f"Learning what normal looks like: {n} of {m.baseline_target} records."}
+        m.status, m.reasons, m.signals = "LEARNING", extra[:30], extra_sig
+        _sync_incidents(session, m, extra, now)
+        return {"status": "LEARNING", "n": n, "reasons": extra, "message": f"Learning what normal looks like: {n} of {m.baseline_target} records."}
     merged = _merged(_windows(session, m, now - timedelta(hours=t["eval_hours"])))
     if merged is None or merged["n"] == 0:
-        m.status, m.reasons, m.signals = "NO_DATA", [], {}
-        _sync_incidents(session, m, [], now)
-        return {"status": "NO_DATA", "n": 0, "reasons": [], "message": f"No records in the last {int(t['eval_hours'])} hours."}
+        m.status, m.reasons, m.signals = "NO_DATA", extra[:30], extra_sig
+        _sync_incidents(session, m, extra, now)
+        return {"status": "NO_DATA", "n": 0, "reasons": extra, "message": f"No records in the last {int(t['eval_hours'])} hours."}
     res = ms.evaluate(m.spec, m.baseline, merged, t)
-    m.status, m.reasons, m.signals = res["status"], res["reasons"][:30], ms.signals(res["reasons"])
+    if res["status"] in ("OK", "WATCH", "DRIFT"):
+        res["reasons"] = res["reasons"] + extra
+        levels = {r["level"] for r in res["reasons"]}
+        res["status"] = "DRIFT" if "drift" in levels else ("WATCH" if "watch" in levels else "OK")
+    m.status, m.reasons, m.signals = res["status"], res["reasons"][:30], {**ms.signals(res["reasons"]), **extra_sig}
     _sync_incidents(session, m, res["reasons"], now)
     return res
+
+
+def _people_and_versions(session: Session, m: ModelMonitor, now: datetime) -> Any:
+    """What the version history and the people's decisions add to a monitor: reasons, and the oversight facts the score understands."""
+    reasons: List[Dict[str, Any]] = []
+    sig: Dict[str, Any] = {}
+    if m.versions and m.versions.get("items"):
+        reasons += mv.evaluate(m.versions, m.spec["output"]["kind"], m.thresholds, now.isoformat())["reasons"]
+    dec = decisions_evaluation(session, m, now)
+    if dec["n"]:
+        reasons += dec["reasons"]
+        sig = dec["signals"]
+    return reasons, sig
+
+
+def decisions_evaluation(session: Session, m: ModelMonitor, now: datetime) -> Dict[str, Any]:
+    since = _hour(now - timedelta(days=DECISION_DAYS))
+    acc = None
+    for w in session.scalars(select(ModelDecisionWindow).where(ModelDecisionWindow.monitor_id == m.id, ModelDecisionWindow.window_start >= since).order_by(ModelDecisionWindow.window_start)):
+        acc = copy.deepcopy(w.acc) if acc is None else ms.merge(acc, w.acc)
+    if acc is None:
+        return {"n": 0, "reasons": [], "signals": {}, "roles": []}
+    predictions = sum(w.acc.get("n", 0) for w in _windows(session, m, since))
+    return ds.evaluate(acc, (m.decision_settings or {}).get("thresholds"), predictions)
 
 
 def _sync_incidents(session: Session, m: ModelMonitor, reasons: List[Dict[str, Any]], now: datetime) -> None:
@@ -205,7 +246,7 @@ def _sync_incidents(session: Session, m: ModelMonitor, reasons: List[Dict[str, A
     open_ = {i.kind: i for i in session.scalars(select(ModelIncident).where(ModelIncident.monitor_id == m.id, ModelIncident.status.in_(("OPEN", "INVESTIGATING", "MITIGATED"))))}
     for kind, rs in by_kind.items():
         kinds = {r["kind"] for r in rs}
-        sev = 4 if (kind == "BIAS_BREACH" or "PERFORMANCE_DRIFT" in kinds or "DOMAIN_VIOLATION" in kinds or len(rs) >= 3) else 3
+        sev = 4 if (kind in ("BIAS_BREACH", "HUMAN_OVERRIDE_FAILED") or "PERFORMANCE_DRIFT" in kinds or "DOMAIN_VIOLATION" in kinds or len(rs) >= 3) else 3
         detail = {"reasons": rs[:8], "kinds": sorted(kinds)}
         inc = open_.get(kind)
         if inc is None:
@@ -237,6 +278,7 @@ class RecordIn(BaseModel):
     label: Any = None                       # the true answer, when it is known
     segments: Dict[str, Any] = Field(default_factory=dict)
     flags: Dict[str, bool] = Field(default_factory=dict)
+    model_version: Optional[str] = Field(None, max_length=120)      # the model id or fingerprint the provider reports for this answer
 
 
 class BatchIn(BaseModel):
@@ -288,6 +330,7 @@ def _ingest(key: str, records: List[RecordIn]) -> IngestOut:
         accepted = rejected = 0
         frozen = False
         groups: Dict[datetime, List[Dict[str, Any]]] = defaultdict(list)
+        seen_versions: List[Any] = []
         for r in records:
             at = r.at if r.at is not None else now
             at = at if at.tzinfo else at.replace(tzinfo=timezone.utc)
@@ -295,6 +338,15 @@ def _ingest(key: str, records: List[RecordIn]) -> IngestOut:
                 rejected += 1
                 continue
             groups[_hour(at)].append(r.model_dump(exclude={"at"}))
+            version = mv.clean(r.model_version)
+            if version:
+                seen_versions.append((at.astimezone(timezone.utc).isoformat(), version, r))
+        if seen_versions:
+            state = copy.deepcopy(m.versions) if m.versions and m.versions.get("items") else mv.new_state()
+            for at_iso, version, r in sorted(seen_versions, key=lambda x: x[0]):
+                mv.fold(state, version, {"output": r.output, "latency_ms": r.latency_ms, "confidence": r.confidence, "error": r.error}, at_iso, m.spec["output"]["kind"])
+            m.versions = state
+            flag_modified(m, "versions")
         if m.baseline is None:
             buf = m.buffer or ms.new_acc(m.spec, None)
             for recs in groups.values():
@@ -326,6 +378,7 @@ def _ingest(key: str, records: List[RecordIn]) -> IngestOut:
         _maybe_evaluate(session, m, force=frozen)
         if rng.random() < 0.03:                                                    # keep the table bounded without a scheduler
             session.execute(delete(ModelWindow).where(ModelWindow.monitor_id == m.id, ModelWindow.window_start < oldest))
+            session.execute(delete(ModelDecisionWindow).where(ModelDecisionWindow.monitor_id == m.id, ModelDecisionWindow.window_start < oldest))
         status = m.status
         learning = {"records": (m.buffer or {}).get("n", 0), "target": m.baseline_target} if m.baseline is None else None
         session.commit()
@@ -371,7 +424,8 @@ def _summary(m: ModelMonitor) -> Dict[str, Any]:
     open_inc = 0
     return {"key": m.key, "name": m.name, "design_key": m.design_key, "task": m.task, "status": m.status, "records_total": m.records_total, "rejected_total": m.rejected_total,
             "last_record_at": m.last_record_at, "baseline_ready": m.baseline is not None, "baseline_target": m.baseline_target,
-            "learning_records": (m.buffer or {}).get("n", 0) if m.baseline is None else None, "signals": m.signals or {}, "reasons": (m.reasons or [])[:5], "created_by": m.created_by}
+            "learning_records": (m.buffer or {}).get("n", 0) if m.baseline is None else None, "signals": m.signals or {}, "reasons": (m.reasons or [])[:5], "created_by": m.created_by,
+            "current_version": (m.versions or {}).get("current"), "version_changes": len((m.versions or {}).get("events", []))}
 
 
 @router.get("")
@@ -424,6 +478,14 @@ def design_signals(design_key: str, session: Session = Depends(get_session)) -> 
             sig[k] = sig[k] or bool(s.get(k))
         if s.get("drift_type") and (sig["drift_type"] is None or s["drift_type"] == "PERFORMANCE_DRIFT"):
             sig["drift_type"] = s["drift_type"]
+    rank = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "CRITICAL": 3}
+    for m in mons:
+        s = m.signals or {}
+        if s.get("hitl_verified_substantive") is False:
+            sig["hitl_verified_substantive"] = False
+        b = s.get("automation_bias_risk")
+        if b in rank and rank[b] > rank.get(sig.get("automation_bias_risk"), -1):
+            sig["automation_bias_risk"] = b
     since = datetime.now(timezone.utc) - timedelta(days=30)
     incs = []
     for m in mons:
@@ -594,3 +656,117 @@ def monitor_incidents(key: str, session: Session = Depends(get_session)) -> List
     return [{"id": f"MON-{i.seq:03d}", "uuid": str(i.id), "type": i.kind, "severity": i.severity, "status": i.status, "title": i.title, "detected_at": i.detected_at, "last_seen_at": i.last_seen_at,
              "recovered_at": i.recovered_at, "resolved_at": i.resolved_at, "resolved_by": i.resolved_by, "reasons": (i.detail or {}).get("reasons", [])}
             for i in session.scalars(select(ModelIncident).where(ModelIncident.monitor_id == m.id).order_by(ModelIncident.detected_at.desc()).limit(100))]
+
+
+# ── Which version answered ──────────────────────────────────────────────────
+
+@router.get("/{key}/versions")
+def versions(key: str, session: Session = Depends(get_session)) -> Dict[str, Any]:
+    m = _get(session, key)
+    if not m.versions or not m.versions.get("items"):
+        return {"current": None, "events": [], "reasons": [], "versions": [], "tracking": False}
+    return {**mv.evaluate(m.versions, m.spec["output"]["kind"], m.thresholds, datetime.now(timezone.utc).isoformat()), "tracking": True}
+
+
+# ── What people do with the outputs ─────────────────────────────────────────
+
+class DecisionIn(BaseModel):
+    at: Optional[datetime] = None
+    role: str = Field("unspecified", max_length=60)
+    action: str
+    review_seconds: Optional[float] = Field(None, ge=0, le=7 * 86400)
+    reason: bool = False                         # whether the person recorded why
+    confidence_shown: bool = False               # whether the model's confidence was shown to them
+    model_correct: Optional[bool] = None         # once the truth is known
+    person: Optional[str] = Field(None, max_length=120)
+
+    @field_validator("action")
+    @classmethod
+    def action_ok(cls, v: str) -> str:
+        if v not in ds.ACTIONS:
+            raise ValueError("action must be one of " + ", ".join(ds.ACTIONS))
+        return v
+
+
+class DecisionBatch(BaseModel):
+    decisions: List[DecisionIn] = Field(min_length=1, max_length=MAX_BATCH)
+
+
+@router.post("/{key}/decisions")
+def ingest_decisions(key: str, body: DecisionBatch, session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> JSONResponse:
+    wait = _throttle("d" + str(user.id), len(body.decisions))
+    if wait is not None:
+        return JSONResponse({"detail": f"Too many decisions from this key; retry in {wait} s."}, status_code=429, headers={"Retry-After": str(wait)})
+    m = _get(session, key, lock=True)
+    now = datetime.now(timezone.utc)
+    oldest = now - timedelta(days=m.retention_days)
+    cfg = m.decision_settings or {}
+    individuals = bool(cfg.get("individuals"))
+    groups: Dict[datetime, List[Dict[str, Any]]] = defaultdict(list)
+    accepted = rejected = ignored = 0
+    for d in body.decisions:
+        at = d.at or now
+        at = at if at.tzinfo else at.replace(tzinfo=timezone.utc)
+        if at < oldest or at > now + timedelta(minutes=5):
+            rejected += 1
+            continue
+        rec = d.model_dump(exclude={"at"})
+        if rec.get("person") and not individuals:
+            ignored += 1
+        groups[_hour(at)].append(rec)
+        accepted += 1
+    for start, recs in groups.items():
+        w = session.scalar(select(ModelDecisionWindow).where(ModelDecisionWindow.monitor_id == m.id, ModelDecisionWindow.window_start == start).with_for_update())
+        if w is None:
+            w = ModelDecisionWindow(monitor_id=m.id, window_start=start, acc=ds.new_acc())
+            session.add(w)
+        acc = copy.deepcopy(w.acc)
+        for rec in recs:
+            ds.fold(acc, rec, cfg.get("salt", ""), individuals)
+        w.acc = acc
+        flag_modified(w, "acc")
+    session.flush()
+    _maybe_evaluate(session, m, force=True)
+    session.commit()
+    return JSONResponse({"accepted": accepted, "rejected": rejected, "people_ignored": ignored, "individuals": individuals})
+
+
+@router.get("/{key}/decisions")
+def get_decisions(key: str, session: Session = Depends(get_session)) -> Dict[str, Any]:
+    m = _get(session, key)
+    cfg = m.decision_settings or {}
+    res = decisions_evaluation(session, m, datetime.now(timezone.utc))
+    return {**res, "days": DECISION_DAYS, "individuals": bool(cfg.get("individuals")), "signed_off_by": cfg.get("signed_off_by"), "signed_off_at": cfg.get("signed_off_at"),
+            "thresholds": {**ds.DEFAULTS, **(cfg.get("thresholds") or {})}, "custom_thresholds": cfg.get("thresholds") or {}, "advice_only": True}
+
+
+class DecisionSettingsBody(BaseModel):
+    individuals: Optional[bool] = None
+    thresholds: Optional[Dict[str, float]] = None
+
+
+@router.put("/{key}/decision-settings")
+def set_decision_settings(key: str, body: DecisionSettingsBody, session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> Dict[str, Any]:
+    import secrets
+    m = _get(session, key, lock=True)
+    cfg = dict(m.decision_settings or {})
+    if body.thresholds is not None:
+        bad = [k for k in body.thresholds if k not in ds.DEFAULTS]
+        if bad:
+            raise HTTPException(status_code=422, detail="Unknown threshold: " + ", ".join(bad) + ". Known: " + ", ".join(ds.DEFAULTS))
+        cfg["thresholds"] = {k: float(v) for k, v in body.thresholds.items()}
+    if body.individuals is True and not cfg.get("individuals"):
+        if not has(user.role, "signoff"):
+            raise HTTPException(status_code=403, detail="Counting distinct people needs a compliance sign-off. By default decisions are counted by role only.")
+        cfg.update({"individuals": True, "signed_off_by": user.name, "signed_off_at": datetime.now(timezone.utc).isoformat(), "salt": cfg.get("salt") or secrets.token_hex(16)})
+    elif body.individuals is False and cfg.get("individuals"):
+        cfg.update({"individuals": False, "signed_off_by": None, "signed_off_at": None})
+        for w in session.scalars(select(ModelDecisionWindow).where(ModelDecisionWindow.monitor_id == m.id)):        # what was counted is forgotten
+            acc = copy.deepcopy(w.acc)
+            acc["people"] = {}
+            w.acc = acc
+            flag_modified(w, "acc")
+    m.decision_settings = cfg
+    flag_modified(m, "decision_settings")
+    session.commit()
+    return get_decisions(key, session)
