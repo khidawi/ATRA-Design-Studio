@@ -9,7 +9,7 @@ design it came from. Any stored contract can be re-hashed to show it is unchange
 There is no sign-in yet (Task 8): everything belongs to the one organisation.
 """
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -18,6 +18,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 import agent_contract
+import attestation
 from auth import AuthUser, current_user, has
 from compliance_schema import CompiledContract, compute_contract_hash
 from db.models import Agent, Contract, Design, Domain
@@ -122,8 +123,14 @@ def create_design(body: DesignIn, session: Session = Depends(get_session), user:
     _check(session, body)
     if body.subject == "AGENT":
         check_signoffs(None, body.document.model_dump(mode="json"), user)
+    doc = body.document.model_dump(mode="json")
+    if body.subject == "MODEL":
+        doc.pop("attest", None)
+        stamped = attestation.stamp(None, doc, user.name, datetime.now(timezone.utc).isoformat())
+        if stamped:
+            doc["attest"] = stamped
     d = Design(design_key="d-" + secrets.token_hex(5), organisation_id=current_organisation(session).id, subject=body.subject,
-               name=body.name, domain_key=body.domain, document=body.document.model_dump(mode="json"))
+               name=body.name, domain_key=body.domain, document=doc)
     session.add(d)
     session.commit()
     return _out(d)
@@ -142,10 +149,16 @@ def save_design(design_key: str, body: DesignUpdate, session: Session = Depends(
         check_signoffs(d.document, body.document.model_dump(mode="json"), user)
     if d.subject != body.subject:
         raise HTTPException(status_code=422, detail="A design cannot change its kind.")
+    doc = body.document.model_dump(mode="json")
+    if d.subject == "MODEL":
+        doc.pop("attest", None)                          # attestations are the server's: from what is stored and what this save changed, never from the client
+        stamped = attestation.stamp(d.document, doc, user.name, datetime.now(timezone.utc).isoformat())
+        if stamped:
+            doc["attest"] = stamped
     # The version check and the write are one statement, so two saves cannot both win.
     changed = session.execute(
         update(Design).where(Design.id == d.id, Design.version == body.version)
-        .values(name=body.name, domain_key=body.domain, document=body.document.model_dump(mode="json"),
+        .values(name=body.name, domain_key=body.domain, document=doc,
                 version=Design.version + 1, updated_at=func.now())
     ).rowcount
     session.commit()

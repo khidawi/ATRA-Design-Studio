@@ -509,6 +509,9 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       monChannelPatch: (id, body) => call('/api/model-monitor/alerts/channels/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(body) }),
       monChannelTest: (id) => post('/api/model-monitor/alerts/channels/' + encodeURIComponent(id) + '/test', {}),
       monChannelDel: (id) => call('/api/model-monitor/alerts/channels/' + encodeURIComponent(id), { method: 'DELETE' }),
+      attPolicy: () => call('/api/attestations/policy'),
+      attSetPolicy: (days) => call('/api/attestations/policy', { method: 'PUT', body: JSON.stringify({ days }) }),
+      attConfirm: (key, facts) => post('/api/attestations/' + encodeURIComponent(key) + '/confirm', { facts }),
       monIncidentStatus: (id, body) => call('/api/model-monitor/incidents/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(body) }),
       telDesign: (key, body) => post('/api/telemetry/agents/' + encodeURIComponent(key) + '/design', body),
       previewAgentImport: (body) => post('/api/agents/import/preview', body),
@@ -2030,10 +2033,11 @@ kill_switch:
     while (SV.inflight) await SV.inflight;
     if (!SV.dirty || M.saveState === 'conflict') return;
     SV.dirty = false;
+    let attChanged = false;
     SV.inflight = (async () => {
       try {
         const d = M.designKey ? await STAI.api.saveDesign(M.designKey, Object.assign(designBody(), { version: M.version })) : await STAI.api.createDesign(designBody());
-        M.designKey = d.design_key; M.version = d.version; M.saveState = SV.dirty ? 'saving' : 'saved'; M.saveError = null; lsSet(LS_CURRENT, d.design_key);
+        const attBefore = JSON.stringify(M.attest || {}); M.designKey = d.design_key; M.version = d.version; M.attest = d.document.attest || {}; M.attestFor = d.design_key; attChanged = attBefore !== JSON.stringify(M.attest); M.saveState = SV.dirty ? 'saving' : 'saved'; M.saveError = null; lsSet(LS_CURRENT, d.design_key);
         const row = { design_key: d.design_key, subject: 'MODEL', name: d.name, domain: d.domain, version: d.version, node_count: d.document.nodes.length, contract_count: (M.designs.find((x) => x.design_key === d.design_key) || {}).contract_count || 0, updated_at: d.updated_at };
         M.designs = [row].concat(M.designs.filter((x) => x.design_key !== d.design_key));
       } catch (e) {
@@ -2042,11 +2046,11 @@ kill_switch:
       }
     })();
     await SV.inflight; SV.inflight = null;
-    if (M.saveState === 'conflict' || M.saveState === 'error') renderIfIdle('model'); else paintSaveState();
+    if (M.saveState === 'conflict' || M.saveState === 'error') renderIfIdle('model'); else if (attChanged) renderIfIdle(route()); else paintSaveState();
   }
   async function openDesign(key) {
     const d = await STAI.api.getDesign(key);
-    Object.assign(M, { orgRef: d.document.org || null, life: d.document.life || {}, incidents: d.document.incidents || [], nodes: d.document.nodes, edges: d.document.edges, n: d.document.n, name: d.name, domain: STAI.DOMAINS[d.domain] ? d.domain : M.domain, designKey: d.design_key, version: d.version, sel: null, compileMsg: null, saveState: 'saved', saveError: null });
+    Object.assign(M, { attest: d.document.attest || {}, attestFor: d.design_key, orgRef: d.document.org || null, life: d.document.life || {}, incidents: d.document.incidents || [], nodes: d.document.nodes, edges: d.document.edges, n: d.document.n, name: d.name, domain: STAI.DOMAINS[d.domain] ? d.domain : M.domain, designKey: d.design_key, version: d.version, sel: null, compileMsg: null, saveState: 'saved', saveError: null });
     SV.dirty = false; lsSet(LS_CURRENT, d.design_key);
     if (M.nodes.length) fitZoom();
   }
@@ -2381,11 +2385,80 @@ kill_switch:
   const LF_SEV = { 1: ['Low', 'LOW'], 2: ['Moderate', 'MODERATE'], 3: ['High', 'HIGH'], 4: ['Severe', 'HIGH'], 5: ['Critical', 'CRITICAL'] };
   const lfCheck = (k, label, help) => {
     const ob = typeof monObserved === 'function' ? (monObserved() || {})[k] : undefined, seen = ob === true, contra = ob === false;
-    return `<label class="chk lf-chk"><input type="checkbox" data-chg="lfSet" data-arg="${k}"${!contra && (seen || lfGet(k)) ? ' checked' : ''}${seen || contra ? ' disabled' : ''}><span class="stack" style="gap:1px"><span>${label}${seen ? ' <span class="pill bad">Seen in production</span>' : ''}${contra ? ' <span class="pill bad">Not supported by production</span>' : ''}</span>${help ? `<span class="cap" style="font-size:12.5px">${help}</span>` : ''}</span></label>`;
+    return `<label class="chk lf-chk"><input type="checkbox" data-chg="lfSet" data-arg="${k}"${!contra && (seen || lfGet(k)) ? ' checked' : ''}${seen || contra ? ' disabled' : ''}><span class="stack" style="gap:1px"><span>${label}${seen ? ' <span class="pill bad">Seen in production</span>' : ''}${contra ? ' <span class="pill bad">Not supported by production</span>' : ''}${contra ? '' : attPill(k)}</span>${help ? `<span class="cap" style="font-size:12.5px">${help}</span>` : ''}</span></label>`;
   };
-  const lfSelect = (k, label, help, unset) => { const ob = typeof monObserved === 'function' ? (monObserved() || {})[k] : undefined; return `<div class="fld"><label for="lf-${k}">${label}${ob ? ' <span class="pill bad">Seen in production</span>' : ''}</label><select id="lf-${k}" class="inp" data-chg="lfSel" data-arg="${k}"${ob ? ' disabled' : ''}><option value="">${unset || 'Not stated'}</option>${LF_ENUM[k].map((v) => opt(v, lfHuman(v), ob || M.life[k])).join('')}</select>${help ? `<span class="cap" style="font-size:12.5px">${help}</span>` : ''}</div>`; };
+  const lfSelect = (k, label, help, unset) => { const ob = typeof monObserved === 'function' ? (monObserved() || {})[k] : undefined; return `<div class="fld"><label for="lf-${k}">${label}${ob ? ' <span class="pill bad">Seen in production</span>' : ''}${attPill(k)}</label><select id="lf-${k}" class="inp" data-chg="lfSel" data-arg="${k}"${ob ? ' disabled' : ''}><option value="">${unset || 'Not stated'}</option>${LF_ENUM[k].map((v) => opt(v, lfHuman(v), ob || M.life[k])).join('')}</select>${help ? `<span class="cap" style="font-size:12.5px">${help}</span>` : ''}</div>`; };
   const lfCount = (k, label, help) => `<div class="fld"><label for="lf-${k}">${label}</label><input id="lf-${k}" class="inp" type="number" min="0" step="1" style="max-width:140px" data-chg="lfNum" data-arg="${k}" value="${M.life[k] === undefined ? '' : esc(M.life[k])}" placeholder="0">${help ? `<span class="cap" style="font-size:12.5px">${help}</span>` : ''}</div>`;
   const lfCard = (title, sub, body) => `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:12px"><div class="stack" style="gap:2px"><h2>${title}</h2>${sub ? `<span class="cap">${sub}</span>` : ''}</div>${body}</section>`;
+  /* ----- Declared claims that lapse: who confirmed each claim that lowers the risk, and when it stops being true until someone says it still is ----- */
+  const ATT = { policy: null, loading: false, err: null, edit: null, busy: false, msg: null };
+  async function attEnsure() {
+    if (ATT.policy || ATT.loading || !BOOT.ready) return;
+    ATT.loading = true;
+    try { ATT.policy = await STAI.api.attPolicy(); ATT.err = null; } catch (e) { ATT.err = e.message; }
+    ATT.loading = false; renderIfIdle(route());
+  }
+  function attRows() {
+    if (!ATT.policy || !M.designKey) return [];
+    const att = M.attestFor === M.designKey ? (M.attest || {}) : {}, now = Date.now(), out = [];
+    Object.keys(ATT.policy.governed).forEach((k) => {
+      const g = ATT.policy.governed[k], v = M.life[k];
+      const relied = g.favourable ? g.favourable.indexOf(v) >= 0 : (v === undefined || v === null ? g.default_true : v === true);
+      if (!relied) return;
+      const a = att[k], row = { fact: k, label: g.label, days: g.days, by: null, at: null, left: null, state: 'never' };
+      if (a && a.at && (v === undefined || a.value === v || (v === undefined && g.default_true))) {
+        const left = (new Date(a.at).getTime() + g.days * 86400000 - now) / 86400000;
+        row.by = a.by; row.at = a.at; row.left = Math.floor(left); row.state = left < 0 ? 'lapsed' : (left <= ATT.policy.soon_days ? 'due_soon' : 'current');
+      }
+      out.push(row);
+    });
+    return out;
+  }
+  const attOf = (k) => attRows().find((r) => r.fact === k);
+  function attPill(k) {
+    const r = attOf(k);
+    if (!r) return '';
+    const btn = can('write') && r.state !== 'current' ? ` <button class="btn3 btn-s" style="padding:1px 8px" data-act="attConfirm" data-arg="${k}" title="Confirm this is still true, under your name">Confirm</button>` : '';
+    const txt = { current: `<span class="pill ok" title="Confirmed by ${esc(r.by)} on ${esc(String(r.at).slice(0, 10))}">Confirmed · ${r.left} days left</span>`, due_soon: `<span class="pill warn">Lapses in ${r.left} day${r.left === 1 ? '' : 's'}</span>`,
+      lapsed: `<span class="pill bad" title="Last confirmed by ${esc(r.by)} on ${esc(String(r.at).slice(0, 10))}">Lapsed ${-r.left} day${r.left === -1 ? '' : 's'} ago</span>`, never: '<span class="pill muted" title="Nobody has confirmed this claim, so nothing says when it was last true">Never confirmed</span>' }[r.state];
+    return ' ' + txt + btn;
+  }
+  function lfAttest() {
+    attEnsure();
+    if (!M.designKey) return '';
+    if (!ATT.policy) return ATT.err ? `<div class="note alert" role="alert"><strong>Could not load the claim periods</strong><span>${esc(ATT.err)}</span></div>` : '';
+    const rows = attRows(), n = { current: 0, due_soon: 0, lapsed: 0, never: 0 };
+    rows.forEach((r) => { n[r.state]++; });
+    const attention = rows.filter((r) => r.state !== 'current').sort((a, b) => ({ lapsed: 0, never: 1, due_soon: 2 }[a.state]) - ({ lapsed: 0, never: 1, due_soon: 2 }[b.state]));
+    const tile = (v, l, cls) => `<div class="lf-tile${cls ? ' ' + cls : ''}"><b class="mono">${v}</b><span class="cap">${l}</span></div>`;
+    const canSign = can('signoff'), ed = ATT.edit;
+    const policy = canSign ? `<details class="lf-det"><summary><b>How long each claim stays valid (compliance)</b></summary><div class="stack" style="gap:8px;padding:8px 0"><span class="cap" style="font-size:12.5px">After this many days a claim that lowers the risk lapses until someone confirms it again. Between ${7} and ${ATT.policy.max_days} days.</span><div class="prow" style="gap:12px;flex-wrap:wrap">${Object.keys(ATT.policy.governed).map((k) => `<label class="cap">${esc(ATT.policy.governed[k].label)}<br><input class="inp mono" style="max-width:90px" type="number" min="7" max="${ATT.policy.max_days}" data-chg="attDays" data-arg="${k}" value="${esc(ed && ed[k] !== undefined ? ed[k] : ATT.policy.governed[k].days)}"></label>`).join('')}</div><div><button class="btn btn-s" data-act="attSavePolicy"${ATT.busy ? ' disabled' : ''}>Save the periods (signed off as ${esc(ME.full_name)})</button></div></div></details>` : '';
+    return lfCard('Declared claims and when they lapse', 'A claim that lowers the risk was true when someone said so. It lapses after a period unless it is confirmed again. This is advice: the score is not changed by a lapse.',
+      `<div class="lf-tiles">${tile(n.current, 'Confirmed and in date', 'ok')}${tile(n.due_soon, 'Lapsing within ' + ATT.policy.soon_days + ' days')}${tile(n.lapsed, 'Lapsed', n.lapsed ? 'bad' : '')}${tile(n.never, 'Never confirmed')}</div>
+       ${ATT.msg ? `<div class="note ${ATT.msg.ok ? 'good' : 'alert'}" role="status" style="font-size:13px">${esc(ATT.msg.text)}</div>` : ''}
+       ${attention.length ? `<div class="stack" style="gap:5px"><strong style="font-size:13px">Needs confirming</strong>${attention.map((r) => `<div class="note ${r.state === 'lapsed' ? 'alert' : 'plain'}" style="font-size:13px;padding:8px 12px;flex-direction:row;justify-content:space-between;gap:10px;align-items:center"><span>${esc(r.label)}</span><span>${attPill(r.fact)}</span></div>`).join('')}${can('write') ? '<div><button class="btn2 btn-s" data-act="attConfirmAll">Confirm all of these as they stand</button></div>' : ''}</div>` : '<div class="note good" style="font-size:13px"><strong>Every claim is confirmed and in date</strong></div>'}
+       ${policy}`);
+  }
+  Object.assign(C, { attDays: (v, k) => { ATT.edit = ATT.edit || {}; ATT.edit[k] = parseInt(v, 10); } });
+  Object.assign(H, {
+    attConfirm: async (k) => {
+      try { const r = await STAI.api.attConfirm(M.designKey, [k]); M.attest = r.attest; M.attestFor = M.designKey; ATT.msg = null; } catch (e) { ATT.msg = { ok: false, text: e.message }; }
+      render(true);
+    },
+    attConfirmAll: async () => {
+      const facts = attRows().filter((r) => r.state !== 'current').map((r) => r.fact);
+      if (!facts.length || !window.confirm('Confirm ' + facts.length + ' claim' + (facts.length === 1 ? '' : 's') + ' as they stand? You are saying each is still true today; it is recorded under your name.')) return;
+      try { const r = await STAI.api.attConfirm(M.designKey, facts); M.attest = r.attest; M.attestFor = M.designKey; ATT.msg = { ok: true, text: facts.length + ' claim' + (facts.length === 1 ? '' : 's') + ' confirmed.' }; } catch (e) { ATT.msg = { ok: false, text: e.message }; }
+      render(true);
+    },
+    attSavePolicy: async () => {
+      if (!ATT.edit) { window.alert('Nothing has changed.'); return; }
+      if (!window.confirm('Save these periods for the whole organisation? It is recorded under your name.')) return;
+      ATT.busy = true; render(true);
+      try { const days = {}; Object.keys(ATT.edit).forEach((k) => { if (Number.isFinite(ATT.edit[k])) days[k] = ATT.edit[k]; }); const keep = Object.assign({}, ATT.policy.custom, days); ATT.policy = await STAI.api.attSetPolicy(keep); ATT.edit = null; ATT.msg = { ok: true, text: 'The periods are saved.' }; } catch (e) { ATT.msg = { ok: false, text: e.message }; }
+      ATT.busy = false; render(true);
+    }
+  });
   const lfGrid = (inner) => `<div class="lf-grid">${inner}</div>`;
   const lfEmpty = () => !M.designKey && !M.nodes.length;
   const lfWhere = (txt) => /decommission|retire|disposal|legal hold/i.test(txt) ? ['decommission', 'Decommissioning'] : /incident|72 hours/i.test(txt) ? ['incidents', 'Incidents'] : /DPIA|HITL|human|model card|hallucination|liability|challenge|training|SLA|DPA|automation|consent/i.test(txt) ? ['governance', 'Governance'] : /drift|violation|bias|quarantine|rollback|fallback/i.test(txt) ? ['runtime', 'Runtime'] : null;
@@ -2435,7 +2508,7 @@ kill_switch:
 
   // The page frame every lifecycle page shares: heading, the design in use, the current score, and a note when nothing has been designed yet.
   function lfFrame(sub, title, eyebrow, body, ev) {
-    monEnsure();
+    monEnsure(); attEnsure();
     if (!BOOT.ready) return hdr('AI Models · model lifecycle', BOOT.error ? 'Backend unavailable' : 'Connecting to the backend…') + (BOOT.error ? `<div class="note alert" role="alert"><strong>Could not load the catalogue</strong><span>${esc(BOOT.error)}</span><button class="btn2 btn-s" style="align-self:flex-start" data-act="mRetryBoot">Retry</button></div>` : '');
     const p = ev && ev.score && ev.score.pcs_result;
     const badge = ev && ev.scoreError ? '<span class="pill bad">Score rejected</span>' : (p ? `<span class="lf-badge"><span class="mono">PCS ${STAI.pyFixed(p.pcs_final, 1)}</span><span class="pill ${TIER_CLS[p.tier]}">${p.tier}</span><span class="pill ${GATE_CLS[p.gate]}">${p.gate.replace('_', ' ')}</span></span>` : `<span class="pill muted">${ev && ev.pending ? 'Scoring…' : 'No score'}</span>`);
@@ -2477,10 +2550,13 @@ kill_switch:
       stale.forEach((m) => unev.push('The monitor for ' + m.name + ' has had no data for ' + Math.round((Date.now() - new Date(m.last_record_at).getTime()) / 86400000) + ' days, so drift and bias are not being seen.'));
       mons.filter((m) => !m.last_record_at).forEach((m) => unev.push('The monitor for ' + m.name + ' has received no data yet.'));
     }
+    const rowsA = attRows(), lapsedA = rowsA.filter((r) => r.state === 'lapsed'), neverA = rowsA.filter((r) => r.state === 'never');
+    lapsedA.forEach((r) => unev.push('"' + r.label + '" lapsed ' + (-r.left) + ' day' + (r.left === -1 ? '' : 's') + ' ago (last confirmed by ' + r.by + '); nobody has confirmed it still holds.'));
+    if (neverA.length) unev.push(neverA.length + ' declared claim' + (neverA.length === 1 ? ' has' : 's have') + ' never been confirmed by anyone, so nothing says when ' + (neverA.length === 1 ? 'it was' : 'they were') + ' last true.');
     if (lfGet('hitl_verified_substantive') && !hasDecisions) unev.push('Human review is counted as substantive, but nobody has reported what people do with the outputs.');
     const PIL = [['Likelihood', 'likelihood'], ['Severity', 'severity'], ['Vulnerability', 'vulnerability'], ['Uncertainty', 'uncertainty'], ['Autonomy', 'autonomy'], ['Evolution', 'evolution']];
     const moved = PIL.map(([n, k]) => [n, (o.pillar_vector[k] || 0) - (d.pillar_vector[k] || 0), o.pillar_vector[k] || 0, d.pillar_vector[k] || 0]).filter((x) => Math.abs(x[1]) >= 0.5).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
-    const tone = !mons.length ? 'plain' : (dl > 0 || bits.length ? 'alert' : 'good');
+    const tone = !mons.length ? 'plain' : (dl > 0 || bits.length ? 'alert' : 'good');   // lapsed claims are listed but are advice only
     const arrow = dl > 0 ? `▲ +${dl}` : dl < 0 ? `▼ ${dl}` : (moved.length ? 'pillars moved' : 'no gap');
     const head = !mons.length ? 'The score rests only on what people declared' : bits.length || dl > 0 ? 'Production shows more risk than was declared' : 'Production has not contradicted what was declared';
     const sub = !mons.length ? 'No production data is connected for this model, so nothing checks the declared facts. Connect production data on the Runtime page.'
@@ -2550,7 +2626,7 @@ kill_switch:
 
   function lfGovernance() {
     const ev = evaluate();
-    const body = lfEffect(ev) +
+    const body = lfEffect(ev) + lfAttest() +
       lfCard('Accountability', 'Layer 8: the approvals and documents that must exist before and while the model is used.', lfGrid(
         lfCheck('dpia_approved', 'Data protection impact assessment approved', 'GDPR Art 35. Missing, it is a blocker for personal data.') +
         lfCheck('provider_sla_gdpr_dpa', 'Provider agreement covers GDPR', 'A data processing agreement is in place with every provider.') +

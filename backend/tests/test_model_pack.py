@@ -83,6 +83,13 @@ try:
             s.commit()
             contract_hash = c.contract_hash
 
+        with SessionLocal() as s:                      # the claim made at creation was confirmed long ago
+            row = s.query(Design).filter(Design.design_key == dk).one()
+            doc = json.loads(json.dumps(row.document))
+            doc["attest"]["audit_frequency"]["at"] = (datetime.now(timezone.utc) - timedelta(days=200)).isoformat()
+            row.document = doc
+            s.commit()
+
         # production evidence: a monitor with drifting traffic, a credential leak, and staff who accept everything
         col = keyed(api.post("/api/keys", json={"name": "zz-test-serving", "role": "collector"}).json()["key"])
         mk = api.post("/api/model-monitor", json={"name": NAME, "design_key": dk, "task": "generative", "baseline_target": 100, "features": [{"name": "topic", "kind": "categorical"}], "output": {"name": "reply", "kind": "categorical"}}).json()["key"]
@@ -113,6 +120,10 @@ try:
         mb = m["monitors"][0]
         check("the monitor's state is evidenced as statistics", mb["records_received"] >= 320 and mb["versions"]["changes"] == 1 and mb["people"]["decisions"] >= 250 and mb["people"]["wrong_accepted"] is not None and mb["safety"]["flagged"].get("secret_in_prompt") == 1, mb)
         check("gaps are stated, never hidden", any("contradict" in g["text"].lower() or "human review" in g["text"].lower() for g in x["gaps"]) and all(g["id"].startswith("G-") for g in x["gaps"]), x["gaps"])
+        at_ = m["attestations"]
+        check("declared claims are listed with their state: a lapsed one and one never confirmed", at_["summary"]["lapsed"] == 1 and at_["summary"]["never"] >= 1 and any(a["state"] == "lapsed" and a["claim"] == "Audit frequency" and a["confirmed_by"] == "Compliance lead" for a in at_["attention"]), at_)
+        check("a lapsed claim and an unconfirmed one are gaps", any("lapsed" in g["text"] and "Audit frequency" in g["text"] for g in x["gaps"]) and any("never been confirmed" in g["text"] for g in x["gaps"]), [g["text"] for g in x["gaps"]])
+        check("the claims are evidenced by a hash", any(e["type"] == "attestation" for e in x["evidence"]) and any("declared claims" in k["text"] for k in x["claims"]))
         check("claims cite evidence, and the limits say what is not claimed", all(k["evidence"] for k in x["claims"]) and any("No prompt, reply, record" in l for l in x["limits"]))
         kinds = {e["type"] for e in x["evidence"]}
         check("evidence covers the contract, the monitor and its incidents", {"contract", "monitor", "incident"} <= kinds, kinds)
@@ -124,6 +135,7 @@ try:
         made.append(t["pack_key"])
         tb = json.dumps(t["content"])
         check("the trust form has no model or monitor name and no design key", NAME not in tb and dk not in tb and "Model 1" in tb and "name" not in t["content"]["models"][0]["monitors"][0], tb[:300])
+        check("the trust form names no one who confirmed a claim", "confirmed_by" not in tb and "Compliance lead" not in json.dumps(t["content"]["models"]))
         check("the trust form keeps the three scores", t["content"]["models"][0]["observed"]["pcs"] == m["observed"]["pcs"])
 
         # ── integrity

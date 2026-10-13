@@ -168,6 +168,12 @@ def model_pack_blocks(p: EvidencePack) -> List[Block]:
     for m in x["models"]:
         if m["assurance_gap"]["pillars_moved"]:
             blocks += [("h", f"Where the pillars moved: {m['model']}"), ("table", (["Pillar", "Declared", "Observed"], [[r["pillar"], r["declared"], r["observed"]] for r in m["assurance_gap"]["pillars_moved"]], [40, 30, 30]))]
+        at_ = m.get("attestations") or {}
+        if at_.get("summary", {}).get("claims"):
+            sm = at_["summary"]
+            blocks += [("h", f"Declared claims: {m['model']}"), ("p", f"{sm['claims']} claims lower the risk: {sm['current']} current, {sm['due_soon']} lapsing soon, {sm['lapsed']} lapsed, {sm['never']} never confirmed.")]
+            if at_["attention"]:
+                blocks.append(("table", (["Claim", "State", "Days left", "Confirmed by"], [[a["claim"], a["state"].replace("_", " "), a["days_left"] if a["days_left"] is not None else "", a.get("confirmed_by") or ""] for a in at_["attention"]], [48, 14, 12, 26])))
         for j, b in enumerate(m["monitors"], 1):
             line = [("Status", b["status"]), ("Records received", f"{b['records_received']:,}"), ("Last record", (b["last_record_at"] or "never")[:16].replace("T", " ")), ("Baseline", b["baseline"])]
             if b["versions"]:

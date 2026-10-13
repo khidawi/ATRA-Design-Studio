@@ -68,6 +68,7 @@ from packs import router as packs_router
 from repo_connect import router as repo_router
 from idp_connect import router as idp_router
 from telemetry import router as telemetry_router
+from attestations import router as attestations_router
 from model_alerts import router as alerts_router
 from model_monitor import router as monitor_router
 from findings import router as findings_router
@@ -111,6 +112,7 @@ app.include_router(packs_router)
 app.include_router(repo_router)
 app.include_router(idp_router)
 app.include_router(telemetry_router)
+app.include_router(attestations_router)
 app.include_router(alerts_router)
 app.include_router(monitor_router)
 app.include_router(overview_router)

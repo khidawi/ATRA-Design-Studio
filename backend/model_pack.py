@@ -23,6 +23,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+import attestation as att
 import llm_safety as lsf
 import model_versions as mv
 import threshold_policy as tp
@@ -133,6 +134,11 @@ def _gaps_from(model: Dict[str, Any], label: str, trust: bool) -> List[Dict[str,
             g("the production monitor reports drift: " + (mb["findings"][0]["text"] if mb["findings"] else "see its findings."))
         for w in mb["thresholds_loosened_past_floor"]:
             g(f"a threshold ({w['threshold']}) is looser than the compliance floor, signed off by {w['signed_off_by']}: {w['reason']}", "Partial")
+    for a in model["attestations"]["attention"]:
+        if a["state"] == "lapsed":
+            g(f"the claim '{a['claim']}' lapsed {abs(a['days_left'])} days ago" + ("" if trust else f" (last confirmed by {a['confirmed_by']})") + " and has not been confirmed again.")
+        elif a["state"] == "never":
+            g(f"the claim '{a['claim']}' has never been confirmed by anyone, so nothing says when it was last true.", "Partial")
     if model["open_monitor_incidents"]:
         g(f"{model['open_monitor_incidents']} open incident(s) raised by monitoring.")
     if model["observed"].get("error"):
@@ -155,8 +161,10 @@ def build_model_content(session: Session, template: str, period: str, generated_
         raise HTTPException(status_code=409, detail="No model has an active compiled contract, so there is nothing to attest. Compile a model design first.")
     designs = list(session.scalars(select(Design).where(Design.organisation_id == org.id, Design.subject == "MODEL")))
     by_design = {d.id: d for d in designs}
+    from attestations import design_rows, policy_days
     from model_monitor import _floors
     floors = _floors(session, org.id)
+    policy = policy_days(session)
 
     evidence: List[Dict[str, Any]] = []
     models: List[Dict[str, Any]] = []
@@ -179,16 +187,20 @@ def build_model_content(session: Session, template: str, period: str, generated_
         moved = []
         if "error" not in declared and "error" not in observed:
             moved = [{"pillar": k, "declared": declared["pillars"].get(k), "observed": v} for k, v in observed["pillars"].items() if abs(v - (declared["pillars"].get(k) or 0)) >= 0.5]
+        arows = design_rows(session, d, policy, now) if d else []
+        attested = {"summary": att.summary(arows), "attention": [{"claim": r["label"], "state": r["state"], "days_left": r["days_left"], **({} if trust else {"confirmed_by": r["by"], "confirmed_at": r["at"]})}
+                                                                   for r in arows if r["state"] in ("lapsed", "never", "due_soon")]}
         blocks = [_monitor_block(session, m, now, floors, trust, f"Monitor {j}") for j, m in enumerate(mons, 1)]
         n_monitors += len(blocks)
         model: Dict[str, Any] = {"model": label_m, "contract": {"version": doc["version"], "issued_at": doc["issued_at"], "hash": c.contract_hash}, "design_time": design_time, "declared": declared, "observed": observed,
                                  "assurance_gap": {"headline": round(observed["pcs"] - declared["pcs"], 1) if "error" not in observed and "error" not in declared else None, "pillars_moved": moved},
-                                 "contradictions": contradictions, "monitors": blocks, "open_monitor_incidents": len(mon_incs)}
+                                 "contradictions": contradictions, "attestations": attested, "monitors": blocks, "open_monitor_incidents": len(mon_incs)}
         if not trust:
             model["contract"].update(id=c.contract_id, issued_by=doc.get("issued_by"))
             model["design_key"] = d.design_key if d else None
         models.append(model)
         evidence.append({"type": "contract", "ref": c.contract_id, "hash": c.contract_hash, "agent": label_m})
+        evidence.append({"type": "attestation", "ref": f"{label_m} / declared claims", "hash": _sha(attested)})
         for j, mb in enumerate(blocks, 1):
             evidence.append({"type": "monitor", "ref": f"{label_m} / monitor {j}", "hash": _sha(mb)})
         for x in mon_incs:
@@ -200,6 +212,10 @@ def build_model_content(session: Session, template: str, period: str, generated_
         if "error" not in declared and "error" not in observed:
             claims.append({"id": f"C-{len(claims) + 1}", "status": "evidenced" if not contradictions else "gap_stated", "evidence": cref,
                            "text": f"{label_m}: declared score {declared['pcs']}, observed score {observed['pcs']}" + (f"; production contradicts {len(contradictions)} declaration(s)" if contradictions else "; production has not contradicted the declaration")})
+        if attested["summary"]["claims"]:
+            sm = attested["summary"]
+            claims.append({"id": f"C-{len(claims) + 1}", "status": "evidenced" if not (sm["lapsed"] or sm["never"]) else "gap_stated", "evidence": [f"{label_m} / declared claims"],
+                           "text": f"{label_m}: {sm['current'] + sm['due_soon']} of {sm['claims']} declared claims are confirmed and in date" + (f", {sm['lapsed']} have lapsed" if sm["lapsed"] else "") + (f", {sm['never']} were never confirmed" if sm["never"] else "")})
         for j, mb in enumerate(blocks, 1):
             if mb["records_received"]:
                 claims.append({"id": f"C-{len(claims) + 1}", "text": f"{label_m}: production monitor {j} has received {mb['records_received']:,} records and reports {mb['status'].lower().replace('_', ' ')}", "status": "evidenced", "evidence": [f"{label_m} / monitor {j}"]})
@@ -218,6 +234,7 @@ def build_model_content(session: Session, template: str, period: str, generated_
         "The design-time score is recomputed from the registry inside the compiled contract (the contract hash covers it). Later design edits are not in it until the model is compiled again. The facts stated about the running model are as of generation.",
         "Declared facts are what people stated. Production can raise a declared risk, never lower it; 'no contradiction found' means what is watched agrees with what was said, not that the model is safe.",
         "Checks for personal data, keys and prompt injection are pattern matches run in the organisation's own code, not proof; a match can be a false alarm and a miss is possible.",
+        "A declared claim that lowers a model's risk lapses after a period set by compliance unless someone confirms it again; a lapse is advice and does not change the score. A claim made before attestation existed shows as never confirmed.",
         "Monitor thresholds are rules of thumb, not calibrated to any one model. Compliance floors and any waivers signed off against them are listed per monitor.",
         "Each approval is recorded against the signed-in person who made it (local accounts with a password); there is no second factor and no second approver.",
         "Risk scores use weights and floors that are judgement values and have not been calibrated. An Approved gate does not certify compliance.",
