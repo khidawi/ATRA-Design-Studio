@@ -2091,6 +2091,14 @@ kill_switch:
     const regulatory_requirements = nodes.filter((n) => n.kind === 'REGULATORY_REQ').map((n) => ({ id: n.id, instrument: n.data.instrument || n.id, clause: n.data.clause, risk_tier: n.data.riskTier || undefined, status: n.data.status, evidence: n.data.evidence || undefined }));
     const consent_records = nodes.filter((n) => n.kind === 'CONSENT_RECORD').map((n) => { const lb = nodes.find((x) => x.id === neighborsOfKind(n.id, 'LEGAL_BASIS')[0]); return { id: n.id, diaprod_consent_id: n.data.diaprodConsentId || undefined, legal_basis: lb ? lb.data.basis : '', data_category_ids: neighborsOfKind(n.id, 'DATA_CATEGORY'), validated_at: n.data.validatedAt || undefined, validation_source: n.data.validationSource }; });
     const registry = { actors, departments, deployment_context, system_type: m ? m.data.hostingEnvironment : undefined, data_categories, consent_records, regulatory_requirements, governance_state: { constraints_declared } };
+    const declared = JSON.parse(JSON.stringify(registry));         // the same model as people describe it: no production evidence
+    const incMap = (i) => { const o = { id: i.id, type: i.type, severity: i.severity, status: i.status, detected_at: i.detected_at }; ['occurred_at', 'mitigated_at', 'resolved_at', 'title', 'description', 'root_cause', 'lessons_learned', 'owner'].forEach((k) => { if (i[k]) o[k] = i[k]; }); return o; };
+    if (Object.keys(M.life).length) {
+      declared.lifecycle = Object.assign({}, M.life);
+      if (M.life.hallucination_constraint_declared !== undefined) declared.hallucination_constraint_declared = !!M.life.hallucination_constraint_declared;
+      if (M.life.confidence_signal) declared.confidence_signal = M.life.confidence_signal;
+    }
+    if (M.incidents.length) declared.incident_register = M.incidents.map(incMap);
     const obs = monObserved();
     if (Object.keys(M.life).length || obs) {
       registry.lifecycle = Object.assign({}, M.life, obs || {});
@@ -2098,13 +2106,13 @@ kill_switch:
       if (M.life.confidence_signal) registry.confidence_signal = M.life.confidence_signal;
     }
     if (M.incidents.length || monIncidentsHere().length) registry.incident_register = M.incidents.concat(monIncidentsHere().map((i) => ({ id: i.id, type: i.type, severity: i.severity, status: i.status, detected_at: i.detected_at, resolved_at: i.resolved_at, title: i.title, owner: 'Production monitoring' }))).map((i) => { const o = { id: i.id, type: i.type, severity: i.severity, status: i.status, detected_at: i.detected_at }; ['occurred_at', 'mitigated_at', 'resolved_at', 'title', 'description', 'root_cause', 'lessons_learned', 'owner'].forEach((k) => { if (i[k]) o[k] = i[k]; }); return o; });
-    return { registry, constraintNodeIds };
+    return { registry, constraintNodeIds, declared };
   }
   /* ----- backend evaluation: score + assessment come from the FastAPI service, debounced and cached by input signature ----- */
   function buildDesignGraph() {
     return { nodes: M.nodes.map((n) => ({ id: n.id, type: n.kind, props: n.data, primary: false })), edges: M.edges.map((e) => ({ from: e.source, to: e.target, label: e.type })) };
   }
-  const REMOTE = { key: null, want: null, timer: null, base: null, score: null, scoreError: null, assessment: null, assessError: null, error: null, byNode: {} };
+  const REMOTE = { key: null, want: null, timer: null, base: null, declared: null, declaredSame: true, score: null, scoreError: null, assessment: null, assessError: null, error: null, byNode: {} };
   const BOOT = { ready: false, loading: false, error: null };
   function adaptScore(res) {
     const p = res.pcs_result, raw = p.raw_breakdown || {};
@@ -2118,15 +2126,18 @@ kill_switch:
     if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) ae.addEventListener('blur', () => setTimeout(() => render(true), 0), { once: true });
     else render(true);
   }
-  function scheduleRemote(key, registry, constraintNodeIds, domain, designGraph) {
+  function scheduleRemote(key, registry, constraintNodeIds, domain, designGraph, declared) {
     REMOTE.want = key;
     clearTimeout(REMOTE.timer);
     REMOTE.timer = setTimeout(async () => {
       const hasLife = !!(registry.lifecycle || registry.incident_register);
       const baseReg = hasLife ? Object.assign({}, registry, { lifecycle: undefined, incident_register: undefined, hallucination_constraint_declared: undefined, confidence_signal: undefined }) : null;
-      const [s, a, b] = await Promise.allSettled([STAI.api.score(registry), STAI.api.assess('current', domain, registry, constraintNodeIds, designGraph), baseReg ? STAI.api.score(baseReg) : Promise.resolve(null)]);
+      const differs = JSON.stringify(declared) !== JSON.stringify(registry);
+      const [s, a, b, dc] = await Promise.allSettled([STAI.api.score(registry), STAI.api.assess('current', domain, registry, constraintNodeIds, designGraph), baseReg ? STAI.api.score(baseReg) : Promise.resolve(null), differs ? STAI.api.score(declared) : Promise.resolve(null)]);
       if (REMOTE.want !== key) return; // a newer edit superseded this request
       REMOTE.key = key;
+      REMOTE.declaredSame = !differs;
+      REMOTE.declared = dc.status === 'fulfilled' && dc.value ? adaptScore(dc.value) : null;
       REMOTE.base = b.status === 'fulfilled' && b.value ? adaptScore(b.value) : null;
       const net = [s, a].find((r) => r.status === 'rejected' && r.reason && r.reason.network);
       REMOTE.error = net ? net.reason.message : null;
@@ -2142,12 +2153,12 @@ kill_switch:
     }, 300);
   }
   function evaluate() {
-    const { registry, constraintNodeIds } = buildRegistry();
+    const { registry, constraintNodeIds, declared } = buildRegistry();
     const domain = M.domain;
     const designGraph = buildDesignGraph();
     const key = JSON.stringify([registry, domain, constraintNodeIds, designGraph]);
-    if (key !== REMOTE.key && key !== REMOTE.want) scheduleRemote(key, JSON.parse(JSON.stringify(registry)), constraintNodeIds, domain, designGraph);
-    return { registry, constraintNodeIds, score: REMOTE.score, scoreError: REMOTE.scoreError, assessment: REMOTE.assessment, assessError: REMOTE.assessError, byNode: REMOTE.byNode, issues: validateGraph(), pending: key !== REMOTE.key, backendError: REMOTE.error };
+    if (key !== REMOTE.key && key !== REMOTE.want) scheduleRemote(key, JSON.parse(JSON.stringify(registry)), constraintNodeIds, domain, designGraph, JSON.parse(JSON.stringify(declared)));
+    return { registry, constraintNodeIds, declaredScore: REMOTE.declaredSame ? REMOTE.score : REMOTE.declared, score: REMOTE.score, scoreError: REMOTE.scoreError, assessment: REMOTE.assessment, assessError: REMOTE.assessError, byNode: REMOTE.byNode, issues: validateGraph(), pending: key !== REMOTE.key, backendError: REMOTE.error };
   }
   function backendBanner(ev) {
     return ev.backendError ? `<div class="note alert" role="alert" style="flex-direction:row;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><span class="stack"><strong>Backend unavailable</strong><span style="font-size:13px">${esc(ev.backendError)} The score and risk shown may be out of date.</span></span><button class="btn2 btn-s" data-act="mRetry">Retry</button></div>` : '';
@@ -2410,6 +2421,45 @@ kill_switch:
     return `<section class="card lf-effect" aria-label="Effect on the score">${left}<div class="stack" style="gap:2px"><span class="cap">${hasFacts ? 'With the facts declared in the lifecycle' : 'No lifecycle facts declared yet'}</span><span class="lf-big mono">${STAI.pyFixed(p.pcs_final, 1)}</span><span style="display:flex;gap:6px;flex-wrap:wrap"><span class="pill ${TIER_CLS[p.tier]}">${p.tier}</span><span class="pill ${GATE_CLS[p.gate]}">${p.gate.replace('_', ' ')}</span>${arrow ? `<span class="pill ${dcls}">${arrow}</span>` : ''}</span></div><span class="cap" style="flex:1 1 260px">${hasFacts ? 'Recomputed by the scoring engine every time a fact below changes. A higher score means more risk, so a rise (red) is a worse position than the design alone.' : 'Declare what is true of the running model below and the score is recomputed against the design.'}${p.gate === 'BLOCKED' ? ` <a href="#/model/overview">See what blocks the gate.</a>` : ''}${delta === 0 && hasFacts && p.gate === 'BLOCKED' ? ' The number does not move while a blocker holds it; the facts still change the pillars on the overview.' : ''}</span></section>`;
   }
 
+  // The assurance gap: the score on what people declared, against the score once production evidence is added. Production can only raise a declared risk, never lower it.
+  function lfGap(ev) {
+    if (!ev.score || !ev.declaredScore) return '';
+    const o = ev.score.pcs_result, d = ev.declaredScore.pcs_result, dl = Math.round((o.pcs_final - d.pcs_final) * 10) / 10;
+    const mons = monHere() ? MON.list : [], inc = monIncidentsHere().filter((i) => ['OPEN', 'INVESTIGATING'].indexOf(i.status) >= 0);
+    const obs = monObserved() || {}, decl = M.life || {}, bits = [], unev = [];
+    if (obs.drift_detected && !decl.drift_detected) bits.push('Production shows drift' + (obs.drift_type ? ' (' + lfHuman(obs.drift_type).toLowerCase() + ')' : '') + '; none was declared.');
+    if (obs.bias_breach_detected && !decl.bias_breach_detected) bits.push('Production shows a fairness breach; none was declared.');
+    if (obs.domain_violation_occurred && !decl.domain_violation_occurred) bits.push('Values outside the declared domain were seen in production; none was declared.');
+    if (obs.hitl_verified_substantive === false && lfGet('hitl_verified_substantive')) bits.push('Human review is declared substantive, but staff decisions do not support it.');
+    if (obs.automation_bias_risk) bits.push('Automation-bias risk is ' + lfHuman(obs.automation_bias_risk).toLowerCase() + ' in production' + (decl.automation_bias_risk ? ', declared ' + lfHuman(decl.automation_bias_risk).toLowerCase() : '; the declaration did not assess it') + '.');
+    if (inc.length) bits.push(inc.length + ' open incident' + (inc.length === 1 ? '' : 's') + ' raised by monitoring' + (M.incidents.length ? ' besides the ' + M.incidents.length + ' logged by people' : '') + '.');
+    const stale = mons.filter((m) => m.last_record_at && (Date.now() - new Date(m.last_record_at).getTime()) > 3 * 86400000);
+    const hasDecisions = mons.some((m) => MON.dec[m.key] && MON.dec[m.key].n > 0);
+    if (!mons.length) {
+      if (['CONTINUOUS', 'DAILY'].indexOf(decl.audit_frequency) >= 0) unev.push('Monitoring is declared ' + lfHuman(decl.audit_frequency).toLowerCase() + ', but no production data is connected.');
+      if (!decl.drift_detected) unev.push('No drift is reported, but nothing is watching for it.');
+    } else {
+      stale.forEach((m) => unev.push('The monitor for ' + m.name + ' has had no data for ' + Math.round((Date.now() - new Date(m.last_record_at).getTime()) / 86400000) + ' days, so drift and bias are not being seen.'));
+      mons.filter((m) => !m.last_record_at).forEach((m) => unev.push('The monitor for ' + m.name + ' has received no data yet.'));
+    }
+    if (lfGet('hitl_verified_substantive') && !hasDecisions) unev.push('Human review is counted as substantive, but nobody has reported what people do with the outputs.');
+    const PIL = [['Likelihood', 'likelihood'], ['Severity', 'severity'], ['Vulnerability', 'vulnerability'], ['Uncertainty', 'uncertainty'], ['Autonomy', 'autonomy'], ['Evolution', 'evolution']];
+    const moved = PIL.map(([n, k]) => [n, (o.pillar_vector[k] || 0) - (d.pillar_vector[k] || 0), o.pillar_vector[k] || 0, d.pillar_vector[k] || 0]).filter((x) => Math.abs(x[1]) >= 0.5).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+    const tone = !mons.length ? 'plain' : (dl > 0 || bits.length ? 'alert' : 'good');
+    const arrow = dl > 0 ? `▲ +${dl}` : dl < 0 ? `▼ ${dl}` : (moved.length ? 'pillars moved' : 'no gap');
+    const head = !mons.length ? 'The score rests only on what people declared' : bits.length || dl > 0 ? 'Production shows more risk than was declared' : 'Production has not contradicted what was declared';
+    const sub = !mons.length ? 'No production data is connected for this model, so nothing checks the declared facts. Connect production data on the Runtime page.'
+      : bits.length || dl > 0 ? 'The declared score is what people said; the observed score adds what the running model shows. Production can raise a declared risk but never lower it.'
+        : 'No contradiction found so far. That is not proof: it means what is being watched agrees with what was said.';
+    const cell = (label, p, cls) => `<div class="stack" style="gap:2px"><span class="cap">${label}</span><span class="lf-big mono">${STAI.pyFixed(p.pcs_final, 1)}</span><span style="display:flex;gap:6px;flex-wrap:wrap"><span class="pill ${TIER_CLS[p.tier]}">${p.tier}</span><span class="pill ${GATE_CLS[p.gate]}">${p.gate.replace('_', ' ')}</span></span></div>`;
+    const list = (title, arr, cls) => arr.length ? `<div class="stack" style="gap:5px"><strong style="font-size:13px">${title}</strong>${arr.map((x) => `<div class="note ${cls}" style="font-size:13px;padding:8px 12px">${esc(x)}</div>`).join('')}</div>` : '';
+    const pins = o.gate === 'BLOCKED' && d.gate === 'BLOCKED' && dl === 0 && moved.length ? '<span class="cap" style="font-size:12.5px">A blocker holds the headline number, so the gap shows in the pillars below.</span>' : '';
+    return `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:12px" aria-label="Assurance gap"><div class="stack" style="gap:2px"><h2>Assurance gap <span class="pill ${dl > 0 || moved.length ? 'bad' : dl < 0 ? 'ok' : 'muted'}">${arrow}</span></h2><strong style="font-size:14px">${head}</strong><span class="cap">${sub}</span></div>
+      <div class="lf-effect" style="box-shadow:none;border:0;padding:0">${cell('Declared (what people said)', d)}<span class="lf-arrow" aria-hidden="true">→</span>${cell('Observed (plus what production shows)', o)}</div>${pins}
+      ${moved.length ? `<div class="stack" style="gap:4px"><strong style="font-size:13px">Where the pillars moved</strong>${moved.map(([n, dv, ov, dd]) => `<span style="font-size:13px"><b>${n}</b> ${STAI.pyFixed(dd, 1)} → ${STAI.pyFixed(ov, 1)} <span class="pill ${dv > 0 ? 'bad' : 'ok'}">${dv > 0 ? '+' : ''}${STAI.pyFixed(dv, 1)}</span></span>`).join('')}</div>` : ''}
+      ${list('Where production contradicts the declaration', bits, 'alert')}${list('Declared, but nothing is checking it', unev, 'plain')}
+      ${mons.length ? '' : '<div><a class="btn2 btn-s" href="#/model/runtime">Connect production data</a></div>'}</section>`;
+  }
   function lfOverview() {
     const ev = evaluate();
     let body;
@@ -2425,6 +2475,7 @@ kill_switch:
       const cardLink = (to, label, line) => `<a class="lf-link" href="#/model/${to}"><b>${label}</b><span class="cap">${line}</span></a>`;
       const openInc = M.incidents.filter((i) => ['OPEN', 'INVESTIGATING'].indexOf(i.status) >= 0).length, n = Object.keys(M.life).length;
       body = monBanner() + `<section class="note ${tone[0]} lf-gate" role="status"><div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><span class="rcr-score">${STAI.pyFixed(p.pcs_final, 1)}</span><span class="stack" style="gap:6px"><span style="display:flex;gap:6px;flex-wrap:wrap"><span class="pill ${TIER_CLS[p.tier]}">${p.tier} tier</span><span class="pill ${GATE_CLS[p.gate]}">${tone[1]}</span></span><span style="font-size:13.5px">${tone[2]}</span></span></div>${rv.gate_blocked ? `<span style="font-size:13px"><b>${esc(rv.blocking_dimension)}</b> is at or above 80, which blocks the gate on its own.</span>` : ''}</section>
+        ${lfGap(ev)}
         <div class="lf-two">
           ${lfCard('Six-pillar risk vector', 'Four textbook pillars (ISO 31000, NIST SP 800-30) and two AI-specific pillars (EU AI Act, NIST AI RMF). Each pillar is 100 × its PCS terms ÷ their maximum.', `<div class="lf-radarbox">${lfRadar(pv, tiers)}</div><span class="cap" style="text-align:center">Polygon colour = the worst pillar's tier · dot colour = that pillar's own tier · composite ${STAI.pyFixed(rv.composite, 1)} (balanced profile)</span><div class="lf-legend"><span><i class="tc-LOW lf-sw"></i> Low</span><span><i class="tc-MODERATE lf-sw"></i> Moderate</span><span><i class="tc-HIGH lf-sw"></i> High</span><span><i class="tc-CRITICAL lf-sw"></i> Critical</span></div>`)}
           ${lfCard('Pillar breakdown', 'One row per pillar, coloured by its tier.', `<div class="stack" style="gap:8px">${pillars}</div>`)}
@@ -2441,7 +2492,7 @@ kill_switch:
 
   function lfRuntime() {
     const ev = evaluate();
-    const body = lfEffect(ev) + lfMonitoring() +
+    const body = lfEffect(ev) + lfGap(ev) + lfMonitoring() +
       lfCard('Deployment', 'Layer 6: how the model was released and what happens if it has to be pulled back.', lfGrid(
         lfSelect('deployment_mode', 'Release approach', 'Canary, shadow and blue/green releases limit the damage of a bad version.', 'Standard release (default)') +
         lfSelect('rollback_mode', 'Rollback', 'How a faulty version is reverted. If it cannot be, the risk goes up.', 'Manual (default)') +
