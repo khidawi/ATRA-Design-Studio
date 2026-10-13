@@ -135,3 +135,7 @@ def predict(applicant): ...                   # logs every call with its latency
 
 It behaves like the runtime client: it never raises into your code, never blocks it (a bounded queue and a background thread, batches of 200, Retry-After honoured) and uses only the standard library. Pass `sample=0.1` to send a random tenth of very high traffic: drift shows up in a sample just as well. `label=` is the true answer when you already know it (accuracy is then judged); `flags={"refusal": True}` counts events your code defines. ASTRA keeps statistics, never the records: send only the fields the monitor's schema declares.
 
+### Try it: two demo models
+
+`examples/demo_models.py` is a credit-approval model and a simulated third-party LLM that you can plug into a monitor and watch drift, a fairness breach, a provider swapping the model, personal data going out and staff rubber-stamping. Read the header of the file for the four commands (`credit --phase normal`, `credit --phase drift`, `llm --phase normal`, `llm --phase drift`); `--show-record` prints the example record to paste into *Connect production data*.
+

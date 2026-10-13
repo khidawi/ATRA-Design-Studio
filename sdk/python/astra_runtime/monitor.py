@@ -57,6 +57,7 @@ class ModelMonitor:
         self.api_key = api_key or os.environ.get("ASTRA_KEY", "")
         self.sample, self.batch_size, self.flush_interval, self.timeout, self.on_error = max(0.0, min(1.0, sample)), batch_size, flush_interval, timeout, on_error
         self.sent = self.dropped = self.rejected = 0
+        self._busy = 0                                    # batches taken off the queue and not yet answered
         self.status: Optional[str] = None                 # what the platform last said about the monitor: learning, OK, WATCH, DRIFT ...
         self.disabled_reason: Optional[str] = None
         self._q: Deque[Dict[str, Any]] = deque()
@@ -180,8 +181,10 @@ class ModelMonitor:
         while time.monotonic() < end and not self.disabled_reason:
             if not self._send_once():
                 break
+        while time.monotonic() < end and self._busy and not self.disabled_reason:     # a batch the background thread is still sending
+            time.sleep(0.05)
         with self._lock:
-            return not self._q
+            return not self._q and not self._busy
 
     def close(self) -> None:
         if self._stop.is_set():
@@ -230,10 +233,17 @@ class ModelMonitor:
                 return False
             kind = lambda r: "decisions" if r.get("_d") else ("canaries" if r.get("_c") else "records")      # noqa: E731
             first = kind(self._q[0])
-            first_is_decision = first != "records"
             batch: List[Dict[str, Any]] = []
             while self._q and len(batch) < self.batch_size and kind(self._q[0]) == first:
                 batch.append(self._q.popleft())
+            self._busy += 1
+        try:
+            return self._deliver(first, batch)
+        finally:
+            with self._lock:
+                self._busy -= 1
+
+    def _deliver(self, first: str, batch: List[Dict[str, Any]]) -> bool:
         if first == "decisions":
             status, body = self._http({"decisions": [{k: v for k, v in d.items() if k != "_d"} for d in batch]}, "decisions")
         elif first == "canaries":
@@ -244,7 +254,7 @@ class ModelMonitor:
             self.sent += len(batch)
             self._backoff = 0.0
             if isinstance(body, dict):
-                if not first_is_decision:
+                if first == "records":
                     self.status = body.get("status")
                 self.rejected += int(body.get("rejected") or 0)
             return True
