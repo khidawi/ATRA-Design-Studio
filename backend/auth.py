@@ -91,7 +91,7 @@ PUBLIC = [("GET", r"^/health$"), ("GET", r"^/docs"), ("GET", r"^/redoc"), ("GET"
 PURE = [r"^/score$", r"^/document/validate$", r"^/api/rcr/score$", r"^/api/agents/analyse$", r"^/api/policies/test$", r"^/api/designs/[^/]+/assess$", r"^/api/agents/import/(preview|file-preview)$"]
 SIGNOFF = [r"^/api/agents/ratify$", r"^/api/drift/[^/]+/decide$", r"^/api/contracts/", r"^/api/designs/[^/]+/compile$",
            r"^/api/findings/[^/]+/(acknowledge|halt)$", r"^/api/coverage/", r"^/api/packs$", r"^/api/ingestion/candidates/",
-           r"^/api/policies", r"^/api/rules/"]
+           r"^/api/policies", r"^/api/rules/", r"^/api/model-monitor/floors$"]
 
 
 def is_public(method: str, path: str) -> bool:
@@ -105,7 +105,7 @@ def required_permission(method: str, path: str) -> str:
         if path.startswith(("/api/users", "/api/keys")):
             return "admin"
         return "audit" if path.startswith(("/api/audit", "/api/export/audit")) else "read"
-    if path.startswith(("/api/users", "/api/keys")) or path == "/api/organisation" or (method == "DELETE" and path == "/api/company") or (method == "DELETE" and re.match(r"^/api/agents/(?!demo$)[^/]+$", path)):
+    if path.startswith(("/api/users", "/api/keys", "/api/model-monitor/alerts")) or path == "/api/organisation" or (method == "DELETE" and path == "/api/company") or (method == "DELETE" and re.match(r"^/api/agents/(?!demo$)[^/]+$", path)):
         return "admin"
     if any(re.search(p, path) for p in PURE):
         return "read"

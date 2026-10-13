@@ -16,6 +16,7 @@ Production monitoring of AI models: plug a model that is running inside the orga
   GET    /api/model-monitor/{key}/incidents   the incidents monitoring raised
   PATCH  /api/model-monitor/incidents/{id}    a person changes an incident's status
   GET    /api/model-monitor/signals           for a model design: what production shows, as the ST-AI score understands it
+  GET    /api/model-monitor/floors            the loosest thresholds compliance allows; PUT sets them (a compliance sign-off)
   GET    /api/model-monitor/{key}/versions    which provider model versions answered, the changes, and whether behaviour moved
   POST   /api/model-monitor/{key}/decisions   what people did with the outputs (an API key of role collector); roles, not people
   GET    /api/model-monitor/{key}/decisions   how review is going: acceptance, review time, wrong outputs accepted
@@ -34,6 +35,10 @@ categories per window, and the rest is counted as "other". Only fields declared 
 Third-party models change without notice: a record may carry `model_version` (the model id or fingerprint the provider reports) and a new version
 becomes a change event, compared with the one before it (model_versions.py). People's use of the outputs is read from decision records, by role
 (decision_stats.py). Both only advise: nothing is stopped or rerouted, and a finding is worded as a question for a person, not a verdict.
+
+Who decides how sensitive a monitor is: compliance sets an organisation-wide **floor** per threshold, the model owner may tune within it, and loosening past it
+needs a compliance sign-off with a written reason, recorded as a waiver and shown on the page (threshold_policy.py). A new incident is sent to the alert
+channels (model_alerts.py).
 
 Protections: ingestion needs a key with the ingest permission (a collector key can do only this); batches are limited to 1,000 records and 2 MB; a key
 is rate limited and answered 429 with Retry-After; a record's own timestamp is honoured only within the retention window; and a monitor's aggregates are
@@ -56,11 +61,13 @@ from sqlalchemy.orm.attributes import flag_modified
 
 import decision_stats as ds
 import llm_safety as lsf
+import model_alerts
+import threshold_policy as tp
 import model_stats as ms
 import model_versions as mv
 from agent_registry import agent_key
 from auth import AuthUser, current_user, has
-from db.models import Design, ModelDecisionWindow, ModelIncident, ModelMonitor, ModelWindow
+from db.models import Design, ModelDecisionWindow, ModelIncident, ModelMonitor, ModelWindow, ThresholdFloors
 from db.session import get_session
 from organisation import current_organisation
 
@@ -87,6 +94,19 @@ def _throttle(key: str, n: int) -> Optional[int]:
         return max(1, int(60 - (now - q[0][0]))) if q else 60
     q.append((now, n))
     return None
+
+
+def _floors(session: Session, org_id: Any) -> Dict[str, Dict[str, float]]:
+    row = session.get(ThresholdFloors, org_id)
+    return (row.floors or {}) if row else {}
+
+
+def _waived(m: ModelMonitor, scope: str, own: Optional[Dict[str, Any]]) -> set:
+    return {w["key"] for w in tp.current_waivers(scope, m.waivers or [], own or {})}
+
+
+def thresholds_in_force(session: Session, m: ModelMonitor) -> Dict[str, float]:
+    return tp.effective("model", ms.DEFAULT_THRESHOLDS, m.thresholds or {}, _floors(session, m.organisation_id), _waived(m, "model", m.thresholds))
 
 
 def _hour(t: datetime) -> datetime:
@@ -165,6 +185,17 @@ def _thresholds(raw: Dict[str, float]) -> Dict[str, float]:
     return {k: float(v) for k, v in raw.items()}
 
 
+def _held_to_floor(scope: str, new: Dict[str, float], m: ModelMonitor, session: Session, user: AuthUser, reason: Optional[str]) -> List[Dict[str, Any]]:
+    """The waivers after changing a monitor's thresholds, or the HTTP error that says why the change is not allowed."""
+    try:
+        waivers, _ = tp.apply_change(scope, new, _floors(session, m.organisation_id), m.waivers or [], can_waive=has(user.role, "signoff"), reason=reason, by=user.name, at=datetime.now(timezone.utc).isoformat())
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    return waivers
+
+
 # ── Looking things up ───────────────────────────────────────────────────────
 
 def _get(session: Session, key: str, lock: bool = False) -> ModelMonitor:
@@ -193,7 +224,7 @@ def _merged(wins: List[ModelWindow]) -> Optional[Dict[str, Any]]:
 def evaluate_monitor(session: Session, m: ModelMonitor, now: Optional[datetime] = None) -> Dict[str, Any]:
     """Judges the recent windows against the baseline, stores the status and signals, and opens or notes incidents. Does not commit."""
     now = now or datetime.now(timezone.utc)
-    t = {**ms.DEFAULT_THRESHOLDS, **(m.thresholds or {})}
+    t = thresholds_in_force(session, m)
     m.last_eval_at = now
     extra, extra_sig = _people_and_versions(session, m, now)
     if m.baseline is None:
@@ -252,7 +283,9 @@ def decisions_evaluation(session: Session, m: ModelMonitor, now: datetime) -> Di
     if acc is None:
         return {"n": 0, "reasons": [], "signals": {}, "roles": []}
     predictions = sum(w.acc.get("n", 0) for w in _windows(session, m, since))
-    return ds.evaluate(acc, (m.decision_settings or {}).get("thresholds"), predictions)
+    own = (m.decision_settings or {}).get("thresholds") or {}
+    thr = tp.effective("decisions", ds.DEFAULTS, own, _floors(session, m.organisation_id), _waived(m, "decisions", own))
+    return ds.evaluate(acc, thr, predictions)
 
 
 def _sync_incidents(session: Session, m: ModelMonitor, reasons: List[Dict[str, Any]], now: datetime) -> None:
@@ -267,7 +300,10 @@ def _sync_incidents(session: Session, m: ModelMonitor, reasons: List[Dict[str, A
         detail = {"reasons": rs[:8], "kinds": sorted(kinds)}
         inc = open_.get(kind)
         if inc is None:
-            session.add(ModelIncident(monitor_id=m.id, kind=kind, severity=sev, title=rs[0]["text"][:300], detail=detail, status="OPEN", detected_at=now, last_seen_at=now))
+            fresh = ModelIncident(monitor_id=m.id, kind=kind, severity=sev, title=rs[0]["text"][:300], detail=detail, status="OPEN", detected_at=now, last_seen_at=now)
+            session.add(fresh)
+            session.flush()
+            model_alerts.queue(session, m.organisation_id, {"id": f"MON-{fresh.seq:03d}", "monitor": m.name, "kind": kind, "severity": sev, "title": fresh.title, "detected_at": now.isoformat()})
         else:
             inc.last_seen_at, inc.detail, inc.recovered_at = now, detail, None
             inc.severity = max(inc.severity, sev)
@@ -477,11 +513,45 @@ def create_monitor(body: CreateBody, session: Session = Depends(get_session), us
 def _detail(session: Session, m: ModelMonitor) -> Dict[str, Any]:
     res = evaluate_monitor(session, m)
     session.commit()
-    t = {**ms.DEFAULT_THRESHOLDS, **(m.thresholds or {})}
-    return {**_summary(m), "spec": m.spec, "thresholds": t, "custom_thresholds": m.thresholds or {}, "retention_days": m.retention_days, "evaluation": res,
+    t = thresholds_in_force(session, m)
+    floors = _floors(session, m.organisation_id)
+    return {**_summary(m), "spec": m.spec, "thresholds": t, "custom_thresholds": m.thresholds or {}, "floors": floors.get("model", {}),
+            "waivers": tp.current_waivers("model", m.waivers or [], m.thresholds or {}), "retention_days": m.retention_days, "evaluation": res,
             "baseline": ({"n": m.baseline["n"], "created_at": m.baseline.get("created_at"), "source": m.baseline.get("source"), "error_rate": m.baseline.get("error_rate"),
                           "performance": m.baseline.get("performance"), "latency": m.baseline.get("latency")} if m.baseline else None),
             "ingest_path": f"/api/model-monitor/{m.key}/records"}
+
+
+def _floors_out(session: Session) -> Dict[str, Any]:
+    row = session.get(ThresholdFloors, current_organisation(session).id)
+    return {"floors": (row.floors if row else {}) or {}, "updated_by": row.updated_by if row else None, "updated_at": row.updated_at if row else None,
+            "governed": {scope: dict(dirs) for scope, dirs in tp.SCOPES.items()}, "defaults": {"model": {k: ms.DEFAULT_THRESHOLDS[k] for k in tp.MODEL}, "decisions": {k: ds.DEFAULTS[k] for k in tp.DECISIONS}}}
+
+
+@router.get("/floors")
+def get_floors(session: Session = Depends(get_session)) -> Dict[str, Any]:
+    return _floors_out(session)
+
+
+class FloorsBody(BaseModel):
+    floors: Dict[str, Dict[str, float]]
+
+
+@router.put("/floors")
+def set_floors(body: FloorsBody, session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> Dict[str, Any]:
+    """Replaces the organisation's floors. Compliance sign-off (the route needs it)."""
+    try:
+        clean = tp.clean_floors(body.floors)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    org = current_organisation(session)
+    row = session.get(ThresholdFloors, org.id)
+    if row is None:
+        session.add(ThresholdFloors(organisation_id=org.id, floors=clean, updated_by=user.name))
+    else:
+        row.floors, row.updated_by, row.updated_at = clean, user.name, datetime.now(timezone.utc)
+    session.commit()
+    return _floors_out(session)
 
 
 @router.get("/signals")
@@ -550,10 +620,11 @@ class PatchBody(BaseModel):
     baseline_target: Optional[int] = Field(None, ge=100, le=100_000)
     retention_days: Optional[int] = Field(None, ge=7, le=90)
     safety_checks: Optional[bool] = None                        # add the prompt and reply checks of a language model to an existing monitor
+    waiver_reason: Optional[str] = Field(None, max_length=300)  # why a threshold is looser than the compliance floor (a compliance sign-off)
 
 
 @router.patch("/{key}")
-def update_monitor(key: str, body: PatchBody, session: Session = Depends(get_session)) -> Dict[str, Any]:
+def update_monitor(key: str, body: PatchBody, session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> Dict[str, Any]:
     m = _get(session, key)
     if body.name:
         m.name = body.name.strip()
@@ -564,7 +635,10 @@ def update_monitor(key: str, body: PatchBody, session: Session = Depends(get_ses
             raise HTTPException(status_code=422, detail="That model design does not exist.")
         m.design_key = body.design_key
     if body.thresholds is not None:
-        m.thresholds = _thresholds(body.thresholds)
+        new = _thresholds(body.thresholds)
+        m.waivers = _held_to_floor("model", new, m, session, user, body.waiver_reason)
+        flag_modified(m, "waivers")
+        m.thresholds = new
     if body.baseline_target:
         m.baseline_target = body.baseline_target
     if body.retention_days:
@@ -670,7 +744,7 @@ def series(key: str, hours: int = 168, session: Session = Depends(get_session)) 
             item["output_psi"] = ms._compare(m.spec["output"]["kind"], m.baseline["output"], acc["output"])[0]
             item["positive_rate"] = round(acc["output"]["pos"] / n, 5)
         out.append(item)
-    return {"step_hours": step, "buckets": out, "thresholds": {"psi_watch": (m.thresholds or {}).get("psi_watch", ms.DEFAULT_THRESHOLDS["psi_watch"]), "psi_drift": (m.thresholds or {}).get("psi_drift", ms.DEFAULT_THRESHOLDS["psi_drift"])}}
+    return {"step_hours": step, "buckets": out, "thresholds": {"psi_watch": thresholds_in_force(session, m)["psi_watch"], "psi_drift": thresholds_in_force(session, m)["psi_drift"]}}
 
 
 @router.get("/{key}/incidents")
@@ -760,12 +834,14 @@ def get_decisions(key: str, session: Session = Depends(get_session)) -> Dict[str
     cfg = m.decision_settings or {}
     res = decisions_evaluation(session, m, datetime.now(timezone.utc))
     return {**res, "days": DECISION_DAYS, "individuals": bool(cfg.get("individuals")), "signed_off_by": cfg.get("signed_off_by"), "signed_off_at": cfg.get("signed_off_at"),
-            "thresholds": {**ds.DEFAULTS, **(cfg.get("thresholds") or {})}, "custom_thresholds": cfg.get("thresholds") or {}, "advice_only": True}
+            "thresholds": tp.effective("decisions", ds.DEFAULTS, cfg.get("thresholds") or {}, _floors(session, m.organisation_id), _waived(m, "decisions", cfg.get("thresholds"))),
+            "custom_thresholds": cfg.get("thresholds") or {}, "floors": _floors(session, m.organisation_id).get("decisions", {}), "waivers": tp.current_waivers("decisions", m.waivers or [], cfg.get("thresholds") or {}), "advice_only": True}
 
 
 class DecisionSettingsBody(BaseModel):
     individuals: Optional[bool] = None
     thresholds: Optional[Dict[str, float]] = None
+    waiver_reason: Optional[str] = Field(None, max_length=300)
 
 
 @router.put("/{key}/decision-settings")
@@ -777,7 +853,10 @@ def set_decision_settings(key: str, body: DecisionSettingsBody, session: Session
         bad = [k for k in body.thresholds if k not in ds.DEFAULTS]
         if bad:
             raise HTTPException(status_code=422, detail="Unknown threshold: " + ", ".join(bad) + ". Known: " + ", ".join(ds.DEFAULTS))
-        cfg["thresholds"] = {k: float(v) for k, v in body.thresholds.items()}
+        new = {k: float(v) for k, v in body.thresholds.items()}
+        m.waivers = _held_to_floor("decisions", new, m, session, user, body.waiver_reason)
+        flag_modified(m, "waivers")
+        cfg["thresholds"] = new
     if body.individuals is True and not cfg.get("individuals"):
         if not has(user.role, "signoff"):
             raise HTTPException(status_code=403, detail="Counting distinct people needs a compliance sign-off. By default decisions are counted by role only.")

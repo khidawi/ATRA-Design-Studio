@@ -502,6 +502,13 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       monDecisionSettings: (key, body) => call('/api/model-monitor/' + encodeURIComponent(key) + '/decision-settings', { method: 'PUT', body: JSON.stringify(body) }),
       monSafety: (key) => call('/api/model-monitor/' + encodeURIComponent(key) + '/safety'),
       monCanaries: (key) => call('/api/model-monitor/' + encodeURIComponent(key) + '/canaries'),
+      monFloors: () => call('/api/model-monitor/floors'),
+      monSetFloors: (floors) => call('/api/model-monitor/floors', { method: 'PUT', body: JSON.stringify({ floors }) }),
+      monChannels: () => call('/api/model-monitor/alerts/channels'),
+      monChannelAdd: (body) => post('/api/model-monitor/alerts/channels', body),
+      monChannelPatch: (id, body) => call('/api/model-monitor/alerts/channels/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(body) }),
+      monChannelTest: (id) => post('/api/model-monitor/alerts/channels/' + encodeURIComponent(id) + '/test', {}),
+      monChannelDel: (id) => call('/api/model-monitor/alerts/channels/' + encodeURIComponent(id), { method: 'DELETE' }),
       monIncidentStatus: (id, body) => call('/api/model-monitor/incidents/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(body) }),
       telDesign: (key, body) => post('/api/telemetry/agents/' + encodeURIComponent(key) + '/design', body),
       previewAgentImport: (body) => post('/api/agents/import/preview', body),
@@ -2585,7 +2592,7 @@ kill_switch:
     lfIncDel: (id) => { if (!window.confirm('Remove this incident from the log?')) return; M.incidents = M.incidents.filter((i) => i.id !== id); persist(); }
   });
   /* ----- Production monitoring of a model: what its inputs and outputs look like where it really runs ----- */
-  const MON = { forDesign: null, loading: false, loaded: false, error: null, caps: null, list: [], signals: {}, incidents: [], detail: {}, series: {}, ver: {}, dec: {}, saf: {}, can: {}, open: {}, showForm: false, form: null, busy: null, err: null, msg: null, timer: null, edit: null };
+  const MON = { forDesign: null, loading: false, loaded: false, error: null, caps: null, list: [], signals: {}, incidents: [], detail: {}, series: {}, ver: {}, dec: {}, saf: {}, can: {}, floors: null, floorEdit: null, gov: false, channels: [], chForm: { name: '', url: '', sev: 3 }, chMsg: null, open: {}, showForm: false, form: null, busy: null, err: null, msg: null, timer: null, edit: null };
   const MON_STATUS = { LEARNING: ['muted', 'Learning'], OK: ['ok', 'Stable'], WATCH: ['warn', 'Watch'], DRIFT: ['bad', 'Drift'], LOW_VOLUME: ['muted', 'Too few records'], NO_DATA: ['muted', 'No data'] };
   const monHere = () => MON.forDesign === M.designKey;
   async function loadMon(quiet) {
@@ -2598,6 +2605,7 @@ kill_switch:
       if (dk !== M.designKey) { MON.loading = false; return; }
       MON.forDesign = dk; MON.list = sg.monitors; MON.signals = sg.signals; MON.incidents = sg.incidents; MON.loaded = true; MON.error = null;
       await Promise.all(sg.monitors.map(async (m) => { MON.detail[m.key] = await STAI.api.monGet(m.key); MON.series[m.key] = await STAI.api.monSeries(m.key, 168); MON.ver[m.key] = await STAI.api.monVersions(m.key); MON.dec[m.key] = await STAI.api.monDecisions(m.key); MON.saf[m.key] = await STAI.api.monSafety(m.key); MON.can[m.key] = await STAI.api.monCanaries(m.key); }));
+      MON.floors = await STAI.api.monFloors(); MON.channels = await STAI.api.monChannels();
       if (sg.monitors.length) { MON.signals = (await STAI.api.monSignals(dk)).signals; }          // the evaluation above may have changed them
     } catch (e) { if (!quiet) MON.error = e.message; }
     MON.loading = false;
@@ -2727,11 +2735,37 @@ kill_switch:
       if ((ev.flags || []).length) body += `<span class="cap">${ev.flags.map((f) => esc(f.name) + ': ' + monPct(f.rate) + ' (baseline ' + monPct(f.base_rate) + ')').join(' · ')}</span>`;
       body += `<div class="stack" style="gap:6px"><strong style="font-size:13px">How each input has moved over the last week</strong>${monChart(MON.series[d.key], d)}</div>`;
     }
-    body += monVersionsPanel(d) + monCanaryPanel(d) + monSafetyPanel(d) + monPeoplePanel(d);
+    body += monWaivers(d) + monVersionsPanel(d) + monCanaryPanel(d) + monSafetyPanel(d) + monPeoplePanel(d);
     const ed = MON.edit && MON.edit.key === d.key ? MON.edit : null;
-    const edit = ed ? `<div class="stack" style="gap:10px;padding-top:6px;border-top:1px solid var(--ln-edf0f3)"><span class="cap">Thresholds are rules of thumb, not calibrated to this model. Change them when the defaults do not suit it.</span><div class="prow" style="gap:12px;align-items:flex-end">${[['psi_watch', 'Watch at PSI'], ['psi_drift', 'Drift at PSI'], ['parity_breach', 'Bias breach below'], ['perf_drop_drift', 'Accuracy drop = drift'], ['error_drift', 'Error rate = drift'], ['eval_hours', 'Window (hours)']].map(([k, l]) => `<label class="cap">${l}<br><input class="inp mono" style="max-width:110px" type="number" step="any" data-chg="monThr" data-arg="${k}" value="${esc(ed.thr[k])}"></label>`).join('')}</div><div class="prow" style="gap:8px"><button class="btn btn-s" data-act="monEditSave"${MON.busy ? ' disabled' : ''}>Save</button><button class="btn2 btn-s" data-act="monEdit" data-arg="">Close</button></div></div>` : '';
+    const edit = ed ? `<div class="stack" style="gap:10px;padding-top:6px;border-top:1px solid var(--ln-edf0f3)"><span class="cap">Thresholds are rules of thumb, not calibrated to this model. Change them when the defaults do not suit it.</span><div class="prow" style="gap:12px;align-items:flex-end">${[['psi_watch', 'Watch at PSI'], ['psi_drift', 'Drift at PSI'], ['parity_breach', 'Bias breach below'], ['perf_drop_drift', 'Accuracy drop = drift'], ['error_drift', 'Error rate = drift'], ['eval_hours', 'Window (hours)']].map(([k, l]) => `<label class="cap">${l}<br><input class="inp mono" style="max-width:110px" type="number" step="any" data-chg="monThr" data-arg="${k}" value="${esc(ed.thr[k])}">${d.floors && d.floors[k] !== undefined ? '<br><span class="cap" style="font-size:11.5px">compliance floor ' + d.floors[k] + '</span>' : ''}</label>`).join('')}</div><label class="cap" style="max-width:560px">Reason, needed only to go looser than a compliance floor (it is recorded with your name, and only compliance can do it)<br><input class="inp" style="max-width:none;width:100%" data-chg="monEditReason" value="${esc(ed.reason || '')}" placeholder="Why this monitor needs a looser limit"></label><div class="prow" style="gap:8px"><button class="btn btn-s" data-act="monEditSave"${MON.busy ? ' disabled' : ''}>Save</button><button class="btn2 btn-s" data-act="monEdit" data-arg="">Close</button></div></div>` : '';
     const conn = `<details class="lf-det"${learning ? ' open' : ''}><summary><b>How to send this model's traffic</b></summary><div class="stack" style="gap:10px;padding:8px 0"><span class="cap" style="font-size:12.5px">Use an API key with the role <b>collector</b> (<a href="#/users">Users → API keys</a>); it can send records and nothing else. Send only the fields the monitor declares. ASTRA keeps statistics, never the records.</span><span class="cap"><b>Python</b> (the astra_runtime SDK: batches, never blocks or raises)</span>${tlCode(sn.code)}<span class="cap"><b>Any language</b> (up to 1,000 records per request)</span>${tlCode(sn.curl)}<span class="cap"><b>What people decided</b> (same key; <span class="mono">POST ${esc(d.ingest_path.replace(/records$/, 'decisions'))}</span> with <span class="mono">{"decisions": [...]}</span>)</span>${tlCode('mon.decision("overridden", role="loan officer", review_seconds=42, reason=True)')}</div></details>`;
     return lfCard('', '', `${head}${body}${edit}${conn}`);
+  }
+  const MON_THR = { psi_watch: 'Input shift: watch at PSI', psi_drift: 'Input shift: drift at PSI', perf_drop_watch: 'Accuracy drop: watch', perf_drop_drift: 'Accuracy drop: drift', rmse_ratio_watch: 'Error ratio: watch', rmse_ratio_drift: 'Error ratio: drift',
+    parity_watch: 'Fairness ratio: watch below', parity_breach: 'Fairness ratio: breach below', error_watch: 'Error rate: watch', error_drift: 'Error rate: drift', flag_watch: 'Flag rate rise: watch', flag_drift: 'Flag rate rise: drift',
+    latency_ratio_watch: 'Response time: watch at x baseline', latency_ratio_drift: 'Response time: drift at x baseline', violation_min: 'Out-of-range values before a violation',
+    accept_watch: 'Accepted share: watch at', perfunctory_seconds: 'A look shorter than this (s) is perfunctory', perfunctory_accept: 'Accepted share that makes a short look suspect', harmful_watch: 'Wrong outputs accepted: watch at',
+    harmful_drift: 'Wrong outputs accepted: look into at', needless_override_watch: 'Right outputs overridden: watch at', reason_min_rate: 'Share of decisions with a reason', require_reasons: 'Reasons required (1 = yes)',
+    coverage_expected: 'Share of outputs a person should decide on', concentration_watch: 'One person making this share of decisions' };
+  function monWaivers(d) {
+    const dec = (MON.dec[d.key] && MON.dec[d.key].waivers) || [], all = (d.waivers || []).concat(dec);
+    if (!all.length) return '';
+    return `<div class="note warn" style="gap:4px"><strong>Looser than the compliance floor</strong>${all.map((w) => `<span style="font-size:13px"><b>${esc(MON_THR[w.key] || w.key)}</b> is ${esc(w.value)} where the floor is ${esc(w.floor)}. Signed off by ${esc(w.by)} on ${esc(String(w.at).slice(0, 10))}: ${esc(w.reason)}</span>`).join('')}</div>`;
+  }
+  function monGovernance() {
+    const f = MON.floors;
+    if (!f) return '';
+    const canSign = can('signoff'), edit = MON.floorEdit || f.floors, scopes = [['model', 'How the model is judged'], ['decisions', 'How review of its outputs is judged']];
+    const rows = scopes.map(([sc, title]) => `<div class="stack" style="gap:4px"><strong style="font-size:13px">${title}</strong><div class="pp-tbl">${Object.keys(f.governed[sc]).map((k) => { const dir = f.governed[sc][k], v = (edit[sc] || {})[k]; return `<div class="pp-tr" style="grid-template-columns:2.6fr .8fr 1.2fr 1.4fr"><span>${esc(MON_THR[k] || k)}</span><span class="mono">${esc(f.defaults[sc][k])}</span><span>${canSign ? `<input class="inp mono" style="max-width:100px" type="number" step="any" data-chg="monFloorSet" data-arg="${sc}:${k}" value="${v === undefined ? '' : esc(v)}" placeholder="none" aria-label="Floor for ${esc(MON_THR[k] || k)}">` : `<span class="mono">${v === undefined ? 'none' : esc(v)}</span>`}</span><span class="cap">${dir === 'lower' ? 'lower is stricter' : 'higher is stricter'}</span></div>`; }).join('')}</div></div>`).join('');
+    const sev = (n) => ({ 1: 'Low', 2: 'Moderate', 3: 'High', 4: 'Severe', 5: 'Critical' }[n]);
+    const chans = MON.channels.length ? MON.channels.map((c) => `<div class="pp-tr" style="grid-template-columns:1.4fr 1.4fr .8fr 2fr auto"><span><b>${esc(c.name)}</b> ${c.active ? '' : '<span class="pill muted">Paused</span>'}</span><span class="mono">${esc(c.host)}</span><span>${esc(sev(c.min_severity))} and above</span><span class="cap">${c.last_status ? esc(c.last_status) + ' · ' + monAgo(c.last_at) : 'nothing sent yet'}</span><span style="display:flex;gap:6px;flex-wrap:wrap">${can('admin') ? `<button class="btn3 btn-s" data-act="monChannelTest" data-arg="${esc(c.id)}">Send a test</button><button class="btn3 btn-s" data-act="monChannelToggle" data-arg="${esc(c.id)}:${c.active ? 'off' : 'on'}">${c.active ? 'Pause' : 'Resume'}</button><button class="btn3 btn-s" data-act="monChannelDel" data-arg="${esc(c.id)}">Remove</button>` : ''}</span></div>`).join('') : '<span class="cap">No alert channel yet: findings are only on this page and in the incident log.</span>';
+    const add = can('admin') ? `<div class="prow" style="gap:10px;align-items:flex-end;flex-wrap:wrap"><label class="cap">Name<br><input class="inp" style="max-width:180px" data-chg="monChField" data-arg="name" value="${esc(MON.chForm.name)}" placeholder="Model owners"></label><label class="cap">Webhook address (https; stored encrypted)<br><input class="inp mono" style="min-width:300px" data-chg="monChField" data-arg="url" value="${esc(MON.chForm.url)}" placeholder="https://hooks.slack.com/services/..."></label><label class="cap">Tell me from<br><select class="inp" data-chg="monChField" data-arg="sev">${[1, 2, 3, 4, 5].map((n) => opt(String(n), n + ' · ' + sev(n), String(MON.chForm.sev))).join('')}</select></label><button class="btn btn-s" data-act="monChannelAdd"${MON.busy ? ' disabled' : ''}>Add channel</button></div>` : '<span class="cap">Only an administrator can add or change channels.</span>';
+    if (!MON.gov) return `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn2 btn-s" data-act="monGovToggle">Floors and alerts</button><span class="cap">Who decides how sensitive monitoring is, and who is told${MON.channels.length ? ' · ' + MON.channels.length + ' alert channel' + (MON.channels.length === 1 ? '' : 's') : ' · no alert channel yet'}</span></div>`;
+    return `<section class="card" style="padding:16px 20px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><b>Who decides how sensitive monitoring is, and who is told</b><button class="btn3 btn-s" data-act="monGovToggle">Hide</button></div><div class="stack" style="gap:14px;padding:10px 0">
+      <div class="stack" style="gap:6px"><strong>Floors set by compliance</strong><span class="cap" style="font-size:12.5px">A floor is the loosest value any monitor may use. A model owner can tighten a threshold freely and tune it within the floor; going looser needs a compliance sign-off with a written reason, which is recorded and shown on that monitor. If a floor is tightened later, a monitor looser than it is held to it. Thresholds that only decide how much data is needed are the owner's alone.</span>
+        <div class="pp-tr pp-th" style="grid-template-columns:2.6fr .8fr 1.2fr 1.4fr"><span>Threshold</span><span>Default</span><span>Floor</span><span></span></div>${rows}
+        ${canSign ? `<div class="prow" style="gap:8px"><button class="btn btn-s" data-act="monFloorsSave"${MON.busy ? ' disabled' : ''}>Save the floors (signed off as ${esc(ME.full_name)})</button></div>` : '<span class="cap">Only compliance can set the floors.</span>'}${f.updated_by ? `<span class="cap">Last set by ${esc(f.updated_by)} on ${esc(String(f.updated_at).slice(0, 10))}.</span>` : ''}</div>
+      <div class="stack" style="gap:6px"><strong>Alerts</strong><span class="cap" style="font-size:12.5px">When a monitor opens a new incident, each channel whose minimum it reaches gets one message saying what was found and that ASTRA only advises. Records, prompts and replies are never sent.</span>${MON.chMsg ? `<div class="note ${MON.chMsg.ok ? 'good' : 'alert'}" role="status" style="font-size:13px">${esc(MON.chMsg.text)}</div>` : ''}<div class="pp-tbl">${chans}</div>${add}</div></div></section>`;
   }
   function monForm() {
     const f = MON.form, caps = MON.caps || {}, fld = (id, label, ctl, help) => `<div class="fld" style="min-width:200px;flex:1 1 200px"><label for="${id}">${label}</label>${ctl}${help ? `<span class="cap" style="font-size:12.5px">${help}</span>` : ''}</div>`;
@@ -2759,7 +2793,7 @@ kill_switch:
          <ul class="cap" style="margin:0;padding-left:18px"><li>The serving code sends each prediction (a few lines with the SDK, or any HTTP client).</li><li>ASTRA keeps statistics, never the records: no personal data is stored.</li><li>The first records become the baseline; everything after is compared with it.</li></ul>
          <div><button class="btn" data-act="monForm">Connect production data</button></div>`);
     }
-    return msg + MON.list.map(monCard).join('') + `<div><button class="btn2 btn-s" data-act="monForm">Add another monitor</button></div>`;
+    return msg + MON.list.map(monCard).join('') + monGovernance() + `<div><button class="btn2 btn-s" data-act="monForm">Add another monitor</button></div>`;
   }
   const monMonIncRow = (i) => {
     const sv = LF_SEV[i.severity] || LF_SEV[3];
@@ -2770,6 +2804,9 @@ kill_switch:
     monField: (v, k) => { MON.form[k] = k === 'target' ? parseInt(v, 10) || 1000 : v; },
     monFeat: (v, k) => { const [i, f] = k.split(':'), x = MON.form.features[+i]; if (!x) return; if (f === 'kind') x.kind = v; else if (v === '') delete x[f]; else x[f] = parseFloat(v); },
     monThr: (v, k) => { if (MON.edit) MON.edit.thr[k] = parseFloat(v); },
+    monFloorSet: (v, k) => { const [sc, key] = k.split(':'); MON.floorEdit = MON.floorEdit || JSON.parse(JSON.stringify(MON.floors.floors || {})); MON.floorEdit[sc] = MON.floorEdit[sc] || {}; if (v === '') delete MON.floorEdit[sc][key]; else MON.floorEdit[sc][key] = parseFloat(v); },
+    monChField: (v, k) => { MON.chForm[k] = v; },
+    monEditReason: (v) => { if (MON.edit) MON.edit.reason = v; },
     monIncStatus: async (v, id) => { try { await STAI.api.monIncidentStatus(id, { status: v }); await loadMon(true); } catch (e) { MON.err = e.message; } }
   });
   Object.assign(H, {
@@ -2800,6 +2837,27 @@ kill_switch:
       if (!window.confirm('Learn a new baseline? The current baseline and the history are forgotten, and the first records that arrive become the new normal. Do this after a deliberate change to the model or its data.')) return;
       try { await STAI.api.monReset(key); await loadMon(true); } catch (e) { window.alert(e.message); }
     },
+    monGovToggle: () => { MON.gov = !MON.gov; },
+    monFloorsSave: async () => {
+      if (!MON.floorEdit) { window.alert('Nothing has changed.'); return; }
+      if (!window.confirm('Save these floors? They apply to every monitor in the organisation, and are recorded under your name.')) return;
+      MON.busy = 'floors'; render(true);
+      try { MON.floors = await STAI.api.monSetFloors(MON.floorEdit); MON.floorEdit = null; await loadMon(true); } catch (e) { window.alert(e.message); }
+      MON.busy = null; render(true);
+    },
+    monChannelAdd: async () => {
+      const f = MON.chForm; MON.busy = 'channel'; MON.chMsg = null; render(true);
+      try { await STAI.api.monChannelAdd({ name: f.name, url: f.url, min_severity: parseInt(f.sev, 10) || 3 }); MON.chForm = { name: '', url: '', sev: 3 }; MON.channels = await STAI.api.monChannels(); MON.chMsg = { ok: true, text: 'The channel is added. Send a test to check it reaches people.' }; } catch (e) { MON.chMsg = { ok: false, text: e.message }; }
+      MON.busy = null; render(true);
+    },
+    monChannelTest: async (id) => {
+      try { const r = await STAI.api.monChannelTest(id); MON.chMsg = { ok: r.ok, text: (r.ok ? 'Test sent: ' : 'The test did not arrive: ') + r.status }; MON.channels = await STAI.api.monChannels(); } catch (e) { MON.chMsg = { ok: false, text: e.message }; }
+    },
+    monChannelToggle: async (arg) => { const [id, how] = arg.split(':'); try { await STAI.api.monChannelPatch(id, { active: how === 'on' }); MON.channels = await STAI.api.monChannels(); } catch (e) { window.alert(e.message); } },
+    monChannelDel: async (id) => {
+      if (!window.confirm('Remove this channel? Alerts will no longer be sent to it.')) return;
+      try { await STAI.api.monChannelDel(id); MON.channels = await STAI.api.monChannels(); } catch (e) { window.alert(e.message); }
+    },
     monSafetyOn: async (key) => { try { await STAI.api.monPatch(key, { safety_checks: true }); await loadMon(true); } catch (e) { window.alert(e.message); } },
     monIndividuals: async (arg) => {
       const [key, how] = arg.split(':');
@@ -2811,10 +2869,10 @@ kill_switch:
       if (!window.confirm('Remove this monitor and its history? Incidents it raised are removed too.')) return;
       try { await STAI.api.monDelete(key); MON.forDesign = null; await loadMon(true); } catch (e) { window.alert(e.message); }
     },
-    monEdit: (key) => { const d = MON.detail[key]; MON.edit = d ? { key, thr: Object.assign({}, d.thresholds) } : null; },
+    monEdit: (key) => { const d = MON.detail[key]; MON.edit = d ? { key, thr: Object.assign({}, d.thresholds), reason: '' } : null; },
     monEditSave: async () => {
       const e = MON.edit; if (!e) return; MON.busy = 'edit'; render(true);
-      try { const keep = ['psi_watch', 'psi_drift', 'parity_breach', 'perf_drop_drift', 'error_drift', 'eval_hours'], t = {}; keep.forEach((k) => { if (Number.isFinite(e.thr[k])) t[k] = e.thr[k]; }); await STAI.api.monPatch(e.key, { thresholds: t }); MON.edit = null; await loadMon(true); } catch (x) { window.alert(x.message); }
+      try { const keep = ['psi_watch', 'psi_drift', 'parity_breach', 'perf_drop_drift', 'error_drift', 'eval_hours'], t = {}; keep.forEach((k) => { if (Number.isFinite(e.thr[k])) t[k] = e.thr[k]; }); await STAI.api.monPatch(e.key, { thresholds: t, waiver_reason: (e.reason || '').trim() || undefined }); MON.edit = null; await loadMon(true); } catch (x) { window.alert(x.message); }
       MON.busy = null; render(true);
     }
   });

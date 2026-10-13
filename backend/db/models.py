@@ -701,6 +701,7 @@ class ModelMonitor(Base):
     last_record_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     last_eval_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     versions: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))            # which provider model versions answered (model_versions.py)
+    waivers: Mapped[List[Any]] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))               # thresholds loosened past the compliance floor, each signed off (threshold_policy.py)
     canaries: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))            # fixed-question checks and their results (llm_safety.py)
     decision_settings: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))  # people mode and its sign-off, decision thresholds
     created_by: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -717,6 +718,35 @@ class ModelWindow(Base):
     monitor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("model_monitors.id", ondelete="CASCADE"), nullable=False, index=True)
     window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     acc: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+
+
+class ThresholdFloors(Base):
+    """The loosest thresholds compliance allows any production monitor in the organisation (threshold_policy.py)."""
+
+    __tablename__ = "threshold_floors"
+
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), primary_key=True)
+    floors: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    updated_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class AlertChannel(Base):
+    """Where ASTRA tells people that production monitoring found something: a webhook (Slack, Teams, Mattermost or any JSON endpoint). The address is kept encrypted."""
+
+    __tablename__ = "alert_channels"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    url_sealed: Mapped[str] = mapped_column(String(1500), nullable=False)
+    host: Mapped[str] = mapped_column(String(200), nullable=False)                 # shown instead of the address, which may carry a secret
+    min_severity: Mapped[int] = mapped_column(Integer, nullable=False, server_default="3")
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    last_status: Mapped[Optional[str]] = mapped_column(String(300))
+    last_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    created_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 class ModelDecisionWindow(Base):
