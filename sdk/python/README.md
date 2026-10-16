@@ -139,3 +139,5 @@ It behaves like the runtime client: it never raises into your code, never blocks
 
 `examples/demo_models.py` is a credit-approval model and a simulated third-party LLM that you can plug into a monitor and watch drift, a fairness breach, a provider swapping the model, personal data going out and staff rubber-stamping. Read the header of the file for the four commands (`credit --phase normal`, `credit --phase drift`, `llm --phase normal`, `llm --phase drift`); `--show-record` prints the example record to paste into *Connect production data*.
 
+`examples/demo_lamad.py` is the same exercise for a metering company (Lamad LLC): a virtual multiphase flow meter that estimates a well's oil rate for allocation, and a metering-system health classifier. Its `drift` phase has a failing pressure transducer, water breakthrough and allocation analysts who stop checking. It is illustrative, built from what the company says publicly, not from its real models.
+
