@@ -23,7 +23,7 @@ from framework.enums import (
     AICriticalityEnum, ExperienceLevelEnum, BudgetBandEnum,
     ConsumptionRoleEnum, AuditFrequencyEnum, GateDecisionEnum,
     ActionTierEnum, RollbackModeEnum, AIDependencyLevelEnum, DeploymentModeEnum,
-    DriftTypeEnum, RootCauseEnum, BiasRiskLevelEnum, DecommissioningStatusEnum,
+    DriftTypeEnum, RootCauseEnum, BiasRiskLevelEnum, BiasMetricEnum, DecommissioningStatusEnum,
     DisposalMethodEnum,
 )
 from framework.incidents import (
@@ -68,6 +68,7 @@ _LIFE_ENUMS = {
     "drift_type": _enum_map(DriftTypeEnum),
     "consumption_role": _enum_map(ConsumptionRoleEnum),
     "automation_bias_risk": _enum_map(BiasRiskLevelEnum),
+    "bias_metric": _enum_map(BiasMetricEnum),
     "decommissioning_status": _enum_map(DecommissioningStatusEnum),
     "disposal_method": _enum_map(DisposalMethodEnum),
 }

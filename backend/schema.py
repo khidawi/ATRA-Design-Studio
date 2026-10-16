@@ -235,6 +235,7 @@ class Lifecycle(BaseModel):
     misuse_incident_count:       Optional[int]  = None
     root_causes:                 List[str]      = Field(default_factory=list)
     automation_bias_risk:        Optional[str]  = None
+    bias_metric:                 Optional[str]  = None      # the fairness metric the model is assessed on: SC-MAP-1 cannot clear without one
     hitl_verified_substantive:   Optional[bool] = None
     operator_training_complete:  Optional[bool] = None
     # L11 decommissioning
