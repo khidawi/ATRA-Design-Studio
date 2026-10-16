@@ -1,4 +1,4 @@
-"""
+    """
 The audit log (Task 8): every state-changing request, sign-in, failed sign-in and refused action is recorded, each event
 chained to the one before by hash, so editing or removing an event is detectable.
 

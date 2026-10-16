@@ -1,0 +1,145 @@
+{
+  "company": { "name": "Lamad LLC", "id": "ORG-LAMAD" },
+  "departments": [
+    { "id": "D-MGMT", "name": "Management" },
+    { "id": "D-MET", "name": "Metering Services", "reports_to": "D-MGMT" },
+    { "id": "D-AI", "name": "AI Services", "reports_to": "D-MGMT" },
+    { "id": "D-QA", "name": "Quality and Compliance", "reports_to": "D-MGMT" },
+    { "id": "D-SALES", "name": "Sales and Client Relations", "reports_to": "D-MGMT" }
+  ],
+  "people": [
+    { "id": "ROLE-MD", "name": "Managing director", "kind": "role", "title": "Managing director", "department": "D-MGMT", "headcount": 1 },
+    { "id": "ROLE-HMET", "name": "Head of metering", "kind": "role", "title": "Head of metering services", "department": "D-MET", "headcount": 1 },
+    { "id": "ROLE-MENG", "name": "Metering engineer", "kind": "role", "title": "Metering engineer", "department": "D-MET", "headcount": 8 },
+    { "id": "ROLE-ALLOC", "name": "Allocation analyst", "kind": "role", "title": "Hydrocarbon allocation analyst", "department": "D-MET", "headcount": 3 },
+    { "id": "ROLE-FOPS", "name": "Field operator", "kind": "role", "title": "Field operator (client site)", "department": "D-MET", "headcount": 10 },
+    { "id": "ROLE-AIL", "name": "AI lead", "kind": "role", "title": "Head of AI services", "department": "D-AI", "headcount": 1 },
+    { "id": "ROLE-DS", "name": "Data scientist", "kind": "role", "title": "Data scientist and modeller", "department": "D-AI", "headcount": 4 },
+    { "id": "ROLE-QA", "name": "Compliance lead", "kind": "role", "title": "Quality and compliance lead", "department": "D-QA", "headcount": 1 },
+    { "id": "ROLE-SALES", "name": "Client manager", "kind": "role", "title": "Client manager", "department": "D-SALES", "headcount": 2 }
+  ],
+  "external": [
+    { "id": "EXT-OPER", "name": "Oil and gas operators", "kind": "customer" },
+    { "id": "EXT-REFN", "name": "Refineries and export terminals", "kind": "customer" },
+    { "id": "EXT-REG", "name": "Regulator and government auditors", "kind": "regulator" },
+    { "id": "EXT-VEND", "name": "Metering equipment vendors", "kind": "supplier" },
+    { "id": "EXT-LLM", "name": "Third-party LLM provider", "kind": "supplier" }
+  ],
+  "data_stores": [
+    { "id": "DS-FLOW", "name": "Flow computer and live field data", "department": "D-MET", "sensitivity": "Confidential" },
+    { "id": "DS-WT", "name": "Well test and proving records", "department": "D-MET", "sensitivity": "Confidential" },
+    { "id": "DS-VOL", "name": "Volume, allocation and invoice reports", "department": "D-MET", "sensitivity": "Confidential" },
+    { "id": "DS-CLI", "name": "Client contracts and commercial terms", "department": "D-SALES", "sensitivity": "Confidential" },
+    { "id": "DS-TRAIN", "name": "Model training and validation data", "department": "D-AI", "sensitivity": "Confidential" },
+    { "id": "DS-STD", "name": "Standards, procedures and guidelines", "department": "D-QA", "sensitivity": "Internal" }
+  ],
+  "ai_systems": [
+    {
+      "id": "MD-VFM", "type": "model", "name": "lamad-virtual-flow-meter", "department": "D-AI", "owner": "ROLE-AIL",
+      "details": {
+        "purpose": "Estimates the oil rate of a well in real time from wellhead pressure, temperature, choke size, gas-oil ratio and water cut, standing in for a multiphase meter",
+        "version": "1.0", "risk_class": "High", "origin": "In-house",
+        "data_note": "Field and well test data of clients (confidential, no personal data)"
+      },
+      "people": [
+        { "id": "ROLE-DS", "role": "trains" },
+        { "id": "ROLE-AIL", "role": "validates" },
+        { "id": "ROLE-AIL", "role": "deploys" },
+        { "id": "ROLE-ALLOC", "role": "uses the estimates for allocation" },
+        { "id": "ROLE-MENG", "role": "reviews the estimates" },
+        { "id": "ROLE-FOPS", "role": "supplies well tests" },
+        { "id": "EXT-OPER", "role": "receives volumes" },
+        { "id": "EXT-REG", "role": "oversight by" }
+      ],
+      "uses_data": [
+        { "store": "DS-FLOW", "access": "reads" },
+        { "store": "DS-WT", "access": "trained on" },
+        { "store": "DS-TRAIN", "access": "trained on" }
+      ]
+    },
+    {
+      "id": "MD-HEALTH", "type": "model", "name": "lamad-meter-health", "department": "D-AI", "owner": "ROLE-AIL",
+      "details": {
+        "purpose": "Classifies a metering system as healthy, degraded or faulty from diagnostics, alarms, proving factor deviation and calibration age",
+        "version": "1.0", "risk_class": "High", "origin": "In-house",
+        "data_note": "Meter diagnostics and proving records of clients (confidential)"
+      },
+      "people": [
+        { "id": "ROLE-DS", "role": "trains" },
+        { "id": "ROLE-AIL", "role": "validates" },
+        { "id": "ROLE-AIL", "role": "deploys" },
+        { "id": "ROLE-MENG", "role": "acts on the classification" },
+        { "id": "ROLE-HMET", "role": "accountable for measurement quality" },
+        { "id": "EXT-REG", "role": "oversight by" }
+      ],
+      "uses_data": [
+        { "store": "DS-FLOW", "access": "reads" },
+        { "store": "DS-WT", "access": "trained on" },
+        { "store": "DS-TRAIN", "access": "trained on" }
+      ]
+    },
+    {
+      "id": "MD-REPORT", "type": "model", "name": "report-drafting-assistant", "department": "D-MET", "owner": "ROLE-HMET",
+      "details": {
+        "purpose": "Drafts sections of metering audit and volume reports for an engineer to check, using a third-party LLM through its API",
+        "version": "provider alias", "risk_class": "Medium", "origin": "Third-party API",
+        "data_note": "Client report text; must not include contracts or credentials"
+      },
+      "people": [
+        { "id": "ROLE-MENG", "role": "reviews every draft" },
+        { "id": "ROLE-QA", "role": "approves the use" },
+        { "id": "EXT-LLM", "role": "supplies the model" },
+        { "id": "EXT-OPER", "role": "receives the reports" }
+      ],
+      "uses_data": [
+        { "store": "DS-VOL", "access": "reads" },
+        { "store": "DS-STD", "access": "reads" }
+      ]
+    }
+  ],
+  "elements": [
+    { "id": "OP-EST", "type": "operation", "name": "Estimate well oil rate" },
+    { "id": "OP-ALLOC", "type": "operation", "name": "Allocate hydrocarbon volumes" },
+    { "id": "OP-PROVE", "type": "operation", "name": "Prove and health-check a meter" },
+    { "id": "OP-REP", "type": "operation", "name": "Report monthly volumes to the client" },
+    { "id": "OP-AUDIT", "type": "operation", "name": "Draft a metering audit report" },
+    { "id": "G-ACC", "type": "goal", "name": "Accurate hydrocarbon measurement" },
+    { "id": "G-STD", "type": "goal", "name": "Meet international metering standards" },
+    { "id": "POL-ESC", "type": "policy", "name": "Mis-measurement escalation procedure" },
+    { "id": "POL-CONF", "type": "policy", "name": "Client data confidentiality" },
+    { "id": "TH-DRIFT", "type": "threat", "name": "Sensor or model drift goes unnoticed" },
+    { "id": "TH-BIAS", "type": "threat", "name": "A biased estimate reaches an invoice" },
+    { "id": "TH-LEAK", "type": "threat", "name": "Client data leaves in a prompt" },
+    { "id": "PR-REC", "type": "protection", "name": "Reconcile estimates with well tests" },
+    { "id": "PR-MON", "type": "protection", "name": "Production monitoring of every model" },
+    { "id": "PR-REV", "type": "protection", "name": "Engineer reviews every output" },
+    { "id": "ENV-CLOUD", "type": "environment", "name": "Lamad cloud environment" }
+  ],
+  "links": [
+    { "from": "MD-VFM", "to": "OP-EST", "kind": "performs" },
+    { "from": "ROLE-ALLOC", "to": "OP-ALLOC", "kind": "performs" },
+    { "from": "MD-HEALTH", "to": "OP-PROVE", "kind": "performs" },
+    { "from": "ROLE-MENG", "to": "OP-PROVE", "kind": "performs" },
+    { "from": "ROLE-ALLOC", "to": "OP-REP", "kind": "performs" },
+    { "from": "MD-REPORT", "to": "OP-AUDIT", "kind": "performs" },
+    { "from": "OP-EST", "to": "OP-ALLOC", "kind": "triggers", "label": "feeds" },
+    { "from": "OP-ALLOC", "to": "OP-REP", "kind": "triggers", "label": "feeds" },
+    { "from": "OP-PROVE", "to": "OP-REP", "kind": "gates", "label": "must pass" },
+    { "from": "OP-EST", "to": "G-ACC", "kind": "achieves" },
+    { "from": "OP-PROVE", "to": "G-ACC", "kind": "achieves" },
+    { "from": "OP-REP", "to": "G-STD", "kind": "achieves" },
+    { "from": "POL-ESC", "to": "OP-REP", "kind": "governs" },
+    { "from": "POL-CONF", "to": "DS-VOL", "kind": "governs" },
+    { "from": "POL-CONF", "to": "MD-REPORT", "kind": "governs" },
+    { "from": "TH-DRIFT", "to": "MD-VFM", "kind": "targets" },
+    { "from": "TH-DRIFT", "to": "MD-HEALTH", "kind": "targets" },
+    { "from": "TH-BIAS", "to": "MD-VFM", "kind": "targets" },
+    { "from": "TH-LEAK", "to": "MD-REPORT", "kind": "targets" },
+    { "from": "PR-REC", "to": "TH-BIAS", "kind": "mitigates" },
+    { "from": "PR-MON", "to": "TH-DRIFT", "kind": "mitigates" },
+    { "from": "PR-REV", "to": "TH-BIAS", "kind": "mitigates" },
+    { "from": "POL-CONF", "to": "TH-LEAK", "kind": "mitigates" },
+    { "from": "ENV-CLOUD", "to": "MD-VFM", "kind": "hosts" },
+    { "from": "ENV-CLOUD", "to": "MD-HEALTH", "kind": "hosts" }
+  ]
+}
