@@ -512,6 +512,7 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       attPolicy: () => call('/api/attestations/policy'),
       attSetPolicy: (days) => call('/api/attestations/policy', { method: 'PUT', body: JSON.stringify({ days }) }),
       attConfirm: (key, facts) => post('/api/attestations/' + encodeURIComponent(key) + '/confirm', { facts }),
+      monList: () => call('/api/model-monitor'),
       monIncidentStatus: (id, body) => call('/api/model-monitor/incidents/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(body) }),
       telDesign: (key, body) => post('/api/telemetry/agents/' + encodeURIComponent(key) + '/design', body),
       previewAgentImport: (body) => post('/api/agents/import/preview', body),
@@ -2754,16 +2755,17 @@ kill_switch:
     lfIncDel: (id) => { if (!window.confirm('Remove this incident from the log?')) return; M.incidents = M.incidents.filter((i) => i.id !== id); persist(); }
   });
   /* ----- Production monitoring of a model: what its inputs and outputs look like where it really runs ----- */
-  const MON = { forDesign: null, loading: false, loaded: false, error: null, caps: null, list: [], signals: {}, incidents: [], detail: {}, series: {}, ver: {}, dec: {}, saf: {}, can: {}, floors: null, floorEdit: null, gov: false, channels: [], chForm: { name: '', url: '', sev: 3 }, chMsg: null, open: {}, showForm: false, form: null, busy: null, err: null, msg: null, timer: null, edit: null };
+  const MON = { all: [], forDesign: null, loading: false, loaded: false, error: null, caps: null, list: [], signals: {}, incidents: [], detail: {}, series: {}, ver: {}, dec: {}, saf: {}, can: {}, floors: null, floorEdit: null, gov: false, channels: [], chForm: { name: '', url: '', sev: 3 }, chMsg: null, open: {}, showForm: false, form: null, busy: null, err: null, msg: null, timer: null, edit: null };
   const MON_STATUS = { LEARNING: ['muted', 'Learning'], OK: ['ok', 'Stable'], WATCH: ['warn', 'Watch'], DRIFT: ['bad', 'Drift'], LOW_VOLUME: ['muted', 'Too few records'], NO_DATA: ['muted', 'No data'] };
   const monHere = () => MON.forDesign === M.designKey;
   async function loadMon(quiet) {
     const dk = M.designKey;
-    if (!dk || !BOOT.ready) { MON.forDesign = dk; MON.list = []; MON.signals = {}; MON.incidents = []; MON.loaded = true; return; }
+    if (!dk || !BOOT.ready) { MON.forDesign = dk; MON.list = []; MON.all = []; MON.signals = {}; MON.incidents = []; MON.loaded = true; return; }
     if (!quiet) { MON.loading = true; MON.error = null; }
     try {
       if (!MON.caps) MON.caps = await STAI.api.monCaps();
       const sg = await STAI.api.monSignals(dk);
+      MON.all = await STAI.api.monList();
       if (dk !== M.designKey) { MON.loading = false; return; }
       MON.forDesign = dk; MON.list = sg.monitors; MON.signals = sg.signals; MON.incidents = sg.incidents; MON.loaded = true; MON.error = null;
       await Promise.all(sg.monitors.map(async (m) => { MON.detail[m.key] = await STAI.api.monGet(m.key); MON.series[m.key] = await STAI.api.monSeries(m.key, 168); MON.ver[m.key] = await STAI.api.monVersions(m.key); MON.dec[m.key] = await STAI.api.monDecisions(m.key); MON.saf[m.key] = await STAI.api.monSafety(m.key); MON.can[m.key] = await STAI.api.monCanaries(m.key); }));
@@ -2942,6 +2944,20 @@ kill_switch:
       ${MON.err ? `<div class="note alert" role="alert"><span style="font-size:13px;white-space:pre-wrap">${esc(MON.err)}</span></div>` : ''}
       <div style="display:flex;gap:10px"><button class="btn" data-act="monCreate"${MON.busy || !f.features.length ? ' disabled' : ''}>${MON.busy === 'create' ? 'Creating…' : 'Create the monitor'}</button><button class="btn2" data-act="monForm">Cancel</button></div></section>`;
   }
+  // Every connected runtime in the platform, whichever model it belongs to: a monitor is saved with its model design, and the page below shows only the open design's.
+  function monAllCard() {
+    const all = MON.all || [];
+    if (!all.length || !(all.length > 1 || all.some((m) => m.design_key !== M.designKey))) return '';
+    const name = (dk) => { const d = M.designs.find((x) => x.design_key === dk); return d ? d.name : null; };
+    const rows = all.map((m) => {
+      const st = MON_STATUS[m.status] || ['muted', m.status], dn = name(m.design_key), here = m.design_key === M.designKey;
+      const where = dn ? esc(dn) : '<span class="cap">not linked to a model design</span>';
+      const act = here ? '<span class="cap">open below</span>' : (dn ? `<button class="btn2 btn-s" data-act="monGoto" data-arg="${esc(m.design_key)}">Open its model</button>` : `<button class="btn2 btn-s" data-act="monLink" data-arg="${esc(m.key)}" title="Attach this runtime to the model design you have open">Attach to this model</button>`);
+      return `<div class="pp-tr" style="grid-template-columns:1.5fr 1.5fr .8fr 1fr 1.1fr 1.2fr"><span><b>${esc(m.name)}</b></span><span>${where}</span><span><span class="pill ${st[0]}">${st[1]}</span></span><span class="mono">${(m.records_total || 0).toLocaleString()} records</span><span class="cap">${m.last_record_at ? 'last ' + monAgo(m.last_record_at) : 'no data yet'}</span><span>${act}</span></div>`;
+    }).join('');
+    return lfCard('Connected runtimes (' + all.length + ')', 'Every production monitor in the platform. They are saved with their model design and stay until you remove them; the section below shows the model you have open.',
+      `<div class="pp-tbl"><div class="pp-tr pp-th" style="grid-template-columns:1.5fr 1.5fr .8fr 1fr 1.1fr 1.2fr"><span>Runtime</span><span>Model design</span><span>Status</span><span>Received</span><span>Last data</span><span></span></div>${rows}</div>`);
+  }
   function lfMonitoring() {
     monEnsure();
     if (!M.designKey) return '';
@@ -2950,12 +2966,12 @@ kill_switch:
     const msg = MON.msg ? `<div class="note good" role="status" style="font-size:13px">${esc(MON.msg)}</div>` : '';
     if (MON.showForm) return msg + monForm();
     if (!MON.list.length) {
-      return msg + lfCard('Production monitoring', 'Layers 7 and 9: how the model behaves where it really runs',
+      return msg + monAllCard() + lfCard('Production monitoring', 'Layers 7 and 9: how the model behaves where it really runs',
         `<p style="margin:0">Plug this model into production and ASTRA will watch its inputs and outputs: whether the data it is given has drifted from what it was validated on, whether its answers or accuracy have changed, whether one group is treated worse, and whether it receives values outside the range it was declared for. What it finds is declared in the score and, when serious, becomes an incident.</p>
          <ul class="cap" style="margin:0;padding-left:18px"><li>The serving code sends each prediction (a few lines with the SDK, or any HTTP client).</li><li>ASTRA keeps statistics, never the records: no personal data is stored.</li><li>The first records become the baseline; everything after is compared with it.</li></ul>
          <div><button class="btn" data-act="monForm">Connect production data</button></div>`);
     }
-    return msg + MON.list.map(monCard).join('') + monGovernance() + `<div><button class="btn2 btn-s" data-act="monForm">Add another monitor</button></div>`;
+    return msg + monAllCard() + MON.list.map(monCard).join('') + monGovernance() + `<div><button class="btn2 btn-s" data-act="monForm">Add another monitor</button></div>`;
   }
   const monMonIncRow = (i) => {
     const sv = LF_SEV[i.severity] || LF_SEV[3];
@@ -3000,6 +3016,12 @@ kill_switch:
       try { await STAI.api.monReset(key); await loadMon(true); } catch (e) { window.alert(e.message); }
     },
     monGovToggle: () => { MON.gov = !MON.gov; },
+    monGoto: async (dk) => { try { await flushSave(); await openDesign(dk); } catch (e) { window.alert('Could not open the model: ' + e.message); }
+      render(true);
+    },
+    monLink: async (key) => { try { await STAI.api.monPatch(key, { design_key: M.designKey }); MON.forDesign = null; await loadMon(true); } catch (e) { window.alert(e.message); }
+      render(true);
+    },
     monFloorsSave: async () => {
       if (!MON.floorEdit) { window.alert('Nothing has changed.'); return; }
       if (!window.confirm('Save these floors? They apply to every monitor in the organisation, and are recorded under your name.')) return;
