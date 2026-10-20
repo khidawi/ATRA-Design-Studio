@@ -3147,7 +3147,62 @@ kill_switch:
     'SC-MAP-1': { name: 'Fairness and bias-proxy assessment', fact: 'output_validation_gate_configured', factLabel: 'An output validation gate is configured' }
   };
   const AS_ROLES = [['TRAINER', 'trains the model', true], ['VALIDATOR', 'validates it before release', true], ['DEPLOYER', 'puts it into service', true], ['OPERATOR', 'runs it day to day', false], ['CONSUMER', 'uses its output', false]];
+  // What an element should be connected to, by the relations the formal language defines. Each suggestion is a plain sentence and a button per candidate, or a button to add
+  // the element that is missing. Only combinations the language gives a meaning to are offered.
+  function connectionSuggestions(n) {
+    const model = M.nodes.find((x) => x.kind === 'AI_MODEL'), of = (k) => M.nodes.filter((x) => x.kind === k && x.id !== n.id);
+    const linked = (a, b) => M.edges.some((e) => (e.source === a && e.target === b) || (e.source === b && e.target === a));
+    const meaningful = (a, b) => resolveEdge(a, b).type !== 'ON_DEPENDENCY';
+    const groups = [];
+    // candidates: the elements this one may be connected to and is not connected to yet
+    const group = (relation, say, cands, addKind, addLabel, plain) => {
+      const open = cands.filter((c) => !linked(n.id, c.id) && (plain || meaningful(n, c))).slice(0, 4);
+      groups.push({ relation, say, open, all: cands.length, addKind, addLabel });
+    };
+    switch (n.kind) {
+      case 'ACTOR': {
+        const rel = AS_REL[n.data.subtype], what = { TRAINER: 'trains', VALIDATOR: 'validates', DEPLOYER: 'deploys', OPERATOR: 'operates', CONSUMER: 'uses the output of' }[n.data.subtype];
+        if (model) group(rel.toLowerCase(), `Say which model this ${n.data.subtype.toLowerCase()} ${what}`, [model]);
+        else group(rel.toLowerCase(), `Say which model this ${n.data.subtype.toLowerCase()} ${what}`, [], 'AI_MODEL', 'Add the AI model');
+        if (!n.data.departmentId && !n.parent) group('belongs_to', 'Say which department it belongs to', of('DEPARTMENT'), 'DEPARTMENT', 'Add a department');
+        break;
+      }
+      case 'AI_MODEL':
+        group('roles', 'Connect the people who train, validate, deploy and operate it', of('ACTOR'), 'ACTOR:TRAINER', 'Add a trainer');
+        group('trained_on', 'Say what it was trained on', of('TRAINING_DATASET'), 'TRAINING_DATASET', 'Add a training dataset');
+        group('runs_in', 'Say where it runs', of('DEPLOYMENT_ENV'), 'DEPLOYMENT_ENV', 'Add an environment');
+        group('covered_by', 'Say which regulatory requirements apply to it', of('REGULATORY_REQ'), 'REGULATORY_REQ', 'Add a requirement');
+        break;
+      case 'TRAINING_DATASET': group('trained_on', 'Say which model learned from it', model ? [model] : [], 'AI_MODEL', 'Add the AI model'); break;
+      case 'DEPLOYMENT_ENV': group('runs_in', 'Say which model runs here', model ? [model] : [], 'AI_MODEL', 'Add the AI model'); break;
+      case 'REGULATORY_REQ':
+        group('covered_by', 'Say which model it applies to', model ? [model] : [], 'AI_MODEL', 'Add the AI model');
+        group('requires', 'Say which security constraint evidences it', of('CONSTRAINT'), 'CONSTRAINT:SC-DPIA-1', 'Add a constraint');
+        break;
+      case 'CONSTRAINT':
+        group('imposed_by', 'Say who is accountable for this constraint: the actor that imposes it', of('ACTOR'), 'ACTOR:VALIDATOR', 'Add an actor');
+        group('requires', 'Tie it to the regulatory requirement it evidences', of('REGULATORY_REQ'), 'REGULATORY_REQ', 'Add a requirement');
+        break;
+      case 'CONSENT_RECORD':
+        group('covered_by', 'Say which legal basis the consent rests on', of('LEGAL_BASIS'), 'LEGAL_BASIS', 'Add a legal basis');
+        group('names data', 'Say which data category the consent is for', of('DATA_CATEGORY'), 'DATA_CATEGORY', 'Add a data category', true);
+        break;
+      case 'LEGAL_BASIS': group('covered_by', 'Say which consent record rests on this legal basis', of('CONSENT_RECORD'), 'CONSENT_RECORD', 'Add a consent record'); break;
+      case 'DATA_CATEGORY': group('names data', 'Say which consent record covers this data', of('CONSENT_RECORD'), 'CONSENT_RECORD', 'Add a consent record', true); break;
+      case 'DEPARTMENT': group('reports_to', 'Say which department it reports to (leave out the top one)', of('DEPARTMENT')); break;
+      default: break;
+    }
+    return groups;
+  }
   const AS_REL = { TRAINER: 'TRAINS', VALIDATOR: 'VALIDATES', DEPLOYER: 'DEPLOYS', OPERATOR: 'OPERATES', CONSUMER: 'CONSUMED_BY' };
+  function suggestionFixes(n) {
+    const fixes = [], notes = [];
+    connectionSuggestions(n).forEach((g) => {
+      if (g.open.length) { notes.push(`${g.say} (${g.relation})`); g.open.forEach((c) => fixes.push({ label: `${g.relation}: ${nodeTitle(c)}${c.kind === 'ACTOR' ? ' (' + String(c.data.subtype).toLowerCase() + ')' : ''}`, act: 'asConn', arg: n.id + '|' + c.id })); }
+      else if (g.addKind && !g.all) { notes.push(`${g.say} (${g.relation}), but there is none yet`); fixes.push({ label: g.addLabel, act: 'asAdd', arg: g.addKind }); }
+    });
+    return { fixes, notes };
+  }
   function reviewDesign(ev) {
     const out = { gate: null, score: null, blocking: [], structure: [], connects: [] };
     const fix = (label, act, arg) => ({ label, act, arg });
@@ -3171,9 +3226,9 @@ kill_switch:
       const a = list[0];
       ids[sub] = String(a.data.identity || '').trim().toLowerCase();
       if (!ids[sub]) chk(false, `The ${sub.toLowerCase()} has no identity`, 'Role separation is checked on the identity (an account or a name), so it has to be filled in.', [fix('Open the ' + sub.toLowerCase(), 'asSel', a.id)]);
-      else if (model && !linked(a.id, model.id, AS_REL[sub])) chk(false, `${nodeTitle(a)} (${sub.toLowerCase()}) is not connected to the model`, `In the formal language this actor ${what}: draw the relation ${AS_REL[sub].toLowerCase()} between them.`, [connect(a, model, 'Connect them')]);
+      else if (model && !linked(a.id, model.id, AS_REL[sub])) chk(false, `${nodeTitle(a)} (${sub.toLowerCase()}) is not connected to the model`, `In the formal language this actor ${what}: draw the relation ${AS_REL[sub].toLowerCase()} between them.`, [connect(a, model, `${AS_REL[sub].toLowerCase()}: ${nodeTitle(model)}`)]);
       else chk(true, `${nodeTitle(a)} ${what}`);
-      if (!a.data.departmentId && !a.parent) chk(null, `${nodeTitle(a)} belongs to no department`, 'Place it inside a department box so accountability has an organisational home.', [fix('Open the actor', 'asSel', a.id)]);
+      if (!a.data.departmentId && !a.parent) chk(null, `${nodeTitle(a)} belongs to no department`, 'Place it inside a department so accountability has an organisational home.', ofKind('DEPARTMENT').slice(0, 4).map((d) => fix('belongs_to: ' + nodeTitle(d), 'asPlace', a.id + '|' + d.id)).concat(ofKind('DEPARTMENT').length ? [] : [fix('Add a department', 'asAdd', 'DEPARTMENT')]).concat([fix('Open the actor', 'asSel', a.id)]));
     });
     const held = [['TRAINER', 'VALIDATOR'], ['VALIDATOR', 'DEPLOYER'], ['TRAINER', 'DEPLOYER']].filter(([x, y]) => ids[x] && ids[x] === ids[y]);
     if (held.length) chk(false, 'One identity holds more than one of the build, validate and deploy roles', 'This is role concentration. It raises the score and, without a compensating control, blocks the gate. Give each role a different identity.', held.map(([x]) => fix('Open the ' + x.toLowerCase(), 'asSel', actors.find((a) => a.data.subtype === x).id)));
@@ -3192,16 +3247,24 @@ kill_switch:
         const cats = ofKind('DATA_CATEGORY'), cons = ofKind('CONSENT_RECORD');
         if (!cats.length) chk(false, 'The model handles personal data but no data category is shown', 'Name the personal data it processes, and the legal basis it rests on.', [fix('Add a data category', 'asAdd', 'DATA_CATEGORY')]);
         if (!cons.length) chk(null, 'No consent record or legal basis is shown for the personal data', 'Personal data needs a legal basis the design can point to.', [fix('Add a consent record', 'asAdd', 'CONSENT_RECORD')]);
-        cons.forEach((c) => { const nb = (k) => M.edges.some((e) => { const o = e.source === c.id ? e.target : (e.target === c.id ? e.source : null); const on = o && M.nodes.find((n) => n.id === o); return on && on.kind === k; }); if (!nb('LEGAL_BASIS')) chk(false, `${nodeTitle(c)} has no legal basis`, 'Connect the consent record to a legal basis (covered_by).', [fix('Add a legal basis', 'asAdd', 'LEGAL_BASIS')]); if (!nb('DATA_CATEGORY')) chk(null, `${nodeTitle(c)} names no data category`, 'Say which data the consent is for.', [fix('Open the consent record', 'asSel', c.id)]); });
+        cons.forEach((c) => { const nb = (k) => M.edges.some((e) => { const o = e.source === c.id ? e.target : (e.target === c.id ? e.source : null); const on = o && M.nodes.find((n) => n.id === o); return on && on.kind === k; }); const sg = suggestionFixes(c).fixes; if (!nb('LEGAL_BASIS')) chk(false, `${nodeTitle(c)} has no legal basis`, 'Connect the consent record to a legal basis (covered_by).', sg.filter((f2) => /^covered_by/.test(f2.label)).concat(sg.some((f2) => /^covered_by/.test(f2.label)) ? [] : [fix('Add a legal basis', 'asAdd', 'LEGAL_BASIS')])); if (!nb('DATA_CATEGORY')) chk(null, `${nodeTitle(c)} names no data category`, 'Say which data the consent is for (names data).', sg.filter((f2) => /^names data/.test(f2.label)).concat([fix('Open the consent record', 'asSel', c.id)])); });
       }
     }
+    ofKind('CONSTRAINT').filter((c) => M.edges.some((e) => e.source === c.id || e.target === c.id) && !M.edges.some((e) => e.type === 'IMPOSED_BY' && e.source === c.id)).slice(0, 6).forEach((c) => {
+      const sg = suggestionFixes(c);
+      const who = sg.fixes.filter((f2) => /^imposed_by/.test(f2.label));
+      if (who.length) chk(null, `${nodeTitle(c)} has no accountable actor`, 'Say which actor imposes it (imposed_by), so the constraint has an owner.', who);
+    });
     // relations that have no meaning in the language, and elements left floating
     M.edges.filter((e) => e.type === 'ON_DEPENDENCY').forEach((e) => {
       const a = M.nodes.find((n) => n.id === e.source), b = M.nodes.find((n) => n.id === e.target);
       if (!a || !b || ['DATA_CATEGORY', 'LEGAL_BASIS'].indexOf(a.kind) >= 0 || ['DATA_CATEGORY', 'LEGAL_BASIS'].indexOf(b.kind) >= 0) return;
       chk(null, `${nodeTitle(a)} and ${nodeTitle(b)} are joined by a plain dependency`, `${MK[a.kind].label} to ${MK[b.kind].label} is not a relation the formal language defines, so it counts for nothing. Remove it, or connect the elements the way the language expects.`, [fix('Select ' + nodeTitle(a), 'asSel', a.id)]);
     });
-    ev.issues.filter((i) => i.severity === 'warning' && /isn't connected/.test(i.message)).forEach((i) => chk(null, i.message.replace(/ node isn't connected to anything\./, ' is not connected to anything'), 'An element with no relation says nothing about the deployment.', [fix('Select it', 'asSel', i.nodeId)]));
+    M.nodes.filter((n) => n.kind !== 'DEPARTMENT' && !n.parent && !M.edges.some((e) => e.source === n.id || e.target === n.id)).forEach((n) => {
+      const sg = suggestionFixes(n);
+      chk(null, `${nodeTitle(n)} (${MK[n.kind].label.toLowerCase()}) is not connected to anything`, sg.notes.length ? 'It says nothing about the deployment until it is connected. ' + sg.notes.join('. ') + '.' : 'An element with no relation says nothing about the deployment.', sg.fixes.concat([fix('Select it', 'asSel', n.id)]));
+    });
     ev.issues.filter((i) => i.severity === 'error').forEach((i) => chk(false, i.message.replace(/ — \/score will reject this\./, ''), 'The scoring service refuses a Satisfied claim with nothing behind it.', [fix('Open it', 'asSel', i.nodeId)]));
     if (ev.assessment) ev.assessment.element_verdicts.filter((v) => v.status === 'RED' && !Object.keys(AS_VETO).some((c) => String(v.reason || '').indexOf(c) >= 0)).slice(0, 5).forEach((v) => chk(false, (v.citation || v.rule_id || 'A rule') + ': ' + (v.reason || 'not met'), 'The risk assessment marks this element red.', v.node_id ? [fix('Select it', 'asSel', v.node_id)] : []));
 
@@ -3363,6 +3426,7 @@ kill_switch:
     mChatOpen: () => { M.chatOpen = true; M.importOpen = false; }, mChatClose: () => { M.chatOpen = false; },
     asSel: (id) => { M.chatOpen = false; M.sel = { type: 'node', id }; M.panel = 'inspector'; setTimeout(() => { const el = document.querySelector(`[data-node="${id}"]`); if (el) el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' }); }, 60); },
     asGo: (page) => { M.chatOpen = false; location.hash = '#/model' + (page === 'overview' ? '/overview' : '/' + page); },
+    asPlace: (arg) => { const [a, d] = arg.split('|'), n = M.nodes.find((x) => x.id === a), dep = M.nodes.find((x) => x.id === d); if (!n || !dep) return; n.data.departmentId = dep.id; n.parent = dep.id; const k = M.nodes.filter((x) => x.parent === dep.id && x !== n).length; n.x = dep.x + 35; n.y = dep.y + 40 + k * 70; dep.h = Math.max(dep.h || 200, 60 + (k + 1) * 70); persist(); },
     asConn: (arg) => { const [a, b] = arg.split('|'); addEdge(a, b); persist(); },
     asConnAll: () => { const r = reviewDesign(evaluate()); r.connects.forEach(([a, b]) => addEdge(a, b)); persist(); },
     asAdd: (arg) => {

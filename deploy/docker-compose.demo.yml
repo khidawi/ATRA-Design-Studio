@@ -1,0 +1,50 @@
+# ASTRA on one server, for a shared test (IADS colleagues, then companies): the database, the API and the studio. Nothing but the studio is reachable from outside.
+#
+#   cp .env.example .env        # then fill it in (see DEPLOY.md)
+#   docker compose -f docker-compose.demo.yml up --build -d
+#   python seed_demo.py --url http://localhost:8080 ...      # create the administrator and load the demo data
+#
+# There is no Ollama here: the chat-style assistants that call a local language model are not available in this setup. Everything else is, including the design
+# review in the model designer, production monitoring, packs and the attestations.
+name: astra-demo
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: stai
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: stai
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stai -d stai"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build: ../backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://stai:${POSTGRES_PASSWORD}@db:5432/stai
+      # Encrypts the repository tokens, identity-provider credentials and alert webhook addresses kept in the database. Keep it with your backups.
+      ASTRA_SECRET_KEY: ${ASTRA_SECRET_KEY:?set ASTRA_SECRET_KEY in .env}
+      ASTRA_REPO_ALLOW_PRIVATE_HOSTS: ${ASTRA_REPO_ALLOW_PRIVATE_HOSTS:-0}
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "8765"
+
+  studio:
+    build: ../studio
+    restart: unless-stopped
+    ports:
+      - "${ASTRA_PORT:-8080}:80"
+    depends_on:
+      - backend
+
+volumes:
+  pg_data:
