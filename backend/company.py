@@ -765,7 +765,7 @@ def clear_company(body: ClearIn, session: Session = Depends(get_session), user: 
     organisation, AI Agents and AI Models are one platform, so every agent and AI model, their designs, every contract, finding,
     drift item and runtime event, the evidence packs and the coverage assignments go with it. Users, API keys, policies, regulations and the audit
     log are kept (and the audit log records who did this and what it took). Administrators only."""
-    from db.models import CoverageAssignment, EvidencePack, RemovedContract
+    from db.models import CoverageAssignment, EvidencePack, ModelMonitor, RemovedContract
     org = current_organisation(session)
     if body.confirm.strip() != org.name:
         raise HTTPException(status_code=422, detail="Type the organisation's name exactly as it is shown to confirm.")
@@ -773,6 +773,7 @@ def clear_company(body: ClearIn, session: Session = Depends(get_session), user: 
     if body.remove_everywhere:
         for model in (Contract, Finding, DriftItem, RuntimeEvent, EvidencePack, RemovedContract, CoverageAssignment, Agent, Design):
             session.execute(delete(model))                    # contracts first: they point at designs
+        session.execute(delete(ModelMonitor).where(ModelMonitor.organisation_id == org.id))          # the production monitors of the models that are gone
     session.execute(delete(CompanyEdge).where(CompanyEdge.organisation_id == org.id))
     session.execute(delete(CompanyNode).where(CompanyNode.organisation_id == org.id))
     if body.new_name and body.new_name.strip():

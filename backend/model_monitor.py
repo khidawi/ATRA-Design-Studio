@@ -196,6 +196,18 @@ def _held_to_floor(scope: str, new: Dict[str, float], m: ModelMonitor, session: 
     return waivers
 
 
+def delete_monitors_for_designs(session: Session, design_keys: List[str]) -> int:
+    """A production monitor belongs to a model design: when the design goes, so does its runtime (its history and incidents go with it, by cascade).
+    Does not commit. Returns how many monitors were removed."""
+    keys = [k for k in design_keys if k]
+    if not keys:
+        return 0
+    rows = list(session.scalars(select(ModelMonitor).where(ModelMonitor.design_key.in_(keys))))
+    for m in rows:
+        session.delete(m)
+    return len(rows)
+
+
 # ── Looking things up ───────────────────────────────────────────────────────
 
 def _get(session: Session, key: str, lock: bool = False) -> ModelMonitor:

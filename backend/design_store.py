@@ -170,7 +170,11 @@ def save_design(design_key: str, body: DesignUpdate, session: Session = Depends(
 
 @router.delete("/designs/{design_key}", status_code=204)
 def delete_design(design_key: str, session: Session = Depends(get_session)) -> None:
-    session.delete(_get(session, design_key))     # contracts stay; their design link is cleared
+    d = _get(session, design_key)
+    if d.subject == "MODEL":
+        from model_monitor import delete_monitors_for_designs
+        delete_monitors_for_designs(session, [d.design_key])        # a model's runtime goes with its design
+    session.delete(d)                                              # contracts stay; their design link is cleared
     session.commit()
 
 

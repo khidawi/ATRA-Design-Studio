@@ -2954,11 +2954,13 @@ kill_switch:
     const rows = all.map((m) => {
       const st = MON_STATUS[m.status] || ['muted', m.status], dn = name(m.design_key), here = m.design_key === M.designKey;
       const where = dn ? esc(dn) : '<span class="cap">not linked to a model design</span>';
-      const act = here ? '<span class="cap">open below</span>' : (dn ? `<button class="btn2 btn-s" data-act="monGoto" data-arg="${esc(m.design_key)}">Open its model</button>` : `<button class="btn2 btn-s" data-act="monLink" data-arg="${esc(m.key)}" title="Attach this runtime to the model design you have open">Attach to this model</button>`);
+      const act = (here ? '<span class="cap">open below</span>' : (dn ? `<button class="btn2 btn-s" data-act="monGoto" data-arg="${esc(m.design_key)}">Open its model</button>` : `<button class="btn2 btn-s" data-act="monLink" data-arg="${esc(m.key)}" title="Attach this runtime to the model design you have open">Attach to this model</button>`)) + ` <button class="btn3 btn-s" data-act="monDelete" data-arg="${esc(m.key)}" title="Remove this runtime and its history">Remove</button>`;
       return `<div class="pp-tr" style="grid-template-columns:1.5fr 1.5fr .8fr 1fr 1.1fr 1.2fr"><span><b>${esc(m.name)}</b></span><span>${where}</span><span><span class="pill ${st[0]}">${st[1]}</span></span><span class="mono">${(m.records_total || 0).toLocaleString()} records</span><span class="cap">${m.last_record_at ? 'last ' + monAgo(m.last_record_at) : 'no data yet'}</span><span>${act}</span></div>`;
     }).join('');
-    return lfCard('Connected runtimes (' + all.length + ')', 'Every production monitor in the platform. They are saved with their model design and stay until you remove them; the section below shows the model you have open.',
-      `<div class="pp-tbl"><div class="pp-tr pp-th" style="grid-template-columns:1.5fr 1.5fr .8fr 1fr 1.1fr 1.2fr"><span>Runtime</span><span>Model design</span><span>Status</span><span>Received</span><span>Last data</span><span></span></div>${rows}</div>`);
+    const orphans = all.filter((m) => !name(m.design_key));
+    const sweep = orphans.length ? `<div class="note warn" style="flex-direction:row;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><span style="font-size:13px"><b>${orphans.length} runtime${orphans.length === 1 ? ' is' : 's are'} not linked to any model design</b>, usually because the model was deleted. They still count here until removed.</span><button class="btn2 btn-s" data-act="monDeleteOrphans">Remove ${orphans.length === 1 ? 'it' : 'these ' + orphans.length}</button></div>` : '';
+    return lfCard('Connected runtimes (' + all.length + ')', 'Every production monitor in the platform. They are saved with their model design and stay until you remove them (or delete their model); the section below shows the model you have open.',
+      sweep + `<div class="pp-tbl"><div class="pp-tr pp-th" style="grid-template-columns:1.5fr 1.5fr .8fr 1fr 1.1fr 1.2fr"><span>Runtime</span><span>Model design</span><span>Status</span><span>Received</span><span>Last data</span><span></span></div>${rows}</div>`);
   }
   function lfMonitoring() {
     monEnsure();
@@ -3018,6 +3020,12 @@ kill_switch:
       try { await STAI.api.monReset(key); await loadMon(true); } catch (e) { window.alert(e.message); }
     },
     monGovToggle: () => { MON.gov = !MON.gov; },
+    monDeleteOrphans: async () => {
+      const dead = (MON.all || []).filter((m) => !M.designs.some((d) => d.design_key === m.design_key));
+      if (!dead.length || !window.confirm('Remove ' + dead.length + ' runtime' + (dead.length === 1 ? '' : 's') + ' that ' + (dead.length === 1 ? 'is' : 'are') + ' not linked to a model design? Their history and incidents are removed too. This cannot be undone.')) return;
+      for (const m of dead) { try { await STAI.api.monDelete(m.key); } catch (e) { window.alert(m.name + ': ' + e.message); } }
+      MON.forDesign = null; await loadMon(true); render(true);
+    },
     monGoto: async (dk) => { try { await flushSave(); await openDesign(dk); } catch (e) { window.alert('Could not open the model: ' + e.message); }
       render(true);
     },
@@ -3054,6 +3062,7 @@ kill_switch:
     monDelete: async (key) => {
       if (!window.confirm('Remove this monitor and its history? Incidents it raised are removed too.')) return;
       try { await STAI.api.monDelete(key); MON.forDesign = null; await loadMon(true); } catch (e) { window.alert(e.message); }
+      render(true);
     },
     monEdit: (key) => { const d = MON.detail[key]; MON.edit = d ? { key, thr: Object.assign({}, d.thresholds), reason: '' } : null; },
     monEditSave: async () => {

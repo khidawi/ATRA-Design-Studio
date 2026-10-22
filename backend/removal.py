@@ -130,6 +130,8 @@ def remove_model(session: Session, ext_id: str, user: AuthUser) -> Dict[str, Any
     if ids:
         _bury_contracts(session, list(session.scalars(select(Contract).where(Contract.design_id.in_(ids)))), user, f"Model {impact['name']} was removed from the platform")
         session.flush()
+    from model_monitor import delete_monitors_for_designs
+    impact["runtime_monitors"] = delete_monitors_for_designs(session, [d.design_key for d in designs])      # a model's runtime goes with it
     for d in designs:
         session.delete(d)
     node = session.scalar(select(CompanyNode).where(CompanyNode.organisation_id == org.id, CompanyNode.ext_id == ext_id))
