@@ -141,3 +141,5 @@ It behaves like the runtime client: it never raises into your code, never blocks
 
 `examples/demo_lamad.py` is the same exercise for a metering company (Lamad LLC): a virtual multiphase flow meter that estimates a well's oil rate for allocation, and a metering-system health classifier. Its `drift` phase has a failing pressure transducer, water breakthrough and allocation analysts who stop checking. It is illustrative, built from what the company says publicly, not from its real models.
 
+`examples/demo_helix.py` runs the same exercise for the Helix Logistics example (`examples/company-helix-logistics.json`): an agent with a ratified contract (default `customs-agent`) that first behaves inside its contract and then steps outside it, and the `demand-forecast-model` that first behaves normally and then drifts. It reads what the agent's contract allows, so it works with whatever contract was ratified. Read the header of the file for the commands.
+
