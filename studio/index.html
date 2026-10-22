@@ -337,6 +337,11 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
 .pp-th{font-size:12px;font-weight:600;color:var(--fg-4a5563);border-top:0}
 .pp-tr.v{grid-template-columns:1.8fr .7fr 1fr 1fr .8fr .8fr}
 @media (max-width:720px){.pp-tr,.pp-tr.v{grid-template-columns:1fr 1fr 1fr}}
+.ch{width:100%;height:auto;display:block}.ch-grid{stroke:var(--ln-edf0f3);stroke-width:1}.ch-tx{font-size:10px;fill:var(--fg-4a5563)}.ch-zero{fill:var(--ln-c5ccd6)}
+.ch-h{display:flex;flex-direction:column;gap:8px}.ch-hr{display:grid;grid-template-columns:minmax(140px,1.4fr) 3fr 84px;gap:10px;align-items:center;font-size:13px}.ch-hl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ch-hl small{display:block;font-size:11px;color:var(--fg-4a5563);overflow:hidden;text-overflow:ellipsis}
+.ch-hb{display:flex;height:12px;background:var(--ln-edf0f3);border-radius:6px;overflow:hidden}.ch-hb i{display:block;height:100%}.ch-hv{text-align:right;font-size:12px}
+.ch-spark{width:92px;height:24px;display:block}.ch-grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px}
+.ch-cap{display:flex;gap:10px;align-items:baseline;font-size:13px;padding:6px 0;border-top:1px solid var(--ln-edf0f3)}.ch-cap:first-of-type{border-top:0}
 </style>
 </head>
 <body>
@@ -540,6 +545,8 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       companyAddEdge: (body) => post('/api/company/edges', body),
       companyPatchEdge: (id, body) => call('/api/company/edges/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(body) }),
       companyDeleteEdge: (id) => call('/api/company/edges/' + encodeURIComponent(id), { method: 'DELETE' }),
+      runtimeSeries: (hours, agent) => call('/api/runtime/series?hours=' + encodeURIComponent(hours) + (agent ? '&agent=' + encodeURIComponent(agent) : '')),
+      findingsSeries: (days) => call('/api/findings/series?days=' + encodeURIComponent(days)),
       runtimeOverview: (agent) => call('/api/runtime/overview?limit=80' + (agent ? '&agent=' + encodeURIComponent(agent) : '')),
       listAgents: () => call('/api/agents'),
       registerAgent: (body) => post('/api/agents/register', body),
@@ -718,11 +725,48 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       ${v && !v.ok ? `<div class="note alert"><span style="font-size:13px">${esc(v.problem)}</span></div>` : ''}${v && v.head_hash ? `<span class="cap mono">head sha256:${esc(v.head_hash)}</span>` : ''}</section>
       <section class="card" style="padding:8px 0">${AU.events.length ? AU.events.map((e) => `<div class="lrow"><span class="stack"><span style="font-weight:500">${esc(e.action)}</span><span class="cap">${esc(cwhen(e.at))} \u00b7 ${esc(e.actor)}${e.role ? ' (' + esc(e.role) + ')' : ''}${e.detail && e.detail.path ? ' \u00b7 ' + esc(e.detail.path) : ''}${e.detail && e.detail.reason ? ' \u00b7 ' + esc(e.detail.reason) : ''}</span></span><span class="pill ${tone[e.outcome] || 'muted'}">${esc(e.outcome)}</span></div>`).join('') : '<p class="cap" style="padding:8px 20px 16px;margin:0">Nothing recorded yet.</p>'}${AU.more && AU.events.length ? '<div style="padding:12px 20px"><button class="btn2 btn-s" data-act="auMore">Older events</button></div>' : ''}</section>`;
   }
+  /* ---------- Charts: small SVG helpers, no library. Colours are the platform's own tokens, so they follow the light and dark themes. ---------- */
+  const CH = { ok: 'var(--bg-1e7f4f)', bad: 'var(--bg-b42318)', blue: 'var(--bg-1e4fcb)', warn: 'var(--bg-d97706)', grey: 'var(--ln-c5ccd6)' };
+  const niceMax = (v) => { if (v <= 4) return 4; const p = Math.pow(10, Math.floor(Math.log10(v))), m = v / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p; };
+  // items: [{label, tip, <layer key>: number}]; layers are stacked from the bottom; marks: [{frac 0..1, color, tip}] drawn along the top.
+  function chartStack(items, layers, o) {
+    const W = 640, H = o.height || 190, L = 38, R = 8, T = 14, B = 26, pw = W - L - R, ph = H - T - B, n = Math.max(1, items.length);
+    const tot = items.map((it) => layers.reduce((s2, l) => s2 + (it[l.key] || 0), 0)), max = niceMax(Math.max(1, ...tot)), bw = pw / n, y = (v) => T + ph - (v / max) * ph;
+    let g = '';
+    for (let i = 0; i <= 4; i++) { const v = max * i / 4, yy = y(v); g += `<line x1="${L}" x2="${W - R}" y1="${yy.toFixed(1)}" y2="${yy.toFixed(1)}" class="ch-grid"/><text x="${L - 5}" y="${(yy + 3).toFixed(1)}" text-anchor="end" class="ch-tx">${Math.round(v * 10) / 10}</text>`; }
+    items.forEach((it, i) => {
+      let base = 0; const x = L + i * bw + bw * 0.12, w = Math.max(1, bw * 0.76);
+      layers.forEach((l) => { const v = it[l.key] || 0; if (!v) return; const y1 = y(base + v), h = y(base) - y1; g += `<rect x="${x.toFixed(1)}" y="${y1.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(0.6, h).toFixed(1)}" style="fill:${l.color}"><title>${esc(it.tip)}</title></rect>`; base += v; });
+      if (!tot[i]) g += `<rect x="${x.toFixed(1)}" y="${(T + ph - 1).toFixed(1)}" width="${w.toFixed(1)}" height="1" class="ch-zero"><title>${esc(it.tip)}</title></rect>`;
+    });
+    const every = Math.max(1, Math.ceil(n / 7));
+    items.forEach((it, i) => { if (i % every === 0) g += `<text x="${(L + i * bw + bw / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle" class="ch-tx">${esc(it.label)}</text>`; });
+    (o.marks || []).forEach((m) => { const x = L + Math.min(Math.max(m.frac, 0), 1) * pw; g += `<path d="M${x.toFixed(1)} ${T - 11} l4 6 l-4 6 l-4 -6 z" style="fill:${m.color}"><title>${esc(m.tip)}</title></path>`; });
+    return `<svg viewBox="0 0 ${W} ${H}" class="ch" role="img" aria-label="${esc(o.aria)}">${g}</svg>`;
+  }
+  const chartLegend = (items) => `<div class="lf-legend">${items.map(([c, t]) => `<span><i style="background:${c}"></i> ${esc(t)}</span>`).join('')}</div>`;
+  // rows: [{label, sub, parts: [{v, color, tip}], right}]
+  function hbars(rows) {
+    const max = Math.max(1, ...rows.map((r) => r.parts.reduce((s2, p) => s2 + p.v, 0)));
+    return `<div class="ch-h">${rows.map((r) => `<div class="ch-hr"><span class="ch-hl" title="${esc(r.label)}">${esc(r.label)}${r.sub ? `<small>${esc(r.sub)}</small>` : ''}</span><span class="ch-hb">${r.parts.map((p) => (p.v ? `<i style="width:${(p.v / max * 100).toFixed(1)}%;background:${p.color}" title="${esc(p.tip || '')}"></i>` : '')).join('')}</span><span class="ch-hv mono">${esc(r.right)}</span></div>`).join('')}</div>`;
+  }
+  function spark(a, b) {
+    const n = a.length, w = 92, h = 24, mx = Math.max(1, ...a), px = (i) => (n > 1 ? i * (w - 2) / (n - 1) : 0) + 1, py = (v) => h - 2 - (v / mx) * (h - 4);
+    const line = (arr, c) => `<polyline points="${arr.map((v, i) => px(i).toFixed(1) + ',' + py(v).toFixed(1)).join(' ')}" fill="none" style="stroke:${c};stroke-width:1.6;stroke-linejoin:round"/>`;
+    return `<svg viewBox="0 0 ${w} ${h}" class="ch-spark" role="img" aria-label="events over the period, outside the contract in red">${a.some((v) => v) ? line(a, CH.blue) : `<line x1="1" x2="${w - 1}" y1="${h - 2}" y2="${h - 2}" class="ch-grid"/>`}${b && b.some((v) => v) ? line(b, CH.bad) : ''}</svg>`;
+  }
+  const chTime = (iso, step) => { const d = new Date(iso); return step >= 6 ? d.toLocaleDateString([], { weekday: 'short' }) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }); };
+  const KIND = { tool_call: 'Tool calls', data_access: 'Data access', delegation: 'Handoffs to other agents', mcp_connect: 'MCP connections', memory_write: 'Memory writes', heartbeat: 'Heartbeats' };
+
   /* ---------- Live runtime (Task 12): what agents are doing now, compared with their contracts ---------- */
-  const RT = { loaded: false, loading: false, error: null, data: null, agent: '', polling: false };
+  const RT = { loaded: false, loading: false, error: null, data: null, agent: '', polling: false, hours: 24, series: null, seriesAt: 0, seriesFor: '' };
   async function loadRuntime() {
     RT.loading = true;
     try { RT.data = await STAI.api.runtimeOverview(RT.agent || null); RT.loaded = true; RT.error = null; } catch (e) { RT.error = e.message; }
+    const sf = RT.hours + '|' + RT.agent;
+    if (RT.loaded && (RT.seriesFor !== sf || Date.now() - RT.seriesAt > 15000)) {
+      try { RT.series = await STAI.api.runtimeSeries(RT.hours, RT.agent || null); RT.seriesAt = Date.now(); RT.seriesFor = sf; } catch (e) { /* the charts are an extra: the page works without them */ }
+    }
     RT.loading = false;
   }
   async function pollRuntime() {
@@ -746,7 +790,8 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
     const reporting = D.agents.filter((a) => a.status !== 'never');
     const origin = location.origin;
     const kpis = `<section class="kpis" aria-label="Runtime"><div class="card kpi"><span class="cap">Agents live now</span><big>${D.agents.filter((a) => a.status === 'live').length} <small>of ${D.agents.length}</small></big><span class="cap">seen in the last 2 minutes</span></div><div class="card kpi"><span class="cap">Events in 24 hours</span><big>${D.events_24h}</big><span class="cap">reported by the SDK</span></div><div class="card kpi"><span class="cap">Outside the contract</span><big>${D.divergent_24h}</big><span class="cap">in 24 hours, each checked against the active contract</span></div></section>`;
-    const table = D.agents.length ? `<section class="card tbl"><div class="grow head" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1.4fr"><span>Agent</span><span>Runtime</span><span>Contract</span><span>Events (1 h)</span><span>Outside contract</span><span>Open findings</span><span>Review</span></div>${D.agents.map((a) => `<div class="grow" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1.4fr"><span class="stack" style="gap:2px"><span class="mono" style="font-weight:500">${esc(a.name)}${a.origin === 'DISCOVERED' ? ' <span class="pill warn">discovered</span>' : ''}</span><span class="cap">${esc(a.owner || 'No owner')}</span>${a.unused_tools.length ? `<span class="cap" title="Allowed by the contract, but not used in the last 30 days: consider removing">Never used: ${esc(a.unused_tools.join(', '))}</span>` : ''}</span><span><span class="pill ${tone[a.status]}">${label[a.status]}</span><br><span class="cap">${esc(ago(a.last_seen_at))}</span></span><span>${a.contract_version ? 'v' + esc(a.contract_version) : '<span class="cap">none</span>'}</span><span class="mono">${a.events_1h}</span><span class="mono">${a.divergent_1h ? `<b style="color:var(--fg-b42318)">${a.divergent_1h}</b>` : '0'}</span><span>${a.open_findings ? `<a href="#/findings">${a.open_findings}</a>` : '0'}</span><span>${a.open_drift ? '<a class="btn2 btn-s" href="#/drift">Runtime drift</a>' : (a.status === 'never' ? '<span class="cap">no SDK yet</span>' : '<span class="cap">\u2014</span>')}</span></div>`).join('')}</section>` : '<section class="card" style="padding:24px"><p style="margin:0">No agents yet. Connect one below and it appears here the first time it runs.</p></section>';
+    const SR = RT.series, spk = (k) => { const a = SR && SR.by_agent.find((x) => x.agent_key === k); return a ? spark(a.spark, a.spark_divergent) : '<span class="cap">\u2014</span>'; };
+    const table = D.agents.length ? `<section class="card tbl"><div class="grow head" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1.2fr 1.4fr"><span>Agent</span><span>Runtime</span><span>Contract</span><span>Events (1 h)</span><span>Outside contract</span><span>Open findings</span><span>Trend (${RT.hours <= 48 ? RT.hours + ' h' : Math.round(RT.hours / 24) + ' d'})</span><span>Review</span></div>${D.agents.map((a) => `<div class="grow" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1.2fr 1.4fr"><span class="stack" style="gap:2px"><span class="mono" style="font-weight:500">${esc(a.name)}${a.origin === 'DISCOVERED' ? ' <span class="pill warn">discovered</span>' : ''}</span><span class="cap">${esc(a.owner || 'No owner')}</span>${a.unused_tools.length ? `<span class="cap" title="Allowed by the contract, but not used in the last 30 days: consider removing">Never used: ${esc(a.unused_tools.join(', '))}</span>` : ''}</span><span><span class="pill ${tone[a.status]}">${label[a.status]}</span><br><span class="cap">${esc(ago(a.last_seen_at))}</span></span><span>${a.contract_version ? 'v' + esc(a.contract_version) : '<span class="cap">none</span>'}</span><span class="mono">${a.events_1h}</span><span class="mono">${a.divergent_1h ? `<b style="color:var(--fg-b42318)">${a.divergent_1h}</b>` : '0'}</span><span>${a.open_findings ? `<a href="#/findings">${a.open_findings}</a>` : '0'}</span><span>${spk(a.agent_key)}</span><span>${a.open_drift ? '<a class="btn2 btn-s" href="#/drift">Runtime drift</a>' : (a.status === 'never' ? '<span class="cap">no SDK yet</span>' : '<span class="cap">\u2014</span>')}</span></div>`).join('')}</section>` : '<section class="card" style="padding:24px"><p style="margin:0">No agents yet. Connect one below and it appears here the first time it runs.</p></section>';
     const feed = `<section class="card" style="padding:8px 0"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 20px 4px"><h2>Live feed</h2><label class="cap">Agent <select class="reqsel" data-chg="rtAgent"><option value="">All agents</option>${reporting.map((a) => opt(a.agent_key, a.name, RT.agent)).join('')}</select></label></div>${D.events.length ? D.events.map((e) => `<div class="lrow"><span class="stack"><span style="font-weight:500"><span class="mono">${esc(e.type.replace('_', ' '))}</span>${e.name ? ' \u00b7 ' + esc(e.name) : ''}${e.attrs && e.attrs.write ? ' <span class="pill muted">write</span>' : ''}</span><span class="cap">${esc(new Date(e.at).toLocaleTimeString())} \u00b7 ${esc(e.agent_key)}${e.contract_version ? ' \u00b7 contract v' + esc(e.contract_version) : ''} \u00b7 ${esc(e.reported_by)}</span></span><span style="display:flex;gap:8px;align-items:center">${e.finding_key ? `<a class="cap mono" href="#/findings">${esc(e.finding_key)}</a>` : ''}<span class="pill ${vp[e.verdict][0]}">${vp[e.verdict][1]}</span></span></div>`).join('') : '<p class="cap" style="padding:8px 20px 16px;margin:0">No events yet. Updates every few seconds while this page is open.</p>'}</section>`;
     const connect = `<section class="card" style="padding:20px;display:flex;flex-direction:column;gap:10px"><h2>Connect an agent</h2><span class="cap" style="max-width:860px">1. An administrator makes a key with the <b>Collector</b> role on the Users screen (one per agent or team). 2. Install the SDK in the agent\u2019s environment and start it. The agent appears above by itself, unowned, until someone owns it; once it has a ratified contract, anything outside it is a finding and a runtime drift item for compliance. The SDK sends names only (a tool, a server, an agent), never arguments or results, and never raises into your agent.</span>
       <pre class="code" style="font-size:12px">pip install ./sdk/python            # from the repository
@@ -759,7 +804,27 @@ def lookup_order(order_id): ...
 
 # OpenAI Agents SDK: report tool calls, handoffs and MCP connections from its tracing
 from astra_runtime.adapters.openai_agents import install; install()</pre><span class="cap">LangChain and LangGraph: <span class="mono">from astra_runtime.adapters.langchain import handler</span>, then pass <span class="mono">callbacks=[handler()]</span>. Add <span class="mono">enforce=True</span> to <span class="mono">init</span> to refuse a call the contract does not allow.</span></section>`;
-    return head + kpis + table + feed + connect;
+    return head + kpis + runtimeCharts() + table + feed + connect;
+  }
+  // The three charts of the Live runtime page: activity over time, what kinds of thing the agents did, and what appeared outside a contract for the first time.
+  function runtimeCharts() {
+    const S = RT.series;
+    if (!S) return '';
+    const step = S.step_hours, n = S.buckets.length, t0 = new Date(S.buckets[0].at).getTime(), span = n * step * 3600000;
+    const items = S.buckets.map((b) => ({ label: chTime(b.at, step), conforming: b.total - b.divergent, outside: b.divergent, tip: `${chTime(b.at, step)}${step > 1 ? ' for ' + step + ' h' : ''}: ${b.total} event${b.total === 1 ? '' : 's'}, ${b.divergent} outside the contract` }));
+    const total = S.buckets.reduce((a, b) => a + b.total, 0), out = S.buckets.reduce((a, b) => a + b.divergent, 0);
+    const marks = S.findings.map((f) => ({ frac: (new Date(f.at).getTime() - t0) / span, color: CH.bad, tip: `${f.key} (${f.severity}) raised ${new Date(f.at).toLocaleTimeString()}` })).concat(S.drift_items.map((d) => ({ frac: (new Date(d.at).getTime() - t0) / span, color: CH.warn, tip: 'Runtime drift item opened ' + new Date(d.at).toLocaleTimeString() })));
+    const range = `<div class="ch-rng" role="group" aria-label="Period">${[[6, '6 h'], [24, '24 h'], [72, '3 days'], [168, '7 days']].map(([h, l]) => `<button class="btn${RT.hours === h ? '' : '2'} btn-s" aria-pressed="${RT.hours === h}" data-act="rtHours" data-arg="${h}">${l}</button>`).join('')}</div>`;
+    const sentence = total ? `In this period: <b>${total.toLocaleString()}</b> event${total === 1 ? '' : 's'}, <b style="color:${out ? 'var(--fg-b42318)' : 'inherit'}">${out}</b> outside the contract (${(out / total * 100).toFixed(out && out / total < 0.1 ? 1 : 0)}%). ${S.findings.length ? S.findings.length + ' finding' + (S.findings.length === 1 ? '' : 's') + ' raised' : 'No finding raised'}${S.drift_items.length ? ', ' + S.drift_items.length + ' runtime drift item' + (S.drift_items.length === 1 ? '' : 's') + ' opened' : ''}.` : 'No events in this period yet.';
+    const A = `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:10px"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div class="stack" style="gap:2px"><h2>Activity and drift</h2><span class="cap">Every bar is an hour${step > 1 ? ' (grouped in ' + step + '-hour steps for a longer period)' : ''}: green is what the contract allows, red is what it does not.</span></div>${range}</div>
+      ${total ? chartStack(items, [{ key: 'conforming', color: CH.ok }, { key: 'outside', color: CH.bad }], { marks, aria: 'Events per period, conforming and outside the contract' }) : '<div class="note plain"><span style="font-size:13px">Nothing was reported in this period. Send some events (see Connect an agent below) and the chart fills in.</span></div>'}
+      ${chartLegend([[CH.ok, 'Conforms to the contract'], [CH.bad, 'Outside the contract'], [CH.bad, 'Finding raised (diamond, top)'], [CH.warn, 'Runtime drift item opened (diamond, top)']])}<span style="font-size:13px">${sentence}</span></section>`;
+    const kinds = S.types.filter((t) => t.type !== 'heartbeat');
+    const B = `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:10px"><div class="stack" style="gap:2px"><h2>What the agents did</h2><span class="cap">By kind of action, and how much of each was outside a contract.</span></div>${kinds.length ? hbars(kinds.map((t) => ({ label: KIND[t.type] || t.type, parts: [{ v: t.total - t.divergent, color: CH.ok, tip: (t.total - t.divergent) + ' conforming' }, { v: t.divergent, color: CH.bad, tip: t.divergent + ' outside the contract' }], right: t.divergent ? `${t.total} \u00b7 ${t.divergent} out` : String(t.total) }))) : '<span class="cap">No actions in this period.</span>'}${chartLegend([[CH.ok, 'Conforms'], [CH.bad, 'Outside the contract']])}</section>`;
+    const caps = S.new_capabilities;
+    const kindPill = { tool_call: 'tool', data_access: 'data', delegation: 'handoff', mcp_connect: 'MCP server', memory_write: 'memory' };
+    const C2 = `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:6px"><div class="stack" style="gap:2px"><h2>New outside the contract</h2><span class="cap">The first time each thing outside a contract was seen in this period: the agent\u2019s drift, one capability at a time.</span></div>${caps.length ? caps.slice(-8).reverse().map((c) => `<div class="ch-cap"><span class="cap mono" style="min-width:48px">${esc(new Date(c.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }))}</span><span class="pill bad">${esc(kindPill[c.type] || c.type)}</span><span class="mono" style="overflow-wrap:anywhere">${esc(c.name)}</span><span class="cap" style="margin-left:auto">${esc(c.agent_key)}</span></div>`).join('') + (caps.length > 8 ? `<span class="cap">and ${caps.length - 8} earlier in this period</span>` : '') : '<div class="note good" style="font-size:13px"><strong>Nothing new outside a contract</strong><span>Every action in this period was one a contract allows.</span></div>'}</section>`;
+    return A + `<div class="ch-grid2">${B}${C2}</div>`;
   }
 
   /* ---------- Overview and workspace (Task 7f): computed from what the other screens keep ---------- */
@@ -1187,12 +1252,12 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
 
   /* ---------- Drift review ---------- */
   /* ---------- Drift review and findings (Task 7c): rows come from the database ---------- */
-  const FD = { loaded: false, loading: false, error: null, drift: [], findings: [], driftScen: [], findScen: [], sim: { agent: '', scenario: '' }, fsim: { agent: '', scenario: '' }, busy: false, msg: null, fmsg: null, err: null, ferr: null };
+  const FD = { loaded: false, loading: false, error: null, series: null, drift: [], findings: [], driftScen: [], findScen: [], sim: { agent: '', scenario: '' }, fsim: { agent: '', scenario: '' }, busy: false, msg: null, fmsg: null, err: null, ferr: null };
   async function loadFD() {
     FD.loading = true; FD.error = null;
     try {
-      const [drift, findings, ds, fs] = await Promise.all([STAI.api.listDrift(), STAI.api.listFindings(), STAI.api.driftScenarios(), STAI.api.findingScenarios()]);
-      Object.assign(FD, { drift, findings, driftScen: ds, findScen: fs, loaded: true });
+      const [drift, findings, ds, fs, series] = await Promise.all([STAI.api.listDrift(), STAI.api.listFindings(), STAI.api.driftScenarios(), STAI.api.findingScenarios(), STAI.api.findingsSeries(14).catch(() => null)]);
+      Object.assign(FD, { drift, findings, driftScen: ds, findScen: fs, series, loaded: true });
     } catch (e) { FD.error = e.message; }
     FD.loading = false; renderIfIdle(route());
   }
@@ -1280,6 +1345,19 @@ kill_switch:
   }
 
   /* ---------- Findings ---------- */
+  // The trends above the findings list: how many per day and how serious, which kinds, which agents, and where the runtime drift decisions stand.
+  function findingCharts() {
+    const S = FD.series;
+    if (!S || !S.total) return '';
+    const sevColor = { High: CH.bad, Medium: CH.warn, Low: CH.grey };
+    const items = S.by_day.map((d) => ({ label: new Date(d.date + 'T12:00:00').toLocaleDateString([], { day: 'numeric', month: 'short' }), High: d.High, Medium: d.Medium, Low: d.Low, tip: `${d.date}: ${d.High + d.Medium + d.Low} finding${d.High + d.Medium + d.Low === 1 ? '' : 's'} (${d.High} high, ${d.Medium} medium, ${d.Low} low)` }));
+    const A = `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:10px"><div class="stack" style="gap:2px"><h2>Findings over time</h2><span class="cap">New findings per day over the last ${S.days} days, by severity. ${S.open} of ${S.total} are still open.</span></div>${chartStack(items, [{ key: 'Low', color: sevColor.Low }, { key: 'Medium', color: sevColor.Medium }, { key: 'High', color: sevColor.High }], { aria: 'Findings per day by severity' })}${chartLegend([[CH.bad, 'High'], [CH.warn, 'Medium'], [CH.grey, 'Low']])}</section>`;
+    const B = `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:10px"><div class="stack" style="gap:2px"><h2>What kind of divergence</h2><span class="cap">By class, with the OWASP agentic category it maps to. Open findings are dark.</span></div>${hbars(S.by_class.slice(0, 6).map((c) => ({ label: c.class_code, sub: c.category, parts: [{ v: c.open, color: CH.bad, tip: c.open + ' open' }, { v: c.total - c.open, color: CH.grey, tip: (c.total - c.open) + ' acknowledged' }], right: c.open === c.total ? String(c.total) : `${c.total} \u00b7 ${c.open} open` })))}</section>`;
+    const drift = FD.drift.filter((d) => d.source === 'RUNTIME'), dn = (st) => drift.filter((d) => d.status === st).length;
+    const C2 = `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:10px"><div class="stack" style="gap:2px"><h2>Which agents, and the drift decisions</h2><span class="cap">Findings by agent, open against acknowledged.</span></div>${hbars(S.by_agent.slice(0, 6).map((a) => ({ label: a.agent_key, parts: [{ v: a.open, color: CH.bad, tip: a.open + ' open' }, { v: a.acknowledged, color: CH.grey, tip: a.acknowledged + ' acknowledged' }], right: a.acknowledged ? `${a.total} \u00b7 ${a.open} open` : String(a.total) })))}${chartLegend([[CH.bad, 'Open'], [CH.grey, 'Acknowledged']])}
+      <div style="border-top:1px solid var(--ln-edf0f3);padding-top:8px;font-size:13px">Runtime drift items: <b>${dn('OPEN')}</b> waiting for compliance${dn('APPROVED') || dn('DECLINED') ? `, ${dn('APPROVED')} approved, ${dn('DECLINED')} declined` : ''}. <a href="#/drift">Review drift</a></div></section>`;
+    return A + `<div class="ch-grid2">${B}${C2}</div>`;
+  }
   function findings() {
     const head0 = hdr('Deterministic checks of observed events against the active contract', 'Findings'), early = fdState(head0); if (early) return early;
     const st = S.findings, all = FD.findings, n = (sv) => all.filter((f) => f.severity === sv).length;
@@ -1289,7 +1367,7 @@ kill_switch:
     const list = all.filter((f) => st.filter === 'all' || f.severity.toLowerCase() === st.filter);
     const d = all.find((f) => f.finding_key === st.sel) || list[0] || all[0];
     const sp = { High: 'bad', Medium: 'warn', Low: 'muted' }, srcLabel = { SIMULATED: 'Simulated event', COLLECTED: 'Collected event', DEMO: 'Sample data' };
-    return head + sim + `<div class="cols"><div style="display:flex;flex-direction:column;gap:12px">${list.map((f) => `<button class="item${f.finding_key === d.finding_key ? ' on' : ''}" data-act="fSel" data-arg="${esc(f.finding_key)}"><span style="display:flex;justify-content:space-between;gap:12px;width:100%"><span class="pill ${sp[f.severity]}">${f.severity}</span><span class="cap mono">${esc(f.finding_key)} \u00b7 ${esc(cwhen(f.created_at))}</span></span><span style="font-weight:500">${esc(f.title)}${f.status === 'ACKNOWLEDGED' ? ' <span class="pill muted">acknowledged</span>' : ''}</span><span class="cap mono">${esc(f.agent_key)} \u00b7 ${esc(f.class_code)}${f.source !== 'COLLECTED' ? ' \u00b7 ' + (f.source === 'DEMO' ? 'demo' : 'simulated') : ''}</span></button>`).join('')}</div>
+    return head + sim + findingCharts() + `<div class="cols"><div style="display:flex;flex-direction:column;gap:12px">${list.map((f) => `<button class="item${f.finding_key === d.finding_key ? ' on' : ''}" data-act="fSel" data-arg="${esc(f.finding_key)}"><span style="display:flex;justify-content:space-between;gap:12px;width:100%"><span class="pill ${sp[f.severity]}">${f.severity}</span><span class="cap mono">${esc(f.finding_key)} \u00b7 ${esc(cwhen(f.created_at))}</span></span><span style="font-weight:500">${esc(f.title)}${f.status === 'ACKNOWLEDGED' ? ' <span class="pill muted">acknowledged</span>' : ''}</span><span class="cap mono">${esc(f.agent_key)} \u00b7 ${esc(f.class_code)}${f.source !== 'COLLECTED' ? ' \u00b7 ' + (f.source === 'DEMO' ? 'demo' : 'simulated') : ''}</span></button>`).join('')}</div>
       <section class="card" style="padding:24px;display:flex;flex-direction:column;gap:16px"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="pill ${sp[d.severity]}">${d.severity}</span><span class="cap mono">${esc(d.finding_key)} \u00b7 ${esc(cwhen(d.created_at))}</span></div><h3>${esc(d.title)}</h3>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px"><div class="note" style="background:var(--bg-fbe9d3)"><strong style="font-size:12px;color:var(--fg-7f3905)">Observed</strong><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${esc(d.observed)}</span></div><div class="note" style="background:var(--bg-e3ebfb)"><strong style="font-size:12px;color:var(--fg-153c99)">Permitted by contract</strong><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${esc(d.permitted)}</span></div></div>
       <div>${[['Agent', d.agent_key, 1], ['Divergence class', d.class_code, 1], ['Contract element', d.element, 1], ['Contract version', d.contract_version || 'unknown', 1], ['Threat mapping', d.threat], ['Source', srcLabel[d.source]], ['Evidence', d.evidence, 1]].map(([k, v, m]) => `<div class="kv"><span class="cap">${k}</span><span${m ? ' class="mono"' : ''} style="overflow-wrap:anywhere">${esc(v)}</span></div>`).join('')}</div>
@@ -4101,7 +4179,8 @@ kill_switch:
   });
 
 
-  Object.assign(C, { rtAgent: (v) => { RT.agent = v; loadRuntime(); } });
+  Object.assign(C, { rtAgent: (v) => { RT.agent = v; RT.series = null; loadRuntime(); } });
+  Object.assign(H, { rtHours: (h) => { RT.hours = Number(h); RT.series = null; loadRuntime().then(() => renderIfIdle('runtime')); } });
 
   /* ---------- Organisation (Task 13): one model of the company, drawn as several views, linked read-only to the agent inventory ---------- */
   const CO = { clear: { open: false, confirm: '', newName: '', busy: false, err: null, everywhere: true, impact: null }, loaded: false, loading: false, error: null, data: null, view: 'org', filter: 'all', sel: null, selEdge: null, palette: false, mode: null, conn: null, form: null, tab: 'file', model: null, err: null, notice: null, starters: null,

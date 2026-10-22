@@ -8,7 +8,7 @@ event would produce against the same contract. A finding is never invented by th
 divergence.py decides, and a conforming event produces no finding.
 """
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -73,6 +73,36 @@ def list_findings(agent: Optional[str] = None, session: Session = Depends(get_se
     if agent:
         q = q.where(Finding.agent_key == agent)
     return [_out(f) for f in session.scalars(q.order_by(Finding.created_at.desc(), Finding.seq.desc()))]
+
+
+@router.get("/series")
+def series(days: int = 14, session: Session = Depends(get_session)) -> Dict[str, Any]:
+    """Trends for the charts: findings per day by severity, by divergence class (with its OWASP agentic category) and by agent, open against acknowledged."""
+    days = min(max(days, 3), 90)
+    now = datetime.now(timezone.utc)
+    start = (now - timedelta(days=days - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    day = func.date_trunc("day", Finding.created_at)
+    per_day = {d.date().isoformat(): {"date": d.date().isoformat(), "High": 0, "Medium": 0, "Low": 0} for d in (start + timedelta(days=i) for i in range(days))}
+    for d, sev, c in session.execute(select(day, Finding.severity, func.count()).where(Finding.created_at >= start).group_by(day, Finding.severity)).all():
+        k = d.date().isoformat()
+        if k in per_day and sev in per_day[k]:
+            per_day[k][sev] += c
+    threat = {code: (el, thr) for code, el, thr in divergence.CLASSES.values()}
+    by_class: Dict[str, Dict[str, Any]] = {}
+    by_agent: Dict[str, Dict[str, Any]] = {}
+    for code, agent, status, c in session.execute(select(Finding.class_code, Finding.agent_key, Finding.status, func.count()).group_by(Finding.class_code, Finding.agent_key, Finding.status)).all():
+        cl = by_class.setdefault(code, {"class_code": code, "category": threat.get(code, ("", ""))[1], "total": 0, "open": 0})
+        ag = by_agent.setdefault(agent, {"agent_key": agent, "open": 0, "acknowledged": 0, "total": 0})
+        for d in (cl, ag):
+            d["total"] += c
+        if status == "OPEN":
+            cl["open"] += c
+            ag["open"] += c
+        else:
+            ag["acknowledged"] += c
+    total = sum(c["total"] for c in by_class.values())
+    return {"days": days, "by_day": list(per_day.values()), "by_class": sorted(by_class.values(), key=lambda x: -x["total"]), "by_agent": sorted(by_agent.values(), key=lambda x: -x["total"]),
+            "total": total, "open": sum(c["open"] for c in by_class.values())}
 
 
 class Event(BaseModel):

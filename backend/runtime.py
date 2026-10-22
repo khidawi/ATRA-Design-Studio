@@ -307,6 +307,53 @@ def _status(seen: Optional[datetime], now: datetime) -> str:
     return "live" if age <= LIVE_SECONDS else ("recent" if age <= RECENT_SECONDS else "silent")
 
 
+@router.get("/series")
+def series(hours: int = 24, agent: Optional[str] = None, session: Session = Depends(get_session)) -> Dict[str, Any]:
+    """What the agents did over time, for the charts: events per bucket split into conforming and outside the contract, the mix of kinds of event, each agent's
+    trend, the capabilities seen outside a contract for the first time in the window, and the findings and runtime drift items raised in it."""
+    hours = min(max(hours, 3), 168)
+    step = 1 if hours <= 48 else 6
+    now = datetime.now(timezone.utc)
+    start = (now - timedelta(hours=hours)).replace(minute=0, second=0, microsecond=0)
+    n = int((now - start).total_seconds() // (3600 * step)) + 1
+    key = agent_key(agent) if agent else None
+    base = [RuntimeEvent.at >= start] + ([RuntimeEvent.agent_key == key] if key else [])
+    hour = func.date_trunc("hour", RuntimeEvent.at)
+    rows = session.execute(select(hour, RuntimeEvent.agent_key, RuntimeEvent.type, RuntimeEvent.verdict, func.count()).where(*base).group_by(hour, RuntimeEvent.agent_key, RuntimeEvent.type, RuntimeEvent.verdict)).all()
+    buckets = [{"at": (start + timedelta(hours=step * i)).isoformat(), "total": 0, "divergent": 0, "types": {}, "divergent_types": {}} for i in range(n)]
+    names = {a.agent_key: a.name for a in session.scalars(select(Agent))}
+    per: Dict[str, Dict[str, Any]] = {}
+    types: Dict[str, Dict[str, int]] = {}
+    for h, ak, ty, verdict, c in rows:
+        i = min(max(int((h - start).total_seconds() // (3600 * step)), 0), n - 1)
+        b, bad = buckets[i], verdict == "DIVERGENT"
+        b["total"] += c
+        b["types"][ty] = b["types"].get(ty, 0) + c
+        if bad:
+            b["divergent"] += c
+            b["divergent_types"][ty] = b["divergent_types"].get(ty, 0) + c
+        a = per.setdefault(ak, {"agent_key": ak, "name": names.get(ak, ak), "total": 0, "divergent": 0, "spark": [0] * n, "spark_divergent": [0] * n})
+        a["total"] += c
+        a["spark"][i] += c
+        t = types.setdefault(ty, {"total": 0, "divergent": 0})
+        t["total"] += c
+        if bad:
+            a["divergent"] += c
+            a["spark_divergent"][i] += c
+            t["divergent"] += c
+    first = session.execute(select(RuntimeEvent.agent_key, RuntimeEvent.type, RuntimeEvent.name, func.min(RuntimeEvent.at)).where(RuntimeEvent.verdict == "DIVERGENT", *([RuntimeEvent.agent_key == key] if key else []))
+                            .group_by(RuntimeEvent.agent_key, RuntimeEvent.type, RuntimeEvent.name)).all()
+    caps = sorted(({"at": at.isoformat(), "agent_key": ak, "type": ty, "name": nm or ("long-term memory" if ty == "memory_write" else "")} for ak, ty, nm, at in first if at >= start), key=lambda x: x["at"])[:30]
+    fq = select(Finding).where(Finding.created_at >= start, Finding.source != "DEMO").order_by(Finding.created_at)
+    dq = select(DriftItem).where(DriftItem.created_at >= start, DriftItem.source == "RUNTIME").order_by(DriftItem.created_at)
+    if key:
+        fq, dq = fq.where(Finding.agent_key == key), dq.where(DriftItem.agent_key == key)
+    return {"hours": hours, "step_hours": step, "buckets": buckets, "by_agent": sorted(per.values(), key=lambda a: -a["total"]),
+            "types": [{"type": k, **v} for k, v in sorted(types.items(), key=lambda kv: -kv[1]["total"])], "new_capabilities": caps,
+            "findings": [{"at": f.created_at.isoformat(), "key": f"F-{f.seq}", "severity": f.severity, "agent_key": f.agent_key} for f in session.scalars(fq.limit(100))],
+            "drift_items": [{"at": d.created_at.isoformat(), "agent_key": d.agent_key, "status": d.status} for d in session.scalars(dq.limit(50))]}
+
+
 @router.get("/overview", response_model=LiveOut)
 def overview(agent: Optional[str] = None, limit: int = 60, session: Session = Depends(get_session)) -> LiveOut:
     now = datetime.now(timezone.utc)

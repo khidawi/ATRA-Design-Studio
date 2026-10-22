@@ -544,6 +544,7 @@ it arrives. See `sdk/python/README.md` for installation, the OpenAI Agents SDK a
 * **Findings and runtime drift:** an event outside the contract becomes a finding (de-duplicated for ten minutes), and a new capability also opens a
   *runtime drift* item (the ratified design plus what was observed) for compliance to approve or decline.
 * **Live runtime** screen: agents live / silent / never seen, events and divergences, a feed that updates every few seconds, and contract permissions
+* **Charts** on Live runtime and Findings: activity and drift over time (conforming against outside the contract, with finding and drift markers; 6 h to 7 days), what kinds of action the agents took, the first time each capability appeared outside a contract, a trend per agent, and findings per day, by class (with OWASP category) and by agent. Served by `GET /api/runtime/series` and `GET /api/findings/series`.
   that were never used in 30 days. Events are kept 14 days.
 * Limits: 200 events per call and 1,200 a minute per key (429 with Retry-After beyond that); the SDK's clock is only believed within a day of the server's.
 
