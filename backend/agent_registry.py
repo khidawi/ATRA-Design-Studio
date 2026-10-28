@@ -61,6 +61,16 @@ class AgentOut(BaseModel):
     contract_count: int
     updated_at: datetime
     screening: Optional[Dict[str, Any]] = None
+    owner_detail: Optional[Dict[str, Any]] = None        # who holds the Owner duty now and how: assignment or structure, covering whom until when, what is coming
+
+
+def _owner_detail(session: Session, a: Agent) -> Optional[Dict[str, Any]]:
+    import responsibility
+    r = responsibility.resolve(session, a.organisation_id, "agent", a.agent_key, "owner")
+    if not r["had_assignments"]:
+        return None
+    return {"source": r["source"], "kind": r["kind"], "covering_for": r["covering_for"]["name"] if r["covering_for"] else None, "primary": r["primary"]["name"] if r["primary"] else None,
+            "until": r["until"], "next": r["next"], "ext_id": r["holder"]["ext_id"] if r["holder"] else None}
 
 
 def _out(session: Session, a: Agent) -> AgentOut:
@@ -71,7 +81,7 @@ def _out(session: Session, a: Agent) -> AgentOut:
     last = f"{latest.severity} \u00b7 {latest.created_at.strftime('%d %b %H:%M')}" if latest and a.origin != "DEMO" else None
     return AgentOut(agent_key=a.agent_key, name=a.name, owner=a.owner, framework=a.framework, tools_count=a.tools_count,
                     status=a.status, mode=a.mode, origin=a.origin, design_key=design_key, note=a.note, last_seen_at=a.last_seen_at, last_finding=last,
-                    contract_count=contracts, updated_at=a.updated_at, screening=a.screening)
+                    contract_count=contracts, updated_at=a.updated_at, screening=a.screening, owner_detail=_owner_detail(session, a))
 
 
 def _get(session: Session, key: str) -> Agent:
@@ -83,6 +93,7 @@ def _get(session: Session, key: str) -> Agent:
 
 @router.get("", response_model=List[AgentOut])
 def list_agents(session: Session = Depends(get_session)) -> List[AgentOut]:
+    current_organisation(session)                    # also brings the owners (a cover that has ended) up to date for today
     return [_out(session, a) for a in session.scalars(select(Agent).order_by(Agent.created_at, Agent.name))]
 
 

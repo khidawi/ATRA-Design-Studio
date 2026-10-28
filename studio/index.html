@@ -562,6 +562,12 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       modelImport: (body) => post('/api/model-screening/import', body),
       modelInventory: () => call('/api/model-screening/inventory'),
       modelPlace: (body) => post('/api/model-screening/place', body),
+      respSubject: (kind, ref) => call('/api/responsibilities/subject?kind=' + encodeURIComponent(kind) + '&ref=' + encodeURIComponent(ref)),
+      respPeople: () => call('/api/responsibilities/people'),
+      respPerson: (id) => call('/api/responsibilities/person/' + encodeURIComponent(id)),
+      respHandover: (body) => post('/api/responsibilities/handover', body),
+      respEnd: (id, body) => post('/api/responsibilities/assignments/' + encodeURIComponent(id) + '/end', body),
+      respCancel: (id) => post('/api/responsibilities/assignments/' + encodeURIComponent(id) + '/cancel', {}),
       listRegulations: () => call('/api/regulations'),
       startIngestion: (body) => post('/api/ingestion/runs', body),
       getIngestionRun: (id) => call('/api/ingestion/runs/' + id),
@@ -910,7 +916,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     const empty = `<section class="card" style="padding:24px;display:flex;flex-direction:column;gap:12px;max-width:760px"><h3>No agents in the inventory yet</h3><span class="cap">An agent appears here when you ratify a design from the design studio or register one by hand. Agents can be found in a repository (Repositories), an identity provider (Identity providers) or OpenTelemetry traces (Telemetry). To explore the screens first, load the demo agents (sample data from the prototype, easy to remove).</span><div class="prow"><a class="btn" href="#/studio">Design an agent</a><a class="btn2" href="#/addagent">Register an agent</a><button class="btn2" data-act="agLoadDemo"${AG.busy ? ' disabled' : ''}>Load demo agents</button></div></section>`;
     const table = `<div>${segTabs([['all', `All (${AG.list.length})`], ['assured', `Assured (${n('ASSURED')})`], ['ratify', `To ratify (${n('TO_RATIFY')})`], ['designed', `Designed (${n('DESIGNED')})`], ['unowned', `Unowned (${n('UNOWNED')})`]].concat(nScreened ? [['screened', `Screened (${nScreened})`]] : []), st.tab, 'agTab')}</div>
       <section class="card tbl"><div class="grow head"><span>Agent</span><span>Owner</span><span>Framework</span><span>Tools</span><span>Status</span><span>Mode</span><span>Last finding</span><span>Action</span></div>
-      ${rows.map((a) => `<div class="grow"><span class="mono" style="font-weight:500">${esc(a.name)}${a.origin === 'DEMO' ? ' <span class="pill muted">demo</span>' : ''}${a.origin === 'DISCOVERED' ? ' <span class="pill warn" title="Seen by the runtime SDK, not registered by a person">discovered</span>' : ''}${a.origin === 'SCREENED' ? ` <span class="pill ${(typeof triTone !== 'undefined' && a.screening && triTone[a.screening.tier]) || 'muted'}" title="Added from a screened list. Screened from its description only: not a risk assessment.">screened${a.screening ? ' \u00b7 ' + esc(a.screening.tier) : ''}</span>` : ''}${a.origin === 'ORG' ? ' <span class="pill muted" title="Created from the organisation">organisation</span>' : ''}</span><span>${esc(a.owner || 'No owner')}</span><span>${esc(a.framework)}</span><span>${a.tools_count}</span><span><span class="pill ${pills[a.status]}">${STATUS_LABEL[a.status]}</span></span><span>${MODE_LABEL[a.mode]}</span><span class="cap">${esc(a.last_finding || a.note || '\u2014')}</span><span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${action(a)}${a.origin === 'SCREENED' ? `<button class="btn2 btn-s" data-act="agDetails" data-arg="${esc(a.agent_key)}" aria-expanded="${st.open === a.agent_key}">${st.open === a.agent_key ? 'Hide details' : 'Details'}</button>` : ''}${can('admin') ? `<button class="btn3 btn-s" data-act="agDelete" data-arg="${esc(a.agent_key)}" title="Remove this agent from the whole platform">Delete</button>` : ''}</span></div>${st.open === a.agent_key ? screenedPanel(a) : ''}`).join('')}</section>`;
+      ${rows.map((a) => `<div class="grow"><span class="mono" style="font-weight:500">${esc(a.name)}${a.origin === 'DEMO' ? ' <span class="pill muted">demo</span>' : ''}${a.origin === 'DISCOVERED' ? ' <span class="pill warn" title="Seen by the runtime SDK, not registered by a person">discovered</span>' : ''}${a.origin === 'SCREENED' ? ` <span class="pill ${(typeof triTone !== 'undefined' && a.screening && triTone[a.screening.tier]) || 'muted'}" title="Added from a screened list. Screened from its description only: not a risk assessment.">screened${a.screening ? ' \u00b7 ' + esc(a.screening.tier) : ''}</span>` : ''}${a.origin === 'ORG' ? ' <span class="pill muted" title="Created from the organisation">organisation</span>' : ''}</span><span>${esc(a.owner || 'No owner')}${a.owner_detail && a.owner_detail.covering_for ? `<br><span class="pill warn" title="A temporary handover: the owner returns by themselves on the last day">covering for ${esc(a.owner_detail.covering_for)}${a.owner_detail.until ? ' until ' + esc(a.owner_detail.until) : ''}</span>` : (a.owner_detail && !a.owner && a.owner_detail.source === 'lapsed' ? '<br><span class="pill bad" title="The last assignment has ended">lapsed</span>' : '')}</span><span>${esc(a.framework)}</span><span>${a.tools_count}</span><span><span class="pill ${pills[a.status]}">${STATUS_LABEL[a.status]}</span></span><span>${MODE_LABEL[a.mode]}</span><span class="cap">${esc(a.last_finding || a.note || '\u2014')}</span><span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${action(a)}${a.origin !== 'DEMO' ? `<button class="btn2 btn-s" data-act="agDetails" data-arg="${esc(a.agent_key)}" aria-expanded="${st.open === a.agent_key}">${st.open === a.agent_key ? 'Hide' : (a.origin === 'SCREENED' ? 'Details' : 'Responsibilities')}</button>` : ''}${can('admin') ? `<button class="btn3 btn-s" data-act="agDelete" data-arg="${esc(a.agent_key)}" title="Remove this agent from the whole platform">Delete</button>` : ''}</span></div>${st.open === a.agent_key ? (a.origin === 'SCREENED' ? screenedPanel(a) : '') + `<div class="grow" style="grid-template-columns:1fr;min-width:0;background:var(--bg-f7f9fb)">${respPanel('agent', a.agent_key)}</div>` : ''}`).join('')}</section>`;
     const demoNote = demo ? `<div class="note plain" role="status" style="flex-direction:row;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><span class="stack"><strong>Demo agents are loaded</strong><span style="font-size:13px">Rows marked demo are sample data from the prototype, not discovered agents. Their findings, drift and coverage are illustrative.</span></span><button class="btn2 btn-s" data-act="agRemoveDemo">Remove demo agents</button></div>` : '';
     return head + (AG.error ? `<div class="note alert" role="alert"><span style="font-size:13px;white-space:pre-wrap">${esc(AG.error)}</span></div>` : '') + demoNote + (AG.list.length ? table : empty) +
       '<p class="cap" style="margin:0">Unowned agents count against ASI10 Rogue agents until an owner ratifies a model. Designed agents are free until they run.</p>';
@@ -2222,6 +2228,7 @@ kill_switch:
     const neighborsOfKind = (id, kind) => { const ids = []; edges.forEach((e) => { const o = e.source === id ? e.target : (e.target === id ? e.source : null); if (!o) return; const on = nodes.find((n) => n.id === o); if (on && on.kind === kind) ids.push(on.id); }); return ids; };
     const actors = {};
     nodes.filter((n) => n.kind === 'ACTOR').forEach((n) => { actors[n.data.subtype.toLowerCase()] = { identity: n.data.identity || n.id, department_id: n.data.departmentId || undefined }; });
+    ['trainer', 'validator', 'deployer', 'operator'].forEach((d) => { if (M.holders && M.holders[d]) actors[d] = { identity: M.holders[d], department_id: (actors[d] || {}).department_id }; });   // who holds each role now, with a cover counted
     const departments = nodes.filter((n) => n.kind === 'DEPARTMENT').map((n) => ({ id: n.id, name: n.data.name || n.id, reports_to_department_id: n.data.reportsToDepartmentId || undefined }));
     const m = nodes.find((n) => n.kind === 'AI_MODEL');
     const deployment_context = m ? { model_type: m.data.modelType, ai_criticality: m.data.aiCriticality, data_sensitivity: m.data.dataSensitivity, domain: m.data.domain } : undefined;
@@ -2701,7 +2708,7 @@ kill_switch:
         ${blockers.length || t.warnings.length || t.recommendations.length ? `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:14px"><h2>What needs doing</h2>${list('Blockers', blockers, 'alert')}${list('Warnings', t.warnings, 'plain')}${list('Recommendations', t.recommendations, 'good')}</section>` : `<div class="note good"><strong>Nothing to fix</strong><span>The engine has no blockers, warnings or recommendations for this model.</span></div>`}
         ${lfCard('Formula terms', 'The inputs of the Pre-deployment Compliance Score, all derived from what is declared and never typed in.', `<div class="lf-terms">${terms.map(([s, v, l]) => `<div class="lf-term"><span class="mono lf-ts">${s}</span><b class="mono">${STAI.pyFloat(typeof v === 'number' ? Math.round(v * 1000) / 1000 : v)}</b><span class="cap" style="font-size:12px">${l}</span></div>`).join('')}</div><details><summary class="cap" style="cursor:pointer">Derivation log (${(t.derivation_log || []).length} steps)</summary><pre class="code" style="font-size:11.5px;white-space:pre-wrap">${esc((t.derivation_log || []).join('\n'))}</pre></details>`)}`;
     }
-    return lfFrame('overview', esc(M.name), 'AI Models · model overview', body, ev);
+    return lfFrame('overview', esc(M.name), 'AI Models · model overview', lfRespCard() + body, ev);
   }
 
   function lfRuntime() {
@@ -4373,6 +4380,115 @@ kill_switch:
     }
   });
 
+
+  /* ---------- Responsibilities: who holds each duty now, kept apart from the employee record and from the organisation's structure ---------- */
+  const RSP = { cache: {}, loading: {}, persons: {}, people: null, form: null, busy: false, err: null, notice: null };
+  const rsKey = (kind, ref) => kind + '|' + ref;
+  const rsDay = (n) => new Date(Date.now() + (n || 0) * 86400000).toISOString().slice(0, 10);
+  const rsFmt = (d) => (d === '1970-01-01' ? 'the start' : d);
+  async function rsLoad(kind, ref) {
+    const k = rsKey(kind, ref);
+    if (RSP.cache[k] || RSP.loading[k]) return;
+    RSP.loading[k] = true;
+    try { RSP.cache[k] = await STAI.api.respSubject(kind, ref); } catch (e) { RSP.cache[k] = { error: e.message }; }
+    RSP.loading[k] = false; renderIfIdle(route());
+  }
+  async function rsLoadPerson(id) {
+    if (RSP.persons[id] || RSP.persons['~' + id]) return;
+    RSP.persons['~' + id] = true;
+    try { RSP.persons[id] = await STAI.api.respPerson(id); } catch (e) { RSP.persons[id] = { error: e.message }; }
+    renderIfIdle(route());
+  }
+  async function rsLoadPeople() { if (RSP.people) return; RSP.people = []; try { RSP.people = await STAI.api.respPeople(); } catch (e) { /* the form says there is nobody to choose */ } renderIfIdle(route()); }
+  // a handover changes what several pages show: forget what was loaded and ask again
+  function rsFresh() {
+    RSP.cache = {}; RSP.loading = {}; RSP.persons = {};
+    AG.loaded = false; AG.list = []; MI.loaded = false; M.holders = null; M.holdersFor = null;
+    if (typeof loadCompany === 'function') { CO.loaded = false; loadCompany(); }
+  }
+  function respPanel(kind, ref) {
+    if (!ref) return '';
+    rsLoad(kind, ref);
+    const S = RSP.cache[rsKey(kind, ref)], ed = can('signoff');
+    if (!S) return '<span class="cap">Loading who is responsible\u2026</span>';
+    if (S.error) return `<div class="note alert" style="font-size:13px">${esc(S.error)}</div>`;
+    const rows = S.duties.map((d) => {
+      const h = d.holder, tags = [];
+      const who = h ? `<b>${esc(h.name)}</b>${h.in_organisation ? '' : ' <span class="pill muted" title="Not a person of the organisation: a name was typed">outside</span>'}` : (d.source === 'lapsed' ? '<span class="pill bad">nobody: the last assignment has ended</span>' : '<span class="pill warn">not assigned</span>');
+      if (d.kind === 'COVER' && d.covering_for) tags.push(`<span class="pill warn">covering for ${esc(d.covering_for.name)}${d.until ? ' until ' + esc(d.until) : ''}</span>`);
+      else if (d.source === 'structure') tags.push('<span class="pill muted" title="From the organisation\u2019s structure: nobody has handed this duty over">from the structure</span>');
+      else if (d.source === 'assignment' && d.until) tags.push(`<span class="pill muted">until ${esc(d.until)}</span>`);
+      if (d.next) tags.push(`<span class="pill muted">next: ${esc(d.next.name)} from ${esc(d.next.starts_on)}${d.next.kind === 'COVER' ? ' (cover)' : ''}</span>`);
+      return `<div class="og-kv" style="align-items:flex-start;gap:10px"><span>${esc(d.label)}</span><span style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:3px">${who}<span style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">${tags.join('')}</span>${ed ? `<button class="btn2 btn-s" data-act="respOpen" data-arg="${esc(kind + '|' + ref + '|' + d.duty)}">Hand over</button>` : ''}</span></div>`;
+    }).join('');
+    const conflicts = S.conflicts.map((c) => `<div class="note alert" style="font-size:13px"><strong>Role concentration</strong>${esc(c.holder)} would hold both ${esc(c.duties[0])} and ${esc(c.duties[1])}${c.covering ? ' while covering' : ''}. The PCS counts this: give each role a different person.</div>`).join('');
+    const f = RSP.form && RSP.form.kind === kind && RSP.form.ref === ref ? RSP.form : null;
+    const label = f ? (S.duties.find((d) => d.duty === f.duty) || {}).label : '';
+    const form = f ? `<div class="card og-pad stack" style="gap:10px;background:var(--bg-f8fafc)"><h3 style="font-size:14px">Hand over: ${esc(label)}</h3>
+      <div class="fld"><label for="rs-who">Who</label><select id="rs-who" class="reqsel" data-chg="respField" data-arg="holder">${opt('', 'Choose a person\u2026', f.holder)}${(RSP.people || []).map((p) => opt(p.ext_id, p.name + (p.department ? ' \u00b7 ' + p.department : ''), f.holder)).join('')}${opt('__name', 'Someone outside the organisation (type a name)', f.holder)}</select></div>
+      ${f.holder === '__name' ? `<div class="fld"><label for="rs-name">Name</label><input id="rs-name" class="inp" data-chg="respField" data-arg="name" value="${esc(f.name)}"></div>` : ''}
+      <div class="fld"><label for="rs-kind">What kind</label><select id="rs-kind" class="reqsel" data-chg="respField" data-arg="hk">${opt('COVER', 'Temporary cover (leave, sickness)', f.hk)}${opt('PRIMARY', 'New primary (someone leaves, or the duty moves)', f.hk)}</select></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="fld"><label for="rs-from">From</label><input id="rs-from" class="inp" type="date" value="${esc(f.from)}" data-chg="respField" data-arg="from"></div>${f.hk === 'COVER' ? `<div class="fld"><label for="rs-to">Until (the last day)</label><input id="rs-to" class="inp" type="date" value="${esc(f.to)}" data-chg="respField" data-arg="to"></div>` : '<div class="cap" style="align-self:end">A new primary has no end date: the one before ends the day before.</div>'}</div>
+      <div class="fld"><label for="rs-why">Reason</label><input id="rs-why" class="inp" value="${esc(f.reason)}" data-chg="respField" data-arg="reason" placeholder="Annual leave, sick leave, left the company, new team\u2026"></div>
+      ${RSP.err ? `<div class="note alert" role="alert" style="font-size:13px">${esc(RSP.err)}</div>` : ''}<div style="display:flex;gap:8px"><button class="btn btn-s" data-act="respSave"${RSP.busy ? ' disabled' : ''}>${RSP.busy ? 'Saving\u2026' : 'Save the handover'}</button><button class="btn2 btn-s" data-act="respCancelForm">Cancel</button></div><span class="cap">The organisation\u2019s structure is not changed. The change is recorded with who made it and why.</span></div>` : '';
+    const notice = RSP.notice && RSP.notice.key === rsKey(kind, ref) ? `<div class="note ${RSP.notice.conflicts ? 'alert' : 'good'}" style="font-size:13px"><strong>Handed over</strong>${esc(RSP.notice.text)}</div>` : '';
+    const today = rsDay(0), yday = rsDay(-1);
+    const hist = S.history.length ? `<details><summary class="cap" style="cursor:pointer">History (${S.history.length})</summary><div class="stack" style="gap:6px;margin-top:6px">${S.history.map((h) => {
+      const future = h.starts_on > today, active = !h.revoked && h.starts_on <= today && (!h.ends_on || h.ends_on >= today);
+      return `<div class="cap" style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><span><b>${esc(h.label)}</b> \u00b7 ${esc(h.name)} \u00b7 ${h.kind === 'COVER' ? 'cover' : 'primary'} \u00b7 ${esc(rsFmt(h.starts_on))} to ${h.ends_on ? esc(h.ends_on) : 'open'}${h.revoked ? ' \u00b7 <i>cancelled</i>' : ''}${h.reason ? ' \u00b7 ' + esc(h.reason) : ''}<br>by ${esc(h.created_by)}</span>${ed && !h.revoked && future ? `<button class="btn3 btn-s" data-act="respCancelAsg" data-arg="${esc(h.id)}">Cancel</button>` : (ed && active && (!h.ends_on || h.ends_on > yday) ? `<button class="btn3 btn-s" data-act="respEnd" data-arg="${esc(h.id + '|' + h.starts_on)}">End now</button>` : '')}</span>`;
+    }).join('')}</div></details>` : '';
+    return `<div class="stack" style="gap:8px"><h3 style="font-size:14px;margin-top:4px">Who is responsible now</h3>${rows}${conflicts}${notice}${form}${hist}<span class="cap">A duty is held by an assignment, not by the employee record. Cover and handovers do not change the organisation\u2019s structure.</span></div>`;
+  }
+  // an employee's side: what they hold now, what is coming, what they have held
+  function respPersonPanel(id) {
+    rsLoadPerson(id);
+    const P = RSP.persons[id];
+    if (!P) return '<span class="cap">Loading\u2026</span>';
+    if (P.error) return '';
+    const item = (x) => `<div class="og-kv"><span>${esc(x.subject)}<br><span class="cap">${esc(x.label)}${x.kind === 'COVER' ? ' (cover)' : ''}${x.standing_by ? ' \u00b7 standing by: someone is covering' : ''}</span></span><span class="cap" style="text-align:right">${esc(rsFmt(x.starts_on))} to ${x.ends_on ? esc(x.ends_on) : 'open'}${x.reason ? '<br>' + esc(x.reason) : ''}</span></div>`;
+    const block = (t, list) => (list.length ? `<span style="font-size:12px;font-weight:600;color:var(--fg-4a5563)">${t}</span>${list.map(item).join('')}` : '');
+    const any = P.now.length || P.upcoming.length || P.past.length;
+    return `<div class="stack" style="gap:6px"><h3 style="font-size:14px;margin-top:4px">Duties held</h3>${any ? block('Now', P.now) + block('Coming up', P.upcoming) + block('Held before', P.past.slice(0, 6)) : '<span class="cap">Holds no duty of any agent or model. This record says who they are; duties are assigned separately.</span>'}</div>`;
+  }
+  Object.assign(C, { respField: (v, k) => { if (RSP.form) { RSP.form[k] = v; RSP.err = null; } } });
+  Object.assign(H, {
+    respOpen: (arg) => { const [kind, ref, duty] = arg.split('|'); RSP.form = { kind, ref, duty, holder: '', name: '', hk: 'COVER', from: rsDay(0), to: '', reason: '' }; RSP.err = null; RSP.notice = null; rsLoadPeople(); },
+    respCancelForm: () => { RSP.form = null; RSP.err = null; },
+    respSave: () => {
+      const f = RSP.form; if (!f) return;
+      if (!f.holder) { RSP.err = 'Choose who.'; return; }
+      if (f.holder === '__name' && !f.name.trim()) { RSP.err = 'Type the name.'; return; }
+      if (f.hk === 'COVER' && !f.to) { RSP.err = 'A cover needs the last day.'; return; }
+      RSP.busy = true; RSP.err = null;
+      const body = { subject_kind: f.kind, subject_ref: f.ref, duty: f.duty, holder_ext_id: f.holder === '__name' ? null : f.holder, holder_name: f.holder === '__name' ? f.name.trim() : null, kind: f.hk, starts_on: f.from || null, ends_on: f.hk === 'COVER' ? f.to : null, reason: f.reason.trim() || null };
+      STAI.api.respHandover(body).then((r) => {
+        const key = rsKey(f.kind, f.ref), c = r.conflicts || [];
+        RSP.form = null; rsFresh();
+        RSP.notice = { key, conflicts: c.length, text: ' The duty is recorded.' + (c.length ? ' Warning: ' + c.map((x) => x.holder + ' now holds both ' + x.duties[0] + ' and ' + x.duties[1]).join('; ') + '. The PCS and the organisation checks count it.' : '') };
+      }).catch((e) => { RSP.err = e.message; }).finally(() => { RSP.busy = false; renderIfIdle(route()); });
+    },
+    respEnd: (arg) => { const [id, startsOn] = arg.split('|'); const on = startsOn > rsDay(-1) ? rsDay(0) : rsDay(-1); STAI.api.respEnd(id, { on }).then(() => { RSP.notice = null; rsFresh(); }).catch((e) => { RSP.err = e.message; }).finally(() => renderIfIdle(route())); },
+    respCancelAsg: (id) => { STAI.api.respCancel(id).then(() => { RSP.notice = null; rsFresh(); }).catch((e) => { RSP.err = e.message; }).finally(() => renderIfIdle(route())); }
+  });
+  // the model designer's scoring reads the effective holders of the model's roles; the designer's own actors stay as the structure
+  async function loadModelHolders() {
+    const ref = M.orgRef && M.orgRef.id ? M.orgRef.id : (M.designKey ? 'd:' + M.designKey : null);
+    if (!ref) { M.holders = null; M.holdersFor = null; return; }
+    if (M.holdersFor === ref && M.holders) return;
+    M.holdersFor = ref;
+    try {
+      const S = await STAI.api.respSubject('model', ref), h = {};
+      S.duties.forEach((d) => { if (d.holder && d.duty !== 'owner') h[d.duty] = d.holder.name; });
+      M.holders = h; renderIfIdle(route());
+    } catch (e) { M.holders = null; }
+  }
+  function lfRespCard() {
+    const ref = M.orgRef && M.orgRef.id ? M.orgRef.id : (M.designKey ? 'd:' + M.designKey : null);
+    loadModelHolders();
+    if (!ref) return '<section class="card" style="padding:18px 20px"><span class="cap">Save the design to see and assign who is responsible for it.</span></section>';
+    return `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:8px">${respPanel('model', ref)}<span class="cap">The PCS reads whoever holds each role now (a cover counts as the holder), not the names typed on the design.</span></section>`;
+  }
+
   /* ---------- AI Models: the model inventory ---------- */
   const MI = { loaded: false, loading: false, error: null, list: [], tab: 'all', open: null };
   async function loadMI() {
@@ -4402,9 +4518,9 @@ kill_switch:
     const originPill = (m) => (m.origin === 'SCREENED' ? ` <span class="pill ${(typeof triTone !== 'undefined' && triTone[m.tier]) || 'muted'}" title="Added from a screened list. Screened from its description only: not a risk assessment.">screened${m.tier ? ' \u00b7 ' + esc(m.tier) : ''}</span>` : (m.origin === 'ORGANISATION' ? ' <span class="pill muted" title="Created from the organisation">organisation</span>' : ''));
     const cols = '2fr .8fr 1fr 1.3fr 1.1fr 1fr 1fr 1.6fr';
     return head + `<div>${tabs}</div><section class="card tbl"><div class="grow head" style="grid-template-columns:${cols};min-width:1180px"><span>Model</span><span>Type</span><span>Criticality</span><span>PCS when screened</span><span>Data</span><span>Organisation</span><span>Production</span><span>Action</span></div>
-      ${rows.map((m) => `<div class="grow" style="grid-template-columns:${cols};min-width:1180px"><span class="mono" style="font-weight:500">${esc(m.name)}${originPill(m)}</span><span>${esc(m.model_type || '\u2014')}</span><span>${m.criticality ? `<span class="pill ${critTone[m.criticality] || 'muted'}">${esc(m.criticality.replace('_', ' ').toLowerCase())}</span>` : '\u2014'}</span><span>${m.pcs ? (m.pcs.computable ? `<span class="pill ${({ CRITICAL: 'bad', HIGH: 'bad', MEDIUM: 'warn', LOW: 'ok' })[m.pcs.tier] || 'muted'}">${esc(m.pcs.tier.toLowerCase())}</span> <span class="mono">${m.pcs.score}</span><br><span class="cap">${esc(m.pcs.gate.toLowerCase().replace('_', ' '))}</span>` : '<span class="pill muted">not computable</span>') : '<span class="cap">\u2014</span>'}</span><span class="cap">${esc((m.data_sensitivity || '\u2014').replace(/_/g, ' ').toLowerCase())}</span>
+      ${rows.map((m) => `<div class="grow" style="grid-template-columns:${cols};min-width:1180px"><span class="stack" style="gap:2px"><span class="mono" style="font-weight:500">${esc(m.name)}${originPill(m)}</span><span class="cap">${m.owner ? 'owner: ' + esc(m.owner) : '<span style="color:var(--fg-b45309)">no owner</span>'}${m.owner_covering_for ? ' <span class="pill warn">covering for ' + esc(m.owner_covering_for) + '</span>' : ''}</span></span><span>${esc(m.model_type || '\u2014')}</span><span>${m.criticality ? `<span class="pill ${critTone[m.criticality] || 'muted'}">${esc(m.criticality.replace('_', ' ').toLowerCase())}</span>` : '\u2014'}</span><span>${m.pcs ? (m.pcs.computable ? `<span class="pill ${({ CRITICAL: 'bad', HIGH: 'bad', MEDIUM: 'warn', LOW: 'ok' })[m.pcs.tier] || 'muted'}">${esc(m.pcs.tier.toLowerCase())}</span> <span class="mono">${m.pcs.score}</span><br><span class="cap">${esc(m.pcs.gate.toLowerCase().replace('_', ' '))}</span>` : '<span class="pill muted">not computable</span>') : '<span class="cap">\u2014</span>'}</span><span class="cap">${esc((m.data_sensitivity || '\u2014').replace(/_/g, ' ').toLowerCase())}</span>
         <span>${m.in_organisation ? '<span class="pill ok">In the organisation</span>' : '<span class="pill muted" title="Drawn outside the organisation on the organisation map">Outside</span>'}</span><span>${m.monitor ? '<a class="pill ok" href="#/model/runtime">Monitored</a>' : '<span class="pill muted" title="No production monitor yet">Not connected</span>'}</span>
-        <span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn btn-s" data-act="mdOpen" data-arg="${esc(m.design_key)}">Open in model designer</button>${m.screening ? `<button class="btn2 btn-s" data-act="miDetails" data-arg="${esc(m.design_key)}" aria-expanded="${MI.open === m.design_key}">${MI.open === m.design_key ? 'Hide details' : 'Details'}</button>` : ''}</span></div>${MI.open === m.design_key && m.screening ? miPanel(m) : ''}`).join('')}</section>
+        <span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn btn-s" data-act="mdOpen" data-arg="${esc(m.design_key)}">Open in model designer</button><button class="btn2 btn-s" data-act="miDetails" data-arg="${esc(m.design_key)}" aria-expanded="${MI.open === m.design_key}">${MI.open === m.design_key ? 'Hide' : (m.screening ? 'Details' : 'Responsibilities')}</button></span></div>${MI.open === m.design_key ? (m.screening ? miPanel(m) : '') + `<div class="grow" style="grid-template-columns:1fr;min-width:0;background:var(--bg-f7f9fb)">${respPanel('model', m.org_id || 'd:' + m.design_key)}</div>` : ''}`).join('')}</section>
       <p class="cap" style="margin:0">Models that are not in the organisation are drawn apart from it on the <a href="#/organisation">Organisation</a> map, and can be placed there from the map.</p>`;
   }
   Object.assign(H, {
@@ -4468,6 +4584,14 @@ kill_switch:
   const ogKinds = (a, b) => Object.keys(OG_EDGE).filter((k) => (OG_EDGE[k][0] === null || OG_EDGE[k][0].includes(a)) && (OG_EDGE[k][1] === null || OG_EDGE[k][1].includes(b)));
   const ogSlug = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
+  // the owner of an agent or model as the organisation shows it: whoever holds the duty now (a cover counts), and the structure's owner only while nobody has handed it over
+  const ogOwner = (ix, n) => {
+    const h = (((ix.d.live || {}).holders || {})[n.id] || {}).owner;
+    if (h && h.holder) return { text: (h.kind === 'COVER' ? 'cover: ' : 'owner: ') + ogT(h.holder.name, 16), warn: false, cover: h.kind === 'COVER' };
+    if (h && h.source === 'lapsed') return { text: 'owner lapsed', warn: true };
+    if (h && h.source === 'none') return { text: 'no owner', warn: true };
+    return n.props.owner ? { text: 'owner: ' + ogT(ix.nm(n.props.owner), 18), warn: false } : { text: 'no owner', warn: true };
+  };
   function coIx() {
     const d = CO.data, N = {}, out = {}, inn = {};
     d.nodes.forEach((n) => { N[n.id] = n; });
@@ -4663,7 +4787,7 @@ kill_switch:
       const p = pos[id], n = ix.N[id], lv = ix.live.agents[id];
       if (p.human) s += ogG({ ...ogAct(id), class: 'og-hit' + ogDim(rel, id) }, ogE('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx: 8, fill: 'var(--bg-e3ebfb)', stroke: CO.sel === id ? 'var(--ln-1e4fcb)' : 'var(--bg-9db4ec)', 'stroke-width': CO.sel === id ? 2.5 : 1 }) + ogE('text', { x: p.x + 8, y: p.y + 17, 'font-size': 11.5, 'font-weight': 600, fill: 'var(--fg-141a22)' }, ogT(n.name, 24)) + ogE('text', { x: p.x + 8, y: p.y + 31, 'font-size': 10, fill: 'var(--fg-4a5563)' }, ogT(n.props.title || '', 28)));
       else s += ogG({ ...ogAct(id), class: 'og-hit' + ogDim(rel, id) }, ogE('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx: 10, fill: 'var(--bg-ddf3f8)', stroke: 'var(--ln-0e7490)', 'stroke-width': CO.sel === id ? 3 : 1.8 }) + ogE('text', { x: p.cx, y: p.y + 23, 'font-size': 12.5, 'font-weight': 700, 'text-anchor': 'middle', fill: 'var(--fg-0e7490)' }, ogT(n.name, 22)) +
-        ogE('text', { x: p.cx, y: p.y + 40, 'font-size': 10, 'text-anchor': 'middle', fill: n.props.owner ? 'var(--fg-4a5563)' : 'var(--fg-b45309)' }, n.props.owner ? 'owner: ' + ogT(ix.nm(n.props.owner), 18) : 'no owner') + (lv && lv.registered ? ogE('circle', { cx: p.x + p.w - 9, cy: p.y + 9, r: 4, fill: lv.contract_version ? 'var(--bg-1e7f4f)' : 'var(--fg-b45309)' }) : ''));
+        ogE('text', { x: p.cx, y: p.y + 40, 'font-size': 10, 'text-anchor': 'middle', fill: ogOwner(ix, n).warn ? 'var(--fg-b45309)' : 'var(--fg-4a5563)' }, ogOwner(ix, n).text) + (lv && lv.registered ? ogE('circle', { cx: p.x + p.w - 9, cy: p.y + 9, r: 4, fill: lv.contract_version ? 'var(--bg-1e7f4f)' : 'var(--fg-b45309)' }) : ''));
     });
     tasks.forEach((e, i) => {
       const a = pos[e.from], b = pos[e.to]; if (!a || !b) return;
@@ -4855,6 +4979,7 @@ kill_switch:
       ${bad ? `<div class="note alert" style="font-size:13px"><strong>Broken rule</strong>${esc((n.props.rule_id && CO.data.violations[n.props.rule_id]) || 'Marked as broken.')}</div>` : ''}
       ${chk.map((c) => `<div class="note ${c.level === 'bad' ? 'alert' : 'plain'}" style="font-size:13px"><strong>${esc(c.title)}</strong>${esc(c.detail)}</div>`).join('')}
       ${n.type === 'agent' || n.type === 'model' ? `<h3 style="font-size:14px;margin-top:4px">AI Agents</h3>${sysLive ? (sysLive.registered ? `<div class="og-kv"><span>Registered</span><b>${esc(sysLive.agent_key)}</b></div><div class="og-kv"><span>Active contract</span><b>${sysLive.contract_version ? 'v' + esc(sysLive.contract_version) : 'none'}</b></div><div class="og-kv"><span>Last seen by the SDK</span><span>${sysLive.last_seen_at ? esc(String(sysLive.last_seen_at).slice(0, 16).replace('T', ' ')) : 'never'}</span></div>` : '<span class="cap">Not registered in AI Agents. A registered agent with the same name is linked automatically.</span>') : '<span class="cap">AI models are assessed in AI Models.</span>'}` : ''}
+      ${n.type === 'agent' && sysLive && sysLive.registered ? respPanel('agent', sysLive.agent_key) : (n.type === 'model' ? respPanel('model', n.id) : '')}${n.type === 'person' || n.type === 'role' ? respPersonPanel(n.id) : ''}
       ${n.type === 'agent' && ed ? `<button class="btn btn-s" style="align-self:flex-start" data-act="sFromOrg" data-arg="${esc(n.id)}">Design in the Agent studio</button>` : ''}${n.type === 'model' && ed ? `<button class="btn btn-s" style="align-self:flex-start" data-act="mFromOrg" data-arg="${esc(n.id)}">${(CO.data.live.models[n.id] || {}).design_key ? 'Open in AI Models' : 'Start a model design'}</button>` : ''}
       <h3 style="font-size:14px;margin-top:4px">Connections</h3>${ogEdgeRows(ix, n.id, ed)}${n.type === 'department' ? '' : ''}
       ${ed ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px"><button class="btn2 btn-s" data-act="coConnectFrom" data-arg="${esc(n.id)}">+ Connection</button><button class="btn3 btn-s" data-act="coDelete">Delete</button></div>` : ''}</div>`;
@@ -4903,7 +5028,7 @@ kill_switch:
     const sys = ix.T(['agent', 'model']); if (!sys.length) return '<div class="card og-pad stack"><h2>3 · AI systems, people and who they work with</h2><span class="cap">No AI systems yet.</span></div>';
     return `<div class="card og-pad stack" style="gap:8px"><h2>3 · AI systems, people and who they work with</h2><span class="cap">Each AI system belongs to a department, has people in named roles, and may hand tasks to other agents.</span><div class="tbl"><table class="og-t"><thead><tr><th>AI system</th><th>Department</th><th>Owner</th><th>People and roles</th><th>Hands tasks to</th></tr></thead><tbody>${sys.map((s) => {
       const out = (ix.out[s.id] || []);
-      return `<tr class="og-row${CO.sel === s.id ? ' sel' : ''}" data-act="coSel" data-arg="${esc(s.id)}"><td><span class="pill ${s.type === 'agent' ? 'ok' : ''}" style="${s.type === 'model' ? 'background:var(--bg-ede7fb);color:var(--fg-4c1d95)' : ''}">${s.type}</span><br><b>${esc(s.name)}</b></td><td>${esc(ix.N[s.props.department] ? ix.N[s.props.department].name : '—')}</td><td>${s.props.owner ? esc(ix.nm(s.props.owner)) : '<span class="pill warn">none</span>'}</td><td>${out.filter((e) => e.kind === 'works_with').map((e) => `<div>${esc(ix.nm(e.to))} <span class="cap">· ${esc(e.label)}</span></div>`).join('') || '—'}</td><td>${out.filter((e) => e.kind === 'task').map((e) => { const lv = ix.d.live.tasks[e.id] || {}; return `<div>${esc(ix.nm(e.to))} <span class="cap">· ${esc(e.label)}</span>${ix.dep(e.from) && ix.dep(e.to) && ix.dep(e.from) !== ix.dep(e.to) ? ' <span class="pill warn">other dept</span>' : ''}${lv.declared === false ? ' <span class="pill bad">not in contract</span>' : ''}</div>`; }).join('') || '—'}</td></tr>`;
+      return `<tr class="og-row${CO.sel === s.id ? ' sel' : ''}" data-act="coSel" data-arg="${esc(s.id)}"><td><span class="pill ${s.type === 'agent' ? 'ok' : ''}" style="${s.type === 'model' ? 'background:var(--bg-ede7fb);color:var(--fg-4c1d95)' : ''}">${s.type}</span><br><b>${esc(s.name)}</b></td><td>${esc(ix.N[s.props.department] ? ix.N[s.props.department].name : '—')}</td><td>${ogOwner(ix, s).warn ? '<span class="pill warn">' + (ogOwner(ix, s).text === 'owner lapsed' ? 'lapsed' : 'none') + '</span>' : esc(ogOwner(ix, s).text.replace(/^(owner|cover): /, '')) + (ogOwner(ix, s).cover ? ' <span class="pill warn" title="A temporary handover">cover</span>' : '')}</td><td>${out.filter((e) => e.kind === 'works_with').map((e) => `<div>${esc(ix.nm(e.to))} <span class="cap">· ${esc(e.label)}</span></div>`).join('') || '—'}</td><td>${out.filter((e) => e.kind === 'task').map((e) => { const lv = ix.d.live.tasks[e.id] || {}; return `<div>${esc(ix.nm(e.to))} <span class="cap">· ${esc(e.label)}</span>${ix.dep(e.from) && ix.dep(e.to) && ix.dep(e.from) !== ix.dep(e.to) ? ' <span class="pill warn">other dept</span>' : ''}${lv.declared === false ? ' <span class="pill bad">not in contract</span>' : ''}</div>`; }).join('') || '—'}</td></tr>`;
     }).join('')}</tbody></table></div></div>`;
   }
   function ogLive(ix) {

@@ -91,7 +91,9 @@ def build_content(session: Session, template: str, period: str, frameworks: List
         row: Dict[str, Any] = {"agent": name_of(a), "status": a.status,
                                "contract": {"version": doc["version"], "issued_at": doc["issued_at"], "hash": c.contract_hash}}
         if not trust:
-            row["owner"] = a.owner
+            import responsibility
+            held = responsibility.resolve(session, org.id, "agent", a.agent_key, "owner")
+            row["owner"] = (a.owner + f" (covering for {held['covering_for']['name']}" + (f" until {held['until']}" if held["until"] else "") + ")") if a.owner and held["covering_for"] else a.owner
             row["contract"].update(id=c.contract_id, issued_by=doc.get("issued_by"))
             row["risk"] = {"score": rcr.get("score"), "band": rcr.get("band"), "gate": rcr.get("gate"), "worst_regulation": rcr.get("worst_instrument")}
             if "RCR" in frameworks:

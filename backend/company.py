@@ -239,7 +239,16 @@ def live_links(session: Session, org_id: uuid.UUID, nodes: List[Dict[str, Any]],
         data = next((n.get("data", {}) for n in doc.get("nodes", []) if n.get("kind") == "AI_MODEL"), {})
         unplaced_models.append({"design_key": d.design_key, "name": d.name, "origin": "SCREENED" if doc.get("source") == "screening" else "DESIGNED", "tier": sc.get("tier"),
                                 "department": sc.get("department"), "criticality": data.get("aiCriticality"), "model_type": data.get("modelType")})
-    return {"agents": agent_live, "tasks": task_live, "unmodelled": unmodelled, "unmapped_agents": unmapped, "unplaced_models": unplaced_models, "models": models}
+    # Who is responsible now: the one rule (responsibility.py) for every agent and model of the organisation, so every view and check reads the same answer.
+    import responsibility
+    ppl = responsibility._people(session, org_id)
+    holders: Dict[str, Any] = {}
+    for i, k in key_of.items():
+        holders[i] = {"owner": responsibility.resolve(session, org_id, "agent", k, "owner", None, ppl)}
+    for n in org_models:
+        snap = responsibility.snapshot(session, org_id, "model", n["id"])
+        holders[n["id"]] = {**{d["duty"]: d for d in snap["duties"]}, "conflicts": snap["conflicts"]}
+    return {"agents": agent_live, "tasks": task_live, "unmodelled": unmodelled, "unmapped_agents": unmapped, "unplaced_models": unplaced_models, "models": models, "holders": holders}
 
 
 # ── Checks (deterministic) ─────────────────────────────────────────────────
@@ -254,21 +263,25 @@ def run_checks(nodes: List[Dict[str, Any]], edges: List[Dict[str, Any]], live: D
 
     systems = [n for n in nodes if n["type"] in ("agent", "model")]
     violations: Dict[str, str] = {}
+    held = live.get("holders", {})
     for m in (n for n in nodes if n["type"] == "model"):
-        holders: Dict[str, List[str]] = defaultdict(list)
-        for e in edges:
-            if e["kind"] == "works_with" and e["from"] == m["id"] and e["label"].lower() in ROLE_LABELS:
-                holders[ROLE_LABELS[e["label"].lower()]].append(e["to"])
-        for a, b, why in (("validator", "deployer", "Separate duties: someone else should deploy (rule SC-RCF-1)."),
-                          ("trainer", "validator", "Separate duties: someone else should validate the model.")):
-            both = sorted(set(holders[a]) & set(holders[b]))
-            for pid in both:
-                add("role_concentration", "bad", "Role concentration", f"{m['name']}: {P(pid)} is both {a} and {b}. {why}", [m["id"], pid], "Assign another person")
-                if (a, b) == ("validator", "deployer"):
-                    violations["separate_validator_deployer"] = f"{P(pid)} is both validator and deployer."
+        # the role separation of a model is read from who holds each duty now, with a cover counted as the holder: a handover can create a conflict, and it shows here
+        for c in held.get(m["id"], {}).get("conflicts", []):
+            a, b = c["duties"]
+            why = {"validator": "Separate duties: someone else should deploy (rule SC-RCF-1).", "trainer": "Separate duties: someone else should validate the model."}.get(a, "Separate duties.")
+            add("role_concentration", "bad", "Role concentration", f"{m['name']}: {c['holder']} is both {a} and {b}" + (" (while covering)" if c.get("covering") else "") + f". {why}", [m["id"]], "Assign another person")
+            if (a, b) == ("validator", "deployer"):
+                violations["separate_validator_deployer"] = f"{c['holder']} is both validator and deployer."
     for s in systems:
-        if not s["props"].get("owner"):
+        own = (held.get(s["id"], {}).get("owner") or {})
+        if own and own.get("holder") is None and own.get("source") == "lapsed":
+            add("owner_lapsed", "bad", "Owner has lapsed", f"Nobody holds the Owner duty of {s['name']} now: the last assignment has ended (a leaver, or a cover that ran out)." + (" It counts against ASI10." if s["type"] == "agent" else ""), [s["id"]], "Hand the duty over")
+        elif own and own.get("holder") is None or (not own and not s["props"].get("owner")):
             add("no_owner", "warn", "No owner", f"{s['name']} has no accountable person." + (" An agent without an owner counts against ASI10." if s["type"] == "agent" else ""), [s["id"]], "Assign an owner")
+        elif own and own.get("covering_for"):
+            add("owner_covered", "info", "Covered for now", f"{own['holder']['name']} is covering the Owner duty of {s['name']} for {own['covering_for']['name']}" + (f" until {own['until']}" if own.get("until") else "") + ".", [s["id"]], "")
+        elif own and own.get("next") and own["next"]["kind"] == "PRIMARY":
+            add("owner_changing", "info", "Owner changes soon", f"{own['next']['name']} becomes the Owner of {s['name']} on {own['next']['starts_on']}.", [s["id"]], "")
     for d in (n for n in nodes if n["type"] == "department"):
         if not d["props"].get("head") and any(n["props"].get("department") == d["id"] for n in nodes if n["type"] != "department"):
             add("no_head", "warn", "No head", f"Department {d['name']} has no head.", [d["id"]], "Assign a head")
@@ -865,9 +878,13 @@ def patch_node(ext_id: str, body: NodePatch, session: Session = Depends(get_sess
     return {"id": ext_id}
 
 
-def drop_node(session: Session, org: Any, row: CompanyNode) -> None:
-    """Deletes a node and every connection to it, and clears it as anyone's owner, head or deputy. Does not commit."""
+def drop_node(session: Session, org: Any, row: CompanyNode, by: str = "the organisation") -> None:
+    """Deletes a node and every connection to it, and clears it as anyone's owner, head or deputy. A person or role who held a duty stops holding it today (their name stays
+    in the history). Does not commit."""
     ext_id = row.ext_id
+    if row.type in ("person", "role"):
+        import responsibility
+        responsibility.end_holder(session, org.id, ext_id, by)
     others = list(session.scalars(select(CompanyNode).where(CompanyNode.organisation_id == org.id, CompanyNode.ext_id != ext_id)))
     for o in others:
         gone = [k for k in REF_KEYS if o.props.get(k) == ext_id]
@@ -911,7 +928,7 @@ def delete_node(ext_id: str, session: Session = Depends(get_session), user: Auth
     users = [o for o in others if any(o.props.get(k) == ext_id for k in ("parent", "department", "lane"))]
     if row.type == "department" and users:
         raise HTTPException(status_code=409, detail=f"{row.name} still has {len(users)} item(s) in it ({', '.join(u.name for u in users[:3])}{'…' if len(users) > 3 else ''}). Move or delete them first.")
-    drop_node(session, org, row)
+    drop_node(session, org, row, user.name)
     session.commit()
     return {"deleted": ext_id}
 

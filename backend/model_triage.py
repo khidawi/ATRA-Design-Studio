@@ -233,6 +233,9 @@ def import_models(body: ImportRequest, session: Session = Depends(get_session), 
 @router.get("/inventory")
 def inventory(session: Session = Depends(get_session)) -> List[Dict[str, Any]]:
     """Every model design: where it came from, what it is, how it was screened, whether it is in the organisation and whether production data reaches it."""
+    import responsibility
+    org = current_organisation(session)
+    people = responsibility._people(session, org.id)
     monitors = {m.design_key: m.key for m in session.scalars(select(ModelMonitor)) if m.design_key}
     out = []
     for d in session.scalars(select(Design).where(Design.subject == "MODEL").order_by(Design.created_at.desc())):
@@ -240,7 +243,9 @@ def inventory(session: Session = Depends(get_session)) -> List[Dict[str, Any]]:
         sc = doc.get("screening") or {}
         org_id = (doc.get("org") or {}).get("id")
         node = _model_node(doc).get("data", {})
-        out.append({"design_key": d.design_key, "name": d.name, "origin": "SCREENED" if doc.get("source") == "screening" else ("ORGANISATION" if org_id else "DESIGNED"),
+        own = responsibility.resolve(session, org.id, "model", org_id or "d:" + d.design_key, "owner", None, people)       # whoever holds the Owner duty now
+        out.append({"design_key": d.design_key, "name": d.name, "org_id": org_id, "owner": own["holder"]["name"] if own["holder"] else None,
+                    "owner_covering_for": own["covering_for"]["name"] if own["covering_for"] else None, "origin": "SCREENED" if doc.get("source") == "screening" else ("ORGANISATION" if org_id else "DESIGNED"),
                     "in_organisation": bool(org_id), "model_type": node.get("modelType"), "criticality": node.get("aiCriticality"), "data_sensitivity": node.get("dataSensitivity"),
                     "hosting": node.get("hostingEnvironment"), "tier": sc.get("tier"), "score": sc.get("score"), "pcs": sc.get("pcs"), "screening": sc or None, "monitor": monitors.get(d.design_key),
                     "nodes": len(doc.get("nodes", [])), "updated_at": d.updated_at.isoformat() if d.updated_at else None})
@@ -272,6 +277,9 @@ def place(body: PlaceRequest, session: Session = Depends(get_session)) -> Dict[s
     risk = {"High": "high", "Moderate": "limited", "Low": "minimal"}.get(sc.get("tier") or "", "")
     props = company.clean_props("model", {"purpose": (sc.get("description") or "")[:300], "risk_class": risk})
     session.add(CompanyNode(organisation_id=org.id, ext_id=ext, type="model", name=d.name[:200], props=props))
+    from db.models import Responsibility
+    for r in session.scalars(select(Responsibility).where(Responsibility.organisation_id == org.id, Responsibility.subject_kind == "model", Responsibility.subject_ref == "d:" + d.design_key)):
+        r.subject_ref = ext
     doc["org"] = {"id": ext, "name": d.name}
     d.document = doc
     session.commit()

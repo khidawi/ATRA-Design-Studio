@@ -140,9 +140,15 @@ def registry_block_to_state(rb: RegistryBlock) -> RegistryState:
     ]
 
     # Role concentration flags
-    trainer_is_validator  = rb.trainer_is_validator
-    validator_is_deployer = rb.validator_is_deployer
-    trainer_is_deployer   = rb.trainer_is_deployer
+    # Role concentration: a flag the caller set, or the same identity holding two of the three roles. The identities are the effective holders (responsibility.py), so a
+    # cover who is also the trainer shows up here.
+    def _same(x: str, y: str) -> bool:
+        x, y = (x or "").strip().lower(), (y or "").strip().lower()
+        return bool(x) and x == y
+
+    trainer_is_validator  = rb.trainer_is_validator or _same(rb.actors.trainer.identity, rb.actors.validator.identity)
+    validator_is_deployer = rb.validator_is_deployer or _same(rb.actors.validator.identity, rb.actors.deployer.identity)
+    trainer_is_deployer   = rb.trainer_is_deployer or _same(rb.actors.trainer.identity, rb.actors.deployer.identity)
 
     # Gap scores
     gap_scores = list(rb.gap_scores or [])

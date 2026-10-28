@@ -782,3 +782,41 @@ class ModelIncident(Base):
     recovered_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     resolved_by: Mapped[Optional[str]] = mapped_column(String(200))
+
+
+class Responsibility(Base):
+    """A duty that belongs to something in the platform (the owner of an agent, the validator of a model), kept apart from the people who hold it and from the
+    structure of the organisation. Who holds it, and for how long, is in the assignments (responsibility.py)."""
+
+    __tablename__ = "responsibilities"
+    __table_args__ = (UniqueConstraint("organisation_id", "subject_kind", "subject_ref", "duty", name="uq_responsibility"),
+                      CheckConstraint("subject_kind IN ('agent', 'model')", name="ck_responsibility_kind"))
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    subject_kind: Mapped[str] = mapped_column(String(8), nullable=False)
+    subject_ref: Mapped[str] = mapped_column(String(80), nullable=False)       # an agent's key; a model's organisation id, or "d:" and its design key before it is in the organisation
+    duty: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class Assignment(Base):
+    """Who holds a responsibility, from when to when. A change is a new row: nothing is edited away, so the history answers who was accountable on any date."""
+
+    __tablename__ = "assignments"
+    __table_args__ = (CheckConstraint("kind IN ('PRIMARY', 'COVER')", name="ck_assignment_kind"),
+                      CheckConstraint("ends_on IS NULL OR ends_on >= starts_on", name="ck_assignment_dates"))
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    responsibility_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("responsibilities.id", ondelete="CASCADE"), nullable=False)
+    holder_ext_id: Mapped[Optional[str]] = mapped_column(String(64))           # the employee record in the organisation; none for a holder outside it
+    holder_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    kind: Mapped[str] = mapped_column(String(7), nullable=False)               # PRIMARY, or COVER for a temporary handover
+    starts_on: Mapped[date] = mapped_column(Date, nullable=False)
+    ends_on: Mapped[Optional[date]] = mapped_column(Date)
+    reason: Mapped[Optional[str]] = mapped_column(String(200))
+    created_by: Mapped[str] = mapped_column(String(160), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    ended_by: Mapped[Optional[str]] = mapped_column(String(160))
+    ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    revoked: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))

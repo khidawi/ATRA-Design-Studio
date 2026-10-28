@@ -46,6 +46,8 @@ def current_organisation(session: Session) -> Organisation:
     org = session.scalar(select(Organisation).where(Organisation.slug == DEFAULT_ORG_SLUG))
     if org is None:  # init_database() creates it at start-up
         raise HTTPException(status_code=503, detail="Default organisation is not initialised yet.")
+    import responsibility
+    responsibility.refresh_daily(session, org.id)
     return org
 
 
