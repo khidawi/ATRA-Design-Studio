@@ -1,4 +1,4 @@
-FROM nginxinc/nginx-unprivileged:1.29-alpine
+FROM nginxinc/nginx-unprivileged:1.31-alpine
 
 # Operating-system packages fixed since the base image was built (the release workflow scans the result and refuses fixable high or critical findings).
 USER root
