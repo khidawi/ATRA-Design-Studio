@@ -129,7 +129,7 @@ jobs:
           pip install pip-audit
           pip-audit --strict -r backend/requirements.txt
       - name: Secrets, and misconfiguration in the Dockerfiles and compose files
-        uses: aquasecurity/trivy-action@v0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -160,7 +160,7 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
       - name: Scan ${{ matrix.image }} for known vulnerabilities (fixable, high or critical)
-        uses: aquasecurity/trivy-action@v0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: astra-${{ matrix.image }}:ci
           severity: HIGH,CRITICAL
