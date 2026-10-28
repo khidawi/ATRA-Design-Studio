@@ -1,0 +1,9 @@
+# Dockerfile lint settings (hadolint).
+#
+# DL3008  apt packages are not pinned to a version: the base image is pinned by tag and rebuilt (and scanned) on every release, and a pinned apt version breaks the build the day the
+#         distribution drops it. The scan, not the pin, is what catches a vulnerable package.
+ignored:
+  - DL3008
+trustedRegistries:
+  - docker.io
+  - ghcr.io

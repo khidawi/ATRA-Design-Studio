@@ -1,0 +1,162 @@
+# A release is a tag that starts with v (for example v1.4.0), made on main after the checks passed. It:
+#   1. runs the whole CI workflow again on that commit (tests, lint, vulnerability and secret scans);
+#   2. builds each image and scans it BEFORE anything is published, and stops if a fixable high or critical vulnerability is in it;
+#   3. publishes the images to the GitHub Container Registry, with build provenance and an SBOM attached by the build;
+#   4. signs each image by its digest with cosign, keyless: the signature is tied to this workflow and this tag through GitHub's identity, there is no signing key to steal;
+#   5. attaches the SBOM as a signed attestation, and opens a GitHub release that lists the digests and how to verify them.
+# A server then pulls an image by tag and verifies it with deploy/verify_image.sh before it starts it. Protect the v* tags in the repository settings so only maintainers can make one.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: write           # push to ghcr.io
+      id-token: write           # keyless signing (the OIDC token that proves this workflow and tag made the image)
+      attestations: write
+      security-events: write    # upload the scan results
+    strategy:
+      fail-fast: true
+      matrix:
+        image: [backend, studio]
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/astra-${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+          labels: |
+            org.opencontainers.image.title=astra-${{ matrix.image }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+      - name: Build (not published yet)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ matrix.image }}
+          load: true
+          push: false
+          tags: astra-${{ matrix.image }}:scan
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+      - name: Scan before publishing (a fixable high or critical vulnerability stops the release)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: astra-${{ matrix.image }}:scan
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          vuln-type: os,library
+      - name: Scan report for the Security tab
+        if: always()
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: astra-${{ matrix.image }}:scan
+          format: sarif
+          output: trivy-${{ matrix.image }}.sarif
+          severity: HIGH,CRITICAL,MEDIUM
+          exit-code: "0"
+      - name: Upload the scan report
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-${{ matrix.image }}.sarif
+          category: trivy-${{ matrix.image }}
+      - name: Publish with provenance and an SBOM
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ matrix.image }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha,scope=${{ matrix.image }}
+      - uses: sigstore/cosign-installer@v3
+      - name: Sign the image by its digest
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+      - name: SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: sbom-${{ matrix.image }}.spdx.json
+          upload-artifact: true
+          artifact-name: sbom-${{ matrix.image }}.spdx.json
+      - name: Attach the SBOM as a signed attestation
+        run: cosign attest --yes --predicate "sbom-${{ matrix.image }}.spdx.json" --type spdxjson "${IMAGE}@${DIGEST}"
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+      - name: Record the digest
+        run: |
+          echo "${IMAGE}@${DIGEST}" > "digest-${{ matrix.image }}.txt"
+          echo "### ${{ matrix.image }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`${IMAGE}@${DIGEST}\`" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.image }}
+          path: digest-${{ matrix.image }}.txt
+
+  release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write           # create the release
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: digest-*
+          merge-multiple: true
+      - name: Open the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          {
+            echo "## Images"
+            echo
+            echo "Pinned by digest (use these, not the tag, where you can):"
+            echo
+            echo '```'
+            cat digest-*.txt
+            echo '```'
+            echo
+            echo "## Verify before you run"
+            echo
+            echo '```bash'
+            echo "deploy/verify_image.sh ${TAG}"
+            echo '```'
+            echo
+            echo "It checks the signature (made by this repository's release workflow for this tag) and the SBOM attestation, and refuses an image that was not built here."
+          } > notes.md
+          gh release create "$TAG" --repo "$REPO" --title "$TAG" --generate-notes --notes-file notes.md

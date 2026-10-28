@@ -1,0 +1,26 @@
+# Keeps the dependencies and the build tooling current, with a pull request for each change that runs the whole CI workflow. Security fixes arrive the same way (turn on
+# Dependabot security updates in the repository settings as well).
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /backend
+    schedule: {interval: weekly}
+    open-pull-requests-limit: 8
+    groups:
+      python-minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: pip
+    directory: /sdk/python
+    schedule: {interval: weekly}
+  - package-ecosystem: docker
+    directory: /backend
+    schedule: {interval: weekly}
+  - package-ecosystem: docker
+    directory: /studio
+    schedule: {interval: weekly}
+  - package-ecosystem: github-actions        # the actions this repository's pipelines use (they are referenced by version tag)
+    directory: /
+    schedule: {interval: weekly}
+    groups:
+      actions:
+        patterns: ["*"]

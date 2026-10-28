@@ -47,7 +47,7 @@ It is safe to run again; what exists is skipped. `--no-traffic` skips the demo m
 For anything beyond a try-out on your own machine, use `docker-compose.prod.yml` instead of the demo file. It is the same three parts with HTTPS in front and the containers locked down, and nothing to add by hand:
 
 - **Caddy** is the only container with published ports (80 and 443). It gets the certificate, renews it, redirects HTTP to HTTPS (a sign-in sent over plain HTTP is redirected and never reaches the application) and adds the security headers (HSTS for a year, no content sniffing, no framing, no referrer, a minimal permissions policy).
-- The **studio, the API and the database are not published**. The API and the database are on a private network the proxy cannot see.
+- The **studio (nginx, unprivileged, port 8080), the API and the database are not published**. The API and the database are on a private network the proxy cannot see.
 - The **API runs as an unprivileged user** (uid 10001) on a **read-only filesystem**, with no extra Linux capabilities and no way to gain any. Its code is owned by root and read-only to it; its only writable place is a memory-only `/tmp` (the throwaway checkouts of connected repositories). The studio's nginx is read-only too.
 - The session cookie is marked **Secure** because the API is told the scheme the browser used (`--proxy-headers`, trusted only on the private network).
 
@@ -85,6 +85,25 @@ The production file sets the database up so that a flaw in the application canno
 - **A private certificate authority.** If ASTRA is served with a certificate from your own authority (`ASTRA_TLS=internal`, or an internal CA), set `ASTRA_CA_BUNDLE` to that authority's certificate file in the application: nothing has to be installed on the machine. With `ASTRA_TLS=internal` the authority's certificate is in the `caddy_data` volume at `pki/authorities/local/root.crt`.
 - **Client certificates (optional, mutual TLS).** For the paths applications use to send data in (runtime events, telemetry, model records, decisions, canaries), a client certificate can be required on top of the API key, so a leaked key alone can no longer feed ASTRA false events. `./make_collector_cert.sh checkout-service` makes the authority (once) and one certificate per application; then `docker compose -f docker-compose.prod.yml -f docker-compose.mtls.yml up -d`. Without a certificate those paths answer 401 at the proxy; a certificate from another authority is refused in the handshake; people's browsers are not asked for one. The application sets `ASTRA_CLIENT_CERT` and `ASTRA_CLIENT_KEY`. Keep `client-ca.key` offline; replace the authority to revoke everything it signed.
 - **Inside the server.** Traffic between the proxy, the studio and the API stays on private container networks on one host, unencrypted; on a shared or multi-host network, add TLS between them.
+
+### Updating from signed releases
+
+Every release is built, scanned and signed by GitHub Actions (`.github/workflows/`), so a server can run exactly what was tested instead of compiling code itself.
+
+- **Every push and pull request** runs `ci.yml`: the backend tests against a real PostgreSQL, the SDK tests, a syntax check of the studio page; lint of the shell scripts, Dockerfiles, workflows, compose files and Caddyfile; a vulnerability audit of the Python dependencies (`pip-audit`); a scan of the repository for secrets and misconfiguration; and both images built and scanned for fixable high or critical vulnerabilities. `codeql.yml` adds static analysis of the code itself weekly and on pull requests. Dependabot opens pull requests for dependency, base-image and action updates.
+- **A release** is a tag that starts with `v`, made on `main` (protect `v*` tags in the repository settings so only maintainers can make one). `release.yml` runs the whole CI again on that commit, builds each image and **scans it before publishing anything** (a fixable high or critical finding stops the release), publishes to `ghcr.io/<owner>/astra-backend` and `astra-studio` with build provenance and an SBOM, **signs each image by digest with cosign** (keyless: the signature is tied to this workflow and tag through GitHub's identity; there is no signing key to steal), attaches the SBOM as a signed attestation, and opens a GitHub release listing the digests.
+- **On the server**, verify, then pull, then start (never build):
+
+```bash
+./verify_image.sh v1.4.0        # refuses an image that was not built and signed by this repository's release workflow for a v* tag
+ASTRA_VERSION=1.4.0 docker compose -f docker-compose.prod.yml -f docker-compose.images.yml pull
+ASTRA_VERSION=1.4.0 docker compose -f docker-compose.prod.yml -f docker-compose.images.yml up -d --no-build
+python verify_https.py https://astra.example.org && python verify_db.py     # then check it, as after every update
+```
+
+Take a backup before updating (`backup_db.sh`): a migration changes the database, and migrations only add. To go back, start the previous version; to undo a migration, restore the backup into a new database. Pin by digest (`ASTRA_BACKEND_IMAGE`, `ASTRA_STUDIO_IMAGE`) where you can: a tag can be moved, a digest cannot. The packages are private unless you make them public; `docker login ghcr.io` with a token that can read packages.
+
+**Not verified until the first release is made:** the pipeline was checked with the same tools locally (workflow lint, Dockerfile and shell lint, dependency audit, image and repository scans, compose and Caddyfile validation), but GitHub Actions itself can only run on GitHub, so the first tag is the real test of the signing and publishing steps. The actions are referenced by version tag, not commit hash: Dependabot keeps them current, and pinning each to a hash is a further step if your policy requires it.
 
 ### The demo file and your own proxy
 

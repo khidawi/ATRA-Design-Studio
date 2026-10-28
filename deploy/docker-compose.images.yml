@@ -1,0 +1,15 @@
+# Run the signed release images instead of building on the server: nothing is compiled in production, and what runs is exactly what the release workflow built, scanned and signed.
+#
+#   ./verify_image.sh v1.4.0                                                                  # check the signatures first
+#   ASTRA_VERSION=1.4.0 docker compose -f docker-compose.prod.yml -f docker-compose.images.yml pull
+#   ASTRA_VERSION=1.4.0 docker compose -f docker-compose.prod.yml -f docker-compose.images.yml up -d --no-build
+#
+# Set ASTRA_VERSION in .env instead of on the command line if you prefer. To pin by digest, set ASTRA_BACKEND_IMAGE and ASTRA_STUDIO_IMAGE to the full references from the release notes.
+# The images are in a private package unless you made them public: log in first (docker login ghcr.io) with a token that can read packages.
+services:
+  backend:
+    image: ${ASTRA_BACKEND_IMAGE:-ghcr.io/khidawi/astra-backend:${ASTRA_VERSION:?set ASTRA_VERSION to a release, for example 1.4.0}}
+    pull_policy: always
+  studio:
+    image: ${ASTRA_STUDIO_IMAGE:-ghcr.io/khidawi/astra-studio:${ASTRA_VERSION:?set ASTRA_VERSION to a release, for example 1.4.0}}
+    pull_policy: always

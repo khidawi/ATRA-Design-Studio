@@ -15,7 +15,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     FORWARDED_ALLOW_IPS=127.0.0.1
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# The package manager is not needed at run time, so it is removed once the dependencies are in: nothing in the image can install code, and pip's own bundled libraries (which
+# security scanners report separately) are gone with it.
+RUN pip install --no-cache-dir -r requirements.txt     && python -m pip uninstall -y pip setuptools wheel
 
 COPY . .
 
@@ -24,7 +26,7 @@ USER 10001:10001
 EXPOSE 8765
 
 HEALTHCHECK --interval=15s --timeout=4s --start-period=40s --retries=4 \
-    CMD python -c "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8765/health', timeout=3).status == 200 else 1)"
+    CMD ["python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8765/health', timeout=3).status == 200 else 1)"]
 
 # --proxy-headers makes the API see the address and the https scheme that the proxy in front of it saw (so the session cookie is marked Secure). It trusts those headers only
 # from FORWARDED_ALLOW_IPS: the production compose file sets it to the private network the proxy is on; never publish the API port when it is wider than 127.0.0.1.

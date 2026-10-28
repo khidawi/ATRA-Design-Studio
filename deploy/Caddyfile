@@ -92,7 +92,7 @@
     # The studio container serves the page and passes /api to the API on a private network. Caddy tells it the address and the scheme the browser used
     # (X-Forwarded-For and X-Forwarded-Proto are set by default).
     handle {
-        reverse_proxy studio:80 {
+        reverse_proxy studio:8080 {
             health_uri /health
             health_interval 15s
         }

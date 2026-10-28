@@ -109,16 +109,14 @@ services:
     read_only: true
     tmpfs:
       - /var/cache/nginx
-      - /var/run
       - /tmp
     cap_drop: [ALL]
-    cap_add: [CHOWN, SETGID, SETUID]
     security_opt:
       - no-new-privileges:true
     depends_on:
       - backend
     expose:
-      - "80"
+      - "8080"
     networks: [edge, back]
 
   caddy:

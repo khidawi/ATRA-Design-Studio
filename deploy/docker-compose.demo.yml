@@ -42,7 +42,7 @@ services:
     build: ../studio
     restart: unless-stopped
     ports:
-      - "${ASTRA_PORT:-8080}:80"
+      - "${ASTRA_PORT:-8080}:8080"
     depends_on:
       - backend
 
