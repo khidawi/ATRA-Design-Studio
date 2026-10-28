@@ -100,11 +100,12 @@ def _flag(value: Any) -> Optional[bool]:
     return None
 
 
-def screen(description: str, department: str = "", supplier: str = "", high_at: int = HIGH_AT, moderate_at: int = MODERATE_AT) -> Dict[str, Any]:
-    """One agent: the signals found in its description, the score they add up to, and what the description leaves out."""
+def apply_rules(description: str, department: str, supplier: str, high_at: int, moderate_at: int, signals, mitigations, questions) -> Dict[str, Any]:
+    """One item: the signals found in its description, the score they add up to, and what the description leaves out. The rules are passed in, so the same
+    screen serves agents (below) and models (model_triage.py)."""
     text = " ".join(x for x in (description, department, supplier) if x).lower()
     hits: List[Dict[str, Any]] = []
-    for key, weight, reason, pattern in SIGNALS + MITIGATIONS:
+    for key, weight, reason, pattern in list(signals) + list(mitigations):
         found = sorted({m.group(0) for m in re.finditer(pattern, text)})
         if found:
             hits.append({"key": key, "weight": weight, "reason": reason, "phrases": found[:4]})
@@ -112,10 +113,15 @@ def screen(description: str, department: str = "", supplier: str = "", high_at: 
     mitigation = max(sum(h["weight"] for h in hits if h["weight"] < 0), -3)        # a claim in a description is worth little: cap the credit
     score = max(0, positive + mitigation)
     tier = "High" if score >= high_at else ("Moderate" if score >= moderate_at else "Low")
-    missing = [q for key, q, pattern in QUESTIONS if not re.search(pattern, text)] if tier != "Low" else []
+    missing = [q for key, q, pattern in questions if not re.search(pattern, text)] if tier != "Low" else []
     if not description.strip():
         tier, missing = "Unknown", ["There is no description to screen. Add one, or assess the design directly."]
     return {"score": score, "tier": tier, "needs_investigation": tier in ("High", "Moderate", "Unknown"), "signals": hits, "not_stated": missing}
+
+
+def screen(description: str, department: str = "", supplier: str = "", high_at: int = HIGH_AT, moderate_at: int = MODERATE_AT) -> Dict[str, Any]:
+    """One agent: the signals found in its description, the score they add up to, and what the description leaves out."""
+    return apply_rules(description, department, supplier, high_at, moderate_at, SIGNALS, MITIGATIONS, QUESTIONS)
 
 
 def _cols(header: List[str]) -> Dict[str, int]:
@@ -197,8 +203,9 @@ def pick_sample(results: List[Dict[str, Any]], spec: SampleSpec) -> Dict[str, An
             "ids": [r["id"] for r in sorted(chosen, key=lambda r: r["order"])]}
 
 
-def _screened(body: TriageRequest) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
-    """The request's list, read and screened: one result per agent."""
+def _screened(body: TriageRequest, screen_fn=None) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
+    """The request's list, read and screened: one result per item. screen_fn is the screen to use (agents by default)."""
+    screen_fn = screen_fn or screen
     if body.moderate_at > body.high_at:
         raise HTTPException(status_code=422, detail="The moderate line cannot be above the high line.")
     if body.csv:
@@ -212,7 +219,7 @@ def _screened(body: TriageRequest) -> Tuple[List[Dict[str, Any]], Dict[str, str]
         raise HTTPException(status_code=422, detail=f"At most {MAX_ROWS} agents at a time.")
     results = []
     for i, r in enumerate(rows):
-        s = screen(r.description, r.department, r.supplier, body.high_at, body.moderate_at)
+        s = screen_fn(r.description, r.department, r.supplier, body.high_at, body.moderate_at)
         results.append({"order": i, "id": r.id or str(i + 1), "name": r.name or f"Agent {i + 1}", "department": r.department, "supplier": r.supplier,
                         "description": r.description, "their_flag": _flag(r.their_flag) if r.their_flag not in (None, "") else None, **s})
     return results, columns
@@ -221,10 +228,15 @@ def _screened(body: TriageRequest) -> Tuple[List[Dict[str, Any]], Dict[str, str]
 @router.post("/triage")
 def triage(body: TriageRequest) -> Dict[str, Any]:
     results, columns = _screened(body)
+    return summarise(results, columns, body, "agents")
+
+
+def summarise(results: List[Dict[str, Any]], columns: Dict[str, str], body: TriageRequest, what: str) -> Dict[str, Any]:
+    """The tiers, the comparison with another screening and the sample, for a screened list of agents or of models."""
     tiers = {t: sum(1 for r in results if r["tier"] == t) for t in ("High", "Moderate", "Low", "Unknown")}
     out: Dict[str, Any] = {"count": len(results), "tiers": tiers, "needs_investigation": sum(1 for r in results if r["needs_investigation"]), "columns": columns,
                            "lines": {"high_at": body.high_at, "moderate_at": body.moderate_at},
-                           "note": "A first-pass screen of the descriptions only. It ranks agents for a closer look and is not a risk assessment.", "results": results}
+                           "note": f"A first-pass screen of the descriptions only. It ranks {what} for a closer look and is not a risk assessment.", "results": results}
     compared = [r for r in results if r["their_flag"] is not None]
     if compared:
         both = sum(1 for r in compared if r["their_flag"] and r["needs_investigation"])

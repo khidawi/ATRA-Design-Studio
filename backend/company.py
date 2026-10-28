@@ -228,7 +228,18 @@ def live_links(session: Session, org_id: uuid.UUID, nodes: List[Dict[str, Any]],
                 models[ref]["designs"] += 1
         for n in org_models:
             models.setdefault(n["id"], {"design_key": None, "design_name": None, "designs": 0})
-    return {"agents": agent_live, "tasks": task_live, "unmodelled": unmodelled, "unmapped_agents": unmapped, "models": models}
+    # Model designs that are not in the organisation (added from a screened list, or designed by hand): drawn apart from the structure, like the unmapped agents.
+    from db.models import Design as _D
+    unplaced_models = []
+    for d in session.scalars(select(_D).where(_D.subject == "MODEL", _D.organisation_id == org_id).order_by(_D.created_at.desc())):
+        doc = d.document or {}
+        if (doc.get("org") or {}).get("id"):
+            continue
+        sc = doc.get("screening") or {}
+        data = next((n.get("data", {}) for n in doc.get("nodes", []) if n.get("kind") == "AI_MODEL"), {})
+        unplaced_models.append({"design_key": d.design_key, "name": d.name, "origin": "SCREENED" if doc.get("source") == "screening" else "DESIGNED", "tier": sc.get("tier"),
+                                "department": sc.get("department"), "criticality": data.get("aiCriticality"), "model_type": data.get("modelType")})
+    return {"agents": agent_live, "tasks": task_live, "unmodelled": unmodelled, "unmapped_agents": unmapped, "unplaced_models": unplaced_models, "models": models}
 
 
 # ── Checks (deterministic) ─────────────────────────────────────────────────

@@ -1,0 +1,31 @@
+id,name,description,department,supplier,their_flag
+1,Loan default predictor,Predicts the likelihood of default for loan applicants from their credit history and income. A credit officer makes the final decision.,Lending,In-house,yes
+2,CV shortlisting model,Ranks candidates for jobs by scoring their CVs and automatically shortlists the top ten.,Human Resources,Third-party vendor,yes
+3,Demand forecaster,Forecasts weekly product demand from aggregate sales data for stock planning.,Operations,In-house,no
+4,Chest x-ray classifier,A convolutional neural network that flags suspected pneumonia on chest x-rays of patients for radiologists to review.,Radiology,Third-party vendor,yes
+5,Customer churn model,Predicts which customers are likely to leave using their usage data to target retention offers.,Marketing,In-house,no
+6,Claims fraud scorer,Scores insurance claims for the likelihood of fraud and automatically routes high scores to investigators.,Claims,In-house,yes
+7,Support chatbot,A language model chatbot that answers customers' questions about their orders.,Customer Services,OpenAI API,no
+8,Predictive maintenance model,Detects anomalies in sensor data from machines to schedule maintenance. Uses no personal data.,Manufacturing,In-house,no
+9,Child safeguarding risk model,Predicts which children are at risk of harm from case records and prioritises referrals for social workers.,Children's Services,Third-party vendor,yes
+10,Facial recognition entry system,Identifies staff by face recognition at building doors using biometric templates.,Security,Third-party vendor,yes
+11,Meeting summariser,A generative model that summarises internal meetings for staff.,Corporate,Microsoft,no
+12,Energy load forecaster,Forecasts energy use of buildings from meter readings. Dashboard for internal use.,Property,In-house,no
+13,Exam grading assistant,Scores student essays and recommends grades for teachers to confirm. Advisory only.,Education,Third-party vendor,yes
+14,Document classifier,Sorts incoming documents into categories using a gradient boosting ensemble.,Operations,In-house,no
+15,Recidivism risk tool,Predicts the risk of re-offending for people on probation to support officers' decisions.,Justice,Third-party vendor,yes
+16,Price optimiser,Recommends product prices from competitor prices and aggregate demand.,Commercial,In-house,no
+17,Patient readmission predictor,Predicts the risk of hospital readmission for patients using clinical records and flags high risk patients to clinicians.,Hospital,In-house,yes
+18,Email spam filter,Blocks spam emails using a neural network. Runs automatically in real time.,IT,Google,no
+19,Insurance underwriting model,Prices policies and automatically approves or refuses applications from applicants' personal data.,Underwriting,In-house,yes
+20,Voice transcription model,Transcribes recorded calls into text for the quality team.,Customer Services,Third-party vendor,no
+21,Benefit eligibility model,Assesses whether a household is eligible for a benefit and recommends an outcome for staff to review.,Revenues and Benefits,Third-party vendor,yes
+22,Warehouse route optimiser,Plans picking routes in the warehouse using simulation. No personal data.,Logistics,In-house,no
+23,Emotion detection in interviews,Detects candidates' emotions from video in interviews to score engagement.,Human Resources,Third-party vendor,yes
+24,Sales lead scorer,Scores sales leads from company data to prioritise outreach.,Sales,In-house,no
+25,Dementia risk model,Predicts dementia risk for older adults from health records to prioritise assessments.,Public Health,In-house,yes
+26,Image quality checker,Checks product photographs for blur before publication.,E-commerce,In-house,no
+27,Student dropout predictor,Predicts which students are at risk of dropping out from attendance and grades to target support.,Education,In-house,yes
+28,Translation model,Translates letters into other languages for service users. A member of staff reviews each translation.,Corporate,Google,no
+29,Credit limit model,Sets customers' credit limits automatically from their transaction data.,Cards,In-house,yes
+30,Weather forecast model,Forecasts local weather from public data for planning outdoor events.,Events,In-house,no

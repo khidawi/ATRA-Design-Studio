@@ -151,6 +151,9 @@ def save_design(design_key: str, body: DesignUpdate, session: Session = Depends(
         raise HTTPException(status_code=422, detail="A design cannot change its kind.")
     doc = body.document.model_dump(mode="json")
     if d.subject == "MODEL":
+        for kept in ("source", "screening"):             # the designer does not know these: what a screening found stays with the design
+            if kept in (d.document or {}) and kept not in doc:
+                doc[kept] = d.document[kept]
         doc.pop("attest", None)                          # attestations are the server's: from what is stored and what this save changed, never from the client
         stamped = attestation.stamp(d.document, doc, user.name, datetime.now(timezone.utc).isoformat())
         if stamped:
