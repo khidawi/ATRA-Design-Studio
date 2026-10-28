@@ -15,7 +15,7 @@ idna==3.20
 Mako==1.4.3
 MarkupSafe==3.0.4
 opentelemetry-proto==1.37.0
-protobuf==6.33.6
+protobuf==7.36.2
 psycopg-binary==3.3.6
 psycopg==3.3.6
 pydantic==2.13.5
