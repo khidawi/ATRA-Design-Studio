@@ -1,0 +1,103 @@
+# ASTRA for real use: the same three parts as docker-compose.demo.yml, with HTTPS in front and the containers locked down.
+#
+#   cp .env.example .env                    # fill it in, including ASTRA_DOMAIN (see DEPLOY.md, "Production")
+#   docker compose -f docker-compose.prod.yml up --build -d
+#   python verify_https.py https://astra.example.org      # checks the redirect, the certificate, the headers and the ports
+#
+# What is different from the demo file:
+#   * Caddy is the only container with published ports (80 and 443). It gets and renews the certificate, redirects HTTP to HTTPS and adds the security headers.
+#   * The studio (nginx), the API and the database are not published at all. The API and the database are on a private network the proxy cannot see.
+#   * The API runs as an unprivileged user on a read-only filesystem with no extra Linux capabilities. Its only writable place is a memory-only /tmp.
+#   * Nothing here needs Ollama: the chat-style assistants that call a local model are not available in this setup.
+name: astra
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: stai
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: stai
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stai -d stai"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [back]
+
+  backend:
+    build: ../backend
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      DATABASE_URL: postgresql+psycopg://stai:${POSTGRES_PASSWORD}@db:5432/stai
+      # Encrypts the repository tokens, identity-provider credentials and alert webhook addresses kept in the database. Keep it with your backups, apart from them.
+      ASTRA_SECRET_KEY: ${ASTRA_SECRET_KEY:?set ASTRA_SECRET_KEY in .env}
+      ASTRA_REPO_ALLOW_PRIVATE_HOSTS: ${ASTRA_REPO_ALLOW_PRIVATE_HOSTS:-0}
+      # The page and the API share one address, so the browser never makes a cross-site request: only that address is allowed.
+      ASTRA_ALLOWED_ORIGINS: https://${ASTRA_DOMAIN:?set ASTRA_DOMAIN in .env}
+      # The API sits on a private network behind the studio and the proxy, and is not published: it takes the client address and scheme the proxy reports.
+      FORWARDED_ALLOW_IPS: "*"
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "8765"
+    networks: [back]
+
+  studio:
+    build: ../studio
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETGID, SETUID]
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - backend
+    expose:
+      - "80"
+    networks: [edge, back]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "${ASTRA_HTTP_PORT:-80}:80"
+      - "${ASTRA_HTTPS_PORT:-443}:443"
+      - "${ASTRA_HTTPS_PORT:-443}:443/udp"
+    environment:
+      ASTRA_DOMAIN: ${ASTRA_DOMAIN:?set ASTRA_DOMAIN in .env}
+      ASTRA_TLS: ${ASTRA_TLS:-acme}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data           # the certificates and the account key: keep this volume
+      - caddy_config:/config
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - studio
+    networks: [edge]
+
+networks:
+  edge: {}         # the proxy and the studio
+  back: {}         # the studio, the API and the database
+
+volumes:
+  pg_data:
+  caddy_data:
+  caddy_config:

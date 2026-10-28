@@ -1,0 +1,56 @@
+# The only thing reachable from outside: HTTPS on this address, with a certificate that Caddy gets and renews by itself, and plain HTTP only to redirect to it.
+#
+#   ASTRA_DOMAIN   the address people use, for example astra.example.org (a DNS name that points at this server). localhost works for a local check.
+#   ASTRA_TLS      acme (default): a public certificate from Let's Encrypt, which needs ports 80 and 443 reachable from the internet.
+#                  internal: a certificate from Caddy's own authority, for a private name with no public DNS (the people using it must trust that authority, or your
+#                  organisation's own certificate authority can be used instead: see DEPLOY.md).
+{
+    # Caddy decides the redirect and the certificate from the address below; nothing else is configured globally.
+    servers {
+        protocols h1 h2 h3
+    }
+}
+
+(tls_acme) {
+    # automatic HTTPS with a public certificate authority (the default)
+}
+
+(tls_internal) {
+    tls internal
+}
+
+{$ASTRA_DOMAIN} {
+    import tls_{$ASTRA_TLS:acme}
+
+    encode zstd gzip
+
+    # Bodies larger than any real request (the largest are an imported list or a telemetry batch) are refused before they reach the application.
+    request_body {
+        max_size 16MB
+    }
+
+    header {
+        # Browsers must use HTTPS for this address from now on (a year).
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "no-referrer"
+        Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+        Cross-Origin-Opener-Policy "same-origin"
+        # The studio is a single page with inline script, so a script policy would need that moved to files first; these four close the rest.
+        Content-Security-Policy "frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
+        -Server
+    }
+
+    # The studio container serves the page and passes /api to the API on a private network. Caddy tells it the address and the scheme the browser used.
+    reverse_proxy studio:80 {
+        header_up X-Forwarded-Proto {scheme}
+        health_uri /health
+        health_interval 15s
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}
