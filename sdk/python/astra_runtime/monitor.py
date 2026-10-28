@@ -41,6 +41,8 @@ from collections import deque
 from datetime import datetime, timezone
 from typing import Any, Callable, Deque, Dict, List, Optional
 
+from . import transport
+
 log = logging.getLogger("astra_runtime")
 __version__ = "0.2.0"
 
@@ -71,6 +73,8 @@ class ModelMonitor:
             self._disable("the model needs a name")
         elif not (self.url and self.api_key):
             self._disable("ASTRA_URL and ASTRA_KEY are not set, so nothing is reported")
+        elif transport.url_problem(self.url):
+            self._disable(transport.url_problem(self.url))
         elif start:
             self._thread = threading.Thread(target=self._run, name="astra-model-monitor", daemon=True)
             self._thread.start()
@@ -214,7 +218,7 @@ class ModelMonitor:
         req = urllib.request.Request(f"{self.url}/api/model-monitor/{self.key}/{path}", data=json.dumps(payload, default=str).encode("utf-8"), method="POST",
                                      headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json", "User-Agent": f"astra-model-monitor/{__version__}"})
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as r:
+            with urllib.request.urlopen(req, timeout=self.timeout, context=transport.ssl_context()) as r:
                 return r.status, json.loads(r.read().decode("utf-8") or "null")
         except urllib.error.HTTPError as e:
             try:

@@ -14,3 +14,8 @@ backend/.env
 # OS
 .DS_Store
 Thumbs.db
+
+# collector authority and client certificates (docker-compose.mtls.yml): never commit keys
+deploy/client-ca.*
+deploy/*.key
+deploy/*.crt

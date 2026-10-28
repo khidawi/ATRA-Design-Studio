@@ -4,23 +4,70 @@
 #   ASTRA_TLS      acme (default): a public certificate from Let's Encrypt, which needs ports 80 and 443 reachable from the internet.
 #                  internal: a certificate from Caddy's own authority, for a private name with no public DNS (the people using it must trust that authority, or your
 #                  organisation's own certificate authority can be used instead: see DEPLOY.md).
+#   ASTRA_MTLS     off (default), or on: the paths that applications use to send data in (runtime events, telemetry, model records, decisions and canaries) also require a client
+#                  certificate signed by your own authority (docker-compose.mtls.yml mounts it as client-ca.pem), on top of the API key. People's browsers are not asked for one.
+#
+# Connections use TLS 1.2 or 1.3 only, with the modern cipher suites Caddy chooses (forward secrecy, AEAD); TLS 1.0 and 1.1 and the weak suites are not offered.
 {
-    # Caddy decides the redirect and the certificate from the address below; nothing else is configured globally.
     servers {
         protocols h1 h2 h3
     }
 }
 
-(tls_acme) {
-    # automatic HTTPS with a public certificate authority (the default)
+# Which certificate, and who may connect: the four combinations of ASTRA_TLS and ASTRA_MTLS.
+(tls_acme_off) {
+    tls {
+        protocols tls1.2 tls1.3
+    }
 }
 
-(tls_internal) {
-    tls internal
+(tls_internal_off) {
+    tls {
+        issuer internal
+        protocols tls1.2 tls1.3
+    }
+}
+
+(tls_acme_on) {
+    tls {
+        protocols tls1.2 tls1.3
+        client_auth {
+            mode verify_if_given
+            trust_pool file /etc/caddy/client-ca.pem
+        }
+    }
+}
+
+(tls_internal_on) {
+    tls {
+        issuer internal
+        protocols tls1.2 tls1.3
+        client_auth {
+            mode verify_if_given
+            trust_pool file /etc/caddy/client-ca.pem
+        }
+    }
+}
+
+# With client certificates on: the data-in paths answer 401 to anyone who did not present a certificate that the authority above signed (a certificate that was
+# presented but is not signed by it is already refused in the handshake).
+(mtls_off) {
+}
+
+(mtls_on) {
+    @collector_without_certificate {
+        path /api/runtime/events /api/telemetry/* /api/model-monitor/*/records /api/model-monitor/*/decisions /api/model-monitor/*/canaries
+        # a presented (and verified) certificate has a subject; without one the placeholder is empty
+        expression {http.request.tls.client.subject} == ""
+    }
+    handle @collector_without_certificate {
+        respond "A client certificate is required to send data to ASTRA." 401
+    }
 }
 
 {$ASTRA_DOMAIN} {
-    import tls_{$ASTRA_TLS:acme}
+    import tls_{$ASTRA_TLS:acme}_{$ASTRA_MTLS:off}
+    import mtls_{$ASTRA_MTLS:off}
 
     encode zstd gzip
 
@@ -42,11 +89,13 @@
         -Server
     }
 
-    # The studio container serves the page and passes /api to the API on a private network. Caddy tells it the address and the scheme the browser used.
-    reverse_proxy studio:80 {
-        header_up X-Forwarded-Proto {scheme}
-        health_uri /health
-        health_interval 15s
+    # The studio container serves the page and passes /api to the API on a private network. Caddy tells it the address and the scheme the browser used
+    # (X-Forwarded-For and X-Forwarded-Proto are set by default).
+    handle {
+        reverse_proxy studio:80 {
+            health_uri /health
+            health_interval 15s
+        }
     }
 
     log {

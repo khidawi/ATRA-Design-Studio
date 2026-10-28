@@ -1,0 +1,13 @@
+# Optional: require a client certificate (mutual TLS) for the paths applications use to send data in, on top of the API key.
+#
+#   ./make_collector_cert.sh checkout-service          # once per application: makes client-ca.pem (the first time) and checkout-service.crt and .key
+#   docker compose -f docker-compose.prod.yml -f docker-compose.mtls.yml up -d
+#
+# An application then sends its certificate with every request (the SDK reads ASTRA_CLIENT_CERT and ASTRA_CLIENT_KEY). A leaked API key alone is no longer enough to feed
+# ASTRA false events. People's browsers are not asked for a certificate. Revoke an application by replacing client-ca.pem with a new authority and re-issuing the others.
+services:
+  caddy:
+    environment:
+      ASTRA_MTLS: "on"
+    volumes:
+      - ./client-ca.pem:/etc/caddy/client-ca.pem:ro

@@ -143,3 +143,7 @@ It behaves like the runtime client: it never raises into your code, never blocks
 
 `examples/demo_helix.py` runs the same exercise for the Helix Logistics example (`examples/company-helix-logistics.json`): an agent with a ratified contract (default `customs-agent`) that first behaves inside its contract and then steps outside it, and the `demand-forecast-model` that first behaves normally and then drifts. It reads what the agent's contract allows, so it works with whatever contract was ratified. Read the header of the file for the commands.
 
+
+## Reaching ASTRA safely
+
+The SDK sends the API key and the events only over `https` (plain `http` is accepted to this machine only, for development; anywhere else it switches itself off and says why, unless `ASTRA_ALLOW_INSECURE=1`). It always verifies the server's certificate and host name, with TLS 1.2 or later. Set `ASTRA_CA_BUNDLE` to a certificate file to trust a private authority, and `ASTRA_CLIENT_CERT` and `ASTRA_CLIENT_KEY` to present a client certificate when ASTRA requires one for data sent in (mutual TLS).

@@ -1,0 +1,4 @@
+*.sh text eol=lf
+Caddyfile text eol=lf
+pg_hba.conf text eol=lf
+Dockerfile text eol=lf

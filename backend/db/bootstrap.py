@@ -14,7 +14,7 @@ from sqlalchemy import select, text
 from db.models import Organisation
 from db.seed import ensure_reference_data
 from db.seed_rcr import ensure_rcr_profiles
-from db.session import SessionLocal, engine
+from db.session import DATABASE_URL, MIGRATE_URL, SessionLocal, engine
 
 log = logging.getLogger("stai.db")
 
@@ -53,6 +53,9 @@ def ensure_default_organisation() -> None:
 def init_database() -> None:
     wait_for_database()
     run_migrations()
+    if MIGRATE_URL != DATABASE_URL:
+        from db.hardening import harden
+        harden(MIGRATE_URL, DATABASE_URL)
     ensure_default_organisation()
     with SessionLocal() as session:
         ensure_reference_data(session)

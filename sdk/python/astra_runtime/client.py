@@ -23,6 +23,8 @@ import time
 import urllib.error
 import urllib.request
 from collections import deque
+
+from . import transport
 from datetime import datetime, timezone
 from typing import Any, Callable, Deque, Dict, List, Optional
 
@@ -61,6 +63,8 @@ class Client:
         self._thread: Optional[threading.Thread] = None
         if not (self.url and self.api_key):
             self._disable("ASTRA_URL and ASTRA_KEY are not set, so nothing is reported")
+        elif transport.url_problem(self.url):
+            self._disable(transport.url_problem(self.url))
         elif start:
             self._thread = threading.Thread(target=self._run, name="astra-runtime", daemon=True)
             self._thread.start()
@@ -220,7 +224,7 @@ class Client:
         req = urllib.request.Request(self.url + path, data=data, method=method, headers={
             "Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json", "User-Agent": f"astra-runtime/{__version__}"})
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as r:
+            with urllib.request.urlopen(req, timeout=self.timeout, context=transport.ssl_context()) as r:
                 raw = r.read().decode("utf-8") or "null"
                 return r.status, json.loads(raw)
         except urllib.error.HTTPError as e:

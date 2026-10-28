@@ -4,7 +4,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 import db.models  # noqa: F401  (registers every table on Base.metadata)
-from db.session import DATABASE_URL, Base
+from db.session import MIGRATE_URL as DATABASE_URL, Base
 
 config = context.config
 config.set_main_option("sqlalchemy.url", DATABASE_URL.replace("%", "%%"))

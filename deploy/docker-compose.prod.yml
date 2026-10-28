@@ -1,28 +1,73 @@
-# ASTRA for real use: the same three parts as docker-compose.demo.yml, with HTTPS in front and the containers locked down.
+# ASTRA for real use: the same three parts as docker-compose.demo.yml, with HTTPS in front, an encrypted and least-privilege database, and the containers locked down.
 #
-#   cp .env.example .env                    # fill it in, including ASTRA_DOMAIN (see DEPLOY.md, "Production")
+#   cp .env.example .env                    # fill it in, including ASTRA_DOMAIN and the three database passwords (see DEPLOY.md, "Production")
 #   docker compose -f docker-compose.prod.yml up --build -d
 #   python verify_https.py https://astra.example.org      # checks the redirect, the certificate, the headers and the ports
+#   python verify_db.py                                    # checks the database encryption and privileges
 #
 # What is different from the demo file:
 #   * Caddy is the only container with published ports (80 and 443). It gets and renews the certificate, redirects HTTP to HTTPS and adds the security headers.
 #   * The studio (nginx), the API and the database are not published at all. The API and the database are on a private network the proxy cannot see.
+#   * The database accepts only TLS connections (TLS 1.2 or later) with scram-sha-256 passwords, and the API checks its certificate (verify-full).
+#   * The database has three identities: astra_admin (superuser, never used by the application), stai_owner (owns the tables, migrations only) and stai_app (what the
+#     running API uses: data only, and it can only add to the audit log).
 #   * The API runs as an unprivileged user on a read-only filesystem with no extra Linux capabilities. Its only writable place is a memory-only /tmp.
 #   * Nothing here needs Ollama: the chat-style assistants that call a local model are not available in this setup.
 name: astra
 
 services:
+  # Makes (and renews) the certificates that encrypt the API-to-database connection, then exits.
+  certs:
+    image: alpine/openssl
+    entrypoint: ["sh", "/make-certs.sh"]
+    restart: "no"
+    volumes:
+      - ./db/make-certs.sh:/make-certs.sh:ro
+      - pg_tls:/tls          # the database's key and certificate: only the database container mounts this
+      - pg_ca:/ca            # the authority's public certificate: the API mounts this read-only
+    networks: [back]
+
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    command:
+      - postgres
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/tls/server.crt
+      - -c
+      - ssl_key_file=/tls/server.key
+      - -c
+      - ssl_min_protocol_version=TLSv1.2
+      - -c
+      - ssl_prefer_server_ciphers=on
+      - -c
+      - password_encryption=scram-sha-256
+      - -c
+      - hba_file=/etc/postgresql/pg_hba.conf
+      - -c
+      - log_connections=on
+      - -c
+      - log_disconnections=on
+      - -c
+      - log_line_prefix=%m [%p] %u@%d
     environment:
-      POSTGRES_USER: stai
+      POSTGRES_USER: astra_admin
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: stai
+      ASTRA_DB_OWNER_PASSWORD: ${ASTRA_DB_OWNER_PASSWORD:?set ASTRA_DB_OWNER_PASSWORD in .env}
+      ASTRA_DB_APP_PASSWORD: ${ASTRA_DB_APP_PASSWORD:?set ASTRA_DB_APP_PASSWORD in .env}
     volumes:
       - pg_data:/var/lib/postgresql/data
+      - pg_tls:/tls:ro
+      - ./db/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./db/10-roles.sh:/docker-entrypoint-initdb.d/10-roles.sh:ro
+    depends_on:
+      certs:
+        condition: service_completed_successfully
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U stai -d stai"]
+      test: ["CMD-SHELL", "pg_isready -U astra_admin -d stai"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -38,7 +83,10 @@ services:
     security_opt:
       - no-new-privileges:true
     environment:
-      DATABASE_URL: postgresql+psycopg://stai:${POSTGRES_PASSWORD}@db:5432/stai
+      # The running API connects as stai_app (data only); migrations and the start-up privilege check use stai_owner. Both refuse an unencrypted or unverified connection.
+      # The passwords go into these addresses: use letters and digits only (openssl rand -hex 24 makes one).
+      DATABASE_URL: postgresql+psycopg://stai_app:${ASTRA_DB_APP_PASSWORD}@db:5432/stai?sslmode=verify-full&sslrootcert=/certs/ca.crt
+      DATABASE_URL_MIGRATE: postgresql+psycopg://stai_owner:${ASTRA_DB_OWNER_PASSWORD}@db:5432/stai?sslmode=verify-full&sslrootcert=/certs/ca.crt
       # Encrypts the repository tokens, identity-provider credentials and alert webhook addresses kept in the database. Keep it with your backups, apart from them.
       ASTRA_SECRET_KEY: ${ASTRA_SECRET_KEY:?set ASTRA_SECRET_KEY in .env}
       ASTRA_REPO_ALLOW_PRIVATE_HOSTS: ${ASTRA_REPO_ALLOW_PRIVATE_HOSTS:-0}
@@ -46,6 +94,8 @@ services:
       ASTRA_ALLOWED_ORIGINS: https://${ASTRA_DOMAIN:?set ASTRA_DOMAIN in .env}
       # The API sits on a private network behind the studio and the proxy, and is not published: it takes the client address and scheme the proxy reports.
       FORWARDED_ALLOW_IPS: "*"
+    volumes:
+      - pg_ca:/certs:ro
     depends_on:
       db:
         condition: service_healthy
@@ -81,6 +131,7 @@ services:
     environment:
       ASTRA_DOMAIN: ${ASTRA_DOMAIN:?set ASTRA_DOMAIN in .env}
       ASTRA_TLS: ${ASTRA_TLS:-acme}
+      ASTRA_MTLS: ${ASTRA_MTLS:-off}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data           # the certificates and the account key: keep this volume
@@ -99,5 +150,7 @@ networks:
 
 volumes:
   pg_data:
+  pg_tls:
+  pg_ca:
   caddy_data:
   caddy_config:

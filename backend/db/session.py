@@ -16,6 +16,10 @@ DATABASE_URL = os.environ.get(
     "DATABASE_URL", "postgresql+psycopg://stai:stai@localhost:5432/stai"
 )
 
+# The running application connects as DATABASE_URL. If DATABASE_URL_MIGRATE is set, migrations and the start-up hardening run as that (more privileged) identity instead, so the
+# application's own role can read and write data but not create, change or drop tables (see db/hardening.py). Unset, both are the same and nothing changes.
+MIGRATE_URL = os.environ.get("DATABASE_URL_MIGRATE") or DATABASE_URL
+
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(engine, expire_on_commit=False)
 
