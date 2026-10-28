@@ -104,6 +104,7 @@ with authed_client("admin", "Compliance lead") as api:
     check("screening stores nothing", len(api.get("/api/agents").json()) == inventory)
 
     # ── importing a chosen set into the inventory ──
+    org_agents_before = api.get("/api/company").json()["counts"].get("agent", 0)
     tidy()
     high = [x["id"] for x in t["results"] if x["tier"] == "High"]
     r = api.post("/api/agents/triage/import", json={"csv": text, "ids": high})
@@ -130,6 +131,14 @@ with authed_client("admin", "Compliance lead") as api:
     check("the same design is kept", {a["name"]: a for a in api.get("/api/agents").json()}["Care plan drafting assistant"]["design_key"] == care["design_key"])
     check("the inventory has no duplicates", len([a for a in api.get("/api/agents").json() if a["origin"] == "SCREENED"]) == len(high))
 
+    # ── the same agents are part of the organisation page and its maps, apart from the structure, owner or not
+    live = api.get("/api/company").json()["live"]
+    out = {x["agent_key"]: x for x in live["unmapped_agents"]}
+    check("every screened agent is listed as outside the organisation", all(i["agent_key"] in out for i in imp["items"]), len(out))
+    care_out = out["care-plan-drafting-assistant"]
+    check("with no owner, shown as it is", care_out["owner"] is None and care_out["origin"] == "SCREENED" and care_out["status"] == "UNOWNED", care_out)
+    check("with its tier, department and design to open", care_out["tier"] == "High" and care_out["department"] == "Adult Social Care" and care_out["design_key"] == care["design_key"], care_out)
+    check("the organisation itself is unchanged by it", api.get("/api/company").json()["counts"].get("agent", 0) == org_agents_before)
     low = next(x["id"] for x in t["results"] if x["tier"] == "Low")
     nod = api.post("/api/agents/triage/import", json={"csv": text, "ids": [low], "create_designs": False}).json()
     check("designs are optional", nod["created"] == 1 and nod["designs_created"] == 0 and nod["items"][0]["design_key"] is None, nod)

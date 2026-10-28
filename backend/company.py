@@ -210,7 +210,12 @@ def live_links(session: Session, org_id: uuid.UUID, nodes: List[Dict[str, Any]],
             if src and (src, tk) not in modelled:
                 unmodelled.append({"from": src, "to_name": s["name"], "to": by_key.get(tk), "count": s["count"], "last_seen": s["last"],
                                    "declared": None if views.get(src) is None else any(to_agent_key(d) == tk for d in views[src]["delegates_to"])})
-    unmapped = [{"agent_key": a.agent_key, "name": a.name, "origin": a.origin, "owner": a.owner} for k, a in sorted(agents.items()) if k not in by_key]
+    from db.models import Design as _Design
+    design_of = {k: dk for k, dk in session.execute(select(Agent.agent_key, _Design.design_key).join(_Design, _Design.id == Agent.design_id).where(Agent.organisation_id == org_id))}
+    # An agent in the inventory with no place in the organisation (added from a screened list, found at runtime, registered by hand): shown apart from the structure, owner or not.
+    unmapped = [{"agent_key": a.agent_key, "name": a.name, "origin": a.origin, "owner": a.owner, "status": a.status, "design_key": design_of.get(a.agent_key),
+                 "tier": (a.screening or {}).get("tier"), "department": (a.screening or {}).get("department"),
+                 "last_seen_at": a.last_seen_at.isoformat() if a.last_seen_at else None} for k, a in sorted(agents.items()) if k not in by_key]
     models: Dict[str, Any] = {}
     org_models = [n for n in nodes if n["type"] == "model"]
     if org_models:
