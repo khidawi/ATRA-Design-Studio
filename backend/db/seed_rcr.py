@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from db.models import AppSetting, RcrProfile, RcrRequirement
 
 log = logging.getLogger("stai.db")
-SEED_VERSION = 1
+SEED_VERSION = 2
 SEED_SETTING = "rcr_seed_version"
 
 
@@ -44,6 +44,11 @@ DISCLOSURE = _check({"exists": _sel("guardrail", {"kind": "disclosure"})}, "Disc
                     "Customers not told they are dealing with AI")
 
 
+OVERSIGHT = _check({"exists": _sel("approval")}, "A person approves the output in the design", "No person approves the output before it is used")
+GUARDED = _check({"exists": _sel("guardrail")}, "Guardrails shape the process in the design", "Input goes straight to the output with no guardrail")
+NOTIFIED = _check({"exists": _sel("guardrail", {"kind": "disclosure"})}, "People affected are told AI is used", "People affected are not told AI is used")
+
+
 def R(key, name, instrument, cls, w, phi=None, check=None, unsat="Gap", default=None):
     return dict(req_key=key, name=name, instrument=instrument, cls=cls, weight=w, phi=phi,
                 design_check=check, unsatisfied_declared=unsat, default_declaration=default)
@@ -66,6 +71,20 @@ PROFILES = [
         R("lawful", "Lawful basis for patient data", "GDPR", "ordinary", 2, default={"status": "Covered", "evidence": "Consent on file"}),
         R("retention", "Retention limit", "GDPR", "ordinary", 1, check=RETENTION, unsat="Unmapped"),
         R("access", "Staff access policy note", "Org policy", "ordinary", 1, default={"status": "Covered", "evidence": "Policy note SAP-07"}),
+    ]),
+    # For a council using AI in adult or children's social care (care plans, assessments, triage). The statutory instruments are named as the requirement
+    # labels; as for every profile here the weights are judgement-assigned, and the declared items are declarations the author makes, not facts.
+    dict(profile_key="social_care", name="Social care (local government)", requirements=[
+        R("dpia", "UK GDPR Art. 35: data protection impact assessment", "UK GDPR", "veto", 3, 0.85, default={"status": "Gap", "evidence": ""}),
+        R("oversight", "A person decides: output is reviewed before it affects someone (UK GDPR Art. 22)", "UK GDPR", "veto", 3, 0.90, OVERSIGHT),
+        R("owner", "OWASP ASI10: named owner and kill switch", "OWASP ASI", "veto", 2, 0.80, OWNER),
+        R("special", "Lawful basis for special category (health, care) data", "UK GDPR", "ordinary", 2, default={"status": "Unmapped", "evidence": ""}),
+        R("equality", "Equality and bias assessment of outputs (Equality Act 2010)", "Equality Act", "ordinary", 2, default={"status": "Unmapped", "evidence": ""}),
+        R("trace", "Traceability: record of inputs, outputs and who approved", "Org policy", "ordinary", 2, default={"status": "Unmapped", "evidence": ""}),
+        R("monitor", "Ongoing monitoring and evaluation of outputs", "Org policy", "ordinary", 2, default={"status": "Unmapped", "evidence": ""}),
+        R("process", "A controlled process, not raw input to output", "Org policy", "ordinary", 1, check=GUARDED),
+        R("retention", "Retention limit on care records", "UK GDPR", "ordinary", 1, check=RETENTION, unsat="Unmapped"),
+        R("notified", "People affected are told AI is used", "Org policy", "ordinary", 1, check=NOTIFIED),
     ]),
 ]
 

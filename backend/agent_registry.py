@@ -60,6 +60,7 @@ class AgentOut(BaseModel):
     last_finding: Optional[str]
     contract_count: int
     updated_at: datetime
+    screening: Optional[Dict[str, Any]] = None
 
 
 def _out(session: Session, a: Agent) -> AgentOut:
@@ -70,7 +71,7 @@ def _out(session: Session, a: Agent) -> AgentOut:
     last = f"{latest.severity} \u00b7 {latest.created_at.strftime('%d %b %H:%M')}" if latest and a.origin != "DEMO" else None
     return AgentOut(agent_key=a.agent_key, name=a.name, owner=a.owner, framework=a.framework, tools_count=a.tools_count,
                     status=a.status, mode=a.mode, origin=a.origin, design_key=design_key, note=a.note, last_seen_at=a.last_seen_at, last_finding=last,
-                    contract_count=contracts, updated_at=a.updated_at)
+                    contract_count=contracts, updated_at=a.updated_at, screening=a.screening)
 
 
 def _get(session: Session, key: str) -> Agent:

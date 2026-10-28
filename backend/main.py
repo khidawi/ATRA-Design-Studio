@@ -54,6 +54,8 @@ from agent_analysis import router as agent_analysis_router
 from policies import router as policies_router
 from rcr import router as rcr_router
 from agent_import import router as agent_import_router
+from agent_compare import router as agent_compare_router
+from agent_triage import router as agent_triage_router
 from agent_registry import router as agent_registry_router
 from coverage_scorecard import router as coverage_router
 from drift import router as drift_router
@@ -105,6 +107,8 @@ app.include_router(ingestion_router)
 app.include_router(design_store_router)
 app.include_router(agent_import_router)
 app.include_router(agent_registry_router)
+app.include_router(agent_compare_router)
+app.include_router(agent_triage_router)
 app.include_router(findings_router)
 app.include_router(drift_router)
 app.include_router(coverage_router)

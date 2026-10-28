@@ -284,6 +284,7 @@ class Agent(Base):
     design_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("designs.id", ondelete="SET NULL"))
     note: Mapped[Optional[str]] = mapped_column(String(200))
     last_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))   # last time the runtime SDK reported it (Task 12)
+    screening: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB)                   # what a first-pass screening of its description found (agent_triage.py)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 

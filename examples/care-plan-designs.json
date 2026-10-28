@@ -1,0 +1,75 @@
+{
+  "_about": "Two designs for the same task: drafting a care plan from a social worker's case notes. They are illustrative, not an assessment of any real product or council system. 'SIGNER' in a sign-off is replaced by the signed-in person when the designs are loaded (examples/load_care_plan_designs.py), because ASTRA only accepts a sign-off from the person who is signed in.",
+  "designs": [
+    {
+      "name": "Care plans: basic assistant",
+      "document": {
+        "profile": "social_care",
+        "policy": "block",
+        "n": 100,
+        "req": {
+          "dpia": {"status": "Gap", "evidence": "", "signed_off_by": ""}
+        },
+        "nodes": [
+          {"id": "a1", "type": "agent", "name": "care-plan-assistant-basic", "p": {"owner": "", "auto": "autonomous"}, "primary": true},
+          {"id": "h1", "type": "human", "name": "Social worker", "p": {}},
+          {"id": "in1", "type": "input", "name": "Case notes pasted by the social worker", "p": {"untrusted": true}},
+          {"id": "d1", "type": "data", "name": "Case records", "p": {}},
+          {"id": "g1", "type": "goal", "name": "Draft a care plan", "p": {}},
+          {"id": "t1", "type": "tool", "name": "case.record.save", "p": {"write": true}}
+        ],
+        "edges": [
+          {"from": "h1", "to": "a1", "label": "requests"},
+          {"from": "in1", "to": "a1", "label": "feeds"},
+          {"from": "a1", "to": "g1", "label": "pursues"},
+          {"from": "a1", "to": "t1", "label": "uses"},
+          {"from": "a1", "to": "d1", "label": "writes"}
+        ]
+      }
+    },
+    {
+      "name": "Care plans: bespoke monitored service",
+      "document": {
+        "profile": "social_care",
+        "policy": "block",
+        "n": 100,
+        "req": {
+          "dpia": {"status": "Covered", "evidence": "DPIA completed for the care-plan service (illustrative)", "signed_off_by": "SIGNER"},
+          "oversight": {"signed_off_by": "SIGNER"},
+          "owner": {"signed_off_by": "SIGNER"},
+          "special": {"status": "Covered", "evidence": "Lawful basis for health and care data recorded in the DPIA (illustrative)", "signed_off_by": ""},
+          "equality": {"status": "Partial", "evidence": "Bias review of draft outputs planned for the pilot (illustrative)", "signed_off_by": ""},
+          "trace": {"status": "Covered", "evidence": "Every input, draft, edit and approval is recorded with who and when (illustrative)", "signed_off_by": ""},
+          "monitor": {"status": "Covered", "evidence": "Run-time monitoring against the ratified contract; findings go to compliance (illustrative)", "signed_off_by": ""}
+        },
+        "nodes": [
+          {"id": "a1", "type": "agent", "name": "care-plan-assistant-bespoke", "p": {"owner": "Service Manager, Adult Social Care", "auto": "approval"}, "primary": true},
+          {"id": "h1", "type": "human", "name": "Social worker", "p": {}},
+          {"id": "in1", "type": "input", "name": "Structured case form (not free pasted text)", "p": {"untrusted": true}},
+          {"id": "d1", "type": "data", "name": "Case records", "p": {}},
+          {"id": "g1", "type": "goal", "name": "Draft a care plan for review", "p": {}},
+          {"id": "t1", "type": "tool", "name": "care.plan.draft", "p": {"write": false}},
+          {"id": "t2", "type": "tool", "name": "case.record.save", "p": {"write": true}},
+          {"id": "ap1", "type": "approval", "name": "Approval: qualified social worker", "p": {}},
+          {"id": "gr1", "type": "guardrail", "name": "prompt-injection-filter", "p": {"kind": "injection"}},
+          {"id": "gr2", "type": "guardrail", "name": "ai-disclosure", "p": {"kind": "disclosure"}},
+          {"id": "gr3", "type": "guardrail", "name": "rate-limit-20-per-hour", "p": {"kind": "rate"}},
+          {"id": "c1", "type": "constraint", "name": "records-retention-policy", "p": {"kind": "retention"}}
+        ],
+        "edges": [
+          {"from": "h1", "to": "a1", "label": "requests"},
+          {"from": "in1", "to": "a1", "label": "feeds"},
+          {"from": "a1", "to": "g1", "label": "pursues"},
+          {"from": "a1", "to": "t1", "label": "uses"},
+          {"from": "a1", "to": "t2", "label": "uses"},
+          {"from": "a1", "to": "d1", "label": "reads"},
+          {"from": "a1", "to": "ap1", "label": "needs"},
+          {"from": "ap1", "to": "t2", "label": "gates"},
+          {"from": "gr1", "to": "a1", "label": "guards"},
+          {"from": "gr2", "to": "a1", "label": "guards"},
+          {"from": "gr3", "to": "a1", "label": "guards"}
+        ]
+      }
+    }
+  ]
+}

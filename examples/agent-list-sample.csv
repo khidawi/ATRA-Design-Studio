@@ -1,0 +1,37 @@
+id,name,description,department,supplier,their_flag
+1,Care plan drafting assistant,Drafts a care plan for an adult from a social worker's case notes using generative AI.,Adult Social Care,Cloud AI supplier,yes
+2,Meeting notes summariser,Summarises the audio of internal team meetings into notes for staff.,Corporate,Microsoft,no
+3,Bin collection chatbot,Answers resident questions about bin collection days on the website.,Waste Services,In-house,no
+4,Children's referral triage,Prioritises referrals about children for a safeguarding team using a risk score.,Children's Services,Third-party vendor,yes
+5,Housing demand analytics,Produces anonymised aggregate forecasts of housing demand for planners. No personal data is used.,Housing,In-house,no
+6,Benefit eligibility checker,Assesses whether a household is eligible for a council tax reduction and recommends an outcome. A member of staff reviews every decision.,Revenues and Benefits,Third-party vendor,yes
+7,Planning application summary,Summarises long planning applications for case officers.,Planning,Microsoft,no
+8,Homelessness risk predictor,Predicts the risk of homelessness for residents so that support can be offered early.,Housing,Third-party vendor,yes
+9,Customer services email triage,Reads incoming emails from residents and routes them to the right team automatically.,Customer Services,Microsoft,yes
+10,Policy document search,A search tool that finds policy documents for staff. Internal use only.,Corporate,In-house,no
+11,SEND plan review assistant,Helps officers review education health and care plans for children with special educational needs and drafts review letters.,Education,Third-party vendor,yes
+12,Fleet route optimiser,Plans the most efficient routes for council vehicles.,Highways,Google,no
+13,Complaint classifier,Classifies complaints from residents by theme and urgency.,Customer Services,In-house,no
+14,Fostering matching tool,Recommends fostering placements for looked-after children based on case records.,Children's Services,Third-party vendor,yes
+15,Social media monitor,Reports trends in public posts about council services using aggregate statistics.,Communications,Third-party vendor,no
+16,Staff HR query bot,Answers staff questions about leave and pay. It sends the employee a message with the policy link.,HR,Microsoft,no
+17,Parking permit checker,Automatically approves or refuses resident parking permits using address records.,Parking,Third-party vendor,yes
+18,Translation assistant,Translates letters into other languages for service users. Reviewed by a member of staff before sending.,Corporate,Google,no
+19,Adult safeguarding alert reader,Reads safeguarding alerts about vulnerable adults and recommends which need urgent action.,Adult Social Care,In-house,yes
+20,Library recommendation helper,Suggests books to library members.,Libraries,Third-party vendor,no
+21,Case notes summariser,Summarises case notes in a social care record for the next worker.,Adult Social Care,Cloud AI supplier,yes
+22,Road defect image detector,Finds potholes in photographs taken from vehicles.,Highways,Third-party vendor,no
+23,School admissions allocator,Decides which school place is offered to each child from application data.,Education,Third-party vendor,yes
+24,Finance invoice reader,Reads supplier invoices and enters the data into the finance system automatically.,Finance,Microsoft,no
+25,Mental health referral assistant,Drafts a referral summary from a client's health records for a mental health team.,Public Health,Third-party vendor,yes
+26,Website accessibility checker,Checks web pages for accessibility problems.,Digital,In-house,no
+27,Elections mailing writer,Drafts polling card reminder letters for residents.,Elections,Microsoft,no
+28,Care home quality scorer,Scores care homes from inspection reports using generative summaries.,Adult Social Care,In-house,no
+29,Early help predictor,Predicts which families with children may need early help from past case data.,Children's Services,Third-party vendor,yes
+30,Energy use dashboard,A dashboard of energy use in council buildings. Reporting only.,Property,In-house,no
+31,Voice assistant for care calls,Answers telephone calls from carers and updates the client record.,Adult Social Care,Cloud AI supplier,yes
+32,Grant application scorer,Scores grant applications from community groups and recommends which to fund.,Communities,Third-party vendor,yes
+33,Noise complaint router,Sends noise complaints to the right environmental health officer.,Environmental Health,In-house,no
+34,Pupil attendance predictor,Predicts which pupils are at risk of persistent absence.,Education,Third-party vendor,yes
+35,Staff rota helper,Suggests shift rotas for care staff. A manager approves the final rota.,Adult Social Care,Third-party vendor,no
+36,Press release drafter,Drafts press releases for the communications team.,Communications,Microsoft,no

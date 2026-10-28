@@ -555,6 +555,9 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       loadDemoAgents: () => post('/api/agents/demo', {}),
       removeDemoAgents: () => call('/api/agents/demo', { method: 'DELETE' }),
       listAgentDesigns: () => call('/api/designs?subject=AGENT'),
+      compareDesigns: (body) => post('/api/agents/compare', body),
+      triageList: (body) => post('/api/agents/triage', body),
+      triageImport: (body) => post('/api/agents/triage/import', body),
       listRegulations: () => call('/api/regulations'),
       startIngestion: (body) => post('/api/ingestion/runs', body),
       getIngestionRun: (id) => call('/api/ingestion/runs/' + id),
@@ -586,7 +589,7 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
 
   const ORG = { name: 'Organisation' }; // loaded from GET /api/organisation
   const S = {
-    agents: { tab: 'all', asked: false },
+    agents: { tab: 'all', asked: false, open: null },
     contract: { acc: {}, approved: false, mode: 'dual' },
     findings: { filter: 'all', sel: null },
     coverage: { sel: null },
@@ -597,7 +600,7 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
     drift: { sel: null }
   };
 
-  const NAV = [['overview', 'Overview', ''], ['agents', 'Agents', '12'], ['repos', 'Repositories', ''], ['idps', 'Identity providers', ''], ['telemetry', 'Telemetry', ''], ['studio', 'Design studio', ''], ['drift', 'Drift review', '3'], ['findings', 'Findings', '4'], ['coverage', 'Coverage', '7/10'], ['packs', 'Trust and packs', ''], ['runtime', 'Live runtime', ''], ['workspace', 'Compliance workspace', '2']];
+  const NAV = [['overview', 'Overview', ''], ['agents', 'Agents', '12'], ['triage', 'Screen a list', ''], ['repos', 'Repositories', ''], ['idps', 'Identity providers', ''], ['telemetry', 'Telemetry', ''], ['studio', 'Design studio', ''], ['compare', 'Compare designs', ''], ['drift', 'Drift review', '3'], ['findings', 'Findings', '4'], ['coverage', 'Coverage', '7/10'], ['packs', 'Trust and packs', ''], ['runtime', 'Live runtime', ''], ['workspace', 'Compliance workspace', '2']];
   const PARENT = { newagent: 'agents', addagent: 'agents', contract: 'agents', pack: 'packs' };
 
   function nav(active) {
@@ -883,7 +886,8 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     const pills = { ASSURED: 'ok', TO_RATIFY: 'warn', UNOWNED: 'bad', DESIGNED: 'muted' };
     const map = { assured: 'ASSURED', ratify: 'TO_RATIFY', designed: 'DESIGNED', unowned: 'UNOWNED' };
     const n = (k) => AG.list.filter((a) => a.status === k).length, demo = AG.list.some((a) => a.origin === 'DEMO');
-    const rows = AG.list.filter((a) => st.tab === 'all' || a.status === map[st.tab]);
+    const nScreened = AG.list.filter((a) => a.origin === 'SCREENED').length;
+    const rows = AG.list.filter((a) => st.tab === 'all' || (st.tab === 'screened' ? a.origin === 'SCREENED' : a.status === map[st.tab]));
     // Every agent that is not a demo gets the blue button that opens it in the design studio (its saved design, or a new one started from what the organisation knows).
     const designBtn = (a) => {
       if (a.origin === 'DEMO') return '';
@@ -900,12 +904,26 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
       return `<span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${first}${designBtn(a)}</span>`;
     };
     const empty = `<section class="card" style="padding:24px;display:flex;flex-direction:column;gap:12px;max-width:760px"><h3>No agents in the inventory yet</h3><span class="cap">An agent appears here when you ratify a design from the design studio or register one by hand. Agents can be found in a repository (Repositories), an identity provider (Identity providers) or OpenTelemetry traces (Telemetry). To explore the screens first, load the demo agents (sample data from the prototype, easy to remove).</span><div class="prow"><a class="btn" href="#/studio">Design an agent</a><a class="btn2" href="#/addagent">Register an agent</a><button class="btn2" data-act="agLoadDemo"${AG.busy ? ' disabled' : ''}>Load demo agents</button></div></section>`;
-    const table = `<div>${segTabs([['all', `All (${AG.list.length})`], ['assured', `Assured (${n('ASSURED')})`], ['ratify', `To ratify (${n('TO_RATIFY')})`], ['designed', `Designed (${n('DESIGNED')})`], ['unowned', `Unowned (${n('UNOWNED')})`]], st.tab, 'agTab')}</div>
+    const table = `<div>${segTabs([['all', `All (${AG.list.length})`], ['assured', `Assured (${n('ASSURED')})`], ['ratify', `To ratify (${n('TO_RATIFY')})`], ['designed', `Designed (${n('DESIGNED')})`], ['unowned', `Unowned (${n('UNOWNED')})`]].concat(nScreened ? [['screened', `Screened (${nScreened})`]] : []), st.tab, 'agTab')}</div>
       <section class="card tbl"><div class="grow head"><span>Agent</span><span>Owner</span><span>Framework</span><span>Tools</span><span>Status</span><span>Mode</span><span>Last finding</span><span>Action</span></div>
-      ${rows.map((a) => `<div class="grow"><span class="mono" style="font-weight:500">${esc(a.name)}${a.origin === 'DEMO' ? ' <span class="pill muted">demo</span>' : ''}${a.origin === 'DISCOVERED' ? ' <span class="pill warn" title="Seen by the runtime SDK, not registered by a person">discovered</span>' : ''}${a.origin === 'ORG' ? ' <span class="pill muted" title="Created from the organisation">organisation</span>' : ''}</span><span>${esc(a.owner || 'No owner')}</span><span>${esc(a.framework)}</span><span>${a.tools_count}</span><span><span class="pill ${pills[a.status]}">${STATUS_LABEL[a.status]}</span></span><span>${MODE_LABEL[a.mode]}</span><span class="cap">${esc(a.last_finding || a.note || '\u2014')}</span><span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${action(a)}${can('admin') ? `<button class="btn3 btn-s" data-act="agDelete" data-arg="${esc(a.agent_key)}" title="Remove this agent from the whole platform">Delete</button>` : ''}</span></div>`).join('')}</section>`;
+      ${rows.map((a) => `<div class="grow"><span class="mono" style="font-weight:500">${esc(a.name)}${a.origin === 'DEMO' ? ' <span class="pill muted">demo</span>' : ''}${a.origin === 'DISCOVERED' ? ' <span class="pill warn" title="Seen by the runtime SDK, not registered by a person">discovered</span>' : ''}${a.origin === 'SCREENED' ? ` <span class="pill ${(typeof triTone !== 'undefined' && a.screening && triTone[a.screening.tier]) || 'muted'}" title="Added from a screened list. Screened from its description only: not a risk assessment.">screened${a.screening ? ' \u00b7 ' + esc(a.screening.tier) : ''}</span>` : ''}${a.origin === 'ORG' ? ' <span class="pill muted" title="Created from the organisation">organisation</span>' : ''}</span><span>${esc(a.owner || 'No owner')}</span><span>${esc(a.framework)}</span><span>${a.tools_count}</span><span><span class="pill ${pills[a.status]}">${STATUS_LABEL[a.status]}</span></span><span>${MODE_LABEL[a.mode]}</span><span class="cap">${esc(a.last_finding || a.note || '\u2014')}</span><span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${action(a)}${a.origin === 'SCREENED' ? `<button class="btn2 btn-s" data-act="agDetails" data-arg="${esc(a.agent_key)}" aria-expanded="${st.open === a.agent_key}">${st.open === a.agent_key ? 'Hide details' : 'Details'}</button>` : ''}${can('admin') ? `<button class="btn3 btn-s" data-act="agDelete" data-arg="${esc(a.agent_key)}" title="Remove this agent from the whole platform">Delete</button>` : ''}</span></div>${st.open === a.agent_key ? screenedPanel(a) : ''}`).join('')}</section>`;
     const demoNote = demo ? `<div class="note plain" role="status" style="flex-direction:row;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><span class="stack"><strong>Demo agents are loaded</strong><span style="font-size:13px">Rows marked demo are sample data from the prototype, not discovered agents. Their findings, drift and coverage are illustrative.</span></span><button class="btn2 btn-s" data-act="agRemoveDemo">Remove demo agents</button></div>` : '';
     return head + (AG.error ? `<div class="note alert" role="alert"><span style="font-size:13px;white-space:pre-wrap">${esc(AG.error)}</span></div>` : '') + demoNote + (AG.list.length ? table : empty) +
       '<p class="cap" style="margin:0">Unowned agents count against ASI10 Rogue agents until an owner ratifies a model. Designed agents are free until they run.</p>';
+  }
+
+
+  // What the screening of a description found for an agent that was added from a list, and how to connect the real thing to this entry.
+  function screenedPanel(a) {
+    const sc = a.screening || {}, chip = (h) => `<span class="pill ${h.weight > 0 ? (h.weight >= 3 ? 'bad' : 'warn') : 'ok'}" title="${esc(h.reason)}">${h.weight > 0 ? '+' : ''}${h.weight} ${esc((h.phrases || [])[0] || h.key)}</span>`;
+    const snippet = `import os, astra_runtime as astra\nastra.init(url="${location.origin}", api_key=os.environ["ASTRA_KEY"], agent=${JSON.stringify(a.name)})`;
+    return `<div class="grow" style="grid-template-columns:1fr;min-width:0;background:var(--bg-f7f9fb);gap:14px;align-items:start">
+      <div class="stack" style="gap:6px"><span style="font-size:12px;font-weight:600;color:var(--fg-4a5563)">From the list${sc.department ? ' \u00b7 ' + esc(sc.department) : ''}${sc.supplier ? ' \u00b7 ' + esc(sc.supplier) : ''}</span><span style="font-size:13px">${esc(sc.description || 'No description recorded.')}</span>
+        <span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="pill ${(typeof triTone !== 'undefined' && triTone[sc.tier]) || 'muted'}">${esc(sc.tier || '')} \u00b7 score ${sc.score === undefined ? '\u2014' : sc.score}</span>${(sc.signals || []).map(chip).join('')}</span>
+        <span class="cap">Screened from its description only, by ${esc(sc.screened_by || 'someone')}${sc.screened_at ? ' on ' + esc(new Date(sc.screened_at).toLocaleDateString()) : ''}. This is a first-pass screen, not a risk assessment: open the design, complete it and the real checks run.</span></div>
+      ${(sc.not_stated || []).length ? `<div class="stack" style="gap:4px"><span style="font-size:12px;font-weight:600;color:var(--fg-4a5563)">What the description does not say (to find out next)</span><ul style="margin:0 0 0 16px;padding:0;font-size:13px">${sc.not_stated.map((q) => `<li>${esc(q)}</li>`).join('')}</ul></div>` : ''}
+      <div class="stack" style="gap:6px"><span style="font-size:12px;font-weight:600;color:var(--fg-4a5563)">Connect the real agent to this entry</span><span class="cap">An administrator makes a key with the <b>Collector</b> role on the <a href="#/users">Users</a> screen, and the agent reports under exactly this name, so its events land here and do not create a new agent. Until a design is ratified they are recorded as having no contract; after that each is checked against it, and anything outside it becomes a finding on <a href="#/runtime">Live runtime</a>.</span>
+        <pre class="code" style="font-size:12px;margin:0">${esc(snippet)}</pre></div></div>`;
   }
 
   /* ---------- Add agent: choice ---------- */
@@ -1547,6 +1565,7 @@ kill_switch:
   /* ---------- Actions ---------- */
   const H = {
     agTab: (a) => { S.agents.tab = a; },
+    agDetails: (k) => { S.agents.open = S.agents.open === k ? null : k; },
     aRegister: async () => {
       const st = S.add; if (st.busy) return; st.busy = true; st.error = null; render(true);
       try { await STAI.api.registerAgent({ name: st.name, owner: st.owner || null, framework: st.framework || 'Not recorded', tools_count: Math.max(0, parseInt(st.tools, 10) || 0) }); Object.assign(st, { name: '', owner: '', framework: '', tools: '0' }); await loadAgents(); location.hash = '#/agents'; }
@@ -4179,6 +4198,156 @@ kill_switch:
   });
 
 
+
+  /* ---------- Compare designs, and screen a long list from descriptions (Essex demo) ---------- */
+  const CGATE = { APPROVE: ['clear', 'ok'], REVIEW: ['watch', 'warn'], BLOCK: ['incident', 'bad'] };
+  const CSTAT = { Covered: 'ok', Partial: 'warn', Gap: 'bad', Unmapped: 'muted', 'Not applicable': 'muted', 'n/a': 'muted' };
+  const CMP = { a: '', b: '', c: '', res: null, busy: false, err: null };
+  function compare() {
+    if (!AG.loaded && !AG.loading && !AG.error) loadAgents();
+    const head = hdr('The same checks, asked of designs for the same task', 'Compare designs');
+    if (AG.error && !AG.loaded) return head + `<div class="note alert" role="alert"><strong>Could not load the designs</strong><span style="font-size:13px">${esc(AG.error)}</span></div>`;
+    if (!AG.loaded) return head + '<p class="cap">Loading\u2026</p>';
+    const ds = AG.designs;
+    if (ds.length < 2) return head + '<div class="note plain"><strong>Two agent designs are needed</strong><span style="font-size:13px">Create them in the Design studio, or load the care-plan example (examples/care-plan-designs.json, loaded by examples/load_care_plan_designs.py): a basic assistant and a bespoke monitored service for the same task.</span></div>';
+    const keys = ds.map((d) => d.design_key);
+    if (!keys.includes(CMP.a)) CMP.a = (ds.find((d) => /basic/i.test(d.name)) || ds[0]).design_key;
+    if (!keys.includes(CMP.b) || CMP.b === CMP.a) CMP.b = (ds.find((d) => /bespoke/i.test(d.name) && d.design_key !== CMP.a) || ds.find((d) => d.design_key !== CMP.a)).design_key;
+    if (CMP.c && (!keys.includes(CMP.c) || CMP.c === CMP.a || CMP.c === CMP.b)) CMP.c = '';
+    const sel = (k, label, none) => `<div class="fld"><label for="cmp-${k}">${label}</label><select id="cmp-${k}" class="reqsel" data-chg="cmpPick" data-arg="${k}">${none ? opt('', '(none)', CMP[k]) : ''}${ds.map((d) => opt(d.design_key, d.name, CMP[k])).join('')}</select></div>`;
+    const R = CMP.res;
+    const card = (o) => { const [gc, pc] = CGATE[o.gate]; return `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:12px"><div class="hdr" style="align-items:flex-start"><div class="stack" style="gap:2px"><h3>${esc(o.label)}</h3><span class="cap mono">${esc(o.name)}</span></div><div class="gate ${gc}" role="status"><small>Verdict</small><b>${esc(o.verdict)}</b></div></div>
+      <div style="display:flex;gap:18px;flex-wrap:wrap"><span class="stack" style="gap:2px"><span class="cap">Risk score</span><b class="mono" style="font-size:22px">${fmtScore(o.score)}</b></span><span class="stack" style="gap:2px"><span class="cap">Lines</span><span class="mono">watch ${fmtScore(o.watch_line)} \u00b7 blocked ${fmtScore(o.blocked_line)}</span></span><span class="stack" style="gap:2px"><span class="cap">OWASP agentic checks met</span><b class="mono">${o.owasp_covered} of ${o.owasp_applicable}</b></span></div>
+      ${(() => { const open = o.requirements.filter((r) => r.counted !== 'Covered').map((r) => r.name); const list = open.slice(0, 4).map(esc).join('; ') + (open.length > 4 ? ' (and ' + (open.length - 4) + ' more)' : '');
+        if (o.gate === 'BLOCK') return `<div class="note alert" style="font-size:13px"><strong>Why it is a no-go</strong><span>${o.floor ? 'A critical requirement is open: ' + esc(o.floor) + '. ' : ''}${open.length} of ${o.requirements.length} requirements are not covered.</span></div>`;
+        if (o.gate === 'REVIEW') return `<div class="note warn" style="font-size:13px"><strong>What keeps it from a clean go</strong><span>${list}</span></div>`;
+        return '<div class="note good" style="font-size:13px"><strong>Clear of the critical gaps</strong><span>This is a design-time view; it does not certify compliance.</span></div>'; })()}</section>`; };
+    const dtable = (title, rows, empty) => `<section class="card tbl"><div class="grow head" style="grid-template-columns:2.2fr ${R.options.map(() => '1.4fr').join(' ')};min-width:0"><span>${title}</span>${R.options.map((o) => `<span>${esc(o.label)}</span>`).join('')}</div>${rows.length ? rows.map((d) => `<div class="grow" style="grid-template-columns:2.2fr ${R.options.map(() => '1.4fr').join(' ')};min-width:0;align-items:start"><span>${esc(d.name)}</span>${d.values.map((v) => `<span class="stack" style="gap:4px"><span class="pill ${CSTAT[v.status] || 'muted'}" style="align-self:flex-start">${esc(v.status)}</span>${v.detail ? `<span class="cap">${esc(v.detail)}</span>` : ''}</span>`).join('')}</div>`).join('') : `<div class="grow" style="min-width:0"><span class="cap">${empty}</span></div>`}</section>`;
+    const body = R ? `<div class="note ${R.options.some((o) => o.gate === 'BLOCK') ? 'warn' : 'good'}" role="status"><strong>${esc(R.headline)}</strong><span style="font-size:13px">Judged against the ${esc(R.profile.replace(/_/g, ' '))} requirements profile for both, so the comparison is like for like.</span></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">${R.options.map(card).join('')}</div>
+      <h2 style="margin:6px 0 0">Where they differ</h2>${dtable('Requirement', R.requirement_differences, 'The requirements are answered the same way in every design.')}${dtable('OWASP agentic check', R.owasp_differences, 'The OWASP checks give the same answers.')}` : '';
+    return head + `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:12px"><span style="font-size:13px">Pick designs for the same task. Each is read as it is saved, put through the OWASP agentic checks and the design-time risk score, and judged by one profile (the first design's), so the answers can be set side by side. Nothing is changed or stored.</span>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">${sel('a', 'Design A')}${sel('b', 'Design B')}${sel('c', 'Design C (optional)', true)}</div>
+      ${CMP.err ? `<div class="note alert" role="alert"><span style="font-size:13px">${esc(CMP.err)}</span></div>` : ''}
+      <div><button class="btn" data-act="cmpRun"${CMP.busy ? ' disabled' : ''}>${CMP.busy ? 'Comparing\u2026' : 'Compare'}</button></div></section>${body}`;
+  }
+  SCREENS.compare = compare;
+  Object.assign(C, { cmpPick: (v, k) => { CMP[k] = v; CMP.res = null; CMP.err = null; } });
+  Object.assign(H, {
+    cmpRun: () => {
+      const keys = [CMP.a, CMP.b, CMP.c].filter(Boolean);
+      CMP.busy = true; CMP.err = null;
+      STAI.api.compareDesigns({ design_keys: keys }).then((r) => { CMP.res = r; }).catch((e) => { CMP.err = e.message; }).finally(() => { CMP.busy = false; renderIfIdle('compare'); });
+    }
+  });
+
+  // Screening a list: a public register gives a name and a description for each agent, which is enough for a coarse first pass and not for the real checks.
+  const TRI_SAMPLE = "id,name,description,department,supplier,their_flag\n1,Care plan drafting assistant,Drafts a care plan for an adult from a social worker's case notes using generative AI.,Adult Social Care,Cloud AI supplier,yes\n2,Meeting notes summariser,Summarises the audio of internal team meetings into notes for staff.,Corporate,Microsoft,no\n3,Bin collection chatbot,Answers resident questions about bin collection days on the website.,Waste Services,In-house,no\n4,Children's referral triage,Prioritises referrals about children for a safeguarding team using a risk score.,Children's Services,Third-party vendor,yes\n5,Housing demand analytics,Produces anonymised aggregate forecasts of housing demand for planners. No personal data is used.,Housing,In-house,no\n6,Benefit eligibility checker,Assesses whether a household is eligible for a council tax reduction and recommends an outcome. A member of staff reviews every decision.,Revenues and Benefits,Third-party vendor,yes\n7,Planning application summary,Summarises long planning applications for case officers.,Planning,Microsoft,no\n8,Homelessness risk predictor,Predicts the risk of homelessness for residents so that support can be offered early.,Housing,Third-party vendor,yes\n9,Customer services email triage,Reads incoming emails from residents and routes them to the right team automatically.,Customer Services,Microsoft,yes\n10,Policy document search,A search tool that finds policy documents for staff. Internal use only.,Corporate,In-house,no\n11,SEND plan review assistant,Helps officers review education health and care plans for children with special educational needs and drafts review letters.,Education,Third-party vendor,yes\n12,Fleet route optimiser,Plans the most efficient routes for council vehicles.,Highways,Google,no\n13,Complaint classifier,Classifies complaints from residents by theme and urgency.,Customer Services,In-house,no\n14,Fostering matching tool,Recommends fostering placements for looked-after children based on case records.,Children's Services,Third-party vendor,yes\n15,Social media monitor,Reports trends in public posts about council services using aggregate statistics.,Communications,Third-party vendor,no\n16,Staff HR query bot,Answers staff questions about leave and pay. It sends the employee a message with the policy link.,HR,Microsoft,no\n17,Parking permit checker,Automatically approves or refuses resident parking permits using address records.,Parking,Third-party vendor,yes\n18,Translation assistant,Translates letters into other languages for service users. Reviewed by a member of staff before sending.,Corporate,Google,no\n19,Adult safeguarding alert reader,Reads safeguarding alerts about vulnerable adults and recommends which need urgent action.,Adult Social Care,In-house,yes\n20,Library recommendation helper,Suggests books to library members.,Libraries,Third-party vendor,no\n21,Case notes summariser,Summarises case notes in a social care record for the next worker.,Adult Social Care,Cloud AI supplier,yes\n22,Road defect image detector,Finds potholes in photographs taken from vehicles.,Highways,Third-party vendor,no\n23,School admissions allocator,Decides which school place is offered to each child from application data.,Education,Third-party vendor,yes\n24,Finance invoice reader,Reads supplier invoices and enters the data into the finance system automatically.,Finance,Microsoft,no\n25,Mental health referral assistant,Drafts a referral summary from a client's health records for a mental health team.,Public Health,Third-party vendor,yes\n26,Website accessibility checker,Checks web pages for accessibility problems.,Digital,In-house,no\n27,Elections mailing writer,Drafts polling card reminder letters for residents.,Elections,Microsoft,no\n28,Care home quality scorer,Scores care homes from inspection reports using generative summaries.,Adult Social Care,In-house,no\n29,Early help predictor,Predicts which families with children may need early help from past case data.,Children's Services,Third-party vendor,yes\n30,Energy use dashboard,A dashboard of energy use in council buildings. Reporting only.,Property,In-house,no\n31,Voice assistant for care calls,Answers telephone calls from carers and updates the client record.,Adult Social Care,Cloud AI supplier,yes\n32,Grant application scorer,Scores grant applications from community groups and recommends which to fund.,Communities,Third-party vendor,yes\n33,Noise complaint router,Sends noise complaints to the right environmental health officer.,Environmental Health,In-house,no\n34,Pupil attendance predictor,Predicts which pupils are at risk of persistent absence.,Education,Third-party vendor,yes\n35,Staff rota helper,Suggests shift rotas for care staff. A manager approves the final rota.,Adult Social Care,Third-party vendor,no\n36,Press release drafter,Drafts press releases for the communications team.,Communications,Microsoft,no\n";
+  const TRI = { imp: { scope: 'needs', designs: true, profile: '', busy: false, res: null, err: null }, profiles: null, csv: '', filename: '', high: 6, moderate: 3, sampleOn: true, sampleSize: 100, sampleShare: 70, res: null, busy: false, err: null, tier: 'all', show: 60 };
+  const triTone = { High: 'bad', Moderate: 'warn', Low: 'ok', Unknown: 'muted' };
+  const csvCell = (v) => { const t = String(v === null || v === undefined ? '' : v); return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+  function triDownload(name, text) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
+  const triScopeIds = () => {
+    const R = TRI.res; if (!R) return [];
+    const sc = TRI.imp.scope, inS = R.sample ? new Set(R.sample.ids) : new Set();
+    return R.results.filter((x) => sc === 'all' || (sc === 'high' ? x.tier === 'High' : (sc === 'sample' ? inS.has(x.id) : x.needs_investigation))).map((x) => x.id);
+  };
+  function triage() {
+    const head = hdr('A first pass over a long list of agents, from their descriptions', 'Screen a list');
+    const R = TRI.res;
+    const note = '<div class="note plain"><strong>A first-pass screen, not a risk assessment</strong><span style="font-size:13px">It reads the description for signs that an agent touches decisions about people, vulnerable groups or sensitive data, or acts on its own, and ranks the list so people look at the right ones first. Every flag shows the phrases it came from. What a description cannot say (who reviews the output, which data, which model) is listed for each agent: that is what the design checks and a closer look would ask.</span></div>';
+    const input = `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:12px"><div class="stack" style="gap:2px"><h2>The list</h2><span class="cap">A CSV with a description column. Recognised columns: name, description, department, supplier, and (optional) the outcome of another screening, to compare with.</span></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><label class="btn2 btn-s" for="tri-file">Choose a CSV file</label><input type="file" id="tri-file" accept=".csv,text/csv,.txt" data-chg="triFile" style="position:absolute;width:1px;height:1px;opacity:0"><button class="btn2 btn-s" data-act="triSample">Load a sample list (36 fictional agents)</button>${TRI.filename ? `<span class="cap">Loaded: <span class="mono">${esc(TRI.filename)}</span></span>` : ''}</div>
+      <textarea class="inp" rows="4" style="max-width:none;width:100%;font-family:var(--mono, monospace);font-size:12px" data-chg="triText" placeholder="or paste the CSV here" aria-label="The list as CSV">${esc(TRI.csv)}</textarea>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px"><div class="fld"><label for="tri-h">High from score</label><input id="tri-h" class="inp" type="number" min="1" max="20" value="${TRI.high}" data-chg="triNum" data-arg="high"></div><div class="fld"><label for="tri-m">Moderate from score</label><input id="tri-m" class="inp" type="number" min="1" max="20" value="${TRI.moderate}" data-chg="triNum" data-arg="moderate"></div>
+        <div class="fld"><label for="tri-s">Sample size</label><input id="tri-s" class="inp" type="number" min="1" max="5000" value="${TRI.sampleSize}" data-chg="triNum" data-arg="sampleSize"></div><div class="fld"><label for="tri-p">Share from flagged (%)</label><input id="tri-p" class="inp" type="number" min="0" max="100" value="${TRI.sampleShare}" data-chg="triNum" data-arg="sampleShare"></div></div>
+      ${TRI.err ? `<div class="note alert" role="alert"><span style="font-size:13px">${esc(TRI.err)}</span></div>` : ''}
+      <div><button class="btn" data-act="triRun"${TRI.busy ? ' disabled' : ''}>${TRI.busy ? 'Screening\u2026' : 'Screen the list'}</button></div></section>`;
+    if (!R) return head + note + input;
+    const T = R.tiers, kpi = (l, v, tone, sub) => `<div class="card" style="padding:16px 18px"><span class="cap">${l}</span><div style="font-size:30px;font-weight:600;${tone ? 'color:var(--fg-' + tone + ')' : ''}">${v}</div>${sub ? `<span class="cap">${sub}</span>` : ''}</div>`;
+    const kpis = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">${kpi('Agents screened', R.count, '', '')}${kpi('High', T.High, 'b42318', 'look first')}${kpi('Moderate', T.Moderate, 'b45309', '')}${kpi('Low', T.Low, '14532d', '')}${kpi('Need a closer look', R.needs_investigation, '', Math.round(R.needs_investigation / Math.max(1, R.count) * 100) + '% of the list')}</div>`;
+    const dist = `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:8px"><h2>How the list splits</h2>${hbars(['High', 'Moderate', 'Low', 'Unknown'].filter((k) => T[k]).map((k) => ({ label: k, parts: [{ v: T[k], color: { High: CH.bad, Moderate: CH.warn, Low: CH.ok, Unknown: CH.grey }[k], tip: T[k] + ' agents' }], right: String(T[k]) })))}</section>`;
+    let agree = '';
+    if (R.agreement) {
+      const A = R.agreement;
+      agree = `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:10px"><div class="stack" style="gap:2px"><h2>Compared with the other screening</h2><span class="cap">Their flag against ours (flagged means \u201cneeds a closer look\u201d), over the ${A.compared} agents that have one.</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:520px"><div class="box"><span class="stack"><span>Both flag</span><b class="mono">${A.both_flag}</b></span></div><div class="box"><span class="stack"><span>Only they flag</span><b class="mono">${A.only_they_flag}</b></span></div><div class="box"><span class="stack"><span>Only we flag</span><b class="mono">${A.only_we_flag}</b></span></div><div class="box"><span class="stack"><span>Neither flags</span><b class="mono">${A.neither_flag}</b></span></div></div>
+        <span style="font-size:13px">Agreement <b>${Math.round(A.agreement * 100)}%</b>${A.kappa !== null ? ` \u00b7 Cohen\u2019s kappa <b>${A.kappa}</b> (agreement beyond chance)` : ''}. They flagged ${A.their_flagged}; we flagged ${A.our_flagged}. The rows where the two differ are marked below: they are where to look and learn.</span></section>`;
+    }
+    let sample = '';
+    if (R.sample) {
+      const S2 = R.sample;
+      sample = `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:8px"><div class="stack" style="gap:2px"><h2>A sample for a closer look</h2><span class="cap">${S2.size} agents: ${S2.from_flagged} from those flagged by ${esc(S2.basis)} and ${S2.from_not_flagged} that were not. The same seed (${S2.seed}) gives the same sample again.</span></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn2 btn-s" data-act="triSampleCsv">Download the sample</button></div></section>`;
+    }
+    const inSample = R.sample ? new Set(R.sample.ids) : new Set();
+    const rows = R.results.filter((x) => TRI.tier === 'all' || (TRI.tier === 'differs' ? x.their_flag !== null && x.their_flag !== x.needs_investigation : (TRI.tier === 'sample' ? inSample.has(x.id) : x.tier === TRI.tier))).sort((a, b) => b.score - a.score || a.order - b.order);
+    const cols = '1.8fr 1.1fr .8fr .5fr 3.4fr 1fr';
+    const row = (x) => `<div class="grow" style="grid-template-columns:${cols};align-items:start"><span class="stack" style="gap:2px"><span>${esc(x.name)}${inSample.has(x.id) ? ' <span class="pill muted">sample</span>' : ''}</span><span class="cap">${esc(x.description.slice(0, 140))}${x.description.length > 140 ? '\u2026' : ''}</span></span><span class="cap">${esc(x.department) || '\u2014'}</span><span><span class="pill ${triTone[x.tier]}">${x.tier}</span></span><span class="mono">${x.score}</span>
+      <span class="stack" style="gap:4px"><span style="display:flex;gap:4px;flex-wrap:wrap">${x.signals.map((h) => `<span class="pill ${h.weight > 0 ? (h.weight >= 3 ? 'bad' : 'warn') : 'ok'}" title="${esc(h.reason)}: ${esc(h.phrases.join(', '))}">${h.weight > 0 ? '+' : ''}${h.weight} ${esc(h.phrases[0])}</span>`).join('') || '<span class="cap">no signals found</span>'}</span>${x.not_stated.length ? `<details><summary class="cap" style="cursor:pointer">What the description does not say (${x.not_stated.length})</summary><ul style="margin:4px 0 0 16px;padding:0;font-size:12px">${x.not_stated.map((q) => `<li>${esc(q)}</li>`).join('')}</ul></details>` : ''}</span>
+      <span>${x.their_flag === null ? '<span class="cap">\u2014</span>' : `<span class="pill ${x.their_flag ? 'warn' : 'muted'}">${x.their_flag ? 'Flagged' : 'Not flagged'}</span>${x.their_flag !== x.needs_investigation ? ' <span class="pill bad" title="Our screen and the other one disagree">differs</span>' : ''}`}</span></div>`;
+    const filters = [['all', 'All'], ['High', 'High'], ['Moderate', 'Moderate'], ['Low', 'Low']].concat(R.agreement ? [['differs', 'Where we differ']] : []).concat(R.sample ? [['sample', 'The sample']] : []);
+    const list = `<section class="card tbl"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 20px 6px"><div class="seg" role="tablist" aria-label="Show">${filters.map(([k, l]) => `<button class="tab${TRI.tier === k ? ' on' : ''}" role="tab" aria-selected="${TRI.tier === k}" data-act="triTier" data-arg="${k}">${l}</button>`).join('')}</div><button class="btn2 btn-s" data-act="triResultsCsv">Download all results (CSV)</button></div>
+      <div class="grow head" style="grid-template-columns:${cols}"><span>Agent</span><span>Department</span><span>Tier</span><span>Score</span><span>Why (hover a chip for the phrase)</span><span>Other screen</span></div>${rows.slice(0, TRI.show).map(row).join('') || '<div class="grow" style="min-width:0"><span class="cap">Nothing in this view.</span></div>'}${rows.length > TRI.show ? `<div class="grow" style="min-width:0"><button class="btn2 btn-s" data-act="triMore" style="justify-self:start">Show ${Math.min(60, rows.length - TRI.show)} more (${rows.length - TRI.show} left)</button></div>` : ''}</section>`;
+
+    // Adding to the platform: the screened agents join the organisation's inventory, each with a draft design in the Design studio.
+    if (!TRI.profiles) { TRI.profiles = []; STAI.api.rcrProfiles().then((p) => { TRI.profiles = p; renderIfIdle('triage'); }).catch(() => { /* the default profile is used */ }); }
+    const im = TRI.imp, scopeIds = triScopeIds();
+    const scopes = [['needs', `Those that need a closer look (${R.needs_investigation})`], ['high', `High only (${R.tiers.High})`]].concat(R.sample ? [['sample', `The sample (${R.sample.size})`]] : []).concat([['all', `All ${R.count}`]]);
+    const done = im.res ? `<div class="note good" role="status"><strong>${im.res.created} added to the inventory${im.res.updated ? `, ${im.res.updated} already there and updated` : ''}${im.res.skipped ? `, ${im.res.skipped} skipped` : ''}</strong><span style="font-size:13px">${im.res.designs_created} draft design${im.res.designs_created === 1 ? '' : 's'} created in the Design studio, checked against the ${esc(im.res.profile.replace(/_/g, ' '))} requirements. They are unowned until someone takes them.</span><div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn btn-s" href="#/agents">Open the inventory</a>${(im.res.items.find((x) => x.design_key) || {}).design_key ? `<button class="btn2 btn-s" data-act="agOpenDesign" data-arg="${esc(im.res.items.find((x) => x.design_key).design_key)}">Open the first design</button>` : ''}<a class="btn2 btn-s" href="#/compare">Compare designs</a></div></div>` : '';
+    const adder = !can('write') ? '<div class="note plain"><strong>Adding to the inventory needs the engineer role or above</strong><span style="font-size:13px">You can screen and download the results.</span></div>' : `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:12px"><div class="stack" style="gap:2px"><h2>Add them to your inventory</h2><span class="cap">Makes them part of this organisation\u2019s platform: each appears in <a href="#/agents">Agents</a> as <em>screened</em>, with what the screen found, and (below) a draft design to open in the Design studio, complete, check and ratify. Agents already in the inventory keep their place and gain the screening. Nothing is added until you press the button.</span></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px"><div class="fld"><label for="tri-sc">Which agents</label><select id="tri-sc" class="reqsel" data-chg="triImp" data-arg="scope">${scopes.map(([k, l]) => opt(k, l, im.scope)).join('')}</select></div>
+        <div class="fld"><label for="tri-pf">Judge the drafts by</label><select id="tri-pf" class="reqsel" data-chg="triImp" data-arg="profile">${opt('', 'Social care (default)', im.profile)}${(TRI.profiles || []).filter((p) => p.key !== 'social_care').map((p) => opt(p.key, p.name, im.profile)).join('')}</select></div></div>
+      <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px"><input type="checkbox" data-chg="triImpDesigns"${im.designs ? ' checked' : ''}><span>Create a draft design in the Design studio for each. <span class="cap">It holds only what the description says (who is affected, what kind of data) and credits no control the description merely claims.</span></span></label>
+      ${im.err ? `<div class="note alert" role="alert"><span style="font-size:13px">${esc(im.err)}</span></div>` : ''}${done}
+      <div><button class="btn" data-act="triImport"${im.busy || !scopeIds.length ? ' disabled' : ''}>${im.busy ? 'Adding\u2026' : 'Add ' + scopeIds.length + ' agent' + (scopeIds.length === 1 ? '' : 's') + ' to the inventory'}</button></div></section>`;
+    const next = '<div class="note plain"><strong>For the agents that need a closer look</strong><span style="font-size:13px">Model each one in the <a href="#/studio">Design studio</a> (or import it), then see its gate and risk score, and use <a href="#/compare">Compare designs</a> to set options for the same task side by side. Once it runs, <a href="#/runtime">Live runtime</a> watches it against its approved contract.</span></div>';
+    return head + note + input + kpis + dist + agree + sample + list + adder + next;
+  }
+  SCREENS.triage = triage;
+  Object.assign(C, {
+    triText: (v) => { TRI.csv = v; TRI.res = null; TRI.err = null; TRI.imp.res = null; },
+    triImp: (v, k) => { TRI.imp[k] = v; TRI.imp.res = null; TRI.imp.err = null; },
+    triImpDesigns: (v) => { TRI.imp.designs = !!v; TRI.imp.res = null; },
+    triNum: (v, k) => { TRI[k] = Math.max(0, parseInt(v, 10) || 0); },
+    triFile: (v, k, el) => {
+      const f = el && el.files && el.files[0]; if (!f) return;
+      if (f.size > 6000000) { TRI.err = 'That file is larger than 6 MB.'; return; }
+      const rd = new FileReader();
+      rd.onload = () => { Object.assign(TRI, { csv: String(rd.result || ''), filename: f.name, res: null, err: null }); renderIfIdle('triage'); };
+      rd.onerror = () => { TRI.err = 'The file could not be read.'; renderIfIdle('triage'); };
+      rd.readAsText(f);
+    }
+  });
+  Object.assign(H, {
+    triSample: () => { Object.assign(TRI, { csv: TRI_SAMPLE, filename: 'sample list (fictional)', res: null, err: null, sampleSize: 10, tier: 'all', show: 60 }); TRI.imp.res = null; },
+    triRun: () => {
+      if (!TRI.csv.trim()) { TRI.err = 'Choose a CSV file, paste one, or load the sample list first.'; return; }
+      if (TRI.moderate > TRI.high) { TRI.err = 'The moderate line cannot be above the high line.'; return; }
+      TRI.busy = true; TRI.err = null;
+      const body = { csv: TRI.csv, high_at: TRI.high, moderate_at: TRI.moderate, sample: TRI.sampleOn ? { size: Math.max(1, TRI.sampleSize), flagged_share: Math.min(100, TRI.sampleShare) / 100, seed: 7 } : null };
+      STAI.api.triageList(body).then((r) => { TRI.res = r; TRI.tier = 'all'; TRI.show = 60; TRI.imp.res = null; TRI.imp.err = null; }).catch((e) => { TRI.err = e.message; TRI.res = null; }).finally(() => { TRI.busy = false; renderIfIdle('triage'); });
+    },
+    triTier: (k) => { TRI.tier = k; TRI.show = 60; },
+    triImport: () => {
+      const im = TRI.imp, ids = triScopeIds(); if (!ids.length) return;
+      im.busy = true; im.err = null; im.res = null;
+      const body = { csv: TRI.csv, high_at: TRI.high, moderate_at: TRI.moderate, ids: im.scope === 'all' ? null : ids, create_designs: im.designs, profile: im.profile || null };
+      STAI.api.triageImport(body).then((r) => { im.res = r; AG.loaded = false; AG.list = []; }).catch((e) => { im.err = e.message; }).finally(() => { im.busy = false; renderIfIdle('triage'); });
+    },
+    triMore: () => { TRI.show += 60; },
+    triResultsCsv: () => {
+      const R = TRI.res; if (!R) return;
+      const head = ['id', 'name', 'department', 'supplier', 'tier', 'score', 'signals', 'other_screen_flagged', 'differs', 'not_stated'];
+      const lines = R.results.map((x) => [x.id, x.name, x.department, x.supplier, x.tier, x.score, x.signals.map((h) => (h.weight > 0 ? '+' : '') + h.weight + ' ' + h.phrases.join('/')).join('; '), x.their_flag === null ? '' : (x.their_flag ? 'yes' : 'no'), x.their_flag === null ? '' : (x.their_flag !== x.needs_investigation ? 'yes' : 'no'), x.not_stated.join(' | ')].map(csvCell).join(','));
+      triDownload('astra-screening-results.csv', [head.join(',')].concat(lines).join('\n'));
+    },
+    triSampleCsv: () => {
+      const R = TRI.res; if (!R || !R.sample) return;
+      const ids = new Set(R.sample.ids), head = ['id', 'name', 'department', 'tier', 'score', 'other_screen_flagged'];
+      triDownload('astra-sample.csv', [head.join(',')].concat(R.results.filter((x) => ids.has(x.id)).map((x) => [x.id, x.name, x.department, x.tier, x.score, x.their_flag === null ? '' : (x.their_flag ? 'yes' : 'no')].map(csvCell).join(','))).join('\n'));
+    }
+  });
   Object.assign(C, { rtAgent: (v) => { RT.agent = v; RT.series = null; loadRuntime(); } });
   Object.assign(H, { rtHours: (h) => { RT.hours = Number(h); RT.series = null; loadRuntime().then(() => renderIfIdle('runtime')); } });
 
