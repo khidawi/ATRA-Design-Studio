@@ -35,7 +35,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from pydantic import ValidationError
 
-from chat import ChatRequest, GeneratedGraph, generate_graph
+from chat import ChatRequest, DraftEvidence, DraftEvidenceRequest, GeneratedGraph, draft_evidence, generate_graph
 from agent_chat import AgentDesign, AgentDraftRequest, generate_agent_design
 from schema import (
     ScoreRequest, ScoreResponse,
@@ -77,6 +77,7 @@ from model_alerts import router as alerts_router
 from model_monitor import router as monitor_router
 from findings import router as findings_router
 from design_store import router as design_store_router, store_contract
+from design_review import current_review, review_state, router as design_review_router
 from ingestion import fail_interrupted_runs, router as ingestion_router
 
 # Tropos catalogue for constraint metadata
@@ -107,6 +108,7 @@ app.include_router(policies_router)
 app.include_router(rcr_router)
 app.include_router(ingestion_router)
 app.include_router(design_store_router)
+app.include_router(design_review_router)
 app.include_router(agent_import_router)
 app.include_router(agent_registry_router)
 app.include_router(agent_compare_router)
@@ -285,6 +287,10 @@ def assess(design_id: str, req: AssessRequest, session: Session = Depends(get_se
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     assessment.deployment_id = design_id
+    if require_domain(session, req.domain).subject == "MODEL":
+        from scoring_bridge import score_registry
+        pcs, _ = score_registry(req.registry)
+        assessment.review = review_state(session, design_id, req.registry, req.domain, req.design_graph, pcs)
     return assessment
 
 
@@ -301,10 +307,12 @@ def compile_design_endpoint(
     sends a falsified overall_status; there is no overall_status field on
     CompileRequest at all for a caller to lie with.
     """
+    review = current_review(session, design_id, req.registry, req.domain, req.design_graph)
     try:
         contract = compile_design(
             req.registry, require_domain(session, req.domain), req.graph,
             req.constraint_node_ids, design_id, user.name, to_design_graph(req.design_graph),
+            reviewed=review is not None, review=review,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
@@ -322,6 +330,12 @@ def chat(req: ChatRequest) -> GeneratedGraph:
     state, only the conversation history it is given.
     """
     return generate_graph(req)
+
+
+@app.post("/api/designs/draft-evidence", response_model=DraftEvidence)
+def draft_evidence_note(req: DraftEvidenceRequest) -> DraftEvidence:
+    """Suggest the wording of an evidence note, with placeholders where the person has to supply the real reference."""
+    return draft_evidence(req)
 
 
 # ── Agent design studio: draft a design from a plain-English description (Ollama) ──────────────

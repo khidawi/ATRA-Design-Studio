@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Model designer - Risk window mock-up</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --ink:#141a22; --mut:#4a5563; --line:#dde1e7; --acc:#1e4fcb; --seg:#eceff2;
+          --err:#8c1f17; --errbg:#f9dedb; --iss:#7a4a00; --issbg:#fdecc8; --rsk:#153c99; --rskbg:#e3ebfb; --ok:#1e7f4f; --okbg:#ddf1e5; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0b1017; --card:#141a22; --ink:#e7eaee; --mut:#9aa7b8; --line:#243041; --acc:#7da2ff; --seg:#1b2430;
+          --err:#ff9b94; --errbg:#4a1a16; --iss:#f0c26a; --issbg:#3b2d10; --rsk:#a9c1ff; --rskbg:#1b2b52; --ok:#7fd9a6; --okbg:#173626; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.45 'IBM Plex Sans',system-ui,Segoe UI,Arial,sans-serif; }
+  .wrap { max-width:1280px; margin:0 auto; padding:16px; }
+  h1 { font-size:20px; margin:0 0 2px; } h2 { font-size:16px; margin:0; }
+  .cap { color:var(--mut); font-size:12px; }
+  .banner { background:var(--issbg); color:var(--iss); border-radius:8px; padding:8px 12px; margin:0 0 12px; font-size:13px; }
+  .body { display:grid; grid-template-columns:1fr 450px; gap:12px; align-items:start; }
+  @media (max-width:980px) { .body { grid-template-columns:1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 18px 18px; }
+  .canvas { min-height:520px; position:relative; }
+  .node { position:absolute; border:1.5px solid var(--line); border-radius:8px; padding:6px 10px; background:var(--card); font-size:12px; }
+  .node small { display:block; color:var(--mut); }
+  .node.k-err { border-color:var(--err); border-width:2px; } .node.k-iss { border-color:#c98a00; border-width:2px; } .node.k-rsk { border-color:var(--rsk); border-width:2px; }
+  svg.edges { position:absolute; inset:0; width:100%; height:100%; }
+  .seg { display:flex; gap:6px; padding:4px; background:var(--seg); border-radius:10px; margin-bottom:10px; }
+  .tab { flex:1; border:0; border-radius:7px; background:none; color:var(--ink); padding:8px; font:inherit; font-size:13px; cursor:pointer; min-height:36px; }
+  .tab[aria-selected="true"] { background:var(--card); font-weight:600; box-shadow:0 1px 2px rgba(0,0,0,.15); }
+  .panel[hidden] { display:none; }
+  .kind { display:inline-flex; align-items:center; gap:5px; border-radius:999px; padding:2px 10px; font-size:12px; font-weight:600; white-space:nowrap; }
+  .k-err.kind { background:var(--errbg); color:var(--err); } .k-iss.kind { background:var(--issbg); color:var(--iss); } .k-rsk.kind { background:var(--rskbg); color:var(--rsk); } .k-ok.kind { background:var(--okbg); color:var(--ok); }
+  .tag { display:inline-block; font-size:11px; color:var(--mut); border:1px solid var(--line); border-radius:4px; padding:0 6px; margin-right:4px; }
+  .sum { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:10px 0; }
+  .sum button { border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--ink); padding:8px; text-align:left; font:inherit; cursor:pointer; }
+  .sum b { font-size:22px; display:block; line-height:1.1; } .sum span { font-size:12px; }
+  .sum .on { box-shadow:0 0 0 2px var(--acc); }
+  .item { display:grid; grid-template-columns:4px minmax(0,1fr) auto; gap:10px; align-items:center; padding:10px 0; border-top:1px solid var(--line); }
+  .item i { align-self:stretch; border-radius:2px; } .item.k-err i { background:var(--err); } .item.k-iss i { background:#c98a00; } .item.k-rsk i { background:var(--rsk); }
+  .item .t small { display:block; color:var(--mut); }
+  .link { color:var(--acc); font-size:12px; text-decoration:underline; background:none; border:0; padding:0; cursor:pointer; font:inherit; font-size:12px; }
+  .grp { font-size:12px; font-weight:600; margin:14px 0 2px; color:var(--mut); text-transform:uppercase; letter-spacing:.04em; }
+  .note { padding:12px; border-radius:8px; font-size:13px; } .note.err { background:var(--errbg); color:var(--err); }
+  .legend { display:flex; gap:10px; flex-wrap:wrap; font-size:12px; color:var(--mut); margin-top:8px; align-items:center; }
+  .toolbar { display:flex; gap:6px; flex-wrap:wrap; margin:10px 0; } .btn { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:8px; padding:5px 10px; font:inherit; font-size:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="banner"><strong>Mock-up only, nothing is built.</strong> The page keeps today's layout and today's four tabs. Only the <strong>Risk</strong> tab changes: it now also shows the formal-model check, the regulations and the policies, each in its own colour. The data is invented.</div>
+  <h1>Care plan drafting assistant</h1>
+  <div class="cap">AI Models · Model designer</div>
+  <div class="toolbar"><button class="btn">New</button><button class="btn">Load example</button><button class="btn">Import JSON</button><button class="btn">Assistant</button><button class="btn">Validate <span class="kind k-err" style="padding:0 6px">2</span></button><span style="flex:1"></span><button class="btn" style="border-color:var(--acc)">Compile contract</button></div>
+
+  <div class="body">
+    <section class="card canvas" aria-label="Architecture">
+      <svg class="edges" aria-hidden="true"><g stroke="currentColor" stroke-opacity=".35" fill="none" stroke-width="1.4"><path d="M170 70 L170 130"/><path d="M170 175 L170 235"/><path d="M290 160 L400 160"/><path d="M170 280 L170 340"/><path d="M290 270 L400 270"/></g></svg>
+      <div class="node" style="left:80px;top:30px">Adult Social Care<small>Department</small></div>
+      <div class="node k-err" style="left:60px;top:130px;width:230px">Care plan drafting assistant<small>AI model · ✕ no owner linked</small></div>
+      <div class="node k-err" style="left:400px;top:130px">Case notes (training)<small>Dataset · ✕ no legal basis</small></div>
+      <div class="node k-iss" style="left:60px;top:235px;width:230px">Production environment<small>Deployment · ! policy P-04, no logging</small></div>
+      <div class="node k-rsk" style="left:400px;top:245px">Retention 7 years<small>Constraint · risk: evidence missing</small></div>
+      <div class="node" style="left:60px;top:340px;width:230px">UK GDPR Art. 6<small>Regulatory requirement</small></div>
+      <div class="legend" style="position:absolute;left:14px;bottom:10px">Outline colour on the canvas matches the colour of the finding.</div>
+    </section>
+
+    <section class="card" aria-label="Review">
+      <div class="seg" role="tablist">
+        <button class="tab" role="tab" aria-selected="false" data-p="pi">Inspector</button>
+        <button class="tab" role="tab" aria-selected="true" data-p="pr">Risk (6)</button>
+        <button class="tab" role="tab" aria-selected="false" data-p="pp">PCS</button>
+        <button class="tab" role="tab" aria-selected="false" data-p="pe">Issues (3)</button>
+      </div>
+
+      <div class="panel" id="pr">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2>Risk assessment</h2><span class="kind k-err">Red</span></div>
+        <div class="cap">Social care · everything that stands between this design and approval, in one list.</div>
+
+        <div class="sum" role="group" aria-label="Filter by kind">
+          <button class="on"><b style="color:var(--err)">2</b><span class="kind k-err">✕ Errors</span><span class="cap" style="display:block">design is wrong</span></button>
+          <button><b style="color:var(--iss)">3</b><span class="kind k-iss">! Issues</span><span class="cap" style="display:block">a rule is not met</span></button>
+          <button><b style="color:var(--rsk)">1</b><span class="kind k-rsk">◆ Risks</span><span class="cap" style="display:block">needs evidence</span></button>
+        </div>
+
+        <div class="grp">Formal model · is the design correct?</div>
+        <div class="item k-err"><i></i><span class="t"><span class="kind k-err">✕ Error</span> Training dataset has no legal basis<small><span class="tag">Formal model</span>Every dataset holding personal data needs a legal basis. Blocks Compile.</small></span><button class="link">Show</button></div>
+        <div class="item k-err"><i></i><span class="t"><span class="kind k-err">✕ Error</span> The model has no accountable owner<small><span class="tag">Formal model</span>Link the model to an actor with the role “Model owner”. Blocks Compile.</small></span><button class="link">Show</button></div>
+
+        <div class="grp">Regulations chosen by your organisation</div>
+        <div class="item k-iss"><i></i><span class="t"><span class="kind k-iss">! Issue</span> EU AI Act Art. 14 · human oversight<small><span class="tag">Regulation</span>No human-oversight constraint on the model.</small></span><button class="link">Add</button></div>
+
+        <div class="grp">Organisation policies · same list as for AI agents</div>
+        <div class="item k-iss"><i></i><span class="t"><span class="kind k-iss">! Issue</span> P-04 · personal data stays in the UK<small><span class="tag">Policy</span>Production environment region is not set.</small></span><button class="link">Fix</button></div>
+
+        <div class="grp">Privacy and security</div>
+        <div class="item k-iss"><i></i><span class="t"><span class="kind k-iss">! Issue</span> Logging and monitoring<small><span class="tag">Security</span>Production environment has no logging constraint.</small></span><button class="link">Add</button></div>
+        <div class="item k-rsk"><i></i><span class="t"><span class="kind k-rsk">◆ Risk</span> Retention 7 years is declared but unproven<small><span class="tag">Privacy</span>Satisfied only when evidence is attached.</small></span><button class="link">Attach</button></div>
+
+        <div class="grp">Passed</div>
+        <div class="cap"><span class="kind k-ok">✓ 14 passed</span> structural checks, 2 regulation clauses, 2 policies.</div>
+
+        <div class="legend"><span class="kind k-err">✕ Error</span> the formal model says the design is wrong · <span class="kind k-iss">! Issue</span> a regulation, policy, privacy or security rule is not met · <span class="kind k-rsk">◆ Risk</span> the rule may be met but is not proven</div>
+      </div>
+
+      <div class="panel" id="pe" hidden>
+        <h2>Issues</h2>
+        <div class="cap" style="margin-bottom:6px">Unchanged: structural problems only, as today. (They also appear, in red, at the top of Risk.)</div>
+        <div class="note err">2 errors · 1 warning</div>
+      </div>
+      <div class="panel" id="pp" hidden><h2>PCS</h2><div class="cap">Unchanged: the score breakdown, as today.</div></div>
+      <div class="panel" id="pi" hidden><h2>Inspector</h2><div class="cap">Unchanged: edit the selected box, as today.</div></div>
+    </section>
+  </div>
+</div>
+<script>
+  document.querySelectorAll('.tab').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.tab').forEach(function (x) { x.setAttribute('aria-selected', x === b ? 'true' : 'false'); });
+      document.querySelectorAll('.panel').forEach(function (p) { p.hidden = p.id !== b.dataset.p; });
+    });
+  });
+</script>
+</body>
+</html>

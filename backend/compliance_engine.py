@@ -44,8 +44,9 @@ from compliance_schema import (
     assert_compilable,
     compute_contract_hash,
 )
+from design_findings import fix_for_rule, formal_findings
 from rule_checks import CheckConfigError, DesignGraph, GEdge, GNode, evaluate_graph_rule
-from schema import ConstraintStatus, GovernanceState, RegistryBlock
+from schema import ConstraintStatus, GovernanceState, RegistryBlock, is_placeholder_evidence
 
 
 class AssessRequest(BaseModel):
@@ -98,6 +99,9 @@ def _constraint_verdict(
     if decl is None:
         return _severity_status(severity), f"Constraint {constraint_id} is not declared on the canvas."
 
+    if decl.status == ConstraintStatus.SATISFIED and is_placeholder_evidence(decl.evidence):
+        return _severity_status(severity), f"Constraint {constraint_id} is marked Satisfied, but its evidence ({(decl.evidence or '').strip()!r}) is a placeholder, not a record of how it is met."
+
     if decl.status == ConstraintStatus.SATISFIED:
         reason = f"Constraint {constraint_id} is satisfied"
         if decl.evidence:
@@ -132,6 +136,8 @@ def _attestation_verdict(rule: RegulationRule, registry: RegistryBlock) -> Tuple
             rule.rule_id,
         )
     if match.status == ConstraintStatus.SATISFIED:
+        if is_placeholder_evidence(match.evidence):
+            return pending, f"{label} is marked Satisfied, but its evidence ({(match.evidence or '').strip()!r}) is a placeholder, not a record.", match.id
         if (match.evidence or "").strip():
             return RiskStatus.GREEN, f"{label} is attested — {match.evidence.strip()}", match.id
         return pending, f"{label} is marked Satisfied but has no evidence recorded.", match.id
@@ -213,6 +219,9 @@ def assess_design(
     for rule in domain.rule_set:
         verdict = _verdict_for_rule(rule, registry, constraint_node_ids, graph)
         if verdict is not None:  # a GRAPH rule that doesn't apply to this design is left out
+            verdict.instrument, verdict.check_type = rule.instrument, rule.check_type
+            verdict.title, verdict.requirement = rule.title, rule.description or None
+            verdict.fix = fix_for_rule(rule, verdict, constraint_node_ids)
             graded.append((rule, verdict))
     verdicts: List[ElementVerdict] = [v for _, v in graded]
 
@@ -249,7 +258,28 @@ def assess_design(
         score_breakdown=list(breakdown.values()),
         element_verdicts=verdicts,
         assessed_at=datetime.now(tz=timezone.utc),
+        formal_findings=formal_findings(registry, constraint_node_ids, graph) if domain.subject == "MODEL" else [],
     )
+
+
+def _assurance(registry: RegistryBlock, graph: Dict[str, Any], pcs, review: Optional[Dict[str, Any]], issued_by: Optional[str]) -> Dict[str, Any]:
+    """What a reader of the contract needs and would otherwise have to recompute: the score and gate at signing, the human review the gate asked for, who holds each role now
+    against who the canvas names, and whether the person issuing the contract holds one of the roles."""
+    norm = lambda t: " ".join(str(t or "").split()).lower()                                   # noqa: E731
+    on_canvas: Dict[str, List[str]] = {}
+    for n in (graph or {}).get("nodes", []):
+        if n.get("kind") == "ACTOR":
+            on_canvas.setdefault(str((n.get("data") or {}).get("subtype", "")).lower(), []).append(str((n.get("data") or {}).get("identity", "")))
+    holders = {}
+    for role in ("trainer", "validator", "deployer", "operator", "consumer"):
+        now = getattr(registry.actors, role).identity or ""
+        drawn = on_canvas.get(role, [])
+        holders[role] = {"holder_now": now, "named_on_canvas": drawn, "differs": bool(now) and bool(drawn) and norm(now) not in [norm(d) for d in drawn]}
+    issuer_role = next((r for r in ("trainer", "validator", "deployer", "operator") if issued_by and norm(getattr(registry.actors, r).identity) == norm(issued_by)), None)
+    return {
+        "pcs": {"final": pcs.pcs_final, "tier": pcs.tier, "gate": pcs.gate},
+        "review": review, "role_holders": holders, "issued_by_holds_role": issuer_role,
+    }
 
 
 def compile_design(
@@ -260,6 +290,8 @@ def compile_design(
     deployment_id: str,
     issued_by: Optional[str] = None,
     design_graph: Optional[DesignGraph] = None,
+    reviewed: bool = False,
+    review: Optional[Dict[str, Any]] = None,
 ) -> CompiledContract:
     """
     Re-runs assess_design() (never trusts a caller-supplied assessment) and
@@ -269,6 +301,18 @@ def compile_design(
     """
     assessment = assess_design(registry, domain, constraint_node_ids, design_graph)
     assert_compilable(assessment)
+    from scoring_bridge import score_registry
+    pcs, _ = score_registry(registry)
+    if pcs.gate == "BLOCKED":
+        raise ValueError(
+            f"Cannot compile: the PCS is {pcs.pcs_final:.1f} / 100 ({pcs.tier}) and the gate is BLOCKED. "
+            f"A design that scores this high is not signed; clear what drives the score (see the Risk tab) and compile again."
+        )
+    if pcs.gate == "REQUIRES_REVIEW" and not reviewed:
+        raise ValueError(
+            f"Cannot compile: the PCS is {pcs.pcs_final:.1f} / 100 ({pcs.tier}) and the gate requires a human review. A person with sign-off permission who is not the model's trainer, "
+            f"validator, deployer or operator records the review on the Risk tab. It applies to this version of the design and lapses if the design changes."
+        )
 
     contract = CompiledContract(
         contract_id=str(uuid.uuid4()),
@@ -278,6 +322,7 @@ def compile_design(
         design_snapshot={
             "registry": registry.model_dump(mode="json"),
             "graph": graph,
+            "assurance": _assurance(registry, graph, pcs, review, issued_by),
         },
         risk_assessment=assessment,
         issued_at=datetime.now(tz=timezone.utc),

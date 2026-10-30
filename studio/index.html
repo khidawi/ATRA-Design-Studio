@@ -188,7 +188,27 @@ main.wide{max-width:none}
 .m-node.dept .m-handle{top:18px}
 .m-resize{position:absolute;right:3px;bottom:3px;width:14px;height:14px;cursor:nwse-resize;background:linear-gradient(135deg,transparent 50%,var(--bg-aeb7c4) 50%,var(--bg-aeb7c4) 60%,transparent 60%,transparent 75%,var(--bg-aeb7c4) 75%,var(--bg-aeb7c4) 85%,transparent 85%)}
 .m-side{overflow:auto;padding:14px 18px 18px;display:flex;flex-direction:column;gap:12px}
-.m-side .tab{flex:1 1 auto;padding:0 8px;font-size:13px}
+.m-side .tab{flex:1 1 auto;padding:0 6px;font-size:12.5px}
+.src{display:inline-flex;align-items:center;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;white-space:nowrap}
+.src.fm{background:#ece6fb;color:#4a2a9a}.src.reg{background:#e3ebfb;color:#153c99}.src.pol{background:#dcf1ef;color:#0b5d57}
+html[data-theme=dark] .src.fm{background:#2c2350;color:#c9b8ff}html[data-theme=dark] .src.reg{background:#1b2b52;color:#a9c1ff}html[data-theme=dark] .src.pol{background:#12383a;color:#8fe0d8}
+.srcsum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.srcbox{border:1px solid var(--ln-dde1e7);border-left-width:4px;border-radius:8px;padding:6px 8px;display:flex;flex-direction:column;gap:1px;font-size:12px}
+.srcbox b{font-size:12px}
+.srcbox.fm,.srcgrp.fm{border-left-color:#6a45d1}.srcbox.reg,.srcgrp.reg{border-left-color:#1e4fcb}.srcbox.pol,.srcgrp.pol{border-left-color:#0e8f86}
+.srcgrp{border-left:3px solid;padding-left:10px;display:flex;flex-direction:column}
+.srchead{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding-bottom:2px}
+.fxbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.fxbar>div{border:1px solid var(--ln-dde1e7);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:3px;font-size:12px}
+.fxbar b{font-size:12px}
+.fxcard{border:1px solid var(--ln-dde1e7);border-radius:8px;padding:10px 12px;margin:6px 0;display:flex;flex-direction:column;gap:6px}
+.fxcard.RED{border-left:4px solid #b3261e}.fxcard.AMBER{border-left:4px solid #c98a00}
+.fxtitle{font-weight:600;font-size:14px}
+.fxrow{font-size:13px}.fxrow b{font-weight:600}
+.fxcard details{font-size:12px}.fxcard details p{margin:4px 0}
+.fxform{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:8px;background:var(--bg-eceff2)}
+.fxform textarea.inp{min-height:84px;padding:8px 12px;font-family:inherit}
+.fxact{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .m-terms{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
 .m-terms span{display:flex;flex-direction:column;padding:6px 8px;border:1px solid var(--ln-edf0f3);border-radius:6px}
 .m-terms small{font-size:11px;color:var(--fg-4a5563)}.m-terms sub,.m-side sub{font-size:.75em;line-height:0}.m-terms b{font-size:13px}
@@ -415,6 +435,8 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       compile: (designId, body) => post(designPath(designId, 'compile'), body),
       importDescription: (description) => post('/api/designs/import', description),
       chat: (message, history) => post('/chat', { message, history }),
+      draftEvidence: (body) => post('/api/designs/draft-evidence', body),
+      recordReview: (key, body) => post('/api/designs/' + encodeURIComponent(key) + '/review', body),
       draftAgent: (description) => post('/api/agents/draft', { description }),
       analyseAgent: (graph) => post('/api/agents/analyse', { graph }),
       listDesigns: () => call('/api/designs?subject=MODEL'),
@@ -2281,7 +2303,7 @@ kill_switch:
       const hasLife = !!(registry.lifecycle || registry.incident_register);
       const baseReg = hasLife ? Object.assign({}, registry, { lifecycle: undefined, incident_register: undefined, hallucination_constraint_declared: undefined, confidence_signal: undefined }) : null;
       const differs = JSON.stringify(declared) !== JSON.stringify(registry);
-      const [s, a, b, dc] = await Promise.allSettled([STAI.api.score(registry), STAI.api.assess('current', domain, registry, constraintNodeIds, designGraph), baseReg ? STAI.api.score(baseReg) : Promise.resolve(null), differs ? STAI.api.score(declared) : Promise.resolve(null)]);
+      const [s, a, b, dc] = await Promise.allSettled([STAI.api.score(registry), STAI.api.assess(M.designKey || 'current', domain, registry, constraintNodeIds, designGraph), baseReg ? STAI.api.score(baseReg) : Promise.resolve(null), differs ? STAI.api.score(declared) : Promise.resolve(null)]);
       if (REMOTE.want !== key) return; // a newer edit superseded this request
       REMOTE.key = key;
       REMOTE.declaredSame = !differs;
@@ -2304,7 +2326,7 @@ kill_switch:
     const { registry, constraintNodeIds, declared } = buildRegistry();
     const domain = M.domain;
     const designGraph = buildDesignGraph();
-    const key = JSON.stringify([registry, domain, constraintNodeIds, designGraph]);
+    const key = JSON.stringify([registry, domain, constraintNodeIds, designGraph, M.designKey || null]);   // the saved design's key: its reviews come back with the assessment
     if (key !== REMOTE.key && key !== REMOTE.want) scheduleRemote(key, JSON.parse(JSON.stringify(registry)), constraintNodeIds, domain, designGraph, JSON.parse(JSON.stringify(declared)));
     return { registry, constraintNodeIds, declaredScore: REMOTE.declaredSame ? REMOTE.score : REMOTE.declared, score: REMOTE.score, scoreError: REMOTE.scoreError, assessment: REMOTE.assessment, assessError: REMOTE.assessError, byNode: REMOTE.byNode, issues: validateGraph(), pending: key !== REMOTE.key, backendError: REMOTE.error };
   }
@@ -2334,9 +2356,8 @@ kill_switch:
   function validateGraph() {
     const issues = [], connected = new Set();
     M.edges.forEach((e) => { connected.add(e.source); connected.add(e.target); });
-    const should = ['ACTOR', 'AI_MODEL', 'CONSTRAINT', 'DATA_CATEGORY', 'CONSENT_RECORD', 'REGULATORY_REQ', 'LEGAL_BASIS', 'TRAINING_DATASET', 'DEPLOYMENT_ENV'];
+    const should = ['ACTOR', 'AI_MODEL', 'DATA_CATEGORY', 'CONSENT_RECORD', 'LEGAL_BASIS', 'TRAINING_DATASET', 'DEPLOYMENT_ENV'];   // a constraint or a regulatory requirement is matched by its code, so a missing line changes nothing
     const label = { ACTOR: 'Actor', AI_MODEL: 'AI Model', CONSTRAINT: 'Constraint', DATA_CATEGORY: 'Data Category', CONSENT_RECORD: 'Consent Record', REGULATORY_REQ: 'Regulatory Requirement', LEGAL_BASIS: 'Legal Basis', TRAINING_DATASET: 'Training Dataset', DEPLOYMENT_ENV: 'Deployment Environment' };
-    M.nodes.forEach((n) => { if (should.indexOf(n.kind) >= 0 && !n.parent && !connected.has(n.id)) issues.push({ severity: 'warning', message: `${label[n.kind]} node isn't connected to anything.`, nodeId: n.id }); });
     const models = M.nodes.filter((n) => n.kind === 'AI_MODEL');
     models.slice(1).forEach((n) => issues.push({ severity: 'warning', message: 'Multiple AI Model nodes on canvas — only the first feeds registry.deployment_context.', nodeId: n.id }));
     const bySub = {};
@@ -2429,12 +2450,217 @@ kill_switch:
   }
   const RS = { RED: 'bad', AMBER: 'warn', GREEN: 'ok' };
   const RS_LABEL = { RED: 'Red', AMBER: 'Amber', GREEN: 'Green' };
+  /* Where a finding comes from, so the reader can tell what is driving it: the formal model (the design's own structure), a regulation, or an organisation policy. */
+  const SRC = { formal: ['fm', 'Formal model design'], reg: ['reg', 'Regulation'], pol: ['pol', 'Organisation policy'] };
+  const srcBadge = (k, extra) => `<span class="src ${SRC[k][0]}">${SRC[k][1]}${extra ? ' \u00b7 ' + esc(extra) : ''}</span>`;
+  const verdictSource = (v) => (v.instrument === 'ORG_POLICY' ? 'pol' : 'reg');
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  function sourceSummary(ev, a) {
+    const vs = a.element_verdicts, cnt = (k, st) => vs.filter((v) => verdictSource(v) === k && v.status === st).length;
+    const fo = todoItems(ev).filter((x) => x.source === 'formal'), fe = fo.filter((x) => x.status === 'RED').length, fw = fo.length - fe;
+    const line = (k) => (vs.some((v) => verdictSource(v) === k) ? `<span>${cnt(k, 'RED')} not met</span><span>${cnt(k, 'AMBER')} unproven</span><span>${cnt(k, 'GREEN')} met</span>` : '<span>None apply</span>');
+    return `<div class="srcsum" aria-label="What is driving the result">
+      <div class="srcbox fm"><b>Formal model</b>${fo.length ? `<span>${plural(fe, 'error')}</span><span>${plural(fw, 'warning')}</span>` : '<span>Design is correct</span>'}</div>
+      <div class="srcbox reg"><b>Regulations</b>${line('reg')}</div>
+      <div class="srcbox pol"><b>Policies</b>${line('pol')}</div></div>`;
+  }
+  /* ----- What to fix: every open finding is one card: what is wrong, what to do, and a way to do it from here ----- */
+  const FX = { open: null, status: 'SATISFIED', evidence: '', confirm: false, err: null, busy: false };
+  const RV = { decision: 'APPROVED', note: '', err: null, busy: false };
+  const BLOCK_LABEL = { gate: 'Blocks the gate', compile: 'Blocks compile', score: 'Raises the PCS' };
+  const RANK = { GREEN: 0, AMBER: 1, RED: 2 };
+  const nodeExists = (id) => !!(id && M.nodes.find((n) => n.id === id));
+  const normTxt = (t) => String(t || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const constraintNode = (cid) => M.nodes.find((n) => n.kind === 'CONSTRAINT' && n.data.constraintId === cid);
+  const reqNode = (inst, clause) => M.nodes.find((n) => n.kind === 'REGULATORY_REQ' && normTxt(n.data.instrument) === normTxt(inst) && normTxt(n.data.clause) === normTxt(clause));
+  const fxNode = (f) => (!f ? null : f.type === 'constraint_evidence' ? constraintNode(f.constraint_id) : f.type === 'attestation' ? reqNode(f.instrument, f.clause) : null);
+  // The open items for the design on the canvas, de-duplicated: a constraint the formal model, a regulation and a policy all ask for is one card that says so.
+  function todoItems(ev) {
+    const a = ev.assessment, items = [], byKey = {};
+    const put = (it) => {
+      const prior = byKey[it.key];
+      if (!prior) { it.needs = it.needs || []; byKey[it.key] = it; items.push(it); return; }
+      prior.blocks = Array.from(new Set(prior.blocks.concat(it.blocks)));
+      (it.needs || []).forEach((n) => { if (prior.needs.indexOf(n) < 0) prior.needs.push(n); });
+      if (RANK[it.status] > RANK[prior.status]) prior.status = it.status;
+    };
+    ((a && a.formal_findings) || []).forEach((f) => {
+      const c = f.fix && f.fix.type === 'constraint_evidence';
+      put({ key: c ? 'c:' + f.fix.constraint_id : 'f:' + f.finding_id, source: 'formal', status: f.severity === 'error' ? 'RED' : 'AMBER', title: f.title, wrong: f.detail, why: f.why, blocks: f.blocks.slice(), fix: f.fix, nodeId: f.node_id || null, needs: [] });
+    });
+    ev.issues.forEach((i, k) => put({ key: 'i:' + k + i.message, source: 'formal', status: i.severity === 'error' ? 'RED' : 'AMBER', title: i.message, wrong: '', why: '', blocks: [], fix: null, nodeId: i.nodeId || null, needs: [] }));
+    ((a && a.element_verdicts) || []).filter((v) => v.status !== 'GREEN').forEach((v) => {
+      const f = v.fix, c = f && f.type === 'constraint_evidence', cite = v.citation || v.rule_id;
+      put({ key: c ? 'c:' + f.constraint_id : 'v:' + v.rule_id, source: verdictSource(v), status: v.status, title: c && f.constraint ? `${f.constraint_id} \u00b7 ${f.constraint.name}` : (v.title && cite.indexOf(v.title) < 0 ? `${cite} \u00b7 ${v.title}` : cite).replace(/^ORG_POLICY: /, 'Policy: '),
+        wrong: v.reason, why: v.requirement || '', blocks: ['compile'], fix: f, nodeId: v.node_id, needs: [cite] });
+    });
+    const rv = a && a.review;
+    if (rv && rv.required && !rv.approved) {
+      const last = rv.reviews[0];
+      put({ key: 'review', source: 'formal', status: rv.rejected ? 'RED' : 'AMBER', title: 'A person has to review this design', blocks: ['compile'], needs: [], nodeId: null,
+        wrong: rv.rejected ? `The latest review of this version rejected it: \u201c${last.note}\u201d (${last.reviewer}).`
+          : `The PCS is ${STAI.pyFixed(rv.pcs, 1)} (${rv.tier}) and the gate says it needs a human review before a contract is signed.${last && !last.current ? ` ${last.reviewer} reviewed an earlier version; the design has changed since, so that review no longer counts.` : ''}`,
+        why: 'A review belongs to one version of the design and lapses when the design changes. The reviewer must have sign-off permission and cannot be the model\u2019s trainer, validator, deployer or operator.',
+        fix: { type: 'review', instruction: can('signoff') ? 'Read the findings, then record your review.' : 'Ask a compliance reviewer to record the review; your role cannot sign off.' } });
+    }
+    const order = (it) => (it.key === 'review' ? 15 : (it.blocks.indexOf('gate') >= 0 ? 0 : it.blocks.indexOf('compile') >= 0 ? 1 : 2) * 10 + (2 - RANK[it.status]));
+    return items.sort((x, y) => order(x) - order(y));
+  }
+  // The newest review of the design on the canvas, so the person compiling sees who looked at it and whether it still counts.
+  function reviewLine(ev) {
+    const rv = ev.assessment && ev.assessment.review, last = rv && rv.reviews[0];
+    if (!rv || !last || !(rv.required || rv.approved)) return '';
+    const text = `${last.decision === 'APPROVED' ? 'Approved' : 'Rejected'} by ${esc(last.reviewer)} (${esc(last.role)}) on ${esc(when(last.at))}: “${esc(last.note)}”`;
+    return `<div class="note ${rv.approved ? 'good' : 'plain'}" style="font-size:13px"><strong>Human review</strong><span>${text}${last.current ? '' : ' That was an earlier version of the design; it no longer counts.'}</span></div>`;
+  }
+  function todoBanner(ev, items) {
+    const gate = ev.score && ev.score.pcs_result ? ev.score.pcs_result.gate : null;
+    const g = items.filter((x) => x.blocks.indexOf('gate') >= 0).length, c = items.filter((x) => x.blocks.indexOf('compile') >= 0).length;
+    const gateTxt = gate ? `<span class="pill ${GATE_CLS[gate]}" style="align-self:flex-start">${gate.replace('_', ' ')}</span>` : '<span class="cap">Scoring\u2026</span>';
+    return `<div class="fxbar" aria-label="What stands between this design and approval">
+      <div><b>PCS gate</b>${gateTxt}<span class="cap">${g ? plural(g, 'veto constraint') + ' still open' : 'No veto constraint is open'}</span></div>
+      <div><b>Compile contract</b><span class="pill ${c ? 'bad' : 'ok'}" style="align-self:flex-start">${c ? 'Refused' : 'Ready'}</span><span class="cap">${c ? plural(c, 'thing') + ' to fix first' : 'Everything it checks is met'}</span></div></div>${reviewLine(ev)}`;
+  }
+  const ev0 = () => evaluate();
+  // The same test the server applies: words that stand in for a record ("test", "tbd", "done") are not evidence.
+  const isPlaceholder = (t) => {
+    const x = String(t || '').toLowerCase().split(/\s+/).filter(Boolean).join(' ').replace(/^[ .\-_!?]+|[ .\-_!?]+$/g, '');
+    if (['test', 'tests', 'testing', 'tbd', 'todo', 'n/a', 'na', 'none', 'nil', 'ok', 'okay', 'yes', 'done', 'x', 'xx', 'xxx', 'asdf', 'qwerty', 'lorem ipsum', 'placeholder', 'evidence', 'evidence here', '...'].indexOf(x) >= 0) return true;
+    const chars = x.split('').filter((c) => /[a-z0-9]/i.test(c));
+    return chars.length < 8 || new Set(chars).size < 3;
+  };
+  const when = (t) => String(t || '').slice(0, 16).replace('T', ' ');
+  function reviewPanel(ev) {
+    const rv = ev.assessment && ev.assessment.review;
+    if (!rv) return '';
+    const past = rv.reviews.length ? `<div class="stack" style="gap:4px"><span class="cap"><b>Reviews of this design</b></span>${rv.reviews.map((r) => `<div class="cap"><span class="pill ${r.decision === 'APPROVED' ? 'ok' : 'bad'}">${r.decision === 'APPROVED' ? 'Approved' : 'Rejected'}</span> ${esc(r.reviewer)} (${esc(r.role)}) \u00b7 ${esc(when(r.at))} \u00b7 PCS ${STAI.pyFixed(r.pcs, 1)} \u00b7 ${r.current ? 'this version' : 'an earlier version'}<br>${esc(r.note)}</div>`).join('')}</div>` : '';
+    if (!can('signoff')) return past;
+    const first = todoItems(ev).filter((x) => x.key !== 'review' && x.blocks.indexOf('compile') >= 0).length;
+    if (first) return `<div class="note plain" style="font-size:13px"><strong>Not ready for review</strong><span>A design is reviewed once it is correct. ${plural(first, 'thing')} to fix first, above.</span></div>${past}`;
+    if (!M.designKey) return `<span class="cap">The design is saved as you work; record the review once it shows as saved.</span>${past}`;
+    return `<div class="fxform"><div class="fld"><label>Your decision</label><select class="inp" data-chg="rvField" data-arg="decision">${opt('APPROVED', 'Approve this version', RV.decision)}${opt('REJECTED', 'Reject this version', RV.decision)}</select></div>
+      <div class="fld"><label>What you looked at, and why</label><textarea class="inp" data-chg="rvField" data-arg="note" placeholder="For example: read the evidence for each veto constraint and the model card; the oversight procedure matches what the team does.">${esc(RV.note)}</textarea></div>
+      ${RV.err ? `<div class="note alert" role="alert">${esc(RV.err)}</div>` : ''}
+      <div class="fxact"><button class="btn btn-s" data-act="rvSave"${RV.busy ? ' disabled' : ''}>${RV.busy ? 'Recording\u2026' : 'Record my review'}</button><span class="cap">It is recorded under your name and cannot be edited.</span></div></div>${past}`;
+  }
+  Object.assign(C, { rvField: (v, k) => { RV[k] = v; RV.err = null; } });
+  Object.assign(H, {
+    rvSave: async () => {
+      if (RV.busy) return;
+      if (String(RV.note).trim().length < 5) { RV.err = 'Say what you looked at and why.'; return; }
+      if (!M.designKey) { RV.err = 'Save the design first.'; return; }
+      const ev = evaluate();
+      RV.busy = true; RV.err = null; render(true);
+      try {
+        await STAI.api.recordReview(M.designKey, { domain: M.domain, registry: ev.registry, constraint_node_ids: ev.constraintNodeIds, design_graph: buildDesignGraph(), decision: RV.decision, note: String(RV.note).trim() });
+        RV.note = ''; REMOTE.key = null; REMOTE.want = null;
+      } catch (e) { RV.err = e.message; }
+      RV.busy = false; render(true);
+    }
+  });
+  function fxForm(it) {
+    const f = it.fix, node = fxNode(f);
+    const sel = ['SATISFIED', 'UNMET', 'NOT_YET_DETERMINED'].map((x) => opt(x, CSTATUS_LABEL[x], FX.status)).join('');
+    return `<div class="fxform"><div class="fld"><label>Status</label><select class="inp" data-chg="fxField" data-arg="status">${sel}</select></div>
+      <div class="fld"><label>Evidence: where it is recorded${node ? '' : ' (this adds the box to the design)'}</label><textarea class="inp" data-chg="fxField" data-arg="evidence" placeholder="For example: DPIA-2026-014, approved 3 March, held in the governance folder">${esc(FX.evidence)}</textarea></div>
+      <label class="cap" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" data-chg="fxField" data-arg="confirm" ${FX.confirm ? 'checked' : ''}><span>I confirm this evidence is accurate and on record. The platform cannot check it for you.</span></label>
+      ${FX.err ? `<div class="note alert" role="alert">${esc(FX.err)}</div>` : ''}
+      <div class="fxact"><button class="btn2 btn-s" data-act="fxDraft" data-arg="${esc(it.key)}"${FX.busy ? ' disabled' : ''}>${FX.busy ? 'Drafting\u2026' : 'Suggest wording'}</button><span class="cap">The assistant drafts the wording. You supply the real references.</span></div>
+      <div class="fxact"><button class="btn btn-s" data-act="fxSave" data-arg="${esc(it.key)}">Save</button><button class="btn2 btn-s" data-act="fxOpen" data-arg="${esc(it.key)}">Cancel</button></div></div>`;
+  }
+  function todoCard(it) {
+    const f = it.fix, open = FX.open === it.key, info = f && f.constraint;
+    const target = nodeExists(it.nodeId) ? it.nodeId : ((fxNode(f) || {}).id || (f && f.flagged && f.flagged.find(nodeExists)) || null);
+    const KIND = { ACTOR: 'actor', AI_MODEL: 'AI model', TRAINING_DATASET: 'training dataset', DEPLOYMENT_ENV: 'deployment environment', LEGAL_BASIS: 'legal basis', CONSTRAINT: 'constraint', CONSENT_RECORD: 'consent record', REGULATORY_REQ: 'regulatory requirement' };
+    const act = !f ? '' : (f.type === 'constraint_evidence' || f.type === 'attestation')
+      ? `<button class="btn btn-s" data-act="fxOpen" data-arg="${esc(it.key)}">${open ? 'Close' : 'Record evidence'}</button>`
+      : f.type === 'connect' ? `<button class="btn btn-s" data-act="fxConnect" data-arg="${esc(it.key)}">Connect them</button>`
+      : f.type === 'unlink' ? `<button class="btn btn-s" data-act="fxUnlink" data-arg="${esc(it.key)}">Remove the line</button>`
+      : f.type === 'add_element' ? `<button class="btn btn-s" data-act="fxAdd" data-arg="${esc(it.key)}">Add ${esc(f.label || (f.kind === 'ACTOR' && f.data && f.data.subtype ? f.data.subtype.toLowerCase() : (KIND[f.kind] || f.kind.toLowerCase())))}</button>` : '';
+    const about = info ? `<details><summary>About this constraint</summary><p>${esc(info.description)}</p><p><b>It requires:</b> ${esc(info.requirement)}</p><p><b>Imposed by:</b> ${esc(info.imposed_by)} \u00b7 <b>Mitigates:</b> ${esc(info.because)}</p>${info.standard_refs.length ? `<p><b>Standards:</b> ${info.standard_refs.map(esc).join('; ')}</p>` : ''}</details>` : '';
+    return `<div class="fxcard ${it.status}"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><span class="fxtitle">${esc(it.title)}</span><span class="pill ${RS[it.status]}">${RS_LABEL[it.status]}</span></div>
+      ${it.blocks.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap">${it.blocks.map((b) => `<span class="pill muted">${BLOCK_LABEL[b]}</span>`).join('')}</div>` : ''}
+      ${it.wrong ? `<div class="fxrow"><b>What is wrong.</b> ${esc(it.wrong)}</div>` : ''}
+      ${f && f.instruction ? `<div class="fxrow"><b>What to do.</b> ${esc(f.instruction)}</div>` : ''}
+      ${it.why && it.source === 'formal' ? `<div class="fxrow cap">${esc(it.why)}</div>` : ''}
+      ${(() => { const own = it.title.replace(/^Policy: /, ''), more = it.needs.filter((n) => it.title.indexOf(n) < 0 && n.indexOf(own) < 0); return more.length ? `<div class="fxrow cap">Also asked for by: ${more.map(esc).join(', ')}</div>` : ''; })()}
+      ${about}
+      ${f && f.type === 'review' ? reviewPanel(ev0()) : ''}
+      <div class="fxact">${act}${target ? `<button class="btn2 btn-s" data-act="mFocus" data-arg="${target}">Show</button>` : ''}</div>
+      ${open ? fxForm(it) : ''}</div>`;
+  }
+  function metRows(list) {
+    return list.map((v) => `<div class="arow"><span class="stack" style="gap:2px;min-width:0"><span style="font-weight:500">${esc(v.citation || v.rule_id)}</span><span class="cap">${esc(v.reason)}</span></span><span class="pill ok">Green</span></div>`).join('');
+  }
+  function riskGroups(ev, a) {
+    const items = todoItems(ev), vs = a.element_verdicts;
+    const grp = (k, note, body) => `<div class="srcgrp ${SRC[k][0]}"><div class="srchead">${srcBadge(k)}<span class="cap">${note}</span></div>${body}</div>`;
+    const part = (k, none) => {
+      const open = items.filter((x) => x.source === k), met = vs.filter((v) => v.status === 'GREEN' && verdictSource(v) === k);
+      return (open.length ? open.map(todoCard).join('') : (met.length ? '' : `<span class="cap">${none}</span>`))
+        + (met.length ? `<details><summary class="cap">${plural(met.length, 'rule')} met</summary>${metRows(met)}</details>` : '');
+    };
+    return grp('formal', 'Is the design itself correct against the Secure Tropos model?', part('formal', 'The design is correct against the formal model.'))
+      + grp('reg', 'The regulations your organisation selected.', part('reg', 'No regulation rules apply in this assessment domain.'))
+      + grp('pol', 'Your organisation\u2019s own policies, set in the main menu under Organisation policies.', part('pol', 'No organisation policy applies to this design.'));
+  }
+  Object.assign(C, { fxField: (v, k) => { FX[k] = v; FX.err = null; } });
+  Object.assign(H, {
+    fxOpen: (key) => {
+      if (FX.open === key) { FX.open = null; return; }
+      const it = todoItems(evaluate()).find((x) => x.key === key), n = it && fxNode(it.fix);
+      FX.open = key; FX.status = 'SATISFIED'; FX.evidence = n && n.data.evidence ? n.data.evidence : ''; FX.confirm = false; FX.err = null;
+    },
+    fxDraft: async (key) => {
+      const it = todoItems(evaluate()).find((x) => x.key === key), f = it && it.fix;
+      if (!f || FX.busy) return;
+      FX.busy = true; FX.err = null; render(true);
+      try {
+        const r = await STAI.api.draftEvidence({ kind: f.type === 'attestation' ? 'attestation' : 'constraint', constraint_id: f.constraint_id, instrument: f.instrument, clause: f.clause, model_name: M.name });
+        FX.evidence = r.note; FX.confirm = false;
+      } catch (e) { FX.err = 'The assistant could not draft this: ' + e.message; }
+      FX.busy = false; render(true);
+    },
+    fxSave: (key) => {
+      const it = todoItems(evaluate()).find((x) => x.key === key);
+      if (!it || !it.fix) return;
+      const text = String(FX.evidence || '').trim();
+      if (FX.status === 'SATISFIED' && !text) { FX.err = 'Say where the evidence is recorded before marking this Satisfied.'; return; }
+      if (FX.status === 'SATISFIED' && /\[[^\]]+\]/.test(text)) { FX.err = 'Replace each [bracketed placeholder] with the real reference first.'; return; }
+      if (FX.status === 'SATISFIED' && isPlaceholder(text)) { FX.err = 'That is a placeholder, not a record. Say where the evidence is kept (a document, a decision, a link).'; return; }
+      if (FX.status === 'SATISFIED' && !FX.confirm) { FX.err = 'Tick the box to confirm the evidence is accurate.'; return; }
+      let n = fxNode(it.fix);
+      if (!n) n = it.fix.type === 'attestation' ? addNode('REGULATORY_REQ', { instrument: it.fix.instrument, clause: it.fix.clause }) : addNode('CONSTRAINT', { constraintId: it.fix.constraint_id });
+      n.data.status = FX.status; n.data.evidence = text;
+      FX.open = null; persist();
+    },
+    fxUnlink: (key) => {
+      const it = todoItems(evaluate()).find((x) => x.key === key);
+      if (!it || !it.fix || it.fix.type !== 'unlink') return;
+      M.edges = M.edges.filter((e) => !(e.type === 'ON_DEPENDENCY' && ((e.source === it.fix.a && e.target === it.fix.b) || (e.source === it.fix.b && e.target === it.fix.a)))); persist();
+    },
+    fxConnect: (key) => {
+      const it = todoItems(evaluate()).find((x) => x.key === key);
+      if (!it || !it.fix || it.fix.type !== 'connect') return;
+      addEdge(it.fix.a, it.fix.b); persist();
+    },
+    fxAdd: (key) => {
+      const it = todoItems(evaluate()).find((x) => x.key === key);
+      if (!it || !it.fix || it.fix.type !== 'add_element') return;
+      const n = addNode(it.fix.kind, it.fix.data || {});
+      persist();
+      H.mFocus(n.id);
+    }
+  });
+
   function riskPanel(ev) {
     const a = ev.assessment, dom = STAI.DOMAINS[M.domain] || { name: M.domain, description: '' };
     if (!a) return `<h2>Risk assessment</h2>` + (ev.assessError ? `<div class="note alert"><strong>Assessment rejected</strong><span style="white-space:pre-wrap">${esc(ev.assessError)}</span></div><span class="cap">Fix the issue above (see the Issues tab) and the assessment recomputes.</span>` : `<span class="cap">${ev.pending ? 'Assessing the design\u2026' : 'Waiting for the backend.'}</span>`);
     return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2>Risk assessment</h2><span class="pill ${RS[a.overall_status]}">${RS_LABEL[a.overall_status]}</span></div><span class="cap">${esc(dom.name)}: ${esc(dom.description)}</span>
+      ${todoBanner(ev, todoItems(ev))}
+      ${sourceSummary(ev, a)}
       <div style="display:grid;gap:8px">${a.score_breakdown.map((b) => `<div class="box"><span style="font-weight:500">${esc(b.category.replace('_', ' '))}</span><span class="cap">${b.passed} passed \u00b7 ${b.failed} failed \u00b7 ${b.unknown} unknown</span><span class="pill ${RS[b.status]}">${RS_LABEL[b.status]}</span></div>`).join('')}</div>
-      <div>${a.element_verdicts.map((v) => { const target = M.nodes.find((n) => n.id === v.node_id); return `<div class="arow"><span class="stack" style="gap:2px;min-width:0"><span style="font-weight:500">${esc(v.citation || v.rule_id)}</span><span class="cap">${esc(v.reason)}</span></span><span style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><span class="pill ${RS[v.status]}">${RS_LABEL[v.status]}</span>${target ? `<button class="btn2 btn-s" data-act="mFocus" data-arg="${target.id}">Show</button>` : ''}</span></div>`; }).join('')}</div>
+      ${riskGroups(ev, a)}
       <span class="cap">A rule passes when its security constraint, or the Regulatory requirement for its clause, is Satisfied with evidence, or when the design meets its structural check. Undetermined required rules count as red.</span>`;
   }
   const TIER_CLS = { LOW: 'ok', MODERATE: 'ok', HIGH: 'warn', CRITICAL: 'bad' };
@@ -2455,8 +2681,11 @@ kill_switch:
       <div class="note plain" style="font-size:12.5px"><strong>What reaches the engine from this canvas</strong><span>The AI model's type, criticality, data sensitivity and hosting, plus constraint statuses for the gate. What is true of the running model (monitoring, approvals, incidents, retirement) is declared on the Runtime, Governance, Incidents and Decommissioning pages and feeds the same score.</span></div>`;
   }
   function issuesPanel(ev) {
-    if (!ev.issues.length) return `<h2>Issues</h2><div class="note good">No structural issues found.</div>`;
-    return `<h2>Issues</h2><div>${ev.issues.map((i) => `<div class="arow"><span class="stack" style="gap:2px"><span class="pill ${i.severity === 'error' ? 'bad' : 'warn'}" style="align-self:flex-start">${i.severity === 'error' ? 'Error' : 'Warning'}</span><span style="font-size:14px">${esc(i.message)}</span></span>${i.nodeId ? `<button class="btn2 btn-s" data-act="mFocus" data-arg="${i.nodeId}">Show</button>` : ''}</div>`).join('')}</div>`;
+    const head = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2>Issues</h2>${srcBadge('formal')}</div><span class="cap">Problems with the design itself, found by checking it against the Secure Tropos model: who holds each role, who checks whom, the veto constraints, the legal basis. Rules from regulations and organisation policies are on the Risk tab.</span>`;
+    const rejected = [['Score rejected', ev.scoreError], ['Assessment rejected', ev.assessError]].filter((r) => r[1]).map((r) => `<div class="note alert"><strong>${r[0]}</strong><span style="white-space:pre-wrap">${esc(r[1])}</span></div>`).join('');
+    const open = todoItems(ev).filter((x) => x.source === 'formal');
+    if (!open.length) return head + rejected + `<div class="note good">${ev.assessment ? 'No issues found. The design is correct against the formal model.' : 'Waiting for the design check.'}</div>`;
+    return head + rejected + open.map(todoCard).join('');
   }
 
   /* ----- palette ----- */
@@ -3197,17 +3426,17 @@ kill_switch:
     const ev = evaluate();
     const p = ev.score && ev.score.pcs_result;
     const badge = ev.scoreError ? `<span class="pill bad">Score rejected</span>` : (p ? `<button class="m-badge" data-act="mPanel" data-arg="pcs" title="Open the PCS breakdown"><span class="mono">PCS ${STAI.pyFixed(p.pcs_final, 1)}</span><span class="pill ${TIER_CLS[p.tier]}">${p.tier}</span><span class="pill ${GATE_CLS[p.gate]}">${p.gate.replace('_', ' ')}</span></button>` : `<span class="pill muted">${ev.pending ? 'Scoring\u2026' : 'No score'}</span>`);
-    const nIssues = ev.issues.length, nRisk = ev.assessment ? ev.assessment.element_verdicts.filter((v) => v.status !== 'GREEN').length : 0;
-    const tabs = [['inspector', 'Inspector'], ['risk', 'Risk' + (nRisk ? ` (${nRisk})` : '')], ['pcs', 'PCS'], ['issues', 'Issues' + (nIssues ? ` (${nIssues})` : '')]];
-    let panel = M.panel === 'risk' ? riskPanel(ev) : M.panel === 'pcs' ? pcsPanel(ev) : M.panel === 'issues' ? issuesPanel(ev) : inspector();
+    const todo = todoItems(ev), nIssues = todo.filter((x) => x.source === 'formal').length, nRisk = todo.length;
+    const tabs = [['inspector', 'Inspector'], ['risk', 'Risk' + (nRisk ? ` (${nRisk})` : '')], ['pcs', 'PCS'], ['issues', 'Issues' + (nIssues ? ` (${nIssues})` : '')], ['assistant', 'Assistant']];
+    let panel = M.panel === 'risk' ? riskPanel(ev) : M.panel === 'pcs' ? pcsPanel(ev) : M.panel === 'issues' ? issuesPanel(ev) : M.panel === 'assistant' ? assistantPanel() : inspector();
     const cm = M.compileMsg;
     const msg = cm ? `<div class="note ${cm.tone}" role="status" style="flex-direction:row;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><span class="stack"><strong>${esc(cm.title)}</strong><span style="font-size:13px">${esc(cm.text)}</span></span>${cm.action === 'contract' ? `<a class="btn2 btn-s" href="#/model/contracts">View contract</a>` : (cm.action === 'risk' ? `<button class="btn2 btn-s" data-act="mPanel" data-arg="risk">Open risk assessment</button>` : '')}</div>` : '';
     return `<header class="hdr" style="align-items:center"><div><span class="cap">AI Models \u00b7 Model designer</span><input class="m-name" aria-label="Deployment name" value="${esc(M.name)}" data-chg="mName">${saveStateHtml()}</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><div class="fld" style="gap:2px"><label for="m-design" style="font-size:12px">Saved design</label><select id="m-design" class="inp" style="min-height:38px;max-width:260px" data-chg="mOpen">${M.designKey ? '' : '<option value="" selected>(new, not saved yet)</option>'}${M.designs.map((d) => opt(d.design_key, `${d.name} \u00b7 ${d.node_count} elements`, M.designKey)).join('')}</select></div><div class="fld" style="gap:2px"><label for="m-domain" style="font-size:12px">Assessment domain</label><select id="m-domain" class="inp" style="min-height:38px" data-chg="mDomain">${Object.values(STAI.DOMAINS).map((d) => opt(d.domain_id, d.name, M.domain)).join('')}</select></div>${badge}</div></header>
-      <div class="m-toolbar"><button class="btn2 btn-s" data-act="mNew">New</button>${M.designKey ? '<button class="btn2 btn-s" data-act="mDeleteDesign">Delete design</button>' : ''}${mOrgSelect()}<button class="btn2 btn-s" data-act="mExample">Load example</button><button class="btn2 btn-s" data-act="mImportOpen">Import JSON</button><button class="btn2 btn-s" data-act="mChatOpen">Assistant</button><button class="btn2 btn-s" data-act="mPanel" data-arg="issues">Validate${nIssues ? ` <span class="pill ${ev.issues.some((i) => i.severity === 'error') ? 'bad' : 'warn'}" style="margin-left:6px">${nIssues}</span>` : ''}</button><span class="m-zoom" role="group" aria-label="Zoom"><button class="btn2 btn-s" data-act="mZoom" data-arg="out" aria-label="Zoom out">−</button><span class="mono">${Math.round((M.zoom || 1) * 100)}%</span><button class="btn2 btn-s" data-act="mZoom" data-arg="in" aria-label="Zoom in">+</button><button class="btn2 btn-s" data-act="mZoom" data-arg="fit">Fit</button><button class="btn2 btn-s" data-act="vwOpen" data-arg="model" title="Open the architecture in a large view">Enlarge</button></span><span style="flex:1"></span><button class="btn btn-s" data-act="mCompile">Compile contract</button></div>
+      <div class="m-toolbar"><button class="btn2 btn-s" data-act="mNew">New</button>${M.designKey ? '<button class="btn2 btn-s" data-act="mDeleteDesign">Delete design</button>' : ''}${mOrgSelect()}<button class="btn2 btn-s" data-act="mExample">Load example</button><button class="btn2 btn-s" data-act="mImportOpen">Import JSON</button><button class="btn2 btn-s" data-act="mChatOpen">Assistant</button><button class="btn2 btn-s" data-act="mPanel" data-arg="issues">Validate${nIssues ? ` <span class="pill ${todo.some((x) => x.source === 'formal' && x.status === 'RED') ? 'bad' : 'warn'}" style="margin-left:6px">${nIssues}</span>` : ''}</button><span class="m-zoom" role="group" aria-label="Zoom"><button class="btn2 btn-s" data-act="mZoom" data-arg="out" aria-label="Zoom out">−</button><span class="mono">${Math.round((M.zoom || 1) * 100)}%</span><button class="btn2 btn-s" data-act="mZoom" data-arg="in" aria-label="Zoom in">+</button><button class="btn2 btn-s" data-act="mZoom" data-arg="fit">Fit</button><button class="btn2 btn-s" data-act="vwOpen" data-arg="model" title="Open the architecture in a large view">Enlarge</button></span><span style="flex:1"></span><button class="btn btn-s" data-act="mCompile">Compile contract</button></div>
       ${mOrgBanner()}${backendBanner(ev)}${msg}
       <div class="m-body"><aside class="card m-palette" aria-label="Palette">${palette()}</aside>${canvasHtml(ev)}<section class="card m-side">${segTabs(tabs, M.panel, 'mPanel')}${panel}</section></div>
-      ${M.chatOpen ? chatDrawer() : ''}${M.importOpen ? importDrawer() : ''}`;
+      ${M.importOpen ? importDrawer() : ''}`;
   }
   function modelContracts() {
     const v = M.contracts.find((c) => c.contract_id === M.viewContract);
@@ -3437,8 +3666,9 @@ kill_switch:
       ${r.connects.length > 1 ? `<div><button class="btn btn-s" data-act="asConnAll">Draw all ${r.connects.length} missing connections</button></div>` : ''}</div>` : '<div class="note plain" style="font-size:13px"><strong>The canvas is empty</strong><span>Add the model, the people who train, validate and deploy it, and its data. The review starts as soon as there is something to review.</span></div>';
     return `<div class="stack" style="gap:12px"><div><h3 style="margin:0">Design review</h3><span class="cap">Checked against the formal language and the scoring engine, not generated: it updates as you edit. Constraints are never marked satisfied for you.</span></div>${head}${blocking}${structure}</div>`;
   }
-  function chatDrawer() {
-    return `<div class="m-drawer" role="dialog" aria-label="Modelling assistant"><div class="hdr" style="align-items:center"><div><h2>Modelling assistant</h2><span class="cap">Reviews the design first; below it, a local Ollama model can propose nodes from a description (a reply can take a while).</span></div><button class="btn2 btn-s" data-act="mChatClose">Close</button></div>
+  /* The modelling assistant lives in the side window with Inspector, Risk, PCS and Issues, so a reviewer finds, fixes and asks without leaving the design. */
+  function assistantPanel() {
+    return `<div style="display:flex;flex-direction:column;gap:12px"><div><h2>Modelling assistant</h2><span class="cap">Reviews the design first; below it, a local Ollama model can propose nodes from a description (a reply can take a while).</span></div>
       ${assistReview()}<hr style="border:0;border-top:1px solid var(--ln-edf0f3);width:100%"><strong style="font-size:13px">Describe it and let the assistant propose nodes</strong>
       <div class="m-chatlog">${M.chatLog.length || M.chatBusy ? M.chatLog.map((m) => `<div class="m-msg ${m.who}${m.error ? ' err' : ''}">${esc(m.text)}</div>`).join('') + (M.chatBusy ? '<div class="m-msg bot">Thinking\u2026</div>' : '') : '<span class="cap">Describe your organisation and deployment, or try an example.</span>'}</div>
       <div class="stack" style="gap:6px">${CHAT_SAMPLES.map((t, i) => `<button class="chip" style="text-align:left;height:auto;padding:8px 12px" data-act="mChatSample" data-arg="${i}">${esc(t.slice(0, 92))}\u2026</button>`).join('')}</div>
@@ -3540,7 +3770,7 @@ kill_switch:
     mRetry: () => { REMOTE.key = null; REMOTE.want = null; REMOTE.error = null; },
     mRetryBoot: () => { boot(); },
     mDownload: (id) => { const c = M.contracts.find((x) => x.contract_id === id); if (!c) return; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(c, null, 2)], { type: 'application/json' })); a.download = `contract-${c.contract_id}.json`; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); },
-    mChatOpen: () => { M.chatOpen = true; M.importOpen = false; }, mChatClose: () => { M.chatOpen = false; },
+    mChatOpen: () => { M.panel = 'assistant'; M.importOpen = false; },
     asSel: (id) => { M.chatOpen = false; M.sel = { type: 'node', id }; M.panel = 'inspector'; setTimeout(() => { const el = document.querySelector(`[data-node="${id}"]`); if (el) el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' }); }, 60); },
     asGo: (page) => { M.chatOpen = false; location.hash = '#/model' + (page === 'overview' ? '/overview' : '/' + page); },
     asPlace: (arg) => { const [a, d] = arg.split('|'), n = M.nodes.find((x) => x.id === a), dep = M.nodes.find((x) => x.id === d); if (!n || !dep) return; n.data.departmentId = dep.id; n.parent = dep.id; const k = M.nodes.filter((x) => x.parent === dep.id && x !== n).length; n.x = dep.x + 35; n.y = dep.y + 40 + k * 70; dep.h = Math.max(dep.h || 200, 60 + (k + 1) * 70); persist(); },
@@ -3684,7 +3914,7 @@ kill_switch:
     } else if (d.mode === 'resize') { M.nodes.forEach((n) => { if (n.kind !== 'DEPARTMENT') settleParent(n); }); persist(); render(true); }
   });
   document.addEventListener('keydown', (e) => {
-    if (route() === 'model' && e.key === 'Escape' && (M.chatOpen || M.importOpen)) { M.chatOpen = false; M.importOpen = false; render(true); return; }
+    if (route() === 'model' && e.key === 'Escape' && M.importOpen) { M.importOpen = false; render(true); return; }
     if (route() !== 'model' || !M.sel) return;
     if ((e.key === 'Delete' || e.key === 'Backspace') && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { e.preventDefault(); H.mDelete(); render(true); }
     if (e.key === 'Enter' && document.activeElement && document.activeElement.dataset.node) { M.sel = { type: 'node', id: document.activeElement.dataset.node }; M.panel = 'inspector'; render(true); }

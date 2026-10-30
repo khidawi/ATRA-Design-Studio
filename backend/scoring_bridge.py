@@ -8,7 +8,7 @@ calls the existing rule engine unchanged, returns PCSResultBlock.
 from datetime import datetime, timezone
 from typing import List
 
-from schema import RegistryBlock, PCSResultBlock, PillarVector
+from schema import RegistryBlock, PCSResultBlock, PillarVector, is_placeholder_evidence
 
 # -- framework imports (copied into backend/framework/) ----------------------
 import sys, os
@@ -124,6 +124,31 @@ def _apply_lifecycle(rs: RegistryState, rb: RegistryBlock) -> None:
     rs.incident_register = reg
 
 
+# A security constraint declared Satisfied (with evidence) on the canvas and the fact the scoring engine reads are the same thing said twice. The engine scores from the
+# flags; the canvas holds the declaration. Without this link a design could have every constraint Satisfied and still be scored as if none were.
+_CONSTRAINT_FACTS = {
+    "SC-DPIA-1":   ("dpia_approved",),
+    "SC-HITL-1":   ("hitl_formally_specified",),
+    "SC-CHALL-1":  ("right_to_challenge_documented",),
+    "SC-LIAB-1":   ("liability_boundary_declared",),
+    "SC-HALLU-1":  ("hallucination_constraint_declared", "policy_hallucination_acknowledged"),
+    "SC-MAP-1":    ("output_validation_gate_configured",),   # the engine also needs the fairness metric named (Lifecycle): that is a choice, not something to infer
+    "SC-TRAIN-1":  ("operator_training_complete",),
+    "SC-MC-1":     ("model_card_approved",),
+}
+
+
+def _apply_declared_constraints(rs: RegistryState, rb: RegistryBlock) -> None:
+    """Satisfied-with-evidence constraints set the fact they stand for. A value stated explicitly in the lifecycle facts is left as stated."""
+    for cid, facts in _CONSTRAINT_FACTS.items():
+        decl = rb.governance_state.constraints_declared.get(cid)
+        if decl is None or decl.status.value != "SATISFIED" or is_placeholder_evidence(decl.evidence):
+            continue
+        for name in facts:
+            if getattr(rb.lifecycle, name, None) is None:
+                setattr(rs, name, True)
+
+
 def registry_block_to_state(rb: RegistryBlock) -> RegistryState:
     """
     Map a DesignStudio RegistryBlock → the existing RegistryState dataclass.
@@ -185,6 +210,7 @@ def registry_block_to_state(rb: RegistryBlock) -> RegistryState:
     )
 
     _apply_lifecycle(rs, rb)
+    _apply_declared_constraints(rs, rb)
 
     # Post-init fields that RegistryState sets in __post_init__ —
     # we only override if the caller explicitly passed something.
@@ -212,7 +238,7 @@ def score_registry(rb: RegistryBlock) -> tuple[PCSResultBlock, list[str]]:
             "SC-DPIA-1", "SC-HITL-1", "SC-HALLU-1",
             "SC-MAP-1", "SC-CHALL-1", "SC-LIAB-1",
         }
-        and decl.status.value != "SATISFIED"
+        and (decl.status.value != "SATISFIED" or is_placeholder_evidence(decl.evidence))
     ]
 
     # Gate override — if any veto constraint unmet, gate is always BLOCKED

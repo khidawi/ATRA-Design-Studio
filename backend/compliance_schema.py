@@ -53,8 +53,56 @@ class ElementVerdict(BaseModel):
     reason:   str           = ""
     citation: Optional[str] = None   # e.g. "GDPR Art. 35"
     rule_id:  Optional[str] = None   # RegulationRule.rule_id, when sourced from a domain rule
+    # Where the rule comes from, so a reader can tell a regulation from an organisation policy (instrument "ORG_POLICY").
+    instrument: Optional[str] = None
+    check_type: Optional[str] = None
+    # Explanation for the studio (never signed, see UNSIGNED_VERDICT_FIELDS): what the rule asks for, and the step that would fix it.
+    title:       Optional[str] = None
+    requirement: Optional[str] = None
+    fix:         Optional[Dict[str, Any]] = None
     # Every element a GRAPH rule flagged (node_id is the first); lets a studio ring them all.
     flagged_node_ids: List[str] = Field(default_factory=list)
+
+
+# Added to a verdict after contracts were first signed, so a stored contract does not carry them. They explain a finding to the reader and are not part of what
+# a contract attests, so they are left out of the hashed payload: signing and verifying a contract gives the same hash with or without them.
+UNSIGNED_VERDICT_FIELDS = ("instrument", "check_type", "title", "requirement", "fix")
+
+
+class ReviewOut(BaseModel):
+    decision: Literal["APPROVED", "REJECTED"]
+    note:     str
+    reviewer: str
+    role:     str
+    at:       datetime
+    pcs:      float
+    tier:     str
+    gate:     str
+    current:  bool                   # made of this very version of the design (a change to the design makes it lapse)
+
+
+class ReviewState(BaseModel):
+    """Where a design stands on the human review the gate may ask for. Computed per request, never signed."""
+    required:    bool                # the gate says REQUIRES_REVIEW
+    gate:        str
+    pcs:         float
+    tier:        str
+    fingerprint: str
+    approved:    bool = False        # the newest review of this version approves it
+    rejected:    bool = False
+    reviews:     List[ReviewOut] = Field(default_factory=list)
+
+
+class Finding(BaseModel):
+    """One thing wrong with the design itself, found by checking it against the Secure Tropos model (not a regulation or a policy)."""
+    finding_id: str
+    severity:   Literal["error", "warning"]
+    title:      str
+    detail:     str                      # what is wrong, in plain words
+    why:        str = ""                 # why it matters
+    blocks:     List[str] = Field(default_factory=list)   # "gate" (the PCS gate) and/or "compile"
+    node_id:    Optional[str] = None     # the element it is about, when there is one
+    fix:        Optional[Dict[str, Any]] = None
 
 
 class ScoreBreakdownEntry(BaseModel):
@@ -74,6 +122,8 @@ class DesignRiskAssessment(BaseModel):
     score_breakdown: List[ScoreBreakdownEntry] = Field(default_factory=list)
     element_verdicts: List[ElementVerdict]     = Field(default_factory=list)
     assessed_at:     Optional[datetime]        = None
+    formal_findings: List[Finding]             = Field(default_factory=list)   # never signed (see canonical_payload)
+    review:          Optional[ReviewState]     = None                           # never signed
 
 
 class RuntimeLiveScore(BaseModel):
@@ -256,7 +306,14 @@ class CompiledContract(BaseModel):
 
     def canonical_payload(self) -> Dict[str, Any]:
         """The exact payload that gets hashed into contract_hash."""
-        return self.model_dump(mode="json", exclude={"contract_hash"})
+        payload = self.model_dump(mode="json", exclude={"contract_hash"})
+        assessment = payload.get("risk_assessment") or {}
+        assessment.pop("formal_findings", None)
+        assessment.pop("review", None)
+        for verdict in assessment.get("element_verdicts") or []:
+            for name in UNSIGNED_VERDICT_FIELDS:
+                verdict.pop(name, None)
+        return payload
 
 
 def compute_contract_hash(contract: CompiledContract) -> str:
@@ -274,4 +331,11 @@ def assert_compilable(assessment: DesignRiskAssessment) -> None:
         raise ValueError(
             f"Cannot compile: overall_status is {assessment.overall_status.value}, not GREEN. "
             f"Every element must be validated before a contract can be produced."
+        )
+    # "pcs-gate" restates the score, which compile_design checks on its own with the figure in the message; it is not a flaw in the design.
+    open_errors = [f for f in assessment.formal_findings if f.severity == "error" and "compile" in f.blocks and f.finding_id != "pcs-gate"]
+    if open_errors:
+        raise ValueError(
+            f"Cannot compile: the design is not correct against the formal model ({len(open_errors)} open): "
+            + "; ".join(f.title for f in open_errors[:5]) + (" …" if len(open_errors) > 5 else "") + "."
         )

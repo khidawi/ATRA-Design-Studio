@@ -241,6 +241,26 @@ class Design(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
+class DesignReview(Base):
+    """A person's review of one version of a design. Never edited or deleted."""
+
+    __tablename__ = "design_reviews"
+    __table_args__ = (CheckConstraint("decision IN ('APPROVED', 'REJECTED')", name="ck_design_reviews_decision"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    design_key: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    decision: Mapped[str] = mapped_column(String(8), nullable=False)
+    note: Mapped[str] = mapped_column(Text, nullable=False)
+    reviewer_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    reviewer_role: Mapped[str] = mapped_column(String(20), nullable=False)
+    pcs_final: Mapped[float] = mapped_column(Float, nullable=False)
+    tier: Mapped[str] = mapped_column(String(12), nullable=False)
+    gate: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
 class Contract(Base):
     """A compiled contract, stored exactly as issued. Never edited; the hash can be re-verified at any time."""
 

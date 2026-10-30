@@ -74,6 +74,19 @@ class StatusIndicator(str, Enum):
 
 # ── Veto-class constraint IDs (safety invariant) ───────────────────────────────
 
+_PLACEHOLDER_EVIDENCE = {"test", "tests", "testing", "tbd", "todo", "n/a", "na", "none", "nil", "ok", "okay", "yes", "done", "x", "xx", "xxx", "asdf", "qwerty", "lorem ipsum", "placeholder",
+                         "evidence", "evidence here", "..."}
+
+
+def is_placeholder_evidence(text) -> bool:
+    """Text that stands in for a record rather than pointing at one ("test", "tbd", "done"). The platform cannot judge whether evidence is good, but it does not count this as evidence."""
+    t = " ".join(str(text or "").lower().split()).strip(" .-_!?")
+    if t in _PLACEHOLDER_EVIDENCE:
+        return True
+    chars = [c for c in t if c.isalnum()]
+    return len(chars) < 8 or len(set(chars)) < 3
+
+
 VETO_CLASS_CONSTRAINTS = frozenset({
     "SC-DPIA-1", "SC-HITL-1", "SC-HALLU-1",
     "SC-MAP-1",  "SC-CHALL-1", "SC-LIAB-1",

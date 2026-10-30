@@ -146,3 +146,44 @@ def generate_graph(req: ChatRequest) -> GeneratedGraph:
             status_code=502,
             detail=f"Model returned a malformed proposal: {exc}",
         ) from exc
+
+
+# ── Drafting the wording of an evidence note (the person supplies the facts) ────────────────────
+
+class DraftEvidenceRequest(BaseModel):
+    kind: Literal["constraint", "attestation"]
+    constraint_id: Optional[str] = None
+    instrument: Optional[str] = None
+    clause: Optional[str] = None
+    model_name: str = Field(default="", max_length=200)
+
+
+class DraftEvidence(BaseModel):
+    note: str = Field(description="Two to four short lines naming the records that would show the requirement is met, with [bracketed placeholders] for every reference.")
+
+
+EVIDENCE_PROMPT = """You help a person write the evidence note for one compliance requirement of an AI deployment.
+
+Rules:
+- Name the kinds of record that would show the requirement is met (for example an approved assessment, a signed procedure, a decision log).
+- You do not know this organisation's documents. Never invent a name, date, reference number, approval or person. Wherever a real reference is needed write a placeholder in square brackets, such as [DPIA reference] or [approved by].
+- Two to four short lines, plain words, no headings, no markdown.
+"""
+
+
+def draft_evidence(req: DraftEvidenceRequest) -> DraftEvidence:
+    from design_findings import constraint_info
+    if req.kind == "constraint":
+        info = constraint_info(req.constraint_id or "")
+        if info is None:
+            raise HTTPException(status_code=422, detail=f"{req.constraint_id!r} is not a known security constraint.")
+        what = f"Security constraint {info['id']}: {info['name']}. {info['description']} It requires: {info['requirement']}."
+    else:
+        what = f"Regulatory requirement: {req.instrument or ''} {req.clause or ''}.".strip()
+    messages = [{"role": "system", "content": EVIDENCE_PROMPT},
+                {"role": "user", "content": "\n".join([f"Deployment: {req.model_name or 'an AI model'}.", what, "Write the evidence note."])}]
+    raw = chat_json(messages, DraftEvidence.model_json_schema(), max_tokens=300)
+    try:
+        return DraftEvidence.model_validate(raw)
+    except ValidationError as exc:
+        raise HTTPException(status_code=502, detail=f"Model returned a malformed note: {exc}") from exc

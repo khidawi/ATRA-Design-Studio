@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Model designer - side panel mock-up</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --ink:#1c2230; --mut:#5d6677; --line:#dde1e8; --acc:#1f4fd8; --good:#17794a; --goodbg:#e3f4ea; --warn:#8a5a00; --warnbg:#fff1d6; --bad:#a3262a; --badbg:#fde6e6; --mutbg:#eceff4; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#12151c; --card:#1b2029; --ink:#e8ebf2; --mut:#9aa4b6; --line:#2e3542; --acc:#7da2ff; --good:#6fd39b; --goodbg:#18382a; --warn:#f0c26a; --warnbg:#3b2d10; --bad:#ff9a9d; --badbg:#451c1e; --mutbg:#262c38; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.45 system-ui,Segoe UI,Arial,sans-serif; }
+  .wrap { max-width:1280px; margin:0 auto; padding:16px; }
+  h1 { font-size:20px; margin:0 0 2px; } h2 { font-size:16px; margin:0 0 4px; } h3 { font-size:13px; margin:14px 0 6px; text-transform:uppercase; letter-spacing:.04em; color:var(--mut); }
+  .cap { color:var(--mut); font-size:12px; }
+  .banner { background:var(--warnbg); color:var(--warn); border:1px solid var(--line); border-radius:8px; padding:8px 12px; margin:0 0 12px; font-size:13px; }
+  .body { display:grid; grid-template-columns:1fr 440px; gap:12px; align-items:start; }
+  @media (max-width:980px) { .body { grid-template-columns:1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  .canvas { min-height:520px; position:relative; }
+  .node { position:absolute; border:1.5px solid var(--line); border-radius:8px; padding:6px 10px; background:var(--card); font-size:12px; }
+  .node.bad { border-color:var(--bad); } .node.warn { border-color:#c98a00; }
+  .node small { display:block; color:var(--mut); }
+  svg.edges { position:absolute; inset:0; width:100%; height:100%; }
+  .steps { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:12px; }
+  .step { border:1px solid var(--line); background:var(--card); border-radius:8px; padding:7px 8px; text-align:left; cursor:pointer; color:var(--ink); font:inherit; }
+  .step b { display:block; font-size:12px; } .step span { font-size:11px; color:var(--mut); }
+  .step[aria-selected="true"] { border-color:var(--acc); box-shadow:0 0 0 1px var(--acc); }
+  .pill { display:inline-block; border-radius:999px; padding:1px 8px; font-size:11px; font-weight:600; }
+  .good { background:var(--goodbg); color:var(--good); } .warn-p { background:var(--warnbg); color:var(--warn); } .bad-p { background:var(--badbg); color:var(--bad); } .mut { background:var(--mutbg); color:var(--mut); }
+  .row { display:flex; gap:8px; align-items:flex-start; padding:8px 0; border-top:1px solid var(--line); }
+  .row:first-of-type { border-top:0; }
+  .row .t { flex:1; } .row .t small { display:block; color:var(--mut); }
+  .link { color:var(--acc); font-size:12px; cursor:pointer; text-decoration:underline; background:none; border:0; padding:0; font:inherit; font-size:12px; }
+  .verdict { display:flex; gap:10px; align-items:center; padding:10px; border-radius:8px; margin-bottom:8px; }
+  .big { font-size:26px; font-weight:700; }
+  .meter { height:8px; border-radius:99px; background:var(--mutbg); overflow:hidden; } .meter i { display:block; height:100%; background:var(--acc); }
+  .src { font-size:11px; color:var(--mut); margin-top:2px; }
+  details { border-top:1px solid var(--line); padding:6px 0; } summary { cursor:pointer; font-weight:600; }
+  .panel[hidden] { display:none; }
+  .legend { font-size:12px; color:var(--mut); margin-top:12px; }
+  .toolbar { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; } .btn { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:8px; padding:5px 10px; font:inherit; font-size:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="banner"><strong>Mock-up only.</strong> Nothing here is built. It shows how the area to the right of the architecture could be reorganised so the user is walked through: check the design, see which rules apply, then see the score. Click the four steps. The data is invented.</div>
+  <h1>Care plan drafting assistant</h1>
+  <div class="cap">AI Models · Model designer · Assessment domain: Social care</div>
+
+  <div class="toolbar" style="margin-top:10px"><button class="btn">New</button><button class="btn">Load example</button><button class="btn">Import JSON</button><button class="btn">Assistant</button><span style="flex:1"></span><button class="btn" style="border-color:var(--acc)">Compile contract</button></div>
+
+  <div class="body">
+    <section class="card canvas" aria-label="Architecture">
+      <svg class="edges" aria-hidden="true"><g stroke="currentColor" stroke-opacity=".35" fill="none" stroke-width="1.4"><path d="M170 70 L170 130"/><path d="M170 175 L170 235"/><path d="M290 160 L400 160"/><path d="M170 280 L170 340"/><path d="M290 270 L400 270"/></g></svg>
+      <div class="node" style="left:80px;top:30px">Adult Social Care<small>Department</small></div>
+      <div class="node" style="left:60px;top:130px;width:230px">Care plan drafting assistant<small>AI model · no owner linked</small></div>
+      <div class="node bad" style="left:400px;top:130px">Case notes (training)<small>Dataset · no legal basis</small></div>
+      <div class="node warn" style="left:60px;top:235px;width:230px">Production environment<small>Deployment · no logging constraint</small></div>
+      <div class="node" style="left:400px;top:245px">Retention 7 years<small>Constraint</small></div>
+      <div class="node" style="left:60px;top:340px;width:230px">UK GDPR Art. 6<small>Regulatory requirement</small></div>
+      <div class="legend" style="position:absolute;left:14px;bottom:10px">Elements with a problem are outlined on the canvas; picking a finding on the right selects its element.</div>
+    </section>
+
+    <section class="card" aria-label="Review">
+      <div class="steps" role="tablist">
+        <button class="step" role="tab" aria-selected="false" data-p="p0"><b>1 Element</b><span>Edit the selected box</span></button>
+        <button class="step" role="tab" aria-selected="true" data-p="p1"><b>2 Design check</b><span>Is the design correct?</span></button>
+        <button class="step" role="tab" aria-selected="false" data-p="p2"><b>3 Rules</b><span>Regulations, policies</span></button>
+        <button class="step" role="tab" aria-selected="false" data-p="p3"><b>4 Score</b><span>Risk and PCS</span></button>
+      </div>
+
+      <!-- 2 DESIGN CHECK -->
+      <div class="panel" id="p1">
+        <h2>Design check</h2>
+        <div class="cap">The architecture is checked against the formal model: are the right elements present and connected correctly? Nothing here depends on your regulations or policies.</div>
+        <div class="verdict bad-p" style="margin-top:10px"><span class="big">3</span><span><strong>The design is not correct yet</strong><br><span style="font-size:12px">2 errors block compiling the contract. 1 warning.</span></span></div>
+        <h3>Errors</h3>
+        <div class="row"><span class="pill bad-p">Error</span><span class="t">Training dataset has no legal basis<small>Every dataset that holds personal data must be linked to a legal basis.</small></span><button class="link">Show on canvas</button></div>
+        <div class="row"><span class="pill bad-p">Error</span><span class="t">The model has no accountable owner<small>Link the model to an actor with the role “Model owner”.</small></span><button class="link">Show on canvas</button></div>
+        <h3>Warnings</h3>
+        <div class="row"><span class="pill warn-p">Warning</span><span class="t">Production environment has no logging constraint<small>Recommended for any model that is live.</small></span><button class="link">Show on canvas</button></div>
+        <h3>Passed</h3>
+        <div class="cap">9 structural checks passed (every element is connected, no duplicate names, one department, and so on).</div>
+      </div>
+
+      <!-- 3 RULES -->
+      <div class="panel" id="p2" hidden>
+        <h2>Rules that apply to this model</h2>
+        <div class="cap">Chosen once for the whole organisation and applied to every AI model and every AI agent. Change them in the main menu, not here.</div>
+        <div class="cap" style="margin:6px 0 0"><span class="pill good">2 met</span> <span class="pill bad-p">3 not met</span> <span class="pill mut">1 not drawn</span></div>
+
+        <details open><summary>Regulations <span class="cap">· <button class="link">Manage in Regulations</button></span></summary>
+          <div class="cap" style="margin:4px 0">Selected by your organisation: UK GDPR, EU AI Act, ISO/IEC 42001.</div>
+          <div class="row"><span class="pill bad-p">Not met</span><span class="t">UK GDPR Art. 6 · Lawful basis<small>No legal basis drawn for “Case notes”.</small></span><button class="link">Fix</button></div>
+          <div class="row"><span class="pill bad-p">Not met</span><span class="t">EU AI Act Art. 14 · Human oversight<small>No human-oversight constraint on the model.</small></span><button class="link">Add</button></div>
+          <div class="row"><span class="pill good">Met</span><span class="t">ISO/IEC 42001 · Roles and responsibilities</span></div>
+        </details>
+
+        <details open><summary>Organisation policies <span class="cap">· <button class="link">Manage in Policies</button></span></summary>
+          <div class="cap" style="margin:4px 0">3 active policies. The same list is checked on AI agents.</div>
+          <div class="row"><span class="pill bad-p">Not met</span><span class="t">Policy P-04 · Personal data must not leave the UK<small>Production environment region is not set.</small></span><button class="link">Fix</button></div>
+          <div class="row"><span class="pill good">Met</span><span class="t">Policy P-02 · Every live model has a named owner’s deputy</span></div>
+          <div class="row"><span class="pill mut">Not drawn</span><span class="t">Policy P-07 · Supplier models need a contract review<small>Applies when a supplier is drawn.</small></span></div>
+        </details>
+
+        <details open><summary>Privacy</summary>
+          <div class="row"><span class="pill bad-p">Not met</span><span class="t">Data protection impact assessment recorded<small>Required for a model that uses case notes about children or adults at risk.</small></span><button class="link">Add</button></div>
+        </details>
+
+        <details open><summary>Security</summary>
+          <div class="row"><span class="pill warn-p">Gap</span><span class="t">Logging and monitoring constraint<small>Production environment has none.</small></span><button class="link">Add</button></div>
+        </details>
+        <div class="src">Each line says which source it comes from (regulation clause, policy, privacy, security) so a reviewer can trace it.</div>
+      </div>
+
+      <!-- 4 SCORE -->
+      <div class="panel" id="p3" hidden>
+        <h2>Score</h2>
+        <div class="cap">Calculated from the design and the rules above. Fixing the findings in steps 2 and 3 moves these numbers.</div>
+        <div class="verdict mut" style="margin-top:10px"><span class="big">PCS 61.4</span><span><span class="pill warn-p">Tier B</span> <span class="pill bad-p">Review</span><br><span style="font-size:12px">Pre-deployment compliance score</span></span></div>
+        <h3>Inspection risk</h3>
+        <div class="row"><span class="pill bad-p">Red</span><span class="t">Case notes (training dataset)<small>Personal data without a legal basis</small></span></div>
+        <div class="row"><span class="pill warn-p">Amber</span><span class="t">Production environment<small>Not monitored</small></span></div>
+        <div class="row"><span class="pill good">Green</span><span class="t">3 other elements</span></div>
+        <h3>How the score is made up</h3>
+        <div class="cap">Governance</div><div class="meter"><i style="width:48%"></i></div>
+        <div class="cap" style="margin-top:6px">Privacy</div><div class="meter"><i style="width:35%"></i></div>
+        <div class="cap" style="margin-top:6px">Security</div><div class="meter"><i style="width:72%"></i></div>
+        <div class="cap" style="margin-top:6px">Oversight</div><div class="meter"><i style="width:66%"></i></div>
+      </div>
+
+      <!-- 1 ELEMENT -->
+      <div class="panel" id="p0" hidden>
+        <h2>Element</h2>
+        <div class="cap">Select a box on the architecture to edit its name, type and links. This is the current “Inspector”, unchanged.</div>
+      </div>
+    </section>
+  </div>
+</div>
+<script>
+  document.querySelectorAll('.step').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.step').forEach(function (x) { x.setAttribute('aria-selected', x === b ? 'true' : 'false'); });
+      document.querySelectorAll('.panel').forEach(function (p) { p.hidden = p.id !== b.dataset.p; });
+    });
+  });
+</script>
+</body>
+</html>
