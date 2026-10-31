@@ -30,7 +30,7 @@ def check(name, ok, detail=""):
 def registry(actors=None, sensitivity="INTERNAL", satisfied=()):
     names = {"trainer": "Data Science", "validator": "Clinical Safety", "deployer": "Digital Services", "operator": "Care Team", "consumer": "Social Workers"}
     names.update(actors or {})
-    decl = {c: ({"status": "SATISFIED", "evidence": "see record"} if c in satisfied else {"status": "NOT_YET_DETERMINED"}) for c in set(VETO_CLASS_CONSTRAINTS) | set(satisfied)}
+    decl = {c: ({"status": "SATISFIED", "evidence": "see record RC-2026-01"} if c in satisfied else {"status": "NOT_YET_DETERMINED"}) for c in set(VETO_CLASS_CONSTRAINTS) | set(satisfied)}
     return RegistryBlock.model_validate({
         "actors": {k: {"identity": v} for k, v in names.items()},
         "deployment_context": {"data_sensitivity": sensitivity},
@@ -127,6 +127,57 @@ def test_placeholder_evidence_is_not_evidence():
     domain = ComplianceDomain(domain_id="T", name="T", subject="MODEL", rule_set=[rule(maps_to_constraint_id="SC-HITL-1")])
     a = assess_design(junk, domain, {}, graph(*FULL))
     check("a rule that rests on it is not green", a.element_verdicts[0].status != RiskStatus.GREEN and "placeholder" in a.element_verdicts[0].reason, a.element_verdicts[0].reason)
+
+
+def test_the_canvas_and_the_current_holders_must_agree():
+    g = DesignGraph([GNode("m", "AI_MODEL"), GNode("t", "ACTOR", {"subtype": "TRAINER", "identity": "Diego Alvarez"}), GNode("v", "ACTOR", {"subtype": "VALIDATOR", "identity": "Priya Raman"}),
+                     GNode("d", "ACTOR", {"subtype": "DEPLOYER", "identity": "  priya   RAMAN "}), GNode("x", "TRAINING_DATASET"), GNode("e", "DEPLOYMENT_ENV"), GNode("l", "LEGAL_BASIS")],
+                    [GEdge("t", "m", "TRAINS"), GEdge("v", "m", "VALIDATES"), GEdge("d", "m", "DEPLOYS"), GEdge("m", "x", "TRAINED_ON"), GEdge("m", "e", "RUNS_IN")])
+    reg = registry(actors={"trainer": "Diego Alvarez", "validator": "Marcus Lee", "deployer": "Priya Raman"}, satisfied=ALL_MET)
+    fs = {f.finding_id: f for f in formal_findings(reg, {}, g)}
+    check("a role whose current holder is not the person drawn is an error with a one-click fix",
+          fs["holder-validator"].severity == "error" and "compile" in fs["holder-validator"].blocks and fs["holder-validator"].fix == {
+              "type": "set_field", "node_id": "v", "field": "identity", "value": "Marcus Lee", "instruction": fs["holder-validator"].fix["instruction"]}, list(fs))
+    check("a role that matches (ignoring case and spacing) is not reported", "holder-trainer" not in fs and "holder-deployer" not in fs)
+    check("the same person drawn in two roles fails role separation even when the holders differ", "canvas-same-validator-deployer" in fs and "same-validator-deployer" not in fs, list(fs))
+
+
+def test_consent_as_the_legal_basis_needs_a_record():
+    base = [GNode("m", "AI_MODEL"), GNode("x", "TRAINING_DATASET"), GNode("e", "DEPLOYMENT_ENV"), GNode("l", "LEGAL_BASIS", {"basis": "CONSENT"})]
+    edges = [GEdge("m", "x", "TRAINED_ON"), GEdge("m", "e", "RUNS_IN")]
+    fs = {f.finding_id: f for f in formal_findings(registry(satisfied=ALL_MET), {}, DesignGraph(base, edges))}
+    check("consent with no consent record is an error that blocks compile", "consent-record-missing" in fs and "compile" in fs["consent-record-missing"].blocks and fs["consent-record-missing"].fix["kind"] == "CONSENT_RECORD", list(fs))
+    fs = {f.finding_id: f for f in formal_findings(registry(satisfied=ALL_MET), {}, DesignGraph(base + [GNode("c", "CONSENT_RECORD")], edges + [GEdge("c", "l", "COVERED_BY")]))}
+    check("with the record behind it the basis stands", "consent-record-missing" not in fs and "unconnected-c" not in fs, list(fs))
+    fs = {f.finding_id: f for f in formal_findings(registry(satisfied=ALL_MET), {}, DesignGraph([n if n.id != "l" else GNode("l", "LEGAL_BASIS", {"basis": "PUBLIC_TASK"}) for n in base], edges))}
+    check("another basis needs no consent record", "consent-record-missing" not in fs, list(fs))
+
+
+def test_evidence_should_say_where_the_record_is():
+    from schema import names_a_record
+    check("a link, a reference, a file or an identifier names a record",
+          all(names_a_record(t) for t in ("https://x.org/dpia", "see [ref: governance folder]", "reference: SOP", "dpia.pdf", "DPIA-2026-014 approved", "Oversight SOP v3")))
+    check("wording that restates the claim does not",
+          not any(names_a_record(t) for t in ("Compliance with SC-CONSENT-1", "Generative-AI confabulation policy declared", "Human oversight protocol formally specified for SC-HITL-1", "")))
+    reg = registry(satisfied=ALL_MET)
+    reg.governance_state.constraints_declared["SC-HALLU-1"].evidence = "Generative-AI confabulation policy declared"
+    fs = {f.finding_id: f for f in formal_findings(reg, {}, graph(*FULL))}
+    check("evidence with no record is a warning that does not block, with the evidence form as the fix",
+          fs["norecord-SC-HALLU-1"].severity == "warning" and fs["norecord-SC-HALLU-1"].blocks == [] and fs["norecord-SC-HALLU-1"].fix["type"] == "constraint_evidence", list(fs))
+
+
+def test_the_issuer_who_holds_a_role_needs_someone_else_to_review():
+    domain = ComplianceDomain(domain_id="T", name="T", subject="MODEL", rule_set=[])
+    reg = registry(satisfied=ALL_MET, actors={"operator": "Khaoula Hidawi"})
+    try:
+        compile_design(reg, domain, {}, {}, "d1", " khaoula  hidawi", graph(*FULL))
+        refused = ""
+    except ValueError as e:
+        refused = str(e)
+    check("an issuer who is the model's operator is refused without a review", "operator" in refused and "someone who is not" in refused, refused)
+    c = compile_design(reg, domain, {}, {}, "d1", "khaoula hidawi", graph(*FULL), reviewed=True, review={"decision": "APPROVED", "reviewer": "Other Person"})
+    check("with a review by someone else it compiles, and says so", c.design_snapshot["assurance"]["issued_by_holds_role"] == "operator" and c.design_snapshot["assurance"]["review"]["reviewer"] == "Other Person")
+    check("the contract lists constraints whose evidence names no record", c.design_snapshot["assurance"]["evidence_without_record"] == [])
 
 
 def test_open_veto_constraints_block_the_gate():

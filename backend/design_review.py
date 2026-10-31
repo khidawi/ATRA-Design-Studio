@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from auth import AuthUser, current_user
 from compliance_engine import AssessRequest
 from compliance_schema import ReviewOut, ReviewState
+from design_findings import role_held_by
 from db.models import Design, DesignReview
 from db.session import get_session
 from organisation import current_organisation
@@ -51,12 +52,13 @@ def _rows(session: Session, design_key: str) -> List[DesignReview]:
     return list(session.scalars(select(DesignReview).where(DesignReview.design_key == design_key).order_by(DesignReview.created_at.desc())))
 
 
-def review_state(session: Session, design_key: str, registry, domain: str, design_graph, pcs) -> ReviewState:
+def review_state(session: Session, design_key: str, registry, domain: str, design_graph, pcs, issuer: Optional[str] = None) -> ReviewState:
     fp = fingerprint(registry, domain, design_graph)
+    issuer_role = role_held_by(registry, issuer)
     rows = _rows(session, design_key)
     latest = next((r for r in rows if r.fingerprint == fp), None)       # the newest review of this very version decides
     return ReviewState(
-        required=pcs.gate == "REQUIRES_REVIEW", gate=pcs.gate, pcs=pcs.pcs_final, tier=pcs.tier, fingerprint=fp,
+        required=pcs.gate == "REQUIRES_REVIEW" or issuer_role is not None, reason="gate" if pcs.gate == "REQUIRES_REVIEW" else ("issuer" if issuer_role else ""), issuer_role=issuer_role, gate=pcs.gate, pcs=pcs.pcs_final, tier=pcs.tier, fingerprint=fp,
         approved=bool(latest and latest.decision == "APPROVED"), rejected=bool(latest and latest.decision == "REJECTED"),
         reviews=[_out(r, fp) for r in rows[:MAX_SHOWN]],
     )

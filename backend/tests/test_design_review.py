@@ -30,7 +30,7 @@ def payload():
             "actors": {"trainer": {"identity": "Diego Alvarez"}, "validator": {"identity": "Mina Okafor"}, "deployer": {"identity": "Priya Raman"},
                        "operator": {"identity": "Dispatchers"}, "consumer": {"identity": "Karim Haddad"}},
             "deployment_context": {"model_type": "LLM", "ai_criticality": "OPERATIONAL", "data_sensitivity": "SENSITIVE_PERSONAL"},
-            "governance_state": {"constraints_declared": {c: {"status": "SATISFIED", "evidence": "see record"} for c in MET}},
+            "governance_state": {"constraints_declared": {c: {"status": "SATISFIED", "evidence": "see record RC-2026-01"} for c in MET}},
         },
         "design_graph": GRAPH,
     }
@@ -102,12 +102,38 @@ def test_review_holds_compile_until_an_independent_person_approves():
             forget(key)
 
 
+def test_an_issuer_who_holds_a_role_needs_a_review_by_someone_else():
+    with authed_client("compliance", "Rhea Patel") as rhea, authed_client("compliance", "Sam Reviewer") as sam:
+        d = rhea.post("/api/designs", json={"name": "Issuer holds a role", "domain": "GENERAL", "document": DOC}).json()
+        key = d["design_key"]
+        p = payload()
+        p["registry"]["governance_state"]["constraints_declared"].update({c: {"status": "SATISFIED", "evidence": "see record RC-2026-01"} for c in ("SC-TRAIN-1", "SC-MC-1")})
+        p["registry"]["actors"]["operator"]["identity"] = "Rhea Patel"          # the person compiling runs the model
+        try:
+            rv = rhea.post(f"/api/designs/{key}/assess", json=p).json()["review"]
+            assert rv["required"] and rv["reason"] == "issuer" and rv["issuer_role"] == "operator", rv
+            c = rhea.post(f"/api/designs/{key}/compile", json=compile_body(p))
+            assert c.status_code == 422 and "operator" in c.json()["detail"], c.text
+            body = {**p, "decision": "APPROVED", "note": "Independent look at the evidence for each constraint."}
+            r = rhea.post(f"/api/designs/{key}/review", json=body)
+            assert r.status_code == 403, r.text                                   # she holds a role: she cannot review it
+            r = sam.post(f"/api/designs/{key}/review", json=body)
+            assert r.status_code == 201, r.text                                   # someone else can
+            ok = rhea.post(f"/api/designs/{key}/compile", json=compile_body(p))
+            assert ok.status_code == 200, ok.text
+            a = ok.json()["design_snapshot"]["assurance"]
+            assert a["issued_by_holds_role"] == "operator" and a["review"]["reviewer"] == "Sam Reviewer", a
+        finally:
+            rhea.delete(f"/api/designs/{key}")
+            forget(key)
+
+
 def test_a_design_that_needs_no_review_compiles_without_one():
     with authed_client("compliance", "Rhea Patel") as comp:
         d = comp.post("/api/designs", json={"name": "No review needed", "domain": "GENERAL", "document": DOC}).json()
         key = d["design_key"]
         p = payload()
-        p["registry"]["governance_state"]["constraints_declared"].update({c: {"status": "SATISFIED", "evidence": "see record"} for c in ("SC-TRAIN-1", "SC-MC-1")})
+        p["registry"]["governance_state"]["constraints_declared"].update({c: {"status": "SATISFIED", "evidence": "see record RC-2026-01"} for c in ("SC-TRAIN-1", "SC-MC-1")})
         try:
             st = comp.post(f"/api/designs/{key}/assess", json=p).json()["review"]
             if st["gate"] == "REQUIRES_REVIEW":          # the scoring says this design still needs a person: nothing to prove here

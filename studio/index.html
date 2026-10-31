@@ -2465,7 +2465,7 @@ kill_switch:
       <div class="srcbox pol"><b>Policies</b>${line('pol')}</div></div>`;
   }
   /* ----- What to fix: every open finding is one card: what is wrong, what to do, and a way to do it from here ----- */
-  const FX = { open: null, status: 'SATISFIED', evidence: '', confirm: false, err: null, busy: false };
+  const FX = { open: null, status: 'SATISFIED', evidence: '', ref: '', confirm: false, err: null, busy: false };
   const RV = { decision: 'APPROVED', note: '', err: null, busy: false };
   const BLOCK_LABEL = { gate: 'Blocks the gate', compile: 'Blocks compile', score: 'Raises the PCS' };
   const RANK = { GREEN: 0, AMBER: 1, RED: 2 };
@@ -2499,6 +2499,7 @@ kill_switch:
       const last = rv.reviews[0];
       put({ key: 'review', source: 'formal', status: rv.rejected ? 'RED' : 'AMBER', title: 'A person has to review this design', blocks: ['compile'], needs: [], nodeId: null,
         wrong: rv.rejected ? `The latest review of this version rejected it: \u201c${last.note}\u201d (${last.reviewer}).`
+          : rv.reason === 'issuer' ? `You are named as this model\u2019s ${rv.issuer_role}, so a contract you issue needs a recorded review by someone who is not.`
           : `The PCS is ${STAI.pyFixed(rv.pcs, 1)} (${rv.tier}) and the gate says it needs a human review before a contract is signed.${last && !last.current ? ` ${last.reviewer} reviewed an earlier version; the design has changed since, so that review no longer counts.` : ''}`,
         why: 'A review belongs to one version of the design and lapses when the design changes. The reviewer must have sign-off permission and cannot be the model\u2019s trainer, validator, deployer or operator.',
         fix: { type: 'review', instruction: can('signoff') ? 'Read the findings, then record your review.' : 'Ask a compliance reviewer to record the review; your role cannot sign off.' } });
@@ -2535,6 +2536,7 @@ kill_switch:
     if (!rv) return '';
     const past = rv.reviews.length ? `<div class="stack" style="gap:4px"><span class="cap"><b>Reviews of this design</b></span>${rv.reviews.map((r) => `<div class="cap"><span class="pill ${r.decision === 'APPROVED' ? 'ok' : 'bad'}">${r.decision === 'APPROVED' ? 'Approved' : 'Rejected'}</span> ${esc(r.reviewer)} (${esc(r.role)}) \u00b7 ${esc(when(r.at))} \u00b7 PCS ${STAI.pyFixed(r.pcs, 1)} \u00b7 ${r.current ? 'this version' : 'an earlier version'}<br>${esc(r.note)}</div>`).join('')}</div>` : '';
     if (!can('signoff')) return past;
+    if (rv.issuer_role) return `<div class="note plain" style="font-size:13px"><strong>Someone else has to review it</strong><span>You hold the ${esc(rv.issuer_role)} role in this model. A different person with sign-off permission records the review; ask them to open this design.</span></div>${past}`;
     const first = todoItems(ev).filter((x) => x.key !== 'review' && x.blocks.indexOf('compile') >= 0).length;
     if (first) return `<div class="note plain" style="font-size:13px"><strong>Not ready for review</strong><span>A design is reviewed once it is correct. ${plural(first, 'thing')} to fix first, above.</span></div>${past}`;
     if (!M.designKey) return `<span class="cap">The design is saved as you work; record the review once it shows as saved.</span>${past}`;
@@ -2562,7 +2564,8 @@ kill_switch:
     const f = it.fix, node = fxNode(f);
     const sel = ['SATISFIED', 'UNMET', 'NOT_YET_DETERMINED'].map((x) => opt(x, CSTATUS_LABEL[x], FX.status)).join('');
     return `<div class="fxform"><div class="fld"><label>Status</label><select class="inp" data-chg="fxField" data-arg="status">${sel}</select></div>
-      <div class="fld"><label>Evidence: where it is recorded${node ? '' : ' (this adds the box to the design)'}</label><textarea class="inp" data-chg="fxField" data-arg="evidence" placeholder="For example: DPIA-2026-014, approved 3 March, held in the governance folder">${esc(FX.evidence)}</textarea></div>
+      <div class="fld"><label>What the evidence shows${node ? '' : ' (this adds the box to the design)'}</label><textarea class="inp" data-chg="fxField" data-arg="evidence" placeholder="For example: DPIA-2026-014, approved 3 March, held in the governance folder">${esc(FX.evidence)}</textarea></div>
+      <div class="fld"><label>Where it is kept</label><input class="inp" data-chg="fxField" data-arg="ref" value="${esc(FX.ref)}" placeholder="A link, a document name or a reference number, such as DPIA-2026-014"></div>
       <label class="cap" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" data-chg="fxField" data-arg="confirm" ${FX.confirm ? 'checked' : ''}><span>I confirm this evidence is accurate and on record. The platform cannot check it for you.</span></label>
       ${FX.err ? `<div class="note alert" role="alert">${esc(FX.err)}</div>` : ''}
       <div class="fxact"><button class="btn2 btn-s" data-act="fxDraft" data-arg="${esc(it.key)}"${FX.busy ? ' disabled' : ''}>${FX.busy ? 'Drafting\u2026' : 'Suggest wording'}</button><span class="cap">The assistant drafts the wording. You supply the real references.</span></div>
@@ -2574,6 +2577,7 @@ kill_switch:
     const KIND = { ACTOR: 'actor', AI_MODEL: 'AI model', TRAINING_DATASET: 'training dataset', DEPLOYMENT_ENV: 'deployment environment', LEGAL_BASIS: 'legal basis', CONSTRAINT: 'constraint', CONSENT_RECORD: 'consent record', REGULATORY_REQ: 'regulatory requirement' };
     const act = !f ? '' : (f.type === 'constraint_evidence' || f.type === 'attestation')
       ? `<button class="btn btn-s" data-act="fxOpen" data-arg="${esc(it.key)}">${open ? 'Close' : 'Record evidence'}</button>`
+      : f.type === 'set_field' ? `<button class="btn btn-s" data-act="fxSet" data-arg="${esc(it.key)}">Use ${esc(f.value)}</button>`
       : f.type === 'connect' ? `<button class="btn btn-s" data-act="fxConnect" data-arg="${esc(it.key)}">Connect them</button>`
       : f.type === 'unlink' ? `<button class="btn btn-s" data-act="fxUnlink" data-arg="${esc(it.key)}">Remove the line</button>`
       : f.type === 'add_element' ? `<button class="btn btn-s" data-act="fxAdd" data-arg="${esc(it.key)}">Add ${esc(f.label || (f.kind === 'ACTOR' && f.data && f.data.subtype ? f.data.subtype.toLowerCase() : (KIND[f.kind] || f.kind.toLowerCase())))}</button>` : '';
@@ -2609,7 +2613,8 @@ kill_switch:
     fxOpen: (key) => {
       if (FX.open === key) { FX.open = null; return; }
       const it = todoItems(evaluate()).find((x) => x.key === key), n = it && fxNode(it.fix);
-      FX.open = key; FX.status = 'SATISFIED'; FX.evidence = n && n.data.evidence ? n.data.evidence : ''; FX.confirm = false; FX.err = null;
+      const old = String((n && n.data.evidence) || ''), m = old.match(/^([\s\S]*?)\s*\[ref:\s*([^\]]*)\]\s*$/);
+      FX.open = key; FX.status = 'SATISFIED'; FX.evidence = m ? m[1] : old; FX.ref = m ? m[2] : ''; FX.confirm = false; FX.err = null;
     },
     fxDraft: async (key) => {
       const it = todoItems(evaluate()).find((x) => x.key === key), f = it && it.fix;
@@ -2627,12 +2632,19 @@ kill_switch:
       const text = String(FX.evidence || '').trim();
       if (FX.status === 'SATISFIED' && !text) { FX.err = 'Say where the evidence is recorded before marking this Satisfied.'; return; }
       if (FX.status === 'SATISFIED' && /\[[^\]]+\]/.test(text)) { FX.err = 'Replace each [bracketed placeholder] with the real reference first.'; return; }
+      const ref = String(FX.ref || '').trim();
+      if (FX.status === 'SATISFIED' && (!ref || isPlaceholder(ref))) { FX.err = 'Say where the record is kept: a link, a document name or a reference number.'; return; }
       if (FX.status === 'SATISFIED' && isPlaceholder(text)) { FX.err = 'That is a placeholder, not a record. Say where the evidence is kept (a document, a decision, a link).'; return; }
       if (FX.status === 'SATISFIED' && !FX.confirm) { FX.err = 'Tick the box to confirm the evidence is accurate.'; return; }
       let n = fxNode(it.fix);
       if (!n) n = it.fix.type === 'attestation' ? addNode('REGULATORY_REQ', { instrument: it.fix.instrument, clause: it.fix.clause }) : addNode('CONSTRAINT', { constraintId: it.fix.constraint_id });
-      n.data.status = FX.status; n.data.evidence = text;
+      n.data.status = FX.status; n.data.evidence = ref ? `${text} [ref: ${ref}]` : text;
       FX.open = null; persist();
+    },
+    fxSet: (key) => {
+      const it = todoItems(evaluate()).find((x) => x.key === key), n = it && it.fix && M.nodes.find((x) => x.id === it.fix.node_id);
+      if (!n || it.fix.type !== 'set_field') return;
+      n.data[it.fix.field] = it.fix.value; persist();
     },
     fxUnlink: (key) => {
       const it = todoItems(evaluate()).find((x) => x.key === key);

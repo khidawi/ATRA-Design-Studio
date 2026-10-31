@@ -9,6 +9,7 @@ One DesignStudioDocument covers:
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -85,6 +86,18 @@ def is_placeholder_evidence(text) -> bool:
         return True
     chars = [c for c in t if c.isalnum()]
     return len(chars) < 8 or len(set(chars)) < 3
+
+
+_RECORD_REF = re.compile(r"https?://\S+|\[ref:[^\]]+\]|\bref(?:erence)?[:#]\s*\S+|\.(?:pdf|docx?|xlsx?|md|txt)\b", re.IGNORECASE)
+
+
+def names_a_record(text) -> bool:
+    """Whether evidence says where the record is kept: a link, a "[ref: ...]", a file, or an identifier that mixes letters and digits (DPIA-2026-014, SOP v3).
+    Wording that only restates the claim ("Compliance with SC-CONSENT-1") does not."""
+    t = str(text or "")
+    if _RECORD_REF.search(t):
+        return True
+    return any(any(c.isalpha() for c in w) and any(c.isdigit() for c in w) and not w.upper().startswith("SC-") for w in re.split(r"[\s,;()]+", t))
 
 
 VETO_CLASS_CONSTRAINTS = frozenset({

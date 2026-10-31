@@ -44,9 +44,9 @@ from compliance_schema import (
     assert_compilable,
     compute_contract_hash,
 )
-from design_findings import fix_for_rule, formal_findings
+from design_findings import fix_for_rule, formal_findings, role_held_by
 from rule_checks import CheckConfigError, DesignGraph, GEdge, GNode, evaluate_graph_rule
-from schema import ConstraintStatus, GovernanceState, RegistryBlock, is_placeholder_evidence
+from schema import ConstraintStatus, GovernanceState, RegistryBlock, is_placeholder_evidence, names_a_record
 
 
 class AssessRequest(BaseModel):
@@ -275,10 +275,11 @@ def _assurance(registry: RegistryBlock, graph: Dict[str, Any], pcs, review: Opti
         now = getattr(registry.actors, role).identity or ""
         drawn = on_canvas.get(role, [])
         holders[role] = {"holder_now": now, "named_on_canvas": drawn, "differs": bool(now) and bool(drawn) and norm(now) not in [norm(d) for d in drawn]}
-    issuer_role = next((r for r in ("trainer", "validator", "deployer", "operator") if issued_by and norm(getattr(registry.actors, r).identity) == norm(issued_by)), None)
+    issuer_role = role_held_by(registry, issued_by)
     return {
         "pcs": {"final": pcs.pcs_final, "tier": pcs.tier, "gate": pcs.gate},
         "review": review, "role_holders": holders, "issued_by_holds_role": issuer_role,
+        "evidence_without_record": sorted(c for c, d in registry.governance_state.constraints_declared.items() if d.status.value == "SATISFIED" and not names_a_record(d.evidence)),
     }
 
 
@@ -307,6 +308,12 @@ def compile_design(
         raise ValueError(
             f"Cannot compile: the PCS is {pcs.pcs_final:.1f} / 100 ({pcs.tier}) and the gate is BLOCKED. "
             f"A design that scores this high is not signed; clear what drives the score (see the Risk tab) and compile again."
+        )
+    holds = role_held_by(registry, issued_by)
+    if holds and not reviewed:
+        raise ValueError(
+            f"Cannot compile: {issued_by} is named as the model's {holds}, so the contract needs a recorded review by someone who is not. A person with sign-off permission who is not the "
+            f"model's trainer, validator, deployer or operator records it on the Risk tab; it applies to this version of the design."
         )
     if pcs.gate == "REQUIRES_REVIEW" and not reviewed:
         raise ValueError(

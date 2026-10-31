@@ -270,7 +270,7 @@ def import_design(desc: DeploymentDescription) -> GeneratedGraph:
 # ── Design-time compliance/risk assessment (Task 1.3) ──────────────────────────
 
 @app.post("/api/designs/{design_id}/assess", response_model=DesignRiskAssessment)
-def assess(design_id: str, req: AssessRequest, session: Session = Depends(get_session)) -> DesignRiskAssessment:
+def assess(design_id: str, req: AssessRequest, session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> DesignRiskAssessment:
     """
     Run compliance_engine.py's rule evaluation for the given domain against
     the posted registry's existing GovernanceState (the same evidence-gate
@@ -290,7 +290,7 @@ def assess(design_id: str, req: AssessRequest, session: Session = Depends(get_se
     if require_domain(session, req.domain).subject == "MODEL":
         from scoring_bridge import score_registry
         pcs, _ = score_registry(req.registry)
-        assessment.review = review_state(session, design_id, req.registry, req.domain, req.design_graph, pcs)
+        assessment.review = review_state(session, design_id, req.registry, req.domain, req.design_graph, pcs, user.name)
     return assessment
 
 

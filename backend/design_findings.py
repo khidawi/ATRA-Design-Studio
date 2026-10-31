@@ -13,7 +13,7 @@ A fix is plain data the studio acts on ({"type": "constraint_evidence" | "add_el
 from typing import Any, Dict, List, Optional
 
 from compliance_schema import Finding, RiskStatus
-from schema import VETO_CLASS_CONSTRAINTS, is_placeholder_evidence
+from schema import VETO_CLASS_CONSTRAINTS, is_placeholder_evidence, names_a_record
 
 ROLES = [("trainer", "Trainer"), ("validator", "Validator"), ("deployer", "Deployer"), ("operator", "Operator"), ("consumer", "Consumer")]
 CORE_ROLES = {"trainer", "validator", "deployer"}      # the chain the veto constraints and the role-concentration factor rest on
@@ -139,6 +139,14 @@ def _norm(text: Optional[str]) -> str:
     return " ".join((text or "").split()).lower()
 
 
+def role_held_by(registry, name: Optional[str]) -> Optional[str]:
+    """The role of the model that this person holds now (trainer, validator, deployer or operator), if any. Names are compared without regard to case or spacing."""
+    me = " ".join(str(name or "").split()).lower()
+    if not me:
+        return None
+    return next((r for r in ("trainer", "validator", "deployer", "operator") if " ".join((getattr(registry.actors, r).identity or "").split()).lower() == me), None)
+
+
 def _name(n) -> str:
     p = n.props or {}
     if n.type == "CONSTRAINT":
@@ -262,6 +270,32 @@ def formal_findings(registry, constraint_node_ids: Optional[Dict[str, str]], gra
             fix={"type": "add_element", "kind": "ACTOR", "data": {"subtype": key.upper()}, "instruction": f"Add the {label.lower()} (a person, team or supplier) and give it a name."},
         ))
 
+    # 1b. The canvas and the people who hold the roles now (the Responsibilities page) say the same thing: a contract that names two people for one role contradicts itself.
+    drawn = {}
+    for n in by_type("ACTOR"):
+        who = " ".join(str((n.props or {}).get("identity", "")).split())
+        if who:
+            drawn.setdefault(str((n.props or {}).get("subtype", "")).lower(), []).append((n.id, who))
+    for key, label in ROLES:
+        now = " ".join((getattr(registry.actors, key).identity or "").split())
+        names = drawn.get(key, [])
+        if now and names and now.lower() not in [w.lower() for _, w in names]:
+            out.append(Finding(
+                finding_id=f"holder-{key}", severity="error", title=f"The {key} is {now} now, but the canvas names {names[0][1]}",
+                detail=f"Who holds the {key} duty today ({now}, from the Responsibilities page) is not who the box on the canvas names ({names[0][1]}).",
+                why="The contract records both, and a reader cannot tell which is true. The scoring and the role-separation checks use the current holder, so the canvas has to show the same person.",
+                blocks=["compile"], node_id=names[0][0],
+                fix={"type": "set_field", "node_id": names[0][0], "field": "identity", "value": now,
+                     "instruction": f"Set the box to {now}, who holds the duty now, or change who holds the duty on the Responsibilities page."}))
+    for a, b, cid, why in SEPARATION:
+        ca, cb = drawn.get(a, []), drawn.get(b, [])
+        if ca and cb and ca[0][1].lower() == cb[0][1].lower() and not any(f.finding_id == f"same-{a}-{b}" for f in out):
+            out.append(Finding(
+                finding_id=f"canvas-same-{a}-{b}", severity="error", title=f"The canvas shows the {a} and the {b} as the same actor",
+                detail=f"\u201c{ca[0][1]}\u201d is drawn as both the {a} and the {b}.", why=why + " Role separation is checked on what is drawn as well as on who holds the duty.",
+                blocks=["compile", "score"], node_id=cb[0][0],
+                fix={"type": "edit_element", "node_id": cb[0][0], "field": "identity", "instruction": f"Name a different person, team or organisation as the {b}."}))
+
     # 2. People who check each other's work are different people.
     for a, b, cid, why in SEPARATION:
         ia, ib = _norm(getattr(registry.actors, a).identity), _norm(getattr(registry.actors, b).identity)
@@ -290,6 +324,14 @@ def formal_findings(registry, constraint_node_ids: Optional[Dict[str, str]], gra
             blocks=["compile"],
             fix={"type": "add_element", "kind": "LEGAL_BASIS", "data": {}, "instruction": "Add the legal basis you rely on (for example public task or consent) and link it to the data."},
         ))
+
+    # 3b. Consent as the legal basis needs a consent record behind it.
+    if graph is not None and any(str((n.props or {}).get("basis", "")).upper() == "CONSENT" for n in by_type("LEGAL_BASIS")) and not by_type("CONSENT_RECORD") and not registry.consent_records:
+        out.append(Finding(
+            finding_id="consent-record-missing", severity="error", title="Consent is the legal basis, but there is no consent record",
+            detail="The legal basis is consent, and the design shows no consent record to stand behind it.",
+            why="Consent has to be shown: who gave it, when, and how it was validated. Without a record the basis is a claim.", blocks=["compile"],
+            fix={"type": "add_element", "kind": "CONSENT_RECORD", "data": {}, "instruction": "Add the consent record and connect it to the legal basis it supports."}))
 
     # 4. The model has the data it was trained on and the place it runs.
     if graph is not None and by_type("AI_MODEL"):
@@ -340,6 +382,17 @@ def formal_findings(registry, constraint_node_ids: Optional[Dict[str, str]], gra
                 detail=f"It is marked Satisfied, but its evidence ({(decl.evidence or '').strip()!r}) is a placeholder, not a record of how it is met.",
                 why="The platform cannot judge whether evidence is good, but a word like \u201ctest\u201d is not evidence, and the contract would attest to it.",
                 blocks=["compile"], node_id=constraint_node_ids.get(cid), fix=_constraint_fix(cid, constraint_node_ids)))
+
+    # 6c. Evidence that says what is claimed but not where the record is kept.
+    shown = {f.finding_id for f in out}
+    for cid, decl in sorted(registry.governance_state.constraints_declared.items()):
+        if decl.status.value == "SATISFIED" and not is_placeholder_evidence(decl.evidence) and not names_a_record(decl.evidence) and not any(i.endswith(cid) for i in shown):
+            info = constraint_info(cid) or {"name": cid}
+            out.append(Finding(
+                finding_id=f"norecord-{cid}", severity="warning", title=f"{cid} \u00b7 {info['name']}",
+                detail=f"Its evidence ({(decl.evidence or '').strip()!r}) says what is claimed but not where the record is kept.",
+                why="Evidence is a pointer to a record someone can open: a link, a document or reference number. Wording that restates the constraint cannot be checked by anyone.",
+                blocks=[], node_id=constraint_node_ids.get(cid), fix=_constraint_fix(cid, constraint_node_ids)))
 
     # 7. What the PCS says about the design as a whole.
     try:

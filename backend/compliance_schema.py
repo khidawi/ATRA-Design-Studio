@@ -83,7 +83,9 @@ class ReviewOut(BaseModel):
 
 class ReviewState(BaseModel):
     """Where a design stands on the human review the gate may ask for. Computed per request, never signed."""
-    required:    bool                # the gate says REQUIRES_REVIEW
+    required:    bool                # the gate says REQUIRES_REVIEW, or the person issuing the contract holds a role in the model
+    reason:      str = ""            # "gate" | "issuer"
+    issuer_role: Optional[str] = None
     gate:        str
     pcs:         float
     tier:        str
