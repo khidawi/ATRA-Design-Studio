@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from main import app
 from tests._auth import authed_client
 from tests.test_agent_registry import cleanup, doc
+from tests._agent import ratify
 
 KEY = "zz-test-patient-agent"
 REQ = {"dpia": {"status": "Covered", "evidence": "DPIA report DOC-9", "signed_off_by": "Compliance lead"}}
@@ -38,7 +39,7 @@ def test_overview_and_workspace_follow_real_activity_and_ignore_demo():
     with authed_client() as api:
         d = api.post("/api/designs", json={"name": "zz-test design", "domain": "OWASP_AGENTIC", "subject": "AGENT", "document": doc(req=REQ)}).json()
         api.post("/api/designs", json={"name": "zz-test unratified", "domain": "OWASP_AGENTIC", "subject": "AGENT", "document": doc("zz-test-other", REQ)})
-        api.post("/api/agents/ratify", json={"design_key": d["design_key"], "reviewer": "Compliance lead"})
+        ratify(api, {"design_key": d["design_key"], "reviewer": "Compliance lead"})
         api.post("/api/agents/register", json={"name": "zz-test-sandbox"})
         try:
             api.post("/api/agents/demo")                                                                                    # must not be counted

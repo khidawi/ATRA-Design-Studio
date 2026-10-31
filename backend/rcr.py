@@ -21,7 +21,8 @@ from compliance_engine import to_design_graph
 from compliance_schema import DesignGraphIn
 from db.models import RcrProfile, RcrRequirement
 from db.session import get_session
-from rcr_engine import COVERED, STATUSES, RcrError, Requirement, score, validate_registry
+from rcr_engine import COVERED, PARTIAL, STATUSES, UNMAPPED, RcrError, Requirement, score, validate_registry
+from schema import is_placeholder_evidence, names_a_record
 from rule_checks import CheckConfigError, evaluate_graph_rule
 
 router = APIRouter(prefix="/api/rcr", tags=["rcr"])
@@ -112,6 +113,8 @@ class RowOut(BaseModel):
     evidence: str
     signed_off_by: str
     awaiting_signoff: bool
+    evidence_placeholder: bool = False   # declared on words that stand in for a record: it earns no credit
+    evidence_names_record: bool = True   # the evidence says where the record is kept
 
 
 class InstrumentOut(BaseModel):
@@ -149,6 +152,8 @@ def score_agent(req: RcrRequest, session: Session = Depends(get_session)) -> Rcr
     requirements: List[Requirement] = []
     notes: Dict[str, str] = {}
     derived: Dict[str, bool] = {}
+    placeholder: Dict[str, bool] = {}
+    names: Dict[str, bool] = {}
 
     for r in _requirements(session, profile):
         decl = req.declarations.get(r.req_key, Declaration())
@@ -165,9 +170,14 @@ def score_agent(req: RcrRequest, session: Session = Depends(get_session)) -> Rcr
         else:
             if req.declarations.get(r.req_key) is not None and decl.status is not None:
                 status, evidence = decl.status, decl.evidence
+                if status in (COVERED, PARTIAL) and is_placeholder_evidence(evidence):
+                    placeholder[r.req_key] = True
+                    status = UNMAPPED          # words like "test" are not evidence: no credit
+                elif status in (COVERED, PARTIAL):
+                    names[r.req_key] = names_a_record(evidence)
             else:
                 status, evidence = default.get("status", "Unmapped"), default.get("evidence", "")
-            notes[r.req_key], derived[r.req_key] = evidence, False
+            notes[r.req_key], derived[r.req_key] = ("The evidence is a placeholder, not a record of how it is met." if placeholder.get(r.req_key) else evidence), False
         if status not in STATUSES:
             raise HTTPException(status_code=422, detail=f"{r.req_key}: status must be one of {', '.join(STATUSES)}")
         requirements.append(Requirement(
@@ -189,5 +199,6 @@ def score_agent(req: RcrRequest, session: Session = Depends(get_session)) -> Rcr
         rows=[RowOut(
             key=x.key, name=x.name, instrument=x.instrument, cls=x.cls, w=x.w, phi=x.phi, derived=derived[x.key],
             declared=x.declared, counted=x.counted, c=x.c, reason=x.reason, note=notes[x.key], evidence=x.evidence,
-            signed_off_by=x.signed_off_by, awaiting_signoff=x.awaiting_signoff) for x in result.rows],
+            signed_off_by=x.signed_off_by, awaiting_signoff=x.awaiting_signoff, evidence_placeholder=placeholder.get(x.key, False),
+            evidence_names_record=names.get(x.key, True)) for x in result.rows],
     )

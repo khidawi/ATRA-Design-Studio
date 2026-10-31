@@ -58,7 +58,7 @@ def design_doc(name, extra=None, req=None):
         "nodes": [
             {"id": "h1", "type": "human", "name": "Clinician", "p": {}},
             {"id": "g1", "type": "goal", "name": "Summarise patient records", "p": {}},
-            {"id": "a1", "type": "agent", "name": name, "p": {"owner": "Compliance lead", "auto": "approval"}, "primary": True},
+            {"id": "a1", "type": "agent", "name": name, "p": {"owner": "Platform team", "auto": "approval"}, "primary": True},
             {"id": "t1", "type": "tool", "name": "ehr.records.read", "p": {"write": False}},
             {"id": "t2", "type": "tool", "name": "email.send.external", "p": {"write": True}},
         ],

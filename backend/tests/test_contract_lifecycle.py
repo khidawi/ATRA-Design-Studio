@@ -11,6 +11,7 @@ import agent_contract
 from main import app
 from tests._auth import authed_client
 from tests.test_agent_registry import cleanup, doc
+from tests._agent import ratify
 
 KEY = "zz-test-patient-agent"
 REQ = {"dpia": {"status": "Covered", "evidence": "DPIA report DOC-9", "signed_off_by": "Compliance lead"}}
@@ -52,7 +53,7 @@ def test_ratify_supersedes_records_change_and_revoke_keeps_the_hash_valid():
     with authed_client() as api:
         d = api.post("/api/designs", json={"name": "zz-test design", "domain": "OWASP_AGENTIC", "subject": "AGENT", "document": doc(req=REQ)}).json()
         try:
-            v1 = api.post("/api/agents/ratify", json={"design_key": d["design_key"], "reviewer": "Compliance lead"}).json()["contract"]
+            v1 = ratify(api, {"design_key": d["design_key"], "reviewer": "Compliance lead"}).json()["contract"]
             assert v1["design_snapshot"]["change"] == {"previous_version": None, "widens": False, "widened": [], "narrowed": []}
 
             wider = doc(req=REQ)
@@ -61,7 +62,7 @@ def test_ratify_supersedes_records_change_and_revoke_keeps_the_hash_valid():
             cur = api.get(f"/api/designs/{d['design_key']}").json()
             assert api.put(f"/api/designs/{d['design_key']}", json={"name": "zz-test design", "domain": "OWASP_AGENTIC", "subject": "AGENT",
                                                                     "document": wider, "version": cur["version"]}).status_code == 200
-            v2 = api.post("/api/agents/ratify", json={"design_key": d["design_key"], "reviewer": "Compliance lead"}).json()["contract"]
+            v2 = ratify(api, {"design_key": d["design_key"], "reviewer": "Compliance lead"}).json()["contract"]
             ch = v2["design_snapshot"]["change"]
             assert v2["version"] == "2.0.0" and ch["previous_version"] == "1.0.0" and ch["widens"] and ch["widened"] == ["added tool ehr.records.write (write)"]
 

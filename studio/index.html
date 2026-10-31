@@ -439,6 +439,8 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       recordReview: (key, body) => post('/api/designs/' + encodeURIComponent(key) + '/review', body),
       draftAgent: (description) => post('/api/agents/draft', { description }),
       analyseAgent: (graph) => post('/api/agents/analyse', { graph }),
+      agentReview: (key) => call('/api/agents/designs/' + encodeURIComponent(key) + '/review'),
+      recordAgentReview: (key, body) => post('/api/agents/designs/' + encodeURIComponent(key) + '/review', body),
       listDesigns: () => call('/api/designs?subject=MODEL'),
       getDesign: (key) => call('/api/designs/' + encodeURIComponent(key)),
       createDesign: (body) => post('/api/designs', body),
@@ -628,7 +630,7 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
     workspace: { role: 'comp' },
     add: { step: 1, src: 'code', confirmed: false, name: '', owner: '', framework: '', tools: '0', error: null, busy: false },
     imp: { formats: null, format: 'auto', content: '', filename: '', name: '', primary: '', preview: null, busy: false, err: null, result: null },
-    studio: { drafted: false, nodes: [], edges: [], sel: null, panel: 'analysis', policy: 'block', ratified: false, n: 100, domain: 'payments', req: {}, designKey: null, version: 0, saveState: 'saved', saveError: null, savedSig: '', ratifyError: null, ratifyInfo: null, provenance: null },
+    studio: { drafted: false, nodes: [], edges: [], sel: null, panel: 'fix', policy: 'block', ratified: false, n: 100, domain: 'payments', req: {}, designKey: null, version: 0, saveState: 'saved', saveError: null, savedSig: '', ratifyError: null, ratifyInfo: null, provenance: null },
     drift: { sel: null }
   };
 
@@ -1029,7 +1031,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
       return;
     }
     Object.assign(S.studio, {
-      drafted: true, sel: null, panel: 'analysis', ratified: false, domain: 'payments', req: {},
+      drafted: true, sel: null, panel: 'fix', ratified: false, domain: 'payments', req: {},
       nodes: [N('h1', 'human', 'Customer', {}), N('i1', 'input', 'support-inbox', { untrusted: true }), N('g1', 'goal', 'Resolve refunds within policy', {}), N('a1', 'agent', 'refund-assist-agent', { owner: '', auto: 'approval' }, true), N('a2', 'agent', 'notify-agent', { owner: 'Platform', auto: 'autonomous' }), N('t1', 'tool', 'stripe.refunds.create', { write: true }), N('t2', 'tool', 'crm.orders.read', { write: false }), N('m1', 'mcp', 'mcp://kb-search', { signed: false }), N('mem1', 'memory', 'case-memory', { long: true })],
       edges: E([['h1', 'i1', 'writes'], ['i1', 'a1', 'feeds'], ['a1', 'g1', 'pursues'], ['a1', 'a2', 'delegates'], ['a1', 't1', 'uses'], ['a1', 't2', 'uses'], ['a1', 'm1', 'connects'], ['a1', 'mem1', 'stores']])
     });
@@ -1094,8 +1096,8 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     const dels = st.edges.filter((e) => e.label === 'delegates');
     const r = agentAnalysisRemote();
     const pill = { Covered: 'ok', Partial: 'warn', Gap: 'bad', 'Not applicable': 'muted' };
-    const rows = r.result ? r.result.rows.map((x) => ({ id: x.id, name: x.name, status: x.status, why: x.why, fixLabel: x.fix_label, pill: pill[x.status], hasFix: x.has_fix })) : [];
-    return { rows, flags: r.result ? r.result.flags : {}, pending: r.pending, error: r.error, primary, dels, approvals, guards, cons, mcps, mems };
+    const rows = r.result ? r.result.rows.map((x) => ({ id: x.id, name: x.name, status: x.status, why: x.why, fixLabel: x.fix_label, pill: pill[x.status], hasFix: x.has_fix, instrument: x.instrument })) : [];
+    return { rows, formal: r.result ? (r.result.formal_findings || []) : [], flags: r.result ? r.result.flags : {}, pending: r.pending, error: r.error, primary, dels, approvals, guards, cons, mcps, mems };
   }
   const FIX = {
     ASI01: () => studioAdd('guardrail', 'prompt-injection-filter', { kind: 'injection' }),
@@ -1131,7 +1133,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     if (!r) return { rows: [], G: 0, F: 0, floor: null, score: 0, band: 'clear', gate: 'REVIEW', covered: 0, binding: 'breadth', B: 80, W: 40, instruments: [], worst: null, notes: [], pending: true, has: false, error: RCRR.error };
     const floorRow = r.floor_key ? r.rows.find((x) => x.key === r.floor_key) : null;
     return {
-      rows: r.rows.map((x) => ({ id: x.key, name: x.name, instrument: x.instrument, cls: x.cls, w: x.w, phi: x.phi, derived: x.derived, declared: x.declared, status: x.counted, note: x.note || x.reason, reason: x.reason, evidence: x.evidence, signed: x.signed_off_by, awaiting: x.awaiting_signoff })),
+      rows: r.rows.map((x) => ({ id: x.key, name: x.name, instrument: x.instrument, cls: x.cls, w: x.w, phi: x.phi, derived: x.derived, declared: x.declared, status: x.counted, note: x.note || x.reason, reason: x.reason, evidence: x.evidence, signed: x.signed_off_by, awaiting: x.awaiting_signoff, placeholder: x.evidence_placeholder, namesRecord: x.evidence_names_record })),
       G: r.G, F: r.F, floor: floorRow ? { id: floorRow.key, name: floorRow.name, note: floorRow.reason } : null, score: r.score, band: r.band, gate: r.gate,
       covered: r.covered, binding: r.binding, B: r.blocked_line, W: r.watch_line, instruments: r.instruments, worst: r.worst_instrument, notes: r.notes, pending, has: true, error: RCRR.error
     };
@@ -1192,17 +1194,17 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
       } catch (e) { st.saveState = /changed elsewhere/.test(e.message) ? 'conflict' : 'error'; st.saveError = e.message; }
     })();
     await AGS.inflight; AGS.inflight = null;
-    if (st.saveState === 'saving' || st.saveState === 'saved') { if (agentDocSig() !== st.savedSig) agentAutosaveCheck(); else paintAgentSave(); } else renderIfIdle('studio');
+    if (st.saveState === 'saving' || st.saveState === 'saved') { if (agentDocSig() !== st.savedSig) agentAutosaveCheck(); else { paintAgentSave(); if (st.panel === 'fix') { AF.rvFor = null; renderIfIdle('studio'); } } } else renderIfIdle('studio');
   }
   async function openAgentDesign(key) {
     await flushAgentSave();
     const d = await STAI.api.getDesign(key), doc = d.document;
     Object.assign(S.studio, { drafted: true, nodes: doc.nodes, edges: doc.edges, n: doc.n, domain: doc.profile || 'payments', req: doc.req || {}, policy: doc.policy || 'block', ratified: !!doc.ratified && ['DESIGNED', 'ASSURED'].includes(((AG.list.find((x) => x.design_key === d.design_key)) || {}).status),
-      designKey: d.design_key, version: d.version, sel: null, panel: doc.ratified ? 'yaml' : 'analysis', draftNote: '', draftError: '', ratifyError: null, ratifyInfo: null, provenance: doc.provenance || null, org: doc.org || null, saveState: 'saved', saveError: null });
+      designKey: d.design_key, version: d.version, sel: null, panel: doc.ratified ? 'yaml' : 'fix', draftNote: '', draftError: '', ratifyError: null, ratifyInfo: null, provenance: doc.provenance || null, org: doc.org || null, saveState: 'saved', saveError: null });
     S.studio.savedSig = agentDocSig(); lsSet(AG_LS, d.design_key);
   }
   function resetAgentStudio() {
-    Object.assign(S.studio, { drafted: false, nodes: [], edges: [], sel: null, panel: 'analysis', policy: 'block', ratified: false, n: 100, domain: 'payments', req: {}, designKey: null, version: 0, saveState: 'saved', saveError: null, savedSig: '', ratifyError: null, ratifyInfo: null, draftNote: '', draftError: '', provenance: null, org: null });
+    Object.assign(S.studio, { drafted: false, nodes: [], edges: [], sel: null, panel: 'fix', policy: 'block', ratified: false, n: 100, domain: 'payments', req: {}, designKey: null, version: 0, saveState: 'saved', saveError: null, savedSig: '', ratifyError: null, ratifyInfo: null, draftNote: '', draftError: '', provenance: null, org: null });
     lsSet(AG_LS, null);
   }
   function studio() {
@@ -1239,7 +1241,9 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     const nodesHtml = st.nodes.map((x) => { const q = xy(x.id); const cls = 'node el-' + (AGENT_EL[x.type] || 'task') + (x.primary ? ' agent' : '') + (x.type === 'goal' ? ' goal' : '') + (st.sel === x.id ? ' sel' : ''); return `<button class="${cls}" style="left:${q.x}px;top:${q.y}px" data-act="sSel" data-arg="${x.id}" aria-label="${esc(TAGS[x.type] + ' ' + x.name)}"><span class="tag">${TAGS[x.type]}</span><span class="nm">${esc(x.name)}</span>${A.flags[x.id] ? `<span class="badge">${A.flags[x.id]}</span>` : ''}</button>`; }).join('');
     const applicable = A.rows.filter((r) => r.status !== 'Not applicable').length, covered = A.rows.filter((r) => r.status === 'Covered').length;
     let panel = '';
-    if (st.panel === 'analysis') {
+    if (st.panel === 'fix') {
+      panel = agentFixPanel(A, computeRCR());
+    } else if (st.panel === 'analysis') {
       panel = `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><h2>Live ASI analysis</h2><span style="font-size:22px;font-weight:600">${covered}<span class="cap"> / ${applicable} covered</span></span></div>${A.error ? `<div class="note alert" role="alert"><strong>Analysis unavailable</strong><span style="font-size:13px;white-space:pre-wrap">${esc(A.error)}</span></div>` : (A.pending && !A.rows.length ? '<span class="cap">Analysing the design\u2026</span>' : '')}<div>${A.rows.map((r) => `<div class="arow"><span class="stack" style="gap:2px;min-width:0"><span style="font-weight:500">${r.id} ${r.name}</span><span class="cap">${r.why}</span></span><span style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><span class="pill ${r.pill}">${r.status}</span>${r.hasFix ? `<button class="btn2 btn-s" data-act="sFix" data-arg="${r.id}">${r.fixLabel}</button>` : ''}</span></div>`).join('')}</div>`;
     } else if (st.panel === 'compliance') {
       const Rc = computeRCR();
@@ -1297,7 +1301,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     return out + `<section aria-label="Add elements" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="cap">Add</span>${pal.map(([t, l]) => `<button class="chip" data-act="sAdd" data-arg="${t}">${palIco(AGENT_OG[t])}${l}</button>`).join('')}</section>
     <div class="studiocols"><section class="card" style="overflow:auto;padding:16px;min-height:420px"><div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap"><span style="font-size:13px;font-weight:600">Agent architecture view</span><span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="cap">Secure Tropos with agent elements · click to edit</span><button class="btn2 btn-s" data-act="vwOpen" data-arg="agent">Enlarge view</button></span></div>
     <div class="canvas" data-viewable="agent" style="height:${canvasH}px">${edgesHtml.map((e) => e.line).join('')}${edgesHtml.map((e) => e.label).join('')}${nodesHtml}</div></section>
-    <section class="card" style="padding:16px 20px 20px;display:flex;flex-direction:column;gap:14px">${segTabs([['analysis', 'ASI'], ['compliance', 'Compliance'], ['props', 'Properties'], ['yaml', 'YAML']], st.panel, 'sPanel')}${panel}</section></div>`;
+    <section class="card" style="padding:16px 20px 20px;display:flex;flex-direction:column;gap:14px">${segTabs([['fix', 'Fix' + (agFixCount(A) ? ` (${agFixCount(A)})` : '')], ['analysis', 'ASI'], ['compliance', 'Compliance'], ['props', 'Properties'], ['yaml', 'YAML']], st.panel, 'sPanel')}${panel}</section></div>`;
   }
 
   /* ---------- Drift review ---------- */
@@ -1623,7 +1627,7 @@ kill_switch:
       try {
         const d = await STAI.api.draftAgent(text);
         if (!d.nodes.length) st.draftError = d.reply;
-        else Object.assign(st, { org: null, drafted: true, sel: null, panel: 'analysis', ratified: false, domain: d.domain, req: {}, nodes: d.nodes, edges: d.edges, n: 100, draftNote: d.reply });
+        else Object.assign(st, { org: null, drafted: true, sel: null, panel: 'fix', ratified: false, domain: d.domain, req: {}, nodes: d.nodes, edges: d.edges, n: 100, draftNote: d.reply });
       } catch (e) { st.draftError = e.message; }
       st.drafting = false; render(true);
     },
@@ -1678,6 +1682,170 @@ kill_switch:
     pFw: (v, k) => { PK.form[k] = v; },
     pPeriod: (v) => { PK.form.period = v; }
   };
+
+  /* ======================= AI Agents: what to fix ======================= */
+  // Every open finding about the agent design is one card: what is wrong, what to do, what it blocks, and a way to do it from here. The risk itself is still decided the way it
+  // was: the OWASP Agentic checks, the regulatory compliance score and its gate, and the organisation's policies. This tab explains each one and offers the fix.
+  const AF = { open: null, status: 'Covered', evidence: '', ref: '', sign: false, confirm: false, err: null, rv: null, rvFor: null, decision: 'APPROVED', note: '', rvErr: null, rvBusy: false };
+  const AF_BLOCK = { ratify: 'Blocks ratification', gate: 'Blocks the gate', score: 'Raises the score' };
+  const agBadge = (k, text) => `<span class="src ${k}">${esc(text)}</span>`;
+  const agNodeExists = (id) => !!(id && S.studio.nodes.find((n) => n.id === id));
+  async function agLoadReview() {
+    const st = S.studio;
+    if (!st.designKey || st.saveState !== 'saved') return;
+    const key = st.designKey + ':' + st.version;
+    if (AF.rvFor === key) return;
+    AF.rvFor = key;
+    try { AF.rv = await STAI.api.agentReview(st.designKey); renderIfIdle('studio'); } catch (e) { AF.rv = null; }
+  }
+  function agentTodo(A, Rc) {
+    const items = [], put = (it) => { it.needs = it.needs || []; it.blocks = it.blocks || []; items.push(it); };
+    (A.formal || []).forEach((f) => put({ key: 'f:' + f.finding_id, source: 'formal', status: f.severity === 'error' ? 'Gap' : 'Partial', title: f.title, wrong: f.detail, why: f.why, blocks: f.blocks.slice(), fix: f.fix, nodeId: f.node_id || null }));
+    A.rows.filter((r) => r.status === 'Gap' || r.status === 'Partial').forEach((r) => {
+      const pol = r.instrument === 'ORG_POLICY', flagged = Object.keys(A.flags || {}).find((id) => (A.flags[id] || '').split(' ').indexOf(r.id) >= 0);
+      put({ key: 'a:' + r.id, source: pol ? 'pol' : 'asi', status: r.status, title: pol ? 'Policy: ' + r.name : `${r.id} \u00b7 ${r.name}`, wrong: r.why, why: '', nodeId: flagged || null,
+        fix: r.hasFix ? { type: 'asi_fix', code: r.id, label: r.fixLabel, instruction: `${r.fixLabel}: the studio makes the change and the check re-runs.` } : { type: 'info', instruction: r.why } });
+    });
+    Rc.rows.forEach((r) => {
+      const veto = r.cls === 'veto';
+      if (r.status !== 'Covered') put({ key: 'r:' + r.id, source: 'reg', status: r.status === 'Partial' ? 'Partial' : 'Gap', title: r.name, instrument: r.instrument, wrong: `${r.reason}${r.placeholder ? '' : (r.note ? ' \u00b7 ' + r.note : '')}`, why: veto ? 'A critical requirement: while it is open the score has a floor, and the gate can be Blocked whatever else is covered.' : '',
+        blocks: veto ? ['gate'] : ['score'], nodeId: null, fix: r.derived && r.awaiting ? { type: 'signoff', rkey: r.id, instruction: can('signoff') ? 'The design covers it. A critical requirement counts as covered once a named person signs it off.' : 'The design covers it, but a critical requirement counts only once a named person signs it off. Ask a compliance reviewer.' }
+          : r.derived ? { type: 'design', instruction: 'This requirement is checked from the design itself: change the design (see the checks above) and it is covered.' }
+          : { type: 'requirement', rkey: r.id, veto, instruction: veto ? 'Record how it is met, and sign it off as yourself.' : 'Record how it is met.' } });
+      else if (!r.derived && !r.namesRecord && !r.placeholder) put({ key: 'n:' + r.id, source: 'reg', status: 'Partial', title: r.name, instrument: r.instrument, wrong: `Its evidence (${JSON.stringify(String(r.evidence || '').slice(0, 80))}) says what is claimed but not where the record is kept.`, why: 'Evidence is a pointer to a record someone can open: a link, a document or a reference number.', blocks: [], nodeId: null,
+        fix: { type: 'requirement', rkey: r.id, veto, instruction: 'Add where the record is kept.' } });
+    });
+    const rv = AF.rv;
+    if (rv && rv.required && !rv.approved) {
+      const last = rv.reviews[0];
+      put({ key: 'review', source: 'formal', status: rv.rejected ? 'Gap' : 'Partial', title: 'A person has to review this design', blocks: ['ratify'], nodeId: null,
+        wrong: rv.rejected ? `The latest review of this version rejected it: \u201c${last.note}\u201d (${last.reviewer}).`
+          : rv.reason === 'issuer' ? `You are named as this agent\u2019s owner, so a design you ratify needs a recorded review by someone who is not.`
+          : `The risk score is ${fmtScore(rv.pcs)} and the gate says REVIEW: a person has to review this version before it is ratified.${last && !last.current ? ` ${last.reviewer} reviewed an earlier version; the design has changed since.` : ''}`,
+        why: 'A review belongs to one version of the design and lapses when the design changes. The reviewer must have sign-off permission and cannot be the agent\u2019s owner.', fix: { type: 'review', instruction: can('signoff') ? 'Read the findings, then record your review.' : 'Ask a compliance reviewer to record the review; your role cannot sign off.' } });
+    }
+    const order = (it) => (it.key === 'review' ? 15 : (it.blocks.indexOf('ratify') >= 0 ? 0 : it.blocks.indexOf('gate') >= 0 ? 1 : 2) * 10 + (it.status === 'Gap' ? 0 : 1));
+    return items.sort((x, y) => order(x) - order(y));
+  }
+  function agFixCount(A) { const st = S.studio; return st.drafted && A ? agentTodo(A, computeRCR()).length : 0; }
+  function agentBanner(Rc, items) {
+    const gateCls = { APPROVE: 'ok', REVIEW: 'warn', BLOCK: 'bad' }[Rc.gate] || 'muted';
+    const stop = items.filter((x) => x.blocks.indexOf('ratify') >= 0 || (x.blocks.indexOf('gate') >= 0 && Rc.gate === 'BLOCK')).length;
+    const veto = items.filter((x) => x.blocks.indexOf('gate') >= 0).length;
+    return `<div class="fxbar" aria-label="What stands between this design and ratification">
+      <div><b>Risk gate</b><span class="pill ${gateCls}" style="align-self:flex-start">${Rc.has ? Rc.gate : 'Scoring\u2026'}</span><span class="cap">${Rc.has ? `Score ${fmtScore(Rc.score)} \u00b7 ${esc(Rc.band)}${veto ? ' \u00b7 ' + plural(veto, 'critical requirement') + ' open' : ''}` : ''}</span></div>
+      <div><b>Ratify the design</b><span class="pill ${stop ? 'bad' : 'ok'}" style="align-self:flex-start">${stop ? 'Refused' : 'Ready'}</span><span class="cap">${stop ? plural(stop, 'thing') + ' to fix first' : 'Everything it checks is met'}</span></div></div>`;
+  }
+  function agentReviewForm(Rc, items) {
+    const rv = AF.rv;
+    if (!rv) return '<span class="cap">Loading the reviews of this design\u2026</span>';
+    const past = rv.reviews.length ? `<div class="stack" style="gap:4px"><span class="cap"><b>Reviews of this design</b></span>${rv.reviews.map((r) => `<div class="cap"><span class="pill ${r.decision === 'APPROVED' ? 'ok' : 'bad'}">${r.decision === 'APPROVED' ? 'Approved' : 'Rejected'}</span> ${esc(r.reviewer)} (${esc(r.role)}) \u00b7 ${esc(String(r.at).slice(0, 16).replace('T', ' '))} \u00b7 score ${fmtScore(r.pcs)} \u00b7 ${r.current ? 'this version' : 'an earlier version'}<br>${esc(r.note)}</div>`).join('')}</div>` : '';
+    if (!can('signoff')) return past;
+    if (rv.issuer_role) return `<div class="note plain" style="font-size:13px"><strong>Someone else has to review it</strong><span>You own this agent. A different person with sign-off permission records the review; ask them to open this design.</span></div>${past}`;
+    const first = items.filter((x) => x.key !== 'review' && (x.blocks.indexOf('ratify') >= 0 || (x.blocks.indexOf('gate') >= 0 && Rc.gate === 'BLOCK'))).length;
+    if (first) return `<div class="note plain" style="font-size:13px"><strong>Not ready for review</strong><span>A design is reviewed once it is correct. ${plural(first, 'thing')} to fix first, above.</span></div>${past}`;
+    return `<div class="fxform"><div class="fld"><label>Your decision</label><select class="inp" data-chg="agRv" data-arg="decision">${opt('APPROVED', 'Approve this version', AF.decision)}${opt('REJECTED', 'Reject this version', AF.decision)}</select></div>
+      <div class="fld"><label>What you looked at, and why</label><textarea class="inp" data-chg="agRv" data-arg="note" placeholder="For example: read the evidence for each critical requirement and checked the tools the agent can use.">${esc(AF.note)}</textarea></div>
+      ${AF.rvErr ? `<div class="note alert" role="alert">${esc(AF.rvErr)}</div>` : ''}
+      <div class="fxact"><button class="btn btn-s" data-act="agRvSave"${AF.rvBusy ? ' disabled' : ''}>${AF.rvBusy ? 'Recording\u2026' : 'Record my review'}</button><span class="cap">It is recorded under your name and cannot be edited.</span></div></div>${past}`;
+  }
+  function agentReqForm(it) {
+    const row = (computeRCR().rows || []).find((x) => x.id === it.fix.rkey) || {};
+    const mine = ME ? ME.full_name : '';
+    const sel = ['Covered', 'Partial', 'Gap', 'Unmapped'].map((v) => opt(v, v, AF.status)).join('');
+    return `<div class="fxform"><div class="fld"><label>Status</label><select class="inp" data-chg="agField" data-arg="status">${sel}</select></div>
+      <div class="fld"><label>What the evidence shows</label><textarea class="inp" data-chg="agField" data-arg="evidence" placeholder="For example: the DPIA for this agent was approved by the DPO on 3 March">${esc(AF.evidence)}</textarea></div>
+      <div class="fld"><label>Where it is kept</label><input class="inp" data-chg="agField" data-arg="ref" value="${esc(AF.ref)}" placeholder="A link, a document name or a reference number, such as DPIA-2026-014"></div>
+      ${it.fix.veto && can('signoff') ? `<label class="cap" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" data-chg="agField" data-arg="sign" ${AF.sign ? 'checked' : ''}><span>Sign this off as ${esc(mine)}. A critical requirement counts as covered only when a named person has signed it.</span></label>` : ''}
+      <label class="cap" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" data-chg="agField" data-arg="confirm" ${AF.confirm ? 'checked' : ''}><span>I confirm this evidence is accurate and on record. The platform cannot check it for you.</span></label>
+      ${AF.err ? `<div class="note alert" role="alert">${esc(AF.err)}</div>` : ''}
+      <div class="fxact"><button class="btn btn-s" data-act="agReqSave" data-arg="${esc(it.fix.rkey)}">Save</button><button class="btn2 btn-s" data-act="agReqOpen" data-arg="${esc(it.key)}">Cancel</button></div></div>`;
+  }
+  function agentCard(it, Rc, items) {
+    const f = it.fix, open = AF.open === it.key, target = agNodeExists(it.nodeId) ? it.nodeId : null;
+    const act = !f ? '' : f.type === 'connect' ? `<button class="btn btn-s" data-act="agConnect" data-arg="${esc(it.key)}">Connect them</button>`
+      : f.type === 'unlink' ? `<button class="btn btn-s" data-act="agUnlink" data-arg="${esc(it.key)}">Remove the line</button>`
+      : f.type === 'asi_fix' ? `<button class="btn btn-s" data-act="sFix" data-arg="${esc(f.code)}">${esc(f.label)}</button>`
+      : f.type === 'signoff' ? (can('signoff') ? `<button class="btn btn-s" data-act="agSign" data-arg="${esc(f.rkey)}">Sign off as ${esc(ME ? ME.full_name : '')}</button>` : '')
+      : f.type === 'requirement' ? `<button class="btn btn-s" data-act="agReqOpen" data-arg="${esc(it.key)}">${open ? 'Close' : 'Record evidence'}</button>` : '';
+    const sev = it.status === 'Gap' ? 'bad' : 'warn';
+    return `<div class="fxcard ${it.status === 'Gap' ? 'RED' : 'AMBER'}"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><span class="fxtitle">${esc(it.title)}</span><span class="pill ${sev}">${it.status === 'Gap' ? 'Gap' : 'Partial'}</span></div>
+      ${it.blocks.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap">${it.blocks.map((b) => `<span class="pill muted">${AF_BLOCK[b]}</span>`).join('')}</div>` : ''}
+      ${it.wrong ? `<div class="fxrow"><b>What is wrong.</b> ${esc(it.wrong)}</div>` : ''}
+      ${f && f.instruction && f.type !== 'info' ? `<div class="fxrow"><b>What to do.</b> ${esc(f.instruction)}</div>` : ''}
+      ${it.why ? `<div class="fxrow cap">${esc(it.why)}</div>` : ''}
+      ${f && f.type === 'review' ? agentReviewForm(Rc, items) : ''}
+      <div class="fxact">${act}${target ? `<button class="btn2 btn-s" data-act="sSel" data-arg="${esc(target)}">Show</button>` : ''}</div>
+      ${open && f && f.type === 'requirement' ? agentReqForm(it) : ''}</div>`;
+  }
+  function agentFixPanel(A, Rc) {
+    const st = S.studio;
+    agLoadReview();
+    if (A.error) return `<div class="note alert" role="alert"><strong>Analysis unavailable</strong><span style="font-size:13px;white-space:pre-wrap">${esc(A.error)}</span></div>`;
+    const items = agentTodo(A, Rc), by = (k) => items.filter((x) => x.source === k);
+    const grp = (k, label, note, list, none) => `<div class="srcgrp ${k === 'asi' ? 'reg' : k === 'formal' ? 'fm' : k}"><div class="srchead">${agBadge(k === 'asi' ? 'reg' : k === 'formal' ? 'fm' : k, label)}<span class="cap">${note}</span></div>${list.length ? list.map((x) => agentCard(x, Rc, items)).join('') : `<span class="cap">${none}</span>`}</div>`;
+    const reg = by('reg');
+    const instr = Array.from(new Set(reg.map((x) => x.instrument))).filter(Boolean);
+    const box = (k, label, line) => `<div class="srcbox ${k}"><b>${label}</b>${line}</div>`;
+    const cnt = (list) => (list.length ? `<span>${plural(list.filter((x) => x.status === 'Gap').length, 'gap')}</span><span>${plural(list.filter((x) => x.status === 'Partial').length, 'partial')}</span>` : '<span>Nothing open</span>');
+    return `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><h2>What to fix</h2><span class="cap">${Rc.pending || A.pending ? 'Updating\u2026' : 'Re-checks on every change'}</span></div>
+      ${agentBanner(Rc, items)}
+      <div class="srcsum" aria-label="What is driving the result">${box('fm', 'Design', cnt(by('formal')))}${box('reg', 'Regulations & OWASP', cnt(by('reg').concat(by('asi'))))}${box('pol', 'Policies', cnt(by('pol')))}</div>
+      ${grp('formal', 'The design itself', 'Is it made of the relationships the model defines? Also the human review.', by('formal'), 'The design is correct: one named primary agent, every element joined to it.')}
+      ${grp('asi', 'OWASP Agentic checks', 'The ten checks on how the agent is built.', by('asi'), 'Every OWASP check that applies is covered.')}
+      ${grp('reg', 'Regulatory requirements', instr.length ? esc(instr.join(', ')) + '. These feed the score and the gate.' : 'The requirements of this profile feed the score and the gate.', reg, 'Every requirement is covered.')}
+      ${grp('pol', 'Organisation policies', 'Your organisation\u2019s own policies, set in the main menu.', by('pol'), 'No organisation policy is open for this design.')}`;
+  }
+  Object.assign(C, {
+    agField: (v, k) => { AF[k] = v; AF.err = null; },
+    agRv: (v, k) => { if (k === 'decision') AF.decision = v; else AF.note = v; AF.rvErr = null; }
+  });
+  Object.assign(H, {
+    agReqOpen: (key) => {
+      if (AF.open === key) { AF.open = null; return; }
+      const id = key.slice(2), row = ((RCRR.result && RCRR.result.rows) || []).find((x) => x.key === id) || {};
+      const old = String(row.evidence || ''), m = old.match(/^([\s\S]*?)\s*\[ref:\s*([^\]]*)\]\s*$/);
+      AF.open = key; AF.status = row.declared && row.declared !== 'Unmapped' ? row.declared : 'Covered'; AF.evidence = m ? m[1] : old; AF.ref = m ? m[2] : ''; AF.sign = false; AF.confirm = false; AF.err = null;
+    },
+    agReqSave: (id) => {
+      const text = String(AF.evidence || '').trim(), ref = String(AF.ref || '').trim(), covers = AF.status === 'Covered' || AF.status === 'Partial';
+      if (covers && !text) { AF.err = 'Say what the evidence shows.'; return; }
+      if (covers && (!ref || isPlaceholder(ref))) { AF.err = 'Say where the record is kept: a link, a document name or a reference number.'; return; }
+      if (covers && isPlaceholder(text)) { AF.err = 'That is a placeholder, not a record. Say what the evidence shows.'; return; }
+      if (covers && !AF.confirm) { AF.err = 'Tick the box to confirm the evidence is accurate.'; return; }
+      const prior = (S.studio.req || {})[id] || {};
+      S.studio.req = Object.assign({}, S.studio.req, { [id]: { status: AF.status, evidence: ref ? `${text} [ref: ${ref}]` : text, signed_off_by: AF.sign && ME ? ME.full_name : (prior.signed_off_by || '') } });
+      S.studio.ratified = false; AF.open = null;
+    },
+    agSign: (id) => {
+      const row = ((RCRR.result && RCRR.result.rows) || []).find((x) => x.key === id) || {}, cur = (S.studio.req || {})[id] || { status: row.declared, evidence: row.evidence };
+      if (!ME) return;
+      S.studio.req = Object.assign({}, S.studio.req, { [id]: Object.assign({}, cur, { signed_off_by: ME.full_name }) }); S.studio.ratified = false;
+    },
+    agConnect: (key) => {
+      const it = agentTodo(studioAnalysis(), computeRCR()).find((x) => x.key === key), st = S.studio;
+      if (!it || !it.fix || it.fix.type !== 'connect') return;
+      st.edges.push({ from: it.fix.a, to: it.fix.b, label: it.fix.label }); st.ratified = false;
+    },
+    agUnlink: (key) => {
+      const it = agentTodo(studioAnalysis(), computeRCR()).find((x) => x.key === key), st = S.studio;
+      if (!it || !it.fix || it.fix.type !== 'unlink') return;
+      st.edges = st.edges.filter((e) => !(e.from === it.fix.a && e.to === it.fix.b && e.label === it.fix.label)); st.ratified = false;
+    },
+    agRvSave: async () => {
+      const st = S.studio;
+      if (AF.rvBusy) return;
+      if (String(AF.note).trim().length < 5) { AF.rvErr = 'Say what you looked at and why.'; return; }
+      AF.rvBusy = true; AF.rvErr = null; render(true);
+      try {
+        await flushAgentSave();
+        if (!st.designKey) throw new Error('The design could not be saved yet. ' + (st.saveError || ''));
+        await STAI.api.recordAgentReview(st.designKey, { decision: AF.decision, note: String(AF.note).trim() });
+        AF.note = ''; AF.rvFor = null;
+      } catch (e) { AF.rvErr = e.message; }
+      AF.rvBusy = false; render(true);
+    }
+  });
 
   /* ======================= REPOSITORY CONNECTORS (AI Agents) ======================= */
   // Connect a source repository; ASTRA reads it (never runs it) and lists the LangGraph, OpenAI Agents SDK and CrewAI agents and the MCP servers in it.
@@ -5549,7 +5717,7 @@ kill_switch:
       try { seed = await STAI.api.companyAgentSeed(id); } catch (e) { window.alert('Could not read the organisation: ' + e.message); return; }
       await flushAgentSave();
       resetAgentStudio();
-      Object.assign(st, { drafted: true, sel: null, panel: 'analysis', ratified: false, domain: 'payments', req: {}, nodes: [{ id: 'a1', type: 'agent', name: seed.name, p: { owner: seed.owner || '', auto: 'approval' }, primary: true }], edges: [], n: 100, org: { id: seed.id, name: seed.name, department: seed.department } });
+      Object.assign(st, { drafted: true, sel: null, panel: 'fix', ratified: false, domain: 'payments', req: {}, nodes: [{ id: 'a1', type: 'agent', name: seed.name, p: { owner: seed.owner || '', auto: 'approval' }, primary: true }], edges: [], n: 100, org: { id: seed.id, name: seed.name, department: seed.department } });
       seed.goals.forEach((g) => studioAdd('goal', g));
       seed.humans.forEach((h) => studioAdd('human', h.name));
       seed.inputs.forEach((i) => studioAdd('input', i.name, { untrusted: !!i.cross_department }));

@@ -78,6 +78,7 @@ from model_monitor import router as monitor_router
 from findings import router as findings_router
 from design_store import router as design_store_router, store_contract
 from design_review import current_review, review_state, router as design_review_router
+from agent_review import router as agent_review_router
 from ingestion import fail_interrupted_runs, router as ingestion_router
 
 # Tropos catalogue for constraint metadata
@@ -109,6 +110,7 @@ app.include_router(rcr_router)
 app.include_router(ingestion_router)
 app.include_router(design_store_router)
 app.include_router(design_review_router)
+app.include_router(agent_review_router)
 app.include_router(agent_import_router)
 app.include_router(agent_registry_router)
 app.include_router(agent_compare_router)

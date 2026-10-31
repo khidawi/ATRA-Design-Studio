@@ -11,6 +11,7 @@ import packs
 from main import app
 from tests._auth import authed_client
 from tests.test_agent_registry import cleanup, doc
+from tests._agent import ratify
 
 KEY = "zz-test-patient-agent"
 REQ = {"dpia": {"status": "Covered", "evidence": "DPIA report DOC-9", "signed_off_by": "Compliance lead"}}
@@ -53,7 +54,7 @@ def test_no_pack_without_an_agent_that_has_a_contract():
 def test_pack_content_chain_and_verification():
     with authed_client() as api:
         d = api.post("/api/designs", json={"name": "zz-test design", "domain": "OWASP_AGENTIC", "subject": "AGENT", "document": doc(req=REQ)}).json()
-        c = api.post("/api/agents/ratify", json={"design_key": d["design_key"], "reviewer": "Compliance lead"}).json()["contract"]
+        c = ratify(api, {"design_key": d["design_key"], "reviewer": "Compliance lead"}).json()["contract"]
         api.post("/api/agents/register", json={"name": "zz-test-sandbox"})
         api.post("/api/findings/simulate", json={"agent": KEY, "scenario": "write_tool_outside"})
         made = []

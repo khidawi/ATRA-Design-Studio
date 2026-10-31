@@ -9,6 +9,7 @@ import sys
 import company
 from tests._auth import authed_client
 from tests.test_agent_registry import NAME, cleanup, doc
+from tests._agent import ratify
 
 SENDER, RECEIVER = NAME, "zz-test-receiver"
 REQ = {"dpia": {"status": "Covered", "evidence": "DPIA report DOC-9", "signed_off_by": "Compliance lead"}}
@@ -212,7 +213,7 @@ def test_the_link_to_agents_contracts_and_the_runtime_is_read_only():
             d["nodes"].append({"id": "a2", "type": "agent", "name": RECEIVER, "p": {"owner": "Compliance lead", "auto": "approval"}})
             d["edges"].append({"from": "a1", "to": "a2", "label": "delegates"})
             design = comp.post("/api/designs", json={"name": "zz-test design", "domain": "OWASP_AGENTIC", "subject": "AGENT", "document": d}).json()
-            assert comp.post("/api/agents/ratify", json={"design_key": design["design_key"]}).status_code == 200
+            assert ratify(comp, {"design_key": design["design_key"]}).status_code == 200
             admin.post("/api/agents/register", json={"name": RECEIVER})
             before = admin.get("/api/agents").json()
 

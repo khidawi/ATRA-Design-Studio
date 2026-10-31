@@ -13,6 +13,7 @@ from main import app
 from tests._auth import authed_client
 from tests.test_agent_registry import NAME, cleanup, doc
 from tests.test_company import body, wipe
+from tests._agent import ratify
 
 REQ = {"dpia": {"status": "Covered", "evidence": "DPIA report DOC-9", "signed_off_by": "Compliance lead"}}
 ORG = {"departments": [{"id": "D-A", "name": "Alpha"}], "people": [{"id": "EMP-1", "name": "Pat Lee", "department": "D-A"}],
@@ -137,7 +138,7 @@ def test_removing_an_agent_removes_it_everywhere_and_packs_stay_verifiable():
             wipe_all()
             admin.post("/api/company/import", json=body(ORG))
             d = comp.post("/api/designs", json={"name": "zz-test design", "domain": "OWASP_AGENTIC", "subject": "AGENT", "document": doc(req=REQ)}).json()
-            assert comp.post("/api/agents/ratify", json={"design_key": d["design_key"]}).status_code == 200
+            assert ratify(comp, {"design_key": d["design_key"]}).status_code == 200
             k = admin.post("/api/keys", json={"name": "zz-test-collector", "role": "collector"}).json()
             ev = keyed(k["key"]).post("/api/runtime/events", json={"agent": NAME, "events": [{"type": "tool_call", "name": "payments.transfer.create", "write": True}]})
             assert ev.status_code == 202 and ev.json()["divergent"] == 1
@@ -223,7 +224,7 @@ def test_clearing_the_organisation_starts_the_whole_platform_from_scratch_unless
             api.post("/api/designs", json={"name": "zz-test unrelated model", "domain": domain, "subject": "MODEL", "document": {"nodes": [], "edges": [], "n": 1}})        # not linked to the organisation
             api.post("/api/agents/register", json={"name": "zz-test-outside", "owner": "Someone"})                  # an agent that is not in the organisation
             d = comp.post("/api/designs", json={"name": "zz-test design", "domain": "OWASP_AGENTIC", "subject": "AGENT", "document": doc(req=REQ)}).json()
-            assert comp.post("/api/agents/ratify", json={"design_key": d["design_key"]}).status_code == 200
+            assert ratify(comp, {"design_key": d["design_key"]}).status_code == 200
             k = api.post("/api/keys", json={"name": "zz-test-collector", "role": "collector"}).json()
             assert keyed(k["key"]).post("/api/runtime/events", json={"agent": NAME, "events": [{"type": "tool_call", "name": "payments.transfer.create", "write": True}]}).status_code == 202
             pack = comp.post("/api/packs", json={"template": "ASSURANCE", "period": "30d", "generated_by": "Compliance lead"})

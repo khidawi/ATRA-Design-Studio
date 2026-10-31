@@ -11,6 +11,7 @@ import auth
 from main import app
 from tests._auth import authed_client
 from tests.test_agent_registry import cleanup, doc
+from tests._agent import ratify
 
 
 def test_password_hashing():
@@ -133,7 +134,7 @@ def test_sign_offs_are_the_signed_in_persons_own():
                            "version": eng.get(f"/api/designs/{key}").json()["version"]}).status_code == 200                              # unchanged sign-off is fine
             removed = save(eng, "")
             assert removed.status_code == 403                                                                                         # an engineer cannot drop it
-            assert comp.post("/api/agents/ratify", json={"design_key": key, "reviewer": "Spoofed Name"}).json()["contract"]["issued_by"] == "Cora Compliance"
+            assert ratify(comp, {"design_key": key, "reviewer": "Spoofed Name"}).json()["contract"]["issued_by"] == "Cora Compliance"
         finally:
             cleanup("zz-test-patient-agent")
 

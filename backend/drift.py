@@ -186,7 +186,7 @@ def decide(item_id: str, body: DecideRequest, session: Session = Depends(get_ses
             design.name = primary["name"]
         session.flush()
         try:
-            out = ratify_design(session, design, user.name)
+            out = ratify_design(session, design, user.name, decided=True)
         except HTTPException:
             session.rollback()
             raise

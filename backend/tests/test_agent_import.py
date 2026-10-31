@@ -9,6 +9,7 @@ import sys
 import agent_import as ai
 from tests._auth import authed_client
 from tests.test_agent_registry import cleanup
+from tests._agent import ratify
 
 NL = chr(10)
 NAME = "zz-test-import-agent"
@@ -177,7 +178,7 @@ def test_preview_writes_nothing_and_import_creates_a_draft():
             cur = comp.get(f"/api/designs/{out['design_key']}").json()
             doc = {**cur["document"], "profile": "healthcare", "req": req}
             assert comp.put(f"/api/designs/{out['design_key']}", json={"name": NAME, "domain": "OWASP_AGENTIC", "subject": "AGENT", "document": doc, "version": cur["version"]}).status_code == 200
-            rat = comp.post("/api/agents/ratify", json={"design_key": out["design_key"]})
+            rat = ratify(comp, {"design_key": out["design_key"]})
             assert rat.status_code == 200, rat.text
             wider = MANIFEST + "  - name: ehr.records.write\n    access: write\n"
             wider = MANIFEST.replace("mcp_servers:", "  - name: payments.transfer.create\n    access: write\nmcp_servers:")

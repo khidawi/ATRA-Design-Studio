@@ -11,6 +11,7 @@ from db.models import Agent, Contract, Design
 from db.session import SessionLocal
 from main import app
 from tests._auth import authed_client
+from tests._agent import ratify
 
 NAME = "zz-test-patient-agent"
 
@@ -20,7 +21,7 @@ def doc(name=NAME, req=None):
         "nodes": [
             {"id": "h1", "type": "human", "name": "Clinician", "p": {}},
             {"id": "g1", "type": "goal", "name": "Summarise records", "p": {}},
-            {"id": "a1", "type": "agent", "name": name, "p": {"owner": "Compliance lead", "auto": "approval"}, "primary": True},
+            {"id": "a1", "type": "agent", "name": name, "p": {"owner": "Platform team", "auto": "approval"}, "primary": True},
             {"id": "t1", "type": "tool", "name": "ehr.records.read", "p": {"write": False}},
             {"id": "t2", "type": "tool", "name": "email.send.external", "p": {"write": True}},
         ],
@@ -67,7 +68,7 @@ def test_ratify_refuses_blocked_then_issues_a_verifiable_contract():
         key_agent = "zz-test-patient-agent"
         try:
             assert d.json()["document"]["profile"] == "healthcare"                                # extra fields survive
-            blocked = api.post("/api/agents/ratify", json={"design_key": key, "reviewer": "Compliance lead"})
+            blocked = ratify(api, {"design_key": key, "reviewer": "Compliance lead"})
             assert blocked.status_code == 422 and "Blocked" in blocked.json()["detail"], blocked.text
             assert key_agent not in [a["agent_key"] for a in api.get("/api/agents").json()]
 
@@ -76,7 +77,7 @@ def test_ratify_refuses_blocked_then_issues_a_verifiable_contract():
             saved = api.put(f"/api/designs/{key}", json={"name": "zz-test design", "domain": "OWASP_AGENTIC", "subject": "AGENT",
                                                          "document": doc(req=req), "version": full["version"]})
             assert saved.status_code == 200, saved.text
-            ok = api.post("/api/agents/ratify", json={"design_key": key, "reviewer": "Compliance lead"})
+            ok = ratify(api, {"design_key": key, "reviewer": "Compliance lead"})
             assert ok.status_code == 200, ok.text
             body = ok.json()
             assert body["agent"]["status"] == "DESIGNED" and body["agent"]["tools_count"] == 2 and body["agent"]["origin"] == "DESIGNED"
@@ -86,7 +87,7 @@ def test_ratify_refuses_blocked_then_issues_a_verifiable_contract():
             assert api.get(f"/api/contracts/{c['contract_id']}/verify").json()["ok"]
             assert all(x["object_type"] == "AGENT" for x in api.get("/api/contracts?object_type=AGENT").json())
             assert c["contract_id"] not in [x["contract_id"] for x in api.get("/api/contracts").json()]   # model list stays model-only
-            again = api.post("/api/agents/ratify", json={"design_key": key, "reviewer": "Compliance lead"}).json()
+            again = ratify(api, {"design_key": key, "reviewer": "Compliance lead"}).json()
             assert again["contract"]["version"] == "2.0.0" and again["agent"]["contract_count"] == 2
             assert len([a for a in api.get("/api/agents").json() if a["agent_key"] == key_agent]) == 1  # one agent, two contracts
         finally:

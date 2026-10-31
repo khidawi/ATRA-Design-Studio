@@ -10,6 +10,7 @@ from agent_triage import kappa, screen
 from db.models import Agent, Design
 from db.session import SessionLocal
 from tests._auth import authed_client
+from tests._agent import ratify
 
 fails = []
 
@@ -124,7 +125,7 @@ with authed_client("admin", "Compliance lead") as api:
     check("it never credits a control the description only claims", not any(n["type"] in ("approval", "guardrail", "constraint") for n in d["document"]["nodes"]))
     check("the design is judged by the profile and starts blocked, with nothing evidenced",
           api.post("/api/rcr/score", json={"profile": d["document"]["profile"], "graph": {"nodes": [{"id": n["id"], "type": n["type"], "props": {"name": n["name"], **n["p"]}, "primary": bool(n.get("primary"))} for n in d["document"]["nodes"]], "edges": [{"from": e["from"], "to": e["to"], "label": e["label"]} for e in d["document"]["edges"]]}}).json()["gate"] == "BLOCK")
-    check("ratifying a draft that has not been completed is refused", api.post("/api/agents/ratify", json={"design_key": care["design_key"]}).status_code == 422)
+    check("ratifying a draft that has not been completed is refused", ratify(api, {"design_key": care["design_key"]}).status_code == 422)
 
     again = api.post("/api/agents/triage/import", json={"csv": text, "ids": high}).json()
     check("importing again changes nothing: updated, no new designs, same designs", again["created"] == 0 and again["updated"] == len(high) and again["designs_created"] == 0)

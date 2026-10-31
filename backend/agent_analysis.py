@@ -17,7 +17,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from compliance_engine import to_design_graph
-from compliance_schema import DesignGraphIn, RuleSeverity
+from agent_findings import formal_findings
+from compliance_schema import DesignGraphIn, Finding, RuleSeverity
 from db.session import get_session
 from regulations import require_domain
 from rule_checks import CheckConfigError, evaluate_graph_rule
@@ -40,6 +41,7 @@ class AnalysisRow(BaseModel):
     why: str
     fix_label: Optional[str] = None
     has_fix: bool = False
+    instrument: Optional[str] = None   # "ORG_POLICY" for an organisation policy, otherwise the framework the check comes from
 
 
 class AgentAnalysis(BaseModel):
@@ -49,6 +51,7 @@ class AgentAnalysis(BaseModel):
     flags: Dict[str, str]
     covered: int
     applicable: int
+    formal_findings: List[Finding] = []   # what is wrong with the design itself (agent_findings.py)
 
 
 @router.post("/analyse", response_model=AgentAnalysis)
@@ -76,7 +79,7 @@ def analyse_agent(req: AgentAnalyseRequest, session: Session = Depends(get_sessi
         status = _STATUS[outcome.status]
         rows.append(AnalysisRow(
             id=code, name=rule.title, status=status, why=outcome.message,
-            fix_label=fix_label, has_fix=bool(fix_label) and status in ("Gap", "Partial"),
+            fix_label=fix_label, has_fix=bool(fix_label) and status in ("Gap", "Partial"), instrument=rule.instrument,
         ))
 
     return AgentAnalysis(
@@ -85,4 +88,5 @@ def analyse_agent(req: AgentAnalyseRequest, session: Session = Depends(get_sessi
         flags=flags,
         covered=sum(1 for r in rows if r.status == "Covered"),
         applicable=sum(1 for r in rows if r.status != "Not applicable"),
+        formal_findings=formal_findings(graph),
     )

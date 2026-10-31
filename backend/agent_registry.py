@@ -28,6 +28,7 @@ import agent_contract
 import demo_data
 from agent_analysis import AgentAnalyseRequest, analyse_agent
 from auth import AuthUser, current_user
+from agent_review import assurance, check_ratifiable, current_review
 from compliance_schema import CompiledContract, DesignGraphIn, DesignRiskAssessment, RiskStatus, compute_contract_hash
 from db.models import Agent, Contract, Design, DriftItem, Finding
 from db.session import get_session
@@ -173,7 +174,8 @@ def ratify(body: RatifyRequest, session: Session = Depends(get_session), user: A
     return ratify_design(session, design, user.name)
 
 
-def ratify_design(session: Session, design: Design, reviewer: str) -> RatifyOut:
+def ratify_design(session: Session, design: Design, reviewer: str, decided: bool = False) -> RatifyOut:
+    """decided: a person with sign-off permission has just decided to approve this change to the design (drift approval), which is the human decision the REVIEW gate asks for."""
     doc = design.document
     primary = next((n for n in doc.get("nodes", []) if n.get("primary") and n.get("type") == "agent"), None)
     if primary is None or not str(primary.get("name", "")).strip():
@@ -192,6 +194,8 @@ def ratify_design(session: Session, design: Design, reviewer: str) -> RatifyOut:
             f"The design is Blocked (risk score {rcr.score:g}). Close the critical gaps first"
             + (f", starting with {rcr.floor_name}." if rcr.floor_name else ".")))
     analysis = analyse_agent(AgentAnalyseRequest(graph=graph, domain=AGENT_DOMAIN), session)
+    review = current_review(session, design)
+    check_ratifiable(rcr, analysis, primary, reviewer, review, decided)
 
     existing = session.scalar(select(Agent).where(Agent.agent_key == key))
     if existing is not None and existing.design_id not in (None, design.id) and existing.origin == "DESIGNED":
@@ -212,7 +216,8 @@ def ratify_design(session: Session, design: Design, reviewer: str) -> RatifyOut:
         contract_id=str(uuid.uuid4()), version=f"{version}.0.0", object_type="AGENT", deployment_id=key, domain=AGENT_DOMAIN,
         design_snapshot={"name": name, "nodes": doc.get("nodes", []), "edges": doc.get("edges", []), "profile": profile,
                          "declarations": doc.get("req") or {}, "drift_policy": doc.get("policy"),
-                         "rcr": rcr.model_dump(mode="json"), "analysis": analysis.model_dump(mode="json"), "change": change},
+                         "rcr": rcr.model_dump(mode="json"), "analysis": analysis.model_dump(mode="json"), "change": change,
+                         "assurance": assurance(rcr, review, primary, reviewer)},
         risk_assessment=DesignRiskAssessment(assessment_id=str(uuid.uuid4()), deployment_id=key, domain=AGENT_DOMAIN,
                                              overall_status=overall, assessed_at=datetime.now(timezone.utc)),
         issued_at=datetime.now(timezone.utc), issued_by=reviewer.strip())

@@ -10,6 +10,7 @@ import sys
 import exports
 from tests._auth import authed_client
 from tests.test_agent_registry import cleanup, doc
+from tests._agent import ratify
 
 KEY = "zz-test-patient-agent"
 REQ = {"dpia": {"status": "Covered", "evidence": "DPIA report DOC-9", "signed_off_by": "Compliance lead"}}
@@ -32,7 +33,7 @@ def test_text_cleaning_never_prints_boxes():
 def test_every_document_is_produced():
     with authed_client() as api:
         d = api.post("/api/designs", json={"name": "zz-test design", "domain": "OWASP_AGENTIC", "subject": "AGENT", "document": doc(req=REQ)}).json()
-        c = api.post("/api/agents/ratify", json={"design_key": d["design_key"]}).json()["contract"]
+        c = ratify(api, {"design_key": d["design_key"]}).json()["contract"]
         api.post("/api/agents/register", json={"name": "zz-test-sandbox"})
         f = api.post("/api/findings/simulate", json={"agent": KEY, "scenario": "write_tool_outside"}).json()["finding"]
         api.post(f"/api/findings/{f['finding_key']}/test")

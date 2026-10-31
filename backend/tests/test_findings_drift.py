@@ -13,6 +13,7 @@ import drift_engine
 from main import app
 from tests._auth import authed_client
 from tests.test_agent_registry import cleanup, doc
+from tests._agent import ratify
 
 KEY = "zz-test-patient-agent"
 REQ = {"dpia": {"status": "Covered", "evidence": "DPIA report DOC-9", "signed_off_by": "Compliance lead"}}
@@ -93,7 +94,7 @@ def test_detailed_changes():
 
 def ratified(api):
     d = api.post("/api/designs", json={"name": "zz-test design", "domain": "OWASP_AGENTIC", "subject": "AGENT", "document": doc(req=REQ)}).json()
-    r = api.post("/api/agents/ratify", json={"design_key": d["design_key"], "reviewer": "Compliance lead"})
+    r = ratify(api, {"design_key": d["design_key"], "reviewer": "Compliance lead"})
     assert r.status_code == 200, r.text
     return d["design_key"], r.json()["contract"]
 
