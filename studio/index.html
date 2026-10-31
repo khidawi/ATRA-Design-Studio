@@ -1243,6 +1243,8 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     let panel = '';
     if (st.panel === 'fix') {
       panel = agentFixPanel(A, computeRCR());
+    } else if (st.panel === 'assistant') {
+      panel = agentAssistantPanel();
     } else if (st.panel === 'analysis') {
       panel = `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><h2>Live ASI analysis</h2><span style="font-size:22px;font-weight:600">${covered}<span class="cap"> / ${applicable} covered</span></span></div>${A.error ? `<div class="note alert" role="alert"><strong>Analysis unavailable</strong><span style="font-size:13px;white-space:pre-wrap">${esc(A.error)}</span></div>` : (A.pending && !A.rows.length ? '<span class="cap">Analysing the design\u2026</span>' : '')}<div>${A.rows.map((r) => `<div class="arow"><span class="stack" style="gap:2px;min-width:0"><span style="font-weight:500">${r.id} ${r.name}</span><span class="cap">${r.why}</span></span><span style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><span class="pill ${r.pill}">${r.status}</span>${r.hasFix ? `<button class="btn2 btn-s" data-act="sFix" data-arg="${r.id}">${r.fixLabel}</button>` : ''}</span></div>`).join('')}</div>`;
     } else if (st.panel === 'compliance') {
@@ -1301,7 +1303,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     return out + `<section aria-label="Add elements" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="cap">Add</span>${pal.map(([t, l]) => `<button class="chip" data-act="sAdd" data-arg="${t}">${palIco(AGENT_OG[t])}${l}</button>`).join('')}</section>
     <div class="studiocols"><section class="card" style="overflow:auto;padding:16px;min-height:420px"><div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap"><span style="font-size:13px;font-weight:600">Agent architecture view</span><span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="cap">Secure Tropos with agent elements · click to edit</span><button class="btn2 btn-s" data-act="vwOpen" data-arg="agent">Enlarge view</button></span></div>
     <div class="canvas" data-viewable="agent" style="height:${canvasH}px">${edgesHtml.map((e) => e.line).join('')}${edgesHtml.map((e) => e.label).join('')}${nodesHtml}</div></section>
-    <section class="card" style="padding:16px 20px 20px;display:flex;flex-direction:column;gap:14px">${segTabs([['fix', 'Fix' + (agFixCount(A) ? ` (${agFixCount(A)})` : '')], ['analysis', 'ASI'], ['compliance', 'Compliance'], ['props', 'Properties'], ['yaml', 'YAML']], st.panel, 'sPanel')}${panel}</section></div>`;
+    <section class="card" style="padding:16px 20px 20px;display:flex;flex-direction:column;gap:14px">${segTabs([['fix', 'Fix' + (agFixCount(A) ? ` (${agFixCount(A)})` : '')], ['assistant', 'Assistant'], ['analysis', 'ASI'], ['compliance', 'Compliance'], ['props', 'Properties'], ['yaml', 'YAML']], st.panel, 'sPanel')}${panel}</section></div>`;
   }
 
   /* ---------- Drift review ---------- */
@@ -1759,6 +1761,7 @@ kill_switch:
       ${it.fix.veto && can('signoff') ? `<label class="cap" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" data-chg="agField" data-arg="sign" ${AF.sign ? 'checked' : ''}><span>Sign this off as ${esc(mine)}. A critical requirement counts as covered only when a named person has signed it.</span></label>` : ''}
       <label class="cap" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" data-chg="agField" data-arg="confirm" ${AF.confirm ? 'checked' : ''}><span>I confirm this evidence is accurate and on record. The platform cannot check it for you.</span></label>
       ${AF.err ? `<div class="note alert" role="alert">${esc(AF.err)}</div>` : ''}
+      <div class="fxact"><button class="btn2 btn-s" data-act="agDraft" data-arg="${esc(it.fix.rkey)}"${AF.busy ? ' disabled' : ''}>${AF.busy ? 'Drafting\u2026' : 'Suggest wording'}</button><span class="cap">The assistant drafts the wording. You supply the real references.</span></div>
       <div class="fxact"><button class="btn btn-s" data-act="agReqSave" data-arg="${esc(it.fix.rkey)}">Save</button><button class="btn2 btn-s" data-act="agReqOpen" data-arg="${esc(it.key)}">Cancel</button></div></div>`;
   }
   function agentCard(it, Rc, items) {
@@ -1796,6 +1799,58 @@ kill_switch:
       ${grp('reg', 'Regulatory requirements', instr.length ? esc(instr.join(', ')) + '. These feed the score and the gate.' : 'The requirements of this profile feed the score and the gate.', reg, 'Every requirement is covered.')}
       ${grp('pol', 'Organisation policies', 'Your organisation\u2019s own policies, set in the main menu.', by('pol'), 'No organisation policy is open for this design.')}`;
   }
+  /* The assistant for the agent design: it proposes elements to add to the agent that is on the canvas. Nothing is added until the reviewer says so, and a control the description
+     does not mention is never proposed (agent_chat.py), so the checks are never credited with protections that are not in the design. */
+  const AA = { busy: false, log: [], proposal: null, err: null };
+  const AA_SAMPLES = ['It also reads customer emails from a shared inbox and can issue refunds over the payments API.', 'Add an approval step before any refund over 250 pounds, and a prompt-injection filter on the inbox.', 'It keeps a long-term memory of past cases that should be deleted after 30 days.'];
+  function agentAssistantPanel() {
+    const st = S.studio, p = AA.proposal;
+    const log = AA.log.length || AA.busy ? AA.log.map((m) => `<div class="m-msg ${m.who}${m.error ? ' err' : ''}">${esc(m.text)}</div>`).join('') + (AA.busy ? '<div class="m-msg bot">Thinking\u2026</div>' : '') : '<span class="cap">Describe what the agent does or should do, or try an example.</span>';
+    const proposal = p ? `<div class="stack" style="gap:8px"><strong style="font-size:13px">Proposed additions</strong>${p.items.map((x) => `<div class="box" style="gap:2px"><span style="font-weight:500">${esc(x.name)}</span><span class="cap">${esc(x.type)}${x.note ? ' \u00b7 ' + esc(x.note) : ''}</span></div>`).join('')}
+      <div class="fxact"><button class="btn btn-s" data-act="aaApply">Add ${plural(p.items.length, 'element')} to the design</button><button class="btn2 btn-s" data-act="aaDiscard">Discard</button></div>
+      <span class="cap">Each element is wired the way the studio wires it. A control you did not describe is not proposed, and nothing is marked covered for you.</span></div>` : '';
+    return `<div style="display:flex;flex-direction:column;gap:12px"><div><h2>Design assistant</h2><span class="cap">Describe what to add to ${esc((st.nodes.find((x) => x.primary) || {}).name || 'the agent')}; a local Ollama model proposes elements and you decide what goes in (a reply can take a while). What is open is on the Fix tab.</span></div>
+      <div class="m-chatlog">${log}</div>${proposal}
+      <div class="stack" style="gap:6px">${AA_SAMPLES.map((t, i) => `<button class="chip" style="text-align:left;height:auto;padding:8px 12px" data-act="aaSample" data-arg="${i}">${esc(t)}</button>`).join('')}</div>
+      <div class="fld"><label for="aa-in">Your description</label><textarea id="aa-in" rows="3" class="inp" style="padding:10px;min-height:80px"></textarea></div>
+      <button class="btn" data-act="aaSend"${AA.busy ? ' disabled' : ''}>${AA.busy ? 'Thinking\u2026' : 'Propose additions'}</button></div>`;
+  }
+  async function aaAsk(text) {
+    const st = S.studio;
+    if (AA.busy || !text.trim()) return;
+    AA.busy = true; AA.proposal = null; AA.log.push({ who: 'user', text }); render(true);
+    const have = st.nodes.map((n) => `${n.type} ${n.name}`).join('; ');
+    try {
+      const d = await STAI.api.draftAgent(`The agent ${(st.nodes.find((x) => x.primary) || {}).name || 'agent'} already has: ${have}. Describe only what is added to it: ${text}`);
+      const known = new Set(st.nodes.map((n) => (n.name || '').toLowerCase()));
+      const items = (d.nodes || []).filter((n) => !n.primary && !known.has((n.name || '').toLowerCase())).map((n) => ({ type: n.type, name: n.name, p: n.p || {}, note: n.p && n.p.kind ? n.p.kind : '' }));
+      AA.log.push({ who: 'bot', text: items.length ? `Proposed ${plural(items.length, 'element')} to add. Nothing changes until you add them.` : 'Nothing new to add: those elements are already in the design, or the description did not name any.' });
+      AA.proposal = items.length ? { items } : null;
+    } catch (e) { AA.log.push({ who: 'bot', text: e.message, error: true }); }
+    AA.busy = false; render(true);
+  }
+  Object.assign(H, {
+    aaSend: () => { const el = document.getElementById('aa-in'); const t = el ? el.value.trim() : ''; if (t) aaAsk(t); },
+    aaSample: (i) => { aaAsk(AA_SAMPLES[Number(i)]); },
+    aaDiscard: () => { AA.proposal = null; },
+    aaApply: () => {
+      const st = S.studio;
+      if (!AA.proposal) return;
+      AA.proposal.items.forEach((x) => studioAdd(x.type, x.name, x.p));
+      AA.log.push({ who: 'bot', text: `Added ${plural(AA.proposal.items.length, 'element')}. See what is open on the Fix tab.` });
+      AA.proposal = null; st.sel = null; st.ratified = false;
+    },
+    agDraft: async (id) => {
+      if (AF.busy) return;
+      const row = ((RCRR.result && RCRR.result.rows) || []).find((x) => x.key === id) || {}, primary = S.studio.nodes.find((x) => x.primary);
+      AF.busy = true; AF.err = null; render(true);
+      try {
+        const r = await STAI.api.draftEvidence({ kind: 'requirement', name: row.name, instrument: row.instrument, model_name: primary ? primary.name : '' });
+        AF.evidence = r.note; AF.confirm = false;
+      } catch (e) { AF.err = 'The assistant could not draft this: ' + e.message; }
+      AF.busy = false; render(true);
+    }
+  });
   Object.assign(C, {
     agField: (v, k) => { AF[k] = v; AF.err = null; },
     agRv: (v, k) => { if (k === 'decision') AF.decision = v; else AF.note = v; AF.rvErr = null; }
@@ -1811,6 +1866,7 @@ kill_switch:
       const text = String(AF.evidence || '').trim(), ref = String(AF.ref || '').trim(), covers = AF.status === 'Covered' || AF.status === 'Partial';
       if (covers && !text) { AF.err = 'Say what the evidence shows.'; return; }
       if (covers && (!ref || isPlaceholder(ref))) { AF.err = 'Say where the record is kept: a link, a document name or a reference number.'; return; }
+      if (covers && /\[[^\]]+\]/.test(text)) { AF.err = 'Replace each [bracketed placeholder] with the real reference first.'; return; }
       if (covers && isPlaceholder(text)) { AF.err = 'That is a placeholder, not a record. Say what the evidence shows.'; return; }
       if (covers && !AF.confirm) { AF.err = 'Tick the box to confirm the evidence is accurate.'; return; }
       const prior = (S.studio.req || {})[id] || {};

@@ -83,6 +83,21 @@ def test_the_fingerprint_is_the_design_not_its_status():
     check("so is a changed element", design_fingerprint(doc) != design_fingerprint(dict(doc, nodes=[{"id": "b"}])))
 
 
+def test_the_wording_helper_drafts_for_a_requirement_of_an_agent():
+    import chat
+    seen = {}
+    real = chat.chat_json
+    chat.chat_json = lambda messages, schema, **kw: seen.update(messages=messages) or {"note": "A [DPIA reference] approved by [who]."}
+    try:
+        out = chat.draft_evidence(chat.DraftEvidenceRequest(kind="requirement", name="GDPR Art. 35 \u2014 DPIA", instrument="GDPR", model_name="refund-agent"))
+    finally:
+        chat.chat_json = real
+    prompt = seen["messages"][1]["content"]
+    check("the requirement and the agent are in the prompt", "DPIA" in prompt and "GDPR" in prompt and "refund-agent" in prompt, prompt)
+    check("the draft leaves the real references as placeholders", "[DPIA reference]" in out.note)
+    check("the system prompt forbids inventing references", "Never invent" in seen["messages"][0]["content"])
+
+
 NAME = "zz-test-review-agent"
 
 

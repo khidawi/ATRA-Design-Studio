@@ -151,10 +151,11 @@ def generate_graph(req: ChatRequest) -> GeneratedGraph:
 # ── Drafting the wording of an evidence note (the person supplies the facts) ────────────────────
 
 class DraftEvidenceRequest(BaseModel):
-    kind: Literal["constraint", "attestation"]
+    kind: Literal["constraint", "attestation", "requirement"]
     constraint_id: Optional[str] = None
     instrument: Optional[str] = None
     clause: Optional[str] = None
+    name: Optional[str] = Field(default=None, max_length=200)      # a requirement of an agent: its name
     model_name: str = Field(default="", max_length=200)
 
 
@@ -178,6 +179,8 @@ def draft_evidence(req: DraftEvidenceRequest) -> DraftEvidence:
         if info is None:
             raise HTTPException(status_code=422, detail=f"{req.constraint_id!r} is not a known security constraint.")
         what = f"Security constraint {info['id']}: {info['name']}. {info['description']} It requires: {info['requirement']}."
+    elif req.kind == "requirement":
+        what = f"Requirement of the AI agent: {req.name or ''} ({req.instrument or 'no instrument named'}).".strip()
     else:
         what = f"Regulatory requirement: {req.instrument or ''} {req.clause or ''}.".strip()
     messages = [{"role": "system", "content": EVIDENCE_PROMPT},
