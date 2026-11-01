@@ -98,6 +98,34 @@ def test_the_wording_helper_drafts_for_a_requirement_of_an_agent():
     check("the system prompt forbids inventing references", "Never invent" in seen["messages"][0]["content"])
 
 
+def test_what_the_controls_are_worth_for_an_agent():
+    from datetime import date, timedelta
+    doc = agent_doc("Platform team")
+    graph_body = {"nodes": [{"id": n["id"], "type": n["type"], "props": {"name": n["name"], **n["p"]}, "primary": bool(n.get("primary"))} for n in doc["nodes"]],
+                  "edges": [{"from": e["from"], "to": e["to"], "label": e["label"]} for e in doc["edges"]]}
+    with authed_client("compliance", "Rhea Patel") as api:
+        def score(decl):
+            r = api.post("/api/rcr/score", json={"profile": "healthcare", "graph": graph_body, "declarations": {"dpia": decl}})
+            assert r.status_code == 200, r.text
+            return r.json()
+        with_record = score({"status": "Covered", "evidence": "DPIA report DOC-9", "signed_off_by": "Rhea Patel"})
+        lv = with_record["levels"]
+        check("the three levels come back with the score", set(lv) >= {"inherent", "verified", "declared"} and lv["declared"]["score"] == with_record["score"], lv)
+        check("no controls scores worse than the declared design", lv["inherent"]["score"] >= lv["declared"]["score"], lv)
+        check("evidence that names a record is verified (the profile's own assumptions are not: nobody has said where they are kept)", "dpia" not in lv["unverified"] and lv["verified"]["score"] >= lv["declared"]["score"], lv)
+        words_only = score({"status": "Covered", "evidence": "DPIA approved by the DPO", "signed_off_by": "Rhea Patel"})["levels"]
+        check("evidence that only restates the claim is declared, not verified", "dpia" in words_only["unverified"] and words_only["verified"]["score"] >= words_only["declared"]["score"], words_only)
+        check("recording where the evidence is kept lowers the verified score and leaves the declared one alone", lv["verified"]["score"] <= words_only["verified"]["score"] and lv["declared"]["score"] == words_only["declared"]["score"], (lv, words_only))
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        gone = score({"status": "Covered", "evidence": "DPIA report DOC-9", "signed_off_by": "Rhea Patel", "valid_until": yesterday})
+        row = next(r for r in gone["rows"] if r["key"] == "dpia")
+        check("evidence past its valid-until day no longer counts, and says so", row["evidence_expired"] and row["counted"] != "Covered" and gone["levels"]["expired"] == ["dpia"] and gone["score"] >= with_record["score"], row)
+        future = (date.today() + timedelta(days=30)).isoformat()
+        ok = score({"status": "Covered", "evidence": "DPIA report DOC-9", "signed_off_by": "Rhea Patel", "valid_until": future})
+        check("evidence still inside its valid-until day counts", next(r for r in ok["rows"] if r["key"] == "dpia")["counted"] == "Covered" and ok["score"] == with_record["score"])
+        check("a blank date is no date", score({"status": "Covered", "evidence": "DPIA report DOC-9", "signed_off_by": "Rhea Patel", "valid_until": ""})["score"] == with_record["score"])
+
+
 NAME = "zz-test-review-agent"
 
 

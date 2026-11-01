@@ -10,7 +10,7 @@ One DesignStudioDocument covers:
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import UUID
@@ -100,6 +100,12 @@ def names_a_record(text) -> bool:
     return any(any(c.isalpha() for c in w) and any(c.isdigit() for c in w) and not w.upper().startswith("SC-") for w in re.split(r"[\s,;()]+", t))
 
 
+def evidence_expired(decl, today: Optional[date] = None) -> bool:
+    """The evidence behind a declaration has passed its valid-until day: it no longer counts."""
+    until = getattr(decl, "valid_until", None)
+    return bool(until) and until < (today or date.today())
+
+
 VETO_CLASS_CONSTRAINTS = frozenset({
     "SC-DPIA-1", "SC-HITL-1", "SC-HALLU-1",
     "SC-MAP-1",  "SC-CHALL-1", "SC-LIAB-1",
@@ -116,6 +122,7 @@ MODULATING_CLASS_CONSTRAINTS = frozenset({
 class ConstraintDeclaration(BaseModel):
     status:              ConstraintStatus = ConstraintStatus.NOT_YET_DETERMINED
     evidence:            Optional[str]    = None
+    valid_until:         Optional[date]   = None     # evidence stops counting after this day
     evidence_attached_at: Optional[datetime] = None
 
     @model_validator(mode="after")
@@ -402,3 +409,5 @@ class ScoreRequest(BaseModel):
 class ScoreResponse(BaseModel):
     pcs_result: PCSResultBlock
     warnings:   List[str] = Field(default_factory=list)
+    # The same design scored three ways (scoring_bridge.score_levels): with no controls, with only the controls that have a record behind them, and as declared.
+    levels:     Optional[Dict[str, Any]] = None

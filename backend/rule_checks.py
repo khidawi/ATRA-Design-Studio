@@ -33,18 +33,24 @@ Conditions (exactly one key each):
     {"count": {"select": <selector>, "op": ">=", "value": 1}}
     {"edge_exists": {"label": "delegates"}}
     {"edge_count": {"label": "delegates", "op": ">=", "value": 1}}
+    {"no_unguarded_path": {"from": <selector>, "to": <selector>, "along": ["uses", ...],
+                           "guard": {"type": "approval", "label": "gates"}}}
+
+A route is a chain of relationships the design draws, followed in the direction they are drawn and only along the labels in `along`. A guard is an element with a `label` line to a
+node: the node is guarded, and no route goes through it. `no_unguarded_path` holds when no `to` element can be reached from a `from` element without passing a guarded node. That is
+the difference between "an approval step exists" and "an approval lies on every route to the write action". A `from` element that is itself guarded blocks all of its routes.
 """
 import operator
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 _COMPARE = {
     "==": operator.eq, "!=": operator.ne, ">=": operator.ge,
     ">": operator.gt, "<=": operator.le, "<": operator.lt,
 }
 _VALUE_OPS = {"eq", "ne", "in", "nonempty", "empty", "truthy", "falsy"}
-_COND_OPS = {"always", "never", "all", "any", "not", "exists", "count", "edge_exists", "edge_count"}
+_COND_OPS = {"always", "never", "all", "any", "not", "exists", "count", "edge_exists", "edge_count", "no_unguarded_path"}
 _STATUSES = {"GREEN", "AMBER", "RED"}
 MAX_DEPTH = 12
 
@@ -164,7 +170,54 @@ def holds(graph: DesignGraph, cond: Dict[str, Any], _depth: int = 0) -> bool:
         return any(e.label == arg.get("label") for e in graph.edges)
     if op == "edge_count":
         return _compare(sum(1 for e in graph.edges if e.label == arg.get("label")), arg)
+    if op == "no_unguarded_path":
+        return not unguarded_routes(graph, arg)
     raise CheckConfigError(f"unknown condition operator {op!r}")
+
+
+def unguarded_routes(graph: DesignGraph, spec: Dict[str, Any]) -> List[Tuple[GNode, List[GNode]]]:
+    """Every `to` element reachable from a `from` element without passing a guarded node, each with one route to it (the shortest)."""
+    if not isinstance(spec, dict):
+        raise CheckConfigError("no_unguarded_path needs an object")
+    along = spec.get("along")
+    if not isinstance(along, list) or not along or not all(isinstance(x, str) for x in along):
+        raise CheckConfigError("no_unguarded_path needs `along`: a list of relationship labels")
+    guard = spec.get("guard")
+    if not isinstance(guard, dict) or not isinstance(guard.get("label"), str):
+        raise CheckConfigError("no_unguarded_path needs `guard`: a selector with the `label` of the line that guards")
+    guard_ids = {n.id for n in select(graph, {k: v for k, v in guard.items() if k in ("type", "where", "primary")})}
+    guarded = {e.to_id for e in graph.edges if e.label == guard["label"] and e.from_id in guard_ids}
+    by_id = {n.id: n for n in graph.nodes}
+    adjacent: Dict[str, List[str]] = {}
+    for e in graph.edges:
+        if e.label in along:
+            adjacent.setdefault(e.from_id, []).append(e.to_id)
+    targets = {n.id for n in select(graph, spec.get("to") or {})}
+    found: Dict[str, List[GNode]] = {}
+    for start in select(graph, spec.get("from") or {}):
+        if start.id in guarded:
+            continue
+        parent: Dict[str, Optional[str]] = {start.id: None}
+        queue = [start.id]
+        while queue:
+            here = queue.pop(0)
+            for nxt in adjacent.get(here, []):
+                if nxt in parent or nxt in guarded or nxt not in by_id:
+                    continue
+                parent[nxt] = here
+                queue.append(nxt)
+        for tid in targets:
+            if tid in parent and tid != start.id and tid not in found:
+                path, cur = [], tid
+                while cur is not None:
+                    path.append(by_id[cur])
+                    cur = parent[cur]
+                found[tid] = list(reversed(path))
+    return [(by_id[t], p) for t, p in found.items()]
+
+
+def _route_text(path: List[GNode]) -> str:
+    return " → ".join(str(n.props.get("name") or n.id) for n in path)
 
 
 def _as_list(arg: Any, op: str) -> List[Any]:
@@ -185,6 +238,11 @@ def _variables(graph: DesignGraph, spec: Dict[str, Any]) -> Dict[str, str]:
             values[name] = str(len(select(graph, arg)))
         elif kind == "edge_count":
             values[name] = str(sum(1 for e in graph.edges if e.label == arg.get("label")))
+        elif kind == "unguarded":
+            values[name] = str(len(unguarded_routes(graph, arg)))
+        elif kind == "route":
+            routes = unguarded_routes(graph, arg)
+            values[name] = _route_text(routes[0][1]) if routes else ""
         elif kind == "prop":
             nodes = select(graph, arg.get("select", {}))
             value = nodes[0].props.get(arg.get("name")) if nodes else None
@@ -226,6 +284,10 @@ def evaluate_graph_rule(graph: DesignGraph, config: Dict[str, Any], default_unsa
     if status not in _STATUSES:
         raise CheckConfigError(f"unknown status {status!r}")
     flagged: List[str] = []
+    if config.get("flag_unguarded"):
+        for target, _ in unguarded_routes(graph, config["flag_unguarded"]):
+            if target.id not in flagged:
+                flagged.append(target.id)
     for selector in config.get("flag_nodes") or []:
         for node in select(graph, selector):
             if node.id not in flagged:
@@ -272,6 +334,16 @@ def validate_config(config: Any) -> List[str]:
                     check_cond(c, f"{where}.{op}[{i}]", depth + 1)
         elif op == "not":
             check_cond(arg, f"{where}.not", depth + 1)
+        elif op == "no_unguarded_path":
+            if not isinstance(arg, dict):
+                errors.append(f"{where}: no_unguarded_path needs an object")
+            else:
+                check_selector(arg.get("from"), f"{where}.from")
+                check_selector(arg.get("to"), f"{where}.to")
+                if not isinstance(arg.get("along"), list) or not arg.get("along"):
+                    errors.append(f"{where}: `along` needs a list of relationship labels")
+                if not isinstance(arg.get("guard"), dict) or not isinstance((arg.get("guard") or {}).get("label"), str):
+                    errors.append(f"{where}: `guard` needs a selector and the `label` of the guarding line")
         elif op == "exists":
             check_selector(arg, f"{where}.exists")
         elif op == "count":

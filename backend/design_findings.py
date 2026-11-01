@@ -13,7 +13,7 @@ A fix is plain data the studio acts on ({"type": "constraint_evidence" | "add_el
 from typing import Any, Dict, List, Optional
 
 from compliance_schema import Finding, RiskStatus
-from schema import VETO_CLASS_CONSTRAINTS, is_placeholder_evidence, names_a_record
+from schema import VETO_CLASS_CONSTRAINTS, evidence_expired, is_placeholder_evidence, names_a_record
 
 ROLES = [("trainer", "Trainer"), ("validator", "Validator"), ("deployer", "Deployer"), ("operator", "Operator"), ("consumer", "Consumer")]
 CORE_ROLES = {"trainer", "validator", "deployer"}      # the chain the veto constraints and the role-concentration factor rest on
@@ -346,10 +346,11 @@ def formal_findings(registry, constraint_node_ids: Optional[Dict[str, str]], gra
     # 5. The veto constraints: while any is not met, the gate is BLOCKED.
     for cid in sorted(VETO_CLASS_CONSTRAINTS):
         decl = registry.governance_state.constraints_declared.get(cid)
-        if decl is not None and decl.status.value == "SATISFIED" and not is_placeholder_evidence(decl.evidence):
+        if decl is not None and decl.status.value == "SATISFIED" and not is_placeholder_evidence(decl.evidence) and not evidence_expired(decl):
             continue
         info = constraint_info(cid) or {"name": cid, "because": ""}
         state = ("marked Unmet" if decl is not None and decl.status.value == "UNMET"
+                 else f"marked Satisfied, but its evidence expired on {decl.valid_until.isoformat()}, so it no longer counts" if decl is not None and decl.status.value == "SATISFIED" and evidence_expired(decl)
                  else f"marked Satisfied, but its evidence ({(decl.evidence or '').strip()!r}) is a placeholder, not a record" if decl is not None and decl.status.value == "SATISFIED"
                  else "not yet shown to be met")
         out.append(Finding(
@@ -362,7 +363,7 @@ def formal_findings(registry, constraint_node_ids: Optional[Dict[str, str]], gra
     # 6. Constraints that are not vetoes but raise the PCS while they are open.
     for cid in SCORE_CONSTRAINTS:
         decl = registry.governance_state.constraints_declared.get(cid)
-        if decl is not None and decl.status.value == "SATISFIED" and not is_placeholder_evidence(decl.evidence):
+        if decl is not None and decl.status.value == "SATISFIED" and not is_placeholder_evidence(decl.evidence) and not evidence_expired(decl):
             continue
         info = constraint_info(cid) or {"name": cid}
         out.append(Finding(

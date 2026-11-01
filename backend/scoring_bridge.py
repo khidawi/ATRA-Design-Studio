@@ -6,9 +6,9 @@ Translates a DesignStudio RegistryBlock → RegistryState,
 calls the existing rule engine unchanged, returns PCSResultBlock.
 """
 from datetime import datetime, timezone
-from typing import List
+from typing import Any, Dict, List
 
-from schema import RegistryBlock, PCSResultBlock, PillarVector, is_placeholder_evidence
+from schema import ConstraintStatus, RegistryBlock, PCSResultBlock, PillarVector, evidence_expired, is_placeholder_evidence, names_a_record
 
 # -- framework imports (copied into backend/framework/) ----------------------
 import sys, os
@@ -142,7 +142,7 @@ def _apply_declared_constraints(rs: RegistryState, rb: RegistryBlock) -> None:
     """Satisfied-with-evidence constraints set the fact they stand for. A value stated explicitly in the lifecycle facts is left as stated."""
     for cid, facts in _CONSTRAINT_FACTS.items():
         decl = rb.governance_state.constraints_declared.get(cid)
-        if decl is None or decl.status.value != "SATISFIED" or is_placeholder_evidence(decl.evidence):
+        if decl is None or decl.status.value != "SATISFIED" or is_placeholder_evidence(decl.evidence) or evidence_expired(decl):
             continue
         for name in facts:
             if getattr(rb.lifecycle, name, None) is None:
@@ -219,6 +219,51 @@ def registry_block_to_state(rb: RegistryBlock) -> RegistryState:
     return rs
 
 
+# The facts the engine reads that are controls (something the organisation did), as against facts about the deployment.
+_CONTROL_FLAGS = (
+    "model_card_approved", "fallback_procedure_exists", "fallback_tested", "dpia_approved", "provider_sla_gdpr_dpa", "hitl_formally_specified", "policy_hallucination_acknowledged",
+    "liability_boundary_declared", "right_to_challenge_documented", "output_validation_gate_configured", "hitl_verified_substantive", "operator_training_complete",
+)
+
+
+def _credited(decl) -> bool:
+    return decl.status.value == "SATISFIED" and not is_placeholder_evidence(decl.evidence) and not evidence_expired(decl)
+
+
+def _controls_removed(rb: RegistryBlock, keep_with_record: bool) -> RegistryBlock:
+    """The same design with its controls taken away: all of them, or all but those whose evidence names a record that is still valid."""
+    r = rb.model_copy(deep=True)
+    kept_facts = set()
+    for cid, decl in r.governance_state.constraints_declared.items():
+        if keep_with_record and _credited(decl) and names_a_record(decl.evidence):
+            kept_facts.update(_CONSTRAINT_FACTS.get(cid, ()))
+            continue
+        decl.status, decl.evidence = ConstraintStatus.NOT_YET_DETERMINED, None
+    for name in _CONTROL_FLAGS:
+        if name in kept_facts:
+            setattr(r.lifecycle, name, None)            # the constraint that has a record behind it sets it
+        elif getattr(r.lifecycle, name) is True:
+            setattr(r.lifecycle, name, False)           # stated on a lifecycle page with no record behind it
+    r.lifecycle.bias_metric = None
+    r.compensating_controls = 0
+    r.hallucination_constraint_declared = "hallucination_constraint_declared" in kept_facts
+    return r
+
+
+def score_levels(rb: RegistryBlock) -> Dict[str, Any]:
+    """What the controls are worth. Inherent: the design with no controls. Verified: only the controls whose evidence names a record that is still valid. Declared: everything stated.
+    The gap between verified and declared is what rests on statements nobody has checked. No discount is invented for an unchecked control: it is either counted or not."""
+    def one(registry: RegistryBlock) -> Dict[str, Any]:
+        res, _ = score_registry(registry)
+        return {"pcs": res.pcs_final, "tier": res.tier, "gate": res.gate}
+    decls = rb.governance_state.constraints_declared
+    return {
+        "inherent": one(_controls_removed(rb, False)), "verified": one(_controls_removed(rb, True)), "declared": one(rb),
+        "unverified": sorted(c for c, d in decls.items() if _credited(d) and not names_a_record(d.evidence)),
+        "expired": sorted(c for c, d in decls.items() if d.status.value == "SATISFIED" and evidence_expired(d)),
+    }
+
+
 def score_registry(rb: RegistryBlock) -> tuple[PCSResultBlock, list[str]]:
     """
     Run the full ST-AI engine against the given registry block.
@@ -238,7 +283,7 @@ def score_registry(rb: RegistryBlock) -> tuple[PCSResultBlock, list[str]]:
             "SC-DPIA-1", "SC-HITL-1", "SC-HALLU-1",
             "SC-MAP-1", "SC-CHALL-1", "SC-LIAB-1",
         }
-        and (decl.status.value != "SATISFIED" or is_placeholder_evidence(decl.evidence))
+        and (decl.status.value != "SATISFIED" or is_placeholder_evidence(decl.evidence) or evidence_expired(decl))
     ]
 
     # Gate override — if any veto constraint unmet, gate is always BLOCKED

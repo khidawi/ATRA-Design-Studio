@@ -382,12 +382,12 @@ def build(m: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]
             link(add("input", i["name"], {"untrusted": i["untrusted"]}), primary, "feeds")
     if m["goal"]:
         link(primary, add("goal", m["goal"], {}), "pursues")
-    first_write = None
+    write_tools = []
     for t in m["tools"]:
         tid = add("tool", t["name"], {"write": t["write"]})
         link(primary, tid, "uses")
-        if t["write"] and first_write is None:
-            first_write = tid
+        if t["write"]:
+            write_tools.append(tid)
     for s in m["mcp"]:
         if s["name"]:
             link(primary, add("mcp", s["name"], {"signed": s["signed"]}), "connects")
@@ -405,7 +405,9 @@ def build(m: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]
             link(primary, add("agent", d, {"owner": "", "auto": "approval"}), "delegates")
     for a in m["approvals"]:
         if a:
-            link(add("approval", a, {}), first_write or primary, "gates")
+            gate = add("approval", a, {})
+            for target in write_tools or [primary]:        # an approval is a control only if it lies on every route to a write action
+                link(gate, target, "gates")
     for g in m["guardrails"]:
         if g["name"]:
             link(add("guardrail", g["name"], {"kind": _kind(g["name"], g["kind"], GUARD_KIND, {"injection", "rate", "disclosure"}, m, "guardrail")}), primary, "limits")

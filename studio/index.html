@@ -1053,7 +1053,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     else if (type === 'mcp') link(pid, id, 'connects');
     else if (type === 'data') link(pid, id, 'reads');
     else if (type === 'memory') link(pid, id, 'stores');
-    else if (type === 'approval') { const wt = st.nodes.find((x) => x.type === 'tool' && x.p.write); link(id, wt ? wt.id : pid, 'gates'); }
+    else if (type === 'approval') { const wts = st.nodes.filter((x) => x.type === 'tool' && x.p.write); (wts.length ? wts.map((w) => w.id) : [pid]).forEach((t) => link(id, t, 'gates')); }   // an approval is a control only if it lies on every route to a write action
     else if (type === 'guardrail') link(id, pid, 'limits');
     else if (type === 'constraint') { const mem = st.nodes.find((x) => x.type === 'memory'); link(id, props.kind === 'retention' && mem ? mem.id : pid, 'restricts'); }
     st.sel = id; st.ratified = false;
@@ -1101,7 +1101,13 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
   }
   const FIX = {
     ASI01: () => studioAdd('guardrail', 'prompt-injection-filter', { kind: 'injection' }),
-    ASI02: () => studioAdd('approval', 'approval-over-250-gbp', {}),
+    ASI02: () => {
+      const st = S.studio, wts = st.nodes.filter((x) => x.type === 'tool' && x.p.write);
+      let ap = st.nodes.find((x) => x.type === 'approval');
+      if (!ap) { studioAdd('approval', 'approval-over-250-gbp', {}); ap = st.nodes[st.nodes.length - 1]; }
+      wts.forEach((w) => { if (!st.edges.some((e) => e.from === ap.id && e.to === w.id && e.label === 'gates')) st.edges.push({ from: ap.id, to: w.id, label: 'gates' }); });   // every write tool, not just the first
+      st.ratified = false;
+    },
     ASI04: () => { S.studio.nodes.forEach((x) => { if (x.type === 'mcp') x.p.signed = true; }); S.studio.ratified = false; },
     ASI06: () => studioAdd('constraint', 'memory-30-day-retention', { kind: 'retention' }),
     ASI08: () => studioAdd('guardrail', 'rate-limit-20-per-hour', { kind: 'rate' }),
@@ -1134,7 +1140,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     const floorRow = r.floor_key ? r.rows.find((x) => x.key === r.floor_key) : null;
     return {
       rows: r.rows.map((x) => ({ id: x.key, name: x.name, instrument: x.instrument, cls: x.cls, w: x.w, phi: x.phi, derived: x.derived, declared: x.declared, status: x.counted, note: x.note || x.reason, reason: x.reason, evidence: x.evidence, signed: x.signed_off_by, awaiting: x.awaiting_signoff, placeholder: x.evidence_placeholder, namesRecord: x.evidence_names_record })),
-      G: r.G, F: r.F, floor: floorRow ? { id: floorRow.key, name: floorRow.name, note: floorRow.reason } : null, score: r.score, band: r.band, gate: r.gate,
+      G: r.G, F: r.F, floor: floorRow ? { id: floorRow.key, name: floorRow.name, note: floorRow.reason } : null, score: r.score, band: r.band, gate: r.gate, levels: r.levels,
       covered: r.covered, binding: r.binding, B: r.blocked_line, W: r.watch_line, instruments: r.instruments, worst: r.worst_instrument, notes: r.notes, pending, has: true, error: RCRR.error
     };
   }
@@ -1688,7 +1694,7 @@ kill_switch:
   /* ======================= AI Agents: what to fix ======================= */
   // Every open finding about the agent design is one card: what is wrong, what to do, what it blocks, and a way to do it from here. The risk itself is still decided the way it
   // was: the OWASP Agentic checks, the regulatory compliance score and its gate, and the organisation's policies. This tab explains each one and offers the fix.
-  const AF = { open: null, status: 'Covered', evidence: '', ref: '', sign: false, confirm: false, err: null, rv: null, rvFor: null, decision: 'APPROVED', note: '', rvErr: null, rvBusy: false };
+  const AF = { open: null, status: 'Covered', evidence: '', ref: '', until: '', sign: false, confirm: false, err: null, rv: null, rvFor: null, decision: 'APPROVED', note: '', rvErr: null, rvBusy: false };
   const AF_BLOCK = { ratify: 'Blocks ratification', gate: 'Blocks the gate', score: 'Raises the score' };
   const agBadge = (k, text) => `<span class="src ${k}">${esc(text)}</span>`;
   const agNodeExists = (id) => !!(id && S.studio.nodes.find((n) => n.id === id));
@@ -1736,7 +1742,7 @@ kill_switch:
     const veto = items.filter((x) => x.blocks.indexOf('gate') >= 0).length;
     return `<div class="fxbar" aria-label="What stands between this design and ratification">
       <div><b>Risk gate</b><span class="pill ${gateCls}" style="align-self:flex-start">${Rc.has ? Rc.gate : 'Scoring\u2026'}</span><span class="cap">${Rc.has ? `Score ${fmtScore(Rc.score)} \u00b7 ${esc(Rc.band)}${veto ? ' \u00b7 ' + plural(veto, 'critical requirement') + ' open' : ''}` : ''}</span></div>
-      <div><b>Ratify the design</b><span class="pill ${stop ? 'bad' : 'ok'}" style="align-self:flex-start">${stop ? 'Refused' : 'Ready'}</span><span class="cap">${stop ? plural(stop, 'thing') + ' to fix first' : 'Everything it checks is met'}</span></div></div>`;
+      <div><b>Ratify the design</b><span class="pill ${stop ? 'bad' : 'ok'}" style="align-self:flex-start">${stop ? 'Refused' : 'Ready'}</span><span class="cap">${stop ? plural(stop, 'thing') + ' to fix first' : 'Everything it checks is met'}</span></div></div>${levelsStrip(Rc.levels, 'rcr')}`;
   }
   function agentReviewForm(Rc, items) {
     const rv = AF.rv;
@@ -1757,6 +1763,7 @@ kill_switch:
     const sel = ['Covered', 'Partial', 'Gap', 'Unmapped'].map((v) => opt(v, v, AF.status)).join('');
     return `<div class="fxform"><div class="fld"><label>Status</label><select class="inp" data-chg="agField" data-arg="status">${sel}</select></div>
       <div class="fld"><label>What the evidence shows</label><textarea class="inp" data-chg="agField" data-arg="evidence" placeholder="For example: the DPIA for this agent was approved by the DPO on 3 March">${esc(AF.evidence)}</textarea></div>
+      <div class="fld"><label>Valid until (optional)</label><input class="inp" type="date" data-chg="agField" data-arg="until" value="${esc(AF.until)}"><span class="cap">After this day the evidence no longer counts.</span></div>
       <div class="fld"><label>Where it is kept</label><input class="inp" data-chg="agField" data-arg="ref" value="${esc(AF.ref)}" placeholder="A link, a document name or a reference number, such as DPIA-2026-014"></div>
       ${it.fix.veto && can('signoff') ? `<label class="cap" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" data-chg="agField" data-arg="sign" ${AF.sign ? 'checked' : ''}><span>Sign this off as ${esc(mine)}. A critical requirement counts as covered only when a named person has signed it.</span></label>` : ''}
       <label class="cap" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" data-chg="agField" data-arg="confirm" ${AF.confirm ? 'checked' : ''}><span>I confirm this evidence is accurate and on record. The platform cannot check it for you.</span></label>
@@ -1860,7 +1867,7 @@ kill_switch:
       if (AF.open === key) { AF.open = null; return; }
       const id = key.slice(2), row = ((RCRR.result && RCRR.result.rows) || []).find((x) => x.key === id) || {};
       const old = String(row.evidence || ''), m = old.match(/^([\s\S]*?)\s*\[ref:\s*([^\]]*)\]\s*$/);
-      AF.open = key; AF.status = row.declared && row.declared !== 'Unmapped' ? row.declared : 'Covered'; AF.evidence = m ? m[1] : old; AF.ref = m ? m[2] : ''; AF.sign = false; AF.confirm = false; AF.err = null;
+      AF.open = key; AF.status = row.declared && row.declared !== 'Unmapped' ? row.declared : 'Covered'; AF.evidence = m ? m[1] : old; AF.ref = m ? m[2] : ''; AF.until = (((S.studio.req || {})[id]) || {}).valid_until || ''; AF.sign = false; AF.confirm = false; AF.err = null;
     },
     agReqSave: (id) => {
       const text = String(AF.evidence || '').trim(), ref = String(AF.ref || '').trim(), covers = AF.status === 'Covered' || AF.status === 'Partial';
@@ -1870,7 +1877,7 @@ kill_switch:
       if (covers && isPlaceholder(text)) { AF.err = 'That is a placeholder, not a record. Say what the evidence shows.'; return; }
       if (covers && !AF.confirm) { AF.err = 'Tick the box to confirm the evidence is accurate.'; return; }
       const prior = (S.studio.req || {})[id] || {};
-      S.studio.req = Object.assign({}, S.studio.req, { [id]: { status: AF.status, evidence: ref ? `${text} [ref: ${ref}]` : text, signed_off_by: AF.sign && ME ? ME.full_name : (prior.signed_off_by || '') } });
+      S.studio.req = Object.assign({}, S.studio.req, { [id]: { status: AF.status, evidence: ref ? `${text} [ref: ${ref}]` : text, signed_off_by: AF.sign && ME ? ME.full_name : (prior.signed_off_by || ''), valid_until: AF.until || '' } });
       S.studio.ratified = false; AF.open = null;
     },
     agSign: (id) => {
@@ -2480,7 +2487,7 @@ kill_switch:
     const deployment_context = m ? { model_type: m.data.modelType, ai_criticality: m.data.aiCriticality, data_sensitivity: m.data.dataSensitivity, domain: m.data.domain } : undefined;
     const constraints_declared = {}, constraintNodeIds = {};
     ALL_CIDS.forEach((c) => { constraints_declared[c] = { status: 'NOT_YET_DETERMINED' }; });
-    nodes.filter((n) => n.kind === 'CONSTRAINT' && n.data.constraintId).forEach((n) => { constraints_declared[n.data.constraintId] = { status: n.data.status, evidence: n.data.evidence || undefined }; constraintNodeIds[n.data.constraintId] = n.id; });
+    nodes.filter((n) => n.kind === 'CONSTRAINT' && n.data.constraintId).forEach((n) => { constraints_declared[n.data.constraintId] = { status: n.data.status, evidence: n.data.evidence || undefined, valid_until: n.data.validUntil || undefined }; constraintNodeIds[n.data.constraintId] = n.id; });
     const data_categories = nodes.filter((n) => n.kind === 'DATA_CATEGORY').map((n) => ({ id: n.id, name: n.data.name || n.id, sensitivity: n.data.sensitivity }));
     const regulatory_requirements = nodes.filter((n) => n.kind === 'REGULATORY_REQ').map((n) => ({ id: n.id, instrument: n.data.instrument || n.id, clause: n.data.clause, risk_tier: n.data.riskTier || undefined, status: n.data.status, evidence: n.data.evidence || undefined }));
     const consent_records = nodes.filter((n) => n.kind === 'CONSENT_RECORD').map((n) => { const lb = nodes.find((x) => x.id === neighborsOfKind(n.id, 'LEGAL_BASIS')[0]); return { id: n.id, diaprod_consent_id: n.data.diaprodConsentId || undefined, legal_basis: lb ? lb.data.basis : '', data_category_ids: neighborsOfKind(n.id, 'DATA_CATEGORY'), validated_at: n.data.validatedAt || undefined, validation_source: n.data.validationSource }; });
@@ -2689,7 +2696,7 @@ kill_switch:
       <div class="srcbox pol"><b>Policies</b>${line('pol')}</div></div>`;
   }
   /* ----- What to fix: every open finding is one card: what is wrong, what to do, and a way to do it from here ----- */
-  const FX = { open: null, status: 'SATISFIED', evidence: '', ref: '', confirm: false, err: null, busy: false };
+  const FX = { open: null, status: 'SATISFIED', evidence: '', ref: '', until: '', confirm: false, err: null, busy: false };
   const RV = { decision: 'APPROVED', note: '', err: null, busy: false };
   const BLOCK_LABEL = { gate: 'Blocks the gate', compile: 'Blocks compile', score: 'Raises the PCS' };
   const RANK = { GREEN: 0, AMBER: 1, RED: 2 };
@@ -2732,6 +2739,15 @@ kill_switch:
     return items.sort((x, y) => order(x) - order(y));
   }
   // The newest review of the design on the canvas, so the person compiling sees who looked at it and whether it still counts.
+  // Risk with no controls, with only the controls whose evidence names a record that is still valid, and as declared. The gap between the last two is what rests on statements nobody has checked.
+  function levelsStrip(lv, unit) {
+    if (!lv || !lv.inherent || !lv.declared) return '';
+    const num = (x) => fmtScore(unit === 'pcs' ? x.pcs : x.score), tag = (x) => (unit === 'pcs' ? x.tier : x.band), gate = (x) => String(x.gate || '').replace('_', ' ');
+    const cell = (k, label, x) => `<div class="srcbox ${k}"><b>${label}</b><span style="font-size:15px;font-weight:600">${num(x)}</span><span>${esc(String(tag(x) || '').toLowerCase())} \u00b7 ${esc(gate(x))}</span></div>`;
+    const un = (lv.unverified || []).length, ex = (lv.expired || []).length;
+    return `<div class="stack" style="gap:6px"><span class="cap"><b>What the controls are worth</b></span><div class="srcsum" aria-label="Risk with and without controls">${cell('pol', 'No controls', lv.inherent)}${cell('reg', 'Only with a record', lv.verified)}${cell('fm', 'As declared', lv.declared)}</div>
+      <span class="cap">${un ? `${un === 1 ? '1 control counts' : un + ' controls count'} in the declared score on a statement with no record behind it (${esc(lv.unverified.join(', '))}). ` : 'Every control that counts has a record behind it. '}${ex ? `Expired, and no longer counted: ${esc(lv.expired.join(', '))}. ` : ''}The gate is decided on the declared score.</span></div>`;
+  }
   function reviewLine(ev) {
     const rv = ev.assessment && ev.assessment.review, last = rv && rv.reviews[0];
     if (!rv || !last || !(rv.required || rv.approved)) return '';
@@ -2744,7 +2760,7 @@ kill_switch:
     const gateTxt = gate ? `<span class="pill ${GATE_CLS[gate]}" style="align-self:flex-start">${gate.replace('_', ' ')}</span>` : '<span class="cap">Scoring\u2026</span>';
     return `<div class="fxbar" aria-label="What stands between this design and approval">
       <div><b>PCS gate</b>${gateTxt}<span class="cap">${g ? plural(g, 'veto constraint') + ' still open' : 'No veto constraint is open'}</span></div>
-      <div><b>Compile contract</b><span class="pill ${c ? 'bad' : 'ok'}" style="align-self:flex-start">${c ? 'Refused' : 'Ready'}</span><span class="cap">${c ? plural(c, 'thing') + ' to fix first' : 'Everything it checks is met'}</span></div></div>${reviewLine(ev)}`;
+      <div><b>Compile contract</b><span class="pill ${c ? 'bad' : 'ok'}" style="align-self:flex-start">${c ? 'Refused' : 'Ready'}</span><span class="cap">${c ? plural(c, 'thing') + ' to fix first' : 'Everything it checks is met'}</span></div></div>${reviewLine(ev)}${levelsStrip(ev.score && ev.score.levels, 'pcs')}`;
   }
   const ev0 = () => evaluate();
   // The same test the server applies: words that stand in for a record ("test", "tbd", "done") are not evidence.
@@ -2789,6 +2805,7 @@ kill_switch:
     const sel = ['SATISFIED', 'UNMET', 'NOT_YET_DETERMINED'].map((x) => opt(x, CSTATUS_LABEL[x], FX.status)).join('');
     return `<div class="fxform"><div class="fld"><label>Status</label><select class="inp" data-chg="fxField" data-arg="status">${sel}</select></div>
       <div class="fld"><label>What the evidence shows${node ? '' : ' (this adds the box to the design)'}</label><textarea class="inp" data-chg="fxField" data-arg="evidence" placeholder="For example: DPIA-2026-014, approved 3 March, held in the governance folder">${esc(FX.evidence)}</textarea></div>
+      <div class="fld"><label>Valid until (optional)</label><input class="inp" type="date" data-chg="fxField" data-arg="until" value="${esc(FX.until)}"><span class="cap">After this day the evidence no longer counts.</span></div>
       <div class="fld"><label>Where it is kept</label><input class="inp" data-chg="fxField" data-arg="ref" value="${esc(FX.ref)}" placeholder="A link, a document name or a reference number, such as DPIA-2026-014"></div>
       <label class="cap" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" data-chg="fxField" data-arg="confirm" ${FX.confirm ? 'checked' : ''}><span>I confirm this evidence is accurate and on record. The platform cannot check it for you.</span></label>
       ${FX.err ? `<div class="note alert" role="alert">${esc(FX.err)}</div>` : ''}
@@ -2838,7 +2855,7 @@ kill_switch:
       if (FX.open === key) { FX.open = null; return; }
       const it = todoItems(evaluate()).find((x) => x.key === key), n = it && fxNode(it.fix);
       const old = String((n && n.data.evidence) || ''), m = old.match(/^([\s\S]*?)\s*\[ref:\s*([^\]]*)\]\s*$/);
-      FX.open = key; FX.status = 'SATISFIED'; FX.evidence = m ? m[1] : old; FX.ref = m ? m[2] : ''; FX.confirm = false; FX.err = null;
+      FX.open = key; FX.status = 'SATISFIED'; FX.evidence = m ? m[1] : old; FX.ref = m ? m[2] : ''; FX.until = (n && n.data.validUntil) || ''; FX.confirm = false; FX.err = null;
     },
     fxDraft: async (key) => {
       const it = todoItems(evaluate()).find((x) => x.key === key), f = it && it.fix;
@@ -2862,7 +2879,7 @@ kill_switch:
       if (FX.status === 'SATISFIED' && !FX.confirm) { FX.err = 'Tick the box to confirm the evidence is accurate.'; return; }
       let n = fxNode(it.fix);
       if (!n) n = it.fix.type === 'attestation' ? addNode('REGULATORY_REQ', { instrument: it.fix.instrument, clause: it.fix.clause }) : addNode('CONSTRAINT', { constraintId: it.fix.constraint_id });
-      n.data.status = FX.status; n.data.evidence = ref ? `${text} [ref: ${ref}]` : text;
+      n.data.status = FX.status; n.data.evidence = ref ? `${text} [ref: ${ref}]` : text; n.data.validUntil = String(FX.until || '');
       FX.open = null; persist();
     },
     fxSet: (key) => {

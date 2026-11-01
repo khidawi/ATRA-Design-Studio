@@ -280,7 +280,8 @@ def test_the_contract_records_the_score_the_review_and_who_held_each_role():
         check("the contract compiles", False, str(e))
         return
     a = c.design_snapshot["assurance"]
-    check("it records the PCS, tier and gate at signing", set(a["pcs"]) == {"final", "tier", "gate"} and a["pcs"]["gate"] != "BLOCKED", a["pcs"])
+    check("it records the PCS, tier and gate at signing", {"final", "tier", "gate"} <= set(a["pcs"]) and a["pcs"]["gate"] != "BLOCKED", a["pcs"])
+    check("and what the controls were worth: with none, with only those that name a record, as declared", set(a["levels"]) >= {"inherent", "verified", "declared"}, a)
     check("it records the human review", a["review"] == review)
     check("it shows where the canvas and the current holder differ", a["role_holders"]["operator"]["differs"] and a["role_holders"]["operator"]["holder_now"] == "Khaoula Hidawi"
           and a["role_holders"]["operator"]["named_on_canvas"] == ["Dispatchers"] and not a["role_holders"]["trainer"]["differs"], a["role_holders"])
@@ -289,6 +290,41 @@ def test_the_contract_records_the_score_the_review_and_who_held_each_role():
     check("it is signed with the contract", compute_contract_hash(CompiledContract(**old)) == c.contract_hash)
     old["design_snapshot"]["assurance"]["review"]["reviewer"] = "Someone Else"
     check("changing the recorded review breaks the signature", compute_contract_hash(CompiledContract(**old)) != c.contract_hash)
+
+
+def test_what_the_controls_are_worth():
+    from scoring_bridge import score_levels
+    full = score_levels(registry(satisfied=ALL_MET))
+    check("no controls scores worse than the declared design", full["inherent"]["pcs"] > full["declared"]["pcs"], full)
+    check("when every control names a record, verified equals declared", full["verified"]["pcs"] == full["declared"]["pcs"] and full["unverified"] == [], full)
+    check("with no controls the gate is blocked", full["inherent"]["gate"] == "BLOCKED", full["inherent"])
+    reg = registry(satisfied=ALL_MET)
+    for k in ("SC-HITL-1", "SC-CHALL-1"):
+        reg.governance_state.constraints_declared[k].evidence = "Procedure written and approved by the board"      # says what, not where
+    lv = score_levels(reg)
+    check("a control that only restates the claim counts as declared, not verified", lv["verified"]["pcs"] > lv["declared"]["pcs"] and lv["unverified"] == ["SC-CHALL-1", "SC-HITL-1"], lv)
+    check("verified sits between declared and inherent", lv["declared"]["pcs"] < lv["verified"]["pcs"] <= lv["inherent"]["pcs"], lv)
+
+
+def test_expired_evidence_stops_counting():
+    from datetime import date, timedelta
+    from scoring_bridge import score_registry
+    yesterday, tomorrow = date.today() - timedelta(days=1), date.today() + timedelta(days=1)
+    good, _ = score_registry(registry(satisfied=ALL_MET))
+    reg = registry(satisfied=ALL_MET)
+    reg.governance_state.constraints_declared["SC-HITL-1"].valid_until = tomorrow
+    still, _ = score_registry(reg)
+    check("evidence that is still valid counts", still.pcs_final == good.pcs_final)
+    reg.governance_state.constraints_declared["SC-HITL-1"].valid_until = yesterday
+    gone, _ = score_registry(reg)
+    check("evidence that expired no longer counts in the score", gone.pcs_final > good.pcs_final, (good.pcs_final, gone.pcs_final))
+    f = {x.finding_id: x for x in formal_findings(reg, {}, graph(*FULL))}
+    check("it is an open veto constraint again, and says why", "veto-SC-HITL-1" in f and "expired" in f["veto-SC-HITL-1"].detail, list(f))
+    domain = ComplianceDomain(domain_id="T", name="T", subject="MODEL", rule_set=[rule(maps_to_constraint_id="SC-HITL-1")])
+    v = assess_design(reg, domain, {}, graph(*FULL)).element_verdicts[0]
+    check("a rule that rests on it is not green", v.status != RiskStatus.GREEN and "expired" in v.reason, v.reason)
+    from scoring_bridge import score_levels
+    check("the comparison lists what expired", score_levels(reg)["expired"] == ["SC-HITL-1"])
 
 
 def test_the_explanation_is_not_signed():

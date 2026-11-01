@@ -46,7 +46,7 @@ from compliance_schema import (
 )
 from design_findings import fix_for_rule, formal_findings, role_held_by
 from rule_checks import CheckConfigError, DesignGraph, GEdge, GNode, evaluate_graph_rule
-from schema import ConstraintStatus, GovernanceState, RegistryBlock, is_placeholder_evidence, names_a_record
+from schema import ConstraintStatus, GovernanceState, RegistryBlock, evidence_expired, is_placeholder_evidence, names_a_record
 
 
 class AssessRequest(BaseModel):
@@ -98,6 +98,9 @@ def _constraint_verdict(
 
     if decl is None:
         return _severity_status(severity), f"Constraint {constraint_id} is not declared on the canvas."
+
+    if decl.status == ConstraintStatus.SATISFIED and evidence_expired(decl):
+        return _severity_status(severity), f"Constraint {constraint_id} is marked Satisfied, but its evidence expired on {decl.valid_until.isoformat()}. It no longer counts: record it again."
 
     if decl.status == ConstraintStatus.SATISFIED and is_placeholder_evidence(decl.evidence):
         return _severity_status(severity), f"Constraint {constraint_id} is marked Satisfied, but its evidence ({(decl.evidence or '').strip()!r}) is a placeholder, not a record of how it is met."
@@ -262,6 +265,14 @@ def assess_design(
     )
 
 
+def _levels(registry: RegistryBlock) -> Optional[Dict[str, Any]]:
+    from scoring_bridge import score_levels
+    try:
+        return score_levels(registry)
+    except Exception:
+        return None
+
+
 def _assurance(registry: RegistryBlock, graph: Dict[str, Any], pcs, review: Optional[Dict[str, Any]], issued_by: Optional[str]) -> Dict[str, Any]:
     """What a reader of the contract needs and would otherwise have to recompute: the score and gate at signing, the human review the gate asked for, who holds each role now
     against who the canvas names, and whether the person issuing the contract holds one of the roles."""
@@ -277,7 +288,7 @@ def _assurance(registry: RegistryBlock, graph: Dict[str, Any], pcs, review: Opti
         holders[role] = {"holder_now": now, "named_on_canvas": drawn, "differs": bool(now) and bool(drawn) and norm(now) not in [norm(d) for d in drawn]}
     issuer_role = role_held_by(registry, issued_by)
     return {
-        "pcs": {"final": pcs.pcs_final, "tier": pcs.tier, "gate": pcs.gate},
+        "pcs": {"final": pcs.pcs_final, "tier": pcs.tier, "gate": pcs.gate}, "levels": _levels(registry),
         "review": review, "role_holders": holders, "issued_by_holds_role": issuer_role,
         "evidence_without_record": sorted(c for c, d in registry.governance_state.constraints_declared.items() if d.status.value == "SATISFIED" and not names_a_record(d.evidence)),
     }

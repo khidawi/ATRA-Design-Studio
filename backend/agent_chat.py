@@ -226,7 +226,7 @@ def build_design(proposal: AgentDraftProposal, description: str) -> AgentDesign:
         if src and dst:
             edges.append(DesignEdge(**{"from": src, "to": dst, "label": label}))
 
-    first_write_tool = next((x.id for x in nodes if x.type == "tool" and x.p.get("write")), None)
+    write_tools = [x.id for x in nodes if x.type == "tool" and x.p.get("write")]
     first_memory = next((x.id for x in nodes if x.type == "memory"), None)
     for x in nodes:
         if x.primary:
@@ -248,7 +248,8 @@ def build_design(proposal: AgentDraftProposal, description: str) -> AgentDesign:
         elif x.type == "memory":
             link(primary_id, x.id, "stores")
         elif x.type == "approval":
-            link(x.id, first_write_tool or primary_id, "gates")
+            for target in write_tools or [primary_id]:      # an approval is a control only if it lies on every route to a write action
+                link(x.id, target, "gates")
         elif x.type == "guardrail":
             link(x.id, primary_id, "limits")
         elif x.type == "constraint":

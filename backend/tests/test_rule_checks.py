@@ -6,7 +6,7 @@ Tests for rule_checks.py. Plain asserts, no test framework needed:
 import sys
 
 from rule_checks import (
-    CheckConfigError, DesignGraph, GEdge, GNode, evaluate_graph_rule, holds, select, validate_config,
+    CheckConfigError, DesignGraph, GEdge, GNode, evaluate_graph_rule, holds, select, unguarded_routes, validate_config,
 )
 
 
@@ -150,6 +150,67 @@ def test_validate_config_reports_every_problem():
     assert any("unknown selector key" in e for e in errs)
     assert any("unsatisfied_status" in e for e in errs)
     assert validate_config("not an object") == ["check_config must be an object"]
+
+
+# ── routes: a guard counts only if it lies on every route ──────────────────────────────
+
+WRITE = {"type": "tool", "where": {"write": True}}
+TO_WRITE = {"from": {"type": "agent", "primary": True}, "to": WRITE, "along": ["delegates", "uses", "connects", "calls"], "guard": {"type": "approval", "label": "gates"}}
+FROM_UNTRUSTED = {"from": {"type": "input", "where": {"untrusted": True}}, "to": WRITE, "along": ["feeds", "delegates", "uses", "connects", "calls"],
+                  "guard": {"type": "guardrail", "where": {"kind": "injection"}, "label": "limits"}}
+
+
+def route_cond(spec):
+    return {"no_unguarded_path": spec}
+
+
+def test_an_approval_drawn_beside_the_route_is_not_a_guard():
+    base = [n("a1", "agent", True, name="refund-agent"), n("t1", "tool", write=True, name="refunds.write"), n("p1", "approval", name="Manager approval")]
+    beside = graph(*base, edges=[("a1", "t1", "uses")])
+    assert not holds(beside, route_cond(TO_WRITE))                              # an approval exists, but it gates nothing on the route
+    on_route = graph(*base, edges=[("a1", "t1", "uses"), ("p1", "t1", "gates")])
+    assert holds(on_route, route_cond(TO_WRITE))
+    gates_agent = graph(*base, edges=[("a1", "t1", "uses"), ("p1", "a1", "gates")])
+    assert holds(gates_agent, route_cond(TO_WRITE))                             # an approval on the agent guards everything it does
+
+
+def test_every_write_tool_needs_its_own_route_guarded():
+    g = graph(n("a1", "agent", True, name="agent"), n("t1", "tool", write=True, name="refunds.write"), n("t2", "tool", write=True, name="email.send"), n("p1", "approval"),
+              edges=[("a1", "t1", "uses"), ("a1", "t2", "uses"), ("p1", "t1", "gates")])
+    left = unguarded_routes(g, TO_WRITE)
+    assert [t.id for t, _ in left] == ["t2"] and [x.id for x in left[0][1]] == ["a1", "t2"]
+    cfg = {"applies_if": {"exists": WRITE}, "satisfied_if": route_cond(TO_WRITE), "flag_unguarded": TO_WRITE,
+           "vars": {"n": {"unguarded": TO_WRITE}, "route": {"route": TO_WRITE}}, "messages": {"unsatisfied": "{n} write tool(s) reachable: {route}"}}
+    out = evaluate_graph_rule(g, cfg, "AMBER")
+    assert (out.status, out.flagged, out.message) == ("AMBER", ["t2"], "1 write tool(s) reachable: agent \u2192 email.send")
+
+
+def test_routes_follow_delegation_and_the_direction_lines_are_drawn():
+    g = graph(n("a1", "agent", True), n("a2", "agent"), n("t1", "tool", write=True), n("p1", "approval"),
+              edges=[("a1", "a2", "delegates"), ("a2", "t1", "uses")])
+    assert [x.id for x in unguarded_routes(g, TO_WRITE)[0][1]] == ["a1", "a2", "t1"]    # the sub-agent's tool is the agent's tool
+    guarded = graph(*g.nodes, edges=[("a1", "a2", "delegates"), ("a2", "t1", "uses"), ("p1", "a2", "gates")])
+    assert holds(guarded, route_cond(TO_WRITE))                                          # guarding the sub-agent guards the route through it
+    backwards = graph(*g.nodes, edges=[("a1", "a2", "delegates"), ("t1", "a2", "uses")])
+    assert holds(backwards, route_cond(TO_WRITE))                                        # a line drawn from the tool to the agent is not a route to the tool
+
+
+def test_an_injection_filter_must_limit_the_agent_on_the_route():
+    base = [n("i1", "input", untrusted=True, name="inbox"), n("a1", "agent", True), n("t1", "tool", write=True), n("g1", "guardrail", kind="injection"), n("g2", "guardrail", kind="rate")]
+    wired = [("i1", "a1", "feeds"), ("a1", "t1", "uses")]
+    assert not holds(graph(*base, edges=wired), route_cond(FROM_UNTRUSTED))                                 # no filter
+    assert not holds(graph(*base, edges=wired + [("g2", "a1", "limits")]), route_cond(FROM_UNTRUSTED))     # a rate limit is not an injection filter
+    assert not holds(graph(*base, edges=wired), route_cond(FROM_UNTRUSTED))
+    assert holds(graph(*base, edges=wired + [("g1", "a1", "limits")]), route_cond(FROM_UNTRUSTED))
+    assert not holds(graph(*base, edges=wired + [("g1", "i1", "feeds")]), route_cond(FROM_UNTRUSTED))      # a filter that is merely drawn near the input guards nothing
+
+
+def test_route_conditions_are_validated():
+    ok = {"satisfied_if": route_cond(TO_WRITE)}
+    assert validate_config(ok) == []
+    bad = validate_config({"satisfied_if": {"no_unguarded_path": {"from": {"type": "agent"}, "to": {"type": "tool"}}}})
+    assert any("along" in e for e in bad) and any("guard" in e for e in bad)
+    assert raises(lambda: holds(graph(n("a", "agent")), {"no_unguarded_path": {"from": {}, "to": {}}}))
 
 
 if __name__ == "__main__":

@@ -10,10 +10,11 @@ Sign-off is a typed name until sign-in exists (Task 8), which will require a
 real reviewer. Either way the engine, not the page, decides what each
 requirement counts as.
 """
-from typing import Dict, List, Optional
+from datetime import date
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -21,7 +22,7 @@ from compliance_engine import to_design_graph
 from compliance_schema import DesignGraphIn
 from db.models import RcrProfile, RcrRequirement
 from db.session import get_session
-from rcr_engine import COVERED, PARTIAL, STATUSES, UNMAPPED, RcrError, Requirement, score, validate_registry
+from rcr_engine import COVERED, GAP, PARTIAL, STATUSES, UNMAPPED, RcrError, Requirement, score, validate_registry
 from schema import is_placeholder_evidence, names_a_record
 from rule_checks import CheckConfigError, evaluate_graph_rule
 
@@ -89,6 +90,12 @@ class Declaration(BaseModel):
     status: Optional[str] = None
     evidence: str = ""
     signed_off_by: str = ""
+    valid_until: Optional[date] = None      # the evidence stops counting after this day
+
+    @field_validator("valid_until", mode="before")
+    @classmethod
+    def blank_is_none(cls, v):
+        return None if v in ("", None) else v
 
 
 class RcrRequest(BaseModel):
@@ -114,6 +121,7 @@ class RowOut(BaseModel):
     signed_off_by: str
     awaiting_signoff: bool
     evidence_placeholder: bool = False   # declared on words that stand in for a record: it earns no credit
+    evidence_expired: bool = False       # the evidence passed its valid-until day: it no longer counts
     evidence_names_record: bool = True   # the evidence says where the record is kept
 
 
@@ -143,6 +151,8 @@ class RcrOut(BaseModel):
     covered: int
     rows: List[RowOut]
     notes: List[str]
+    # The design scored three ways: with no controls, with only the controls whose evidence names a record that is still valid, and as declared.
+    levels: Optional[Dict[str, Any]] = None
 
 
 @router.post("/score", response_model=RcrOut)
@@ -154,6 +164,7 @@ def score_agent(req: RcrRequest, session: Session = Depends(get_session)) -> Rcr
     derived: Dict[str, bool] = {}
     placeholder: Dict[str, bool] = {}
     names: Dict[str, bool] = {}
+    expired: Dict[str, bool] = {}
 
     for r in _requirements(session, profile):
         decl = req.declarations.get(r.req_key, Declaration())
@@ -173,11 +184,15 @@ def score_agent(req: RcrRequest, session: Session = Depends(get_session)) -> Rcr
                 if status in (COVERED, PARTIAL) and is_placeholder_evidence(evidence):
                     placeholder[r.req_key] = True
                     status = UNMAPPED          # words like "test" are not evidence: no credit
+                elif status in (COVERED, PARTIAL) and decl.valid_until is not None and decl.valid_until < date.today():
+                    expired[r.req_key] = True
+                    status = GAP                # the evidence passed its valid-until day: it no longer counts
                 elif status in (COVERED, PARTIAL):
                     names[r.req_key] = names_a_record(evidence)
             else:
                 status, evidence = default.get("status", "Unmapped"), default.get("evidence", "")
-            notes[r.req_key], derived[r.req_key] = ("The evidence is a placeholder, not a record of how it is met." if placeholder.get(r.req_key) else evidence), False
+            notes[r.req_key], derived[r.req_key] = ("The evidence is a placeholder, not a record of how it is met." if placeholder.get(r.req_key)
+                                                   else f"The evidence expired on {decl.valid_until.isoformat()}: it no longer counts." if expired.get(r.req_key) else evidence), False
         if status not in STATUSES:
             raise HTTPException(status_code=422, detail=f"{r.req_key}: status must be one of {', '.join(STATUSES)}")
         requirements.append(Requirement(
@@ -188,6 +203,18 @@ def score_agent(req: RcrRequest, session: Session = Depends(get_session)) -> Rcr
     except RcrError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    def level(statuses: Dict[str, str]) -> Dict[str, Any]:
+        res = score([Requirement(q.key, q.name, q.instrument, q.cls, q.w, q.phi, statuses.get(q.key, q.declared), q.evidence, q.signed_off_by) for q in requirements], profile.partial_credit)
+        return {"score": round(res.score, 4), "band": res.band, "gate": res.gate}
+
+    credited = (COVERED, PARTIAL)
+    inherent = {q.key: GAP for q in requirements}
+    verified = {q.key: (q.declared if derived[q.key] or (q.declared not in credited) or (names.get(q.key, False) and not expired.get(q.key) and not placeholder.get(q.key)) else UNMAPPED)
+                for q in requirements}
+    levels = {"inherent": level(inherent), "verified": level(verified), "declared": level({}),
+              "unverified": sorted(q.key for q in requirements if not derived[q.key] and q.declared in credited and not names.get(q.key, False)),
+              "expired": sorted(k for k, v in expired.items() if v)}
+
     floor = next((x for x in result.rows if x.key == result.floor_key), None)
     return RcrOut(
         profile=profile.profile_key, partial_credit=result.partial_credit, score=round(result.score, 4),
@@ -195,10 +222,10 @@ def score_agent(req: RcrRequest, session: Session = Depends(get_session)) -> Rcr
         worst_instrument=result.worst_instrument,
         instruments=[InstrumentOut(**vars(i)) for i in result.instruments],
         blocked_line=result.blocked_line, watch_line=result.watch_line, lines_derived=result.lines_derived,
-        band=result.band, gate=result.gate, binding=result.binding, covered=result.covered, notes=result.notes,
+        band=result.band, gate=result.gate, binding=result.binding, covered=result.covered, notes=result.notes, levels=levels,
         rows=[RowOut(
             key=x.key, name=x.name, instrument=x.instrument, cls=x.cls, w=x.w, phi=x.phi, derived=derived[x.key],
             declared=x.declared, counted=x.counted, c=x.c, reason=x.reason, note=notes[x.key], evidence=x.evidence,
-            signed_off_by=x.signed_off_by, awaiting_signoff=x.awaiting_signoff, evidence_placeholder=placeholder.get(x.key, False),
+            signed_off_by=x.signed_off_by, awaiting_signoff=x.awaiting_signoff, evidence_placeholder=placeholder.get(x.key, False), evidence_expired=expired.get(x.key, False),
             evidence_names_record=names.get(x.key, True)) for x in result.rows],
     )

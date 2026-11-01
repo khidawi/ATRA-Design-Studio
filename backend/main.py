@@ -42,7 +42,7 @@ from schema import (
     DesignStudioDocument,
     VETO_CLASS_CONSTRAINTS, MODULATING_CLASS_CONSTRAINTS,
 )
-from scoring_bridge import score_registry
+from scoring_bridge import score_levels, score_registry
 from compliance_schema import CompiledContract, DeploymentDescription, DesignRiskAssessment
 from design_import import json_to_canvas_graph
 from db.bootstrap import init_database
@@ -177,7 +177,11 @@ def score(req: ScoreRequest) -> ScoreResponse:
         pcs_result, warnings = score_registry(req.registry)
     except Exception as exc:
         raise HTTPException(status_code=422, detail=str(exc))
-    return ScoreResponse(pcs_result=pcs_result, warnings=warnings)
+    try:
+        levels = score_levels(req.registry)
+    except Exception:          # the score above stands on its own; the comparison is an addition
+        levels = None
+    return ScoreResponse(pcs_result=pcs_result, warnings=warnings, levels=levels)
 
 
 # ── Standards crosswalk ───────────────────────────────────────────────────────

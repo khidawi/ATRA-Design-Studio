@@ -106,7 +106,7 @@ def assurance(rcr: RcrOut, review: Optional[dict], primary: Dict[str, Any], rati
     """What a reader of the contract would otherwise have to recompute: the score and gate at ratification, the review, whether the ratifier owns the agent, and which declared
     requirements rest on evidence that names no record."""
     return {
-        "rcr": {"score": rcr.score, "band": rcr.band, "gate": rcr.gate}, "review": review, "ratified_by_is_owner": is_owner(primary, ratifier),
+        "rcr": {"score": rcr.score, "band": rcr.band, "gate": rcr.gate}, "levels": rcr.levels, "review": review, "ratified_by_is_owner": is_owner(primary, ratifier),
         "evidence_without_record": sorted(r.key for r in rcr.rows if not r.derived and r.declared in ("Covered", "Partial") and not r.evidence_names_record),
     }
 

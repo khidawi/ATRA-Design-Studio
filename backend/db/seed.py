@@ -97,6 +97,12 @@ def _sel(type=None, where=None, primary=None):
 _WRITE_TOOL = _sel("tool", {"write": True})
 _UNTRUSTED_INPUT = _sel("input", {"untrusted": True})
 _LONG_MEMORY = _sel("memory", {"long": True})
+
+# Routes, not just presence. An approval is only a control if it lies on every route from the agent to the write action; an untrusted input is only filtered if the filter limits
+# the agent that every route from it passes through.
+_ROUTE_TO_WRITE = {"from": _sel("agent", primary=True), "to": _WRITE_TOOL, "along": ["delegates", "uses", "connects", "calls"], "guard": {"type": "approval", "label": "gates"}}
+_ROUTE_FROM_UNTRUSTED = {"from": _UNTRUSTED_INPUT, "to": _WRITE_TOOL, "along": ["feeds", "delegates", "uses", "connects", "calls"],
+                         "guard": {"type": "guardrail", "where": {"kind": "injection"}, "label": "limits"}}
 _UNSIGNED_MCP = _sel("mcp", {"signed": {"falsy": True}})
 
 
@@ -106,23 +112,26 @@ def _guardrail(kind):
 
 ASI_RULES = [
     _rule("OWASP-ASI01", "OWASP", "ASI01", "Agent goal hijack", check_type="GRAPH", subject="AGENT",
-          description="Applies when untrusted input can reach a write-capable tool. Satisfied by a prompt-injection guardrail.",
+          description="Applies when untrusted input can reach a write-capable tool. Satisfied when a prompt-injection guardrail limits the agent on every route from an untrusted input to a write-capable tool.",
           config=dict(code="ASI01", fix_label="Add injection filter",
                       applies_if={"all": [{"exists": _UNTRUSTED_INPUT}, {"exists": _WRITE_TOOL}]},
-                      satisfied_if=_guardrail("injection"),
+                      satisfied_if={"no_unguarded_path": _ROUTE_FROM_UNTRUSTED},
+                      flag_unguarded=_ROUTE_FROM_UNTRUSTED,
                       flag_nodes=[_sel(primary=True), _UNTRUSTED_INPUT],
+                      vars={"route": {"route": _ROUTE_FROM_UNTRUSTED}},
                       messages={"not_applicable": "No untrusted input with write tools",
-                                "satisfied": "Injection filter on untrusted input",
-                                "unsatisfied": "Untrusted input reaches a write-capable tool"})),
+                                "satisfied": "Every route from untrusted input to a write tool passes an injection filter",
+                                "unsatisfied": "Untrusted input reaches a write-capable tool without an injection filter: {route}"})),
     _rule("OWASP-ASI02", "OWASP", "ASI02", "Tool misuse", check_type="GRAPH", subject="AGENT",
-          description="Applies when the agent has a write-capable tool. Satisfied by a human approval step.",
+          description="Applies when the agent has a write-capable tool. Satisfied when a human approval lies on every route from the agent to a write-capable tool: an approval drawn beside the route does not count.",
           config=dict(code="ASI02", fix_label="Add approval step", unsatisfied_status="AMBER",
                       applies_if={"exists": _WRITE_TOOL},
-                      satisfied_if={"exists": _sel("approval")},
-                      flag_nodes=[_WRITE_TOOL],
+                      satisfied_if={"no_unguarded_path": _ROUTE_TO_WRITE},
+                      flag_unguarded=_ROUTE_TO_WRITE,
+                      vars={"n": {"unguarded": _ROUTE_TO_WRITE}, "route": {"route": _ROUTE_TO_WRITE}},
                       inapplicable=[{"when": {"always": True}, "status": "GREEN", "message": "Read-only tools declared"}],
-                      messages={"satisfied": "Write tools gated by human approval",
-                                "unsatisfied": "Write tool has no approval step"})),
+                      messages={"satisfied": "Every route to a write tool passes a human approval",
+                                "unsatisfied": "{n} write tool(s) can be reached without a human approval: {route}"})),
     _rule("OWASP-ASI03", "OWASP", "ASI03", "Identity and privilege abuse", check_type="GRAPH", subject="AGENT",
           description="Always satisfied: the design declares its tool scopes.",
           config=dict(code="ASI03", satisfied_if={"always": True},
