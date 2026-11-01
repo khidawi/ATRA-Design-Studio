@@ -4489,14 +4489,14 @@ kill_switch:
     </article>`;
   }
   // Evidence that has lapsed or lapses soon, across models and agents.
-  const EX = { loaded: false, loading: false, error: null, rows: [], within: 30 };
+  const EX = { loaded: false, loading: false, error: null, rows: [], within: 30, at: 0 };
   async function loadExpiring() {
     EX.loading = true; EX.error = null;
-    try { EX.rows = await STAI.api.expiringEvidence(EX.within); EX.loaded = true; } catch (e) { EX.error = e.message; }
+    try { EX.rows = await STAI.api.expiringEvidence(EX.within); EX.loaded = true; EX.at = Date.now(); } catch (e) { EX.error = e.message; }
     EX.loading = false; renderIfIdle('expiring');
   }
   function expiringScreen() {
-    if (!EX.loaded && !EX.loading && !EX.error) loadExpiring();
+    if (!EX.loading && !EX.error && (!EX.loaded || Date.now() - EX.at > 15000)) loadExpiring();          // the list is read again each time the page is opened
     const head = hdr('Evidence that has lapsed or lapses soon', 'Expiring evidence');
     if (EX.error && !EX.loaded) return head + `<div class="note alert" role="alert"><strong>Could not load the list</strong><span style="font-size:13px">${esc(EX.error)}</span></div>`;
     if (!EX.loaded) return head + '<p class="cap">Loading\u2026</p>';

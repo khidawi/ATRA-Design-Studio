@@ -367,8 +367,8 @@ def _gate_effects(session: Session, names: Dict[str, Design], rows: List[Dict[st
             except Exception:
                 cache[d.design_key] = None
         res = cache[d.design_key]
-        if res is None or not res.sensitivity:
+        if res is None:
             continue
-        hit = next((c for c in res.sensitivity["controls"] if c["control"] == row["control"]), None)
-        if hit is not None:
-            row["gate_effect"] = {"now": res.gate, "if_lost": hit["to"]["gate"], "moves_gate": hit["flips"] == "gate"}
+        hit = next((c for c in ((res.sensitivity or {}).get("controls") or []) if c["control"] == row["control"]), None)
+        row["gate_effect"] = ({"now": res.gate, "if_lost": hit["to"]["gate"], "moves_gate": hit["flips"] == "gate"} if hit is not None
+                              else {"now": res.gate, "if_lost": res.gate, "moves_gate": False})       # nothing else holds the result up on it
