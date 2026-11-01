@@ -188,7 +188,7 @@ def ratify_design(session: Session, design: Design, reviewer: str, decided: bool
     graph = _graph(doc)
     profile = doc.get("profile") or "payments"
     declarations = {k: Declaration(**v) for k, v in (doc.get("req") or {}).items()}
-    rcr = score_agent(RcrRequest(profile=profile, graph=graph, declarations=declarations), session)
+    rcr = score_agent(RcrRequest(profile=profile, graph=graph, declarations=declarations, design_key=design.design_key), session)
     if rcr.gate == "BLOCK":
         raise HTTPException(status_code=422, detail=(
             f"The design is Blocked (risk score {rcr.score:g}). Close the critical gaps first"

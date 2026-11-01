@@ -91,7 +91,7 @@ PUBLIC = [("GET", r"^/health$"), ("GET", r"^/docs"), ("GET", r"^/redoc"), ("GET"
 PURE = [r"^/score$", r"^/document/validate$", r"^/api/rcr/score$", r"^/api/agents/analyse$", r"^/api/policies/test$", r"^/api/designs/[^/]+/assess$", r"^/api/agents/import/(preview|file-preview)$", r"^/api/agents/(compare|triage)$", r"^/api/model-screening/triage$"]
 SIGNOFF = [r"^/api/responsibilities/(handover|assignments/)", r"^/api/agents/ratify$", r"^/api/drift/[^/]+/decide$", r"^/api/contracts/", r"^/api/designs/[^/]+/(compile|review)$", r"^/api/agents/designs/[^/]+/review$",
            r"^/api/findings/[^/]+/(acknowledge|halt)$", r"^/api/coverage/", r"^/api/packs$", r"^/api/ingestion/candidates/",
-           r"^/api/policies", r"^/api/rules/", r"^/api/model-monitor/floors$", r"^/api/attestations/policy$"]
+           r"^/api/policies", r"^/api/rules/", r"^/api/model-monitor/floors$", r"^/api/attestations/policy$", r"^/api/method/publish$", r"^/api/evidence/policy$", r"^/api/evidence/[^/]+/(attest|revoke)$"]
 
 
 def is_public(method: str, path: str) -> bool:

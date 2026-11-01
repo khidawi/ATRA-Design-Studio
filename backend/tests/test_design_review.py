@@ -87,6 +87,9 @@ def test_review_holds_compile_until_an_independent_person_approves():
             assert ok.status_code == 200, ok.text                                                            # the approved version compiles
             a = ok.json()["design_snapshot"]["assurance"]
             assert a["review"]["reviewer"] == "Rhea Patel" and a["review"]["decision"] == "APPROVED" and a["pcs"]["gate"] == "REQUIRES_REVIEW", a   # the contract carries the review
+            assert a["method"]["number"] >= 1 and len(a["method"]["fingerprint"]) == 64, a                      # and the method it was scored under
+            rs = comp.get(f"/api/contracts/{ok.json()['contract_id']}/rescore").json()
+            assert rs["signed"]["gate"] == "REQUIRES_REVIEW" and rs["now"]["gate"] == "REQUIRES_REVIEW" and not rs["method_changed"] and not rs["differs"], rs   # re-scoring under the same method gives the same answer
 
             changed = copy.deepcopy(p)
             changed["registry"]["actors"]["deployer"]["identity"] = "Someone Else"

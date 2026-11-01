@@ -429,7 +429,13 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
         STAI.DOMAINS = {};
         doms.forEach((d) => { STAI.DOMAINS[d.domain_id] = d; });
       },
-      score: (registry) => post('/score', { registry }),
+      score: (registry, designKey) => post('/score', { registry, design_key: designKey || undefined }),
+      listEvidence: (key) => call('/api/evidence?design_key=' + encodeURIComponent(key)),
+      addEvidence: (body) => post('/api/evidence', body),
+      attestEvidence: (id, body) => post('/api/evidence/' + encodeURIComponent(id) + '/attest', body),
+      revokeEvidence: (id, reason) => post('/api/evidence/' + encodeURIComponent(id) + '/revoke', { reason }),
+      evidencePolicy: () => call('/api/evidence/policy'),
+      setEvidencePolicy: (basis, note) => call('/api/evidence/policy', { method: 'PUT', body: JSON.stringify({ basis, note }) }),
       crosswalk: () => call('/api/crosswalk'),
       assess: (designId, domain, registry, constraintNodeIds, designGraph) => post(designPath(designId, 'assess'), { domain, registry, constraint_node_ids: constraintNodeIds, design_graph: designGraph }),
       compile: (designId, body) => post(designPath(designId, 'compile'), body),
@@ -449,6 +455,9 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       listContracts: () => call('/api/contracts?object_type=MODEL'),
       listContractRecords: (type) => call('/api/contract-records?object_type=' + type),
       revokeContract: (id, body) => post('/api/contracts/' + encodeURIComponent(id) + '/revoke', body),
+      rescoreContract: (id) => call('/api/contracts/' + encodeURIComponent(id) + '/rescore'),
+      getMethod: () => call('/api/method'),
+      publishMethod: (note) => post('/api/method/publish', { note }),
       importContract: (c, design) => post('/api/contracts/import' + (design ? '?design=' + encodeURIComponent(design) : ''), c),
       verifyContract: (id) => call('/api/contracts/' + encodeURIComponent(id) + '/verify'),
       listDrift: () => call('/api/drift'),
@@ -744,6 +753,54 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       <section class="card" style="padding:20px;display:flex;flex-direction:column;gap:12px"><h2>Add a person</h2><span class="cap">${roles.map((r) => ROLE_LABEL[r] + ': ' + ROLE_HELP[r]).join(' \u00b7 ')}. A new password is at least 10 characters; share it through another channel.</span>
       <form id="user-form" class="prow" style="flex-wrap:wrap;gap:8px;align-items:flex-end"><label class="cap">Full name<br><input class="reqsel" name="name" required minlength="2"></label><label class="cap">Email<br><input class="reqsel" type="email" name="email" required></label><label class="cap">Role<br><select class="reqsel" name="role">${roles.map((r) => opt(r, ROLE_LABEL[r], 'engineer')).join('')}</select></label><label class="cap">Initial password<br><input class="reqsel" type="password" name="password" required minlength="10" autocomplete="new-password"></label><button class="btn" type="submit">Add</button></form>
       ${US.err ? `<div class="note alert" role="alert"><span style="font-size:13px;white-space:pre-wrap">${esc(US.err)}</span></div>` : ''}</section>` + keysSection();
+  }
+  // Evidence records: a file kept here (hashed on upload) or a snapshot of a page, counted only once someone independent has attested it.
+  const EV = { by: {}, loading: {}, form: {}, err: null, busy: false, rev: 0 };
+  function evRecords(dk) {
+    if (dk && !EV.by[dk] && !EV.loading[dk]) {
+      EV.loading[dk] = true;
+      STAI.api.listEvidence(dk).then((r) => { EV.by[dk] = r; }).catch((e) => { EV.by[dk] = []; EV.err = e.message; }).finally(() => { EV.loading[dk] = false; render(true); });
+    }
+    return EV.by[dk] || [];
+  }
+  const evForm = (control) => EV.form[control] || (EV.form[control] = { kind: 'FILE', summary: '', url: '', file: null });
+  const evSize = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B');
+  function evidencePanel(dk, control, holders) {
+    if (!dk) return '<span class="cap">Save the design to attach evidence files or links to it.</span>';
+    const recs = evRecords(dk).filter((r) => r.control === control), f = evForm(control), me = ME && ME.full_name;
+    const row = (r) => {
+      const what = r.kind === 'FILE' ? `${esc(r.filename)} \u00b7 ${evSize(r.size)} \u00b7 sha256 <span class="mono">${esc(r.sha256.slice(0, 12))}</span>`
+        : `${esc(r.url)} \u00b7 the site answered ${r.url_status} on ${esc(cwhen(r.fetched_at))} \u00b7 <b>snapshot, the page may have changed since</b>`;
+      const state = r.integrity === 'changed' ? '<span class="pill bad">Changed since upload</span>' : r.status === 'ATTESTED' ? `<span class="pill ok">Attested by ${esc(r.attested_by)} on ${esc(cwhen(r.attested_at))}</span>`
+        : r.status === 'REVOKED' ? `<span class="pill muted">Revoked by ${esc(r.revoked_by)}</span>` : `<span class="pill warn">Awaiting attestation \u00b7 uploaded by ${esc(r.uploaded_by)}</span>`;
+      const acts = (r.kind === 'FILE' && r.integrity === 'intact' ? dlBtn('/api/evidence/' + r.id + '/download', 'Download', 'btn2 btn-s') : '')
+        + (can('signoff') && r.status === 'UPLOADED' && r.integrity !== 'changed' && r.uploaded_by !== me ? `<button class="btn btn-s" data-act="evAttest" data-arg="${esc(r.id)}">Attest</button>` : '')
+        + (can('signoff') && r.status !== 'REVOKED' ? `<button class="btn2 btn-s" data-act="evRevoke" data-arg="${esc(r.id)}">Revoke</button>` : '');
+      return `<div class="box" style="flex-direction:column;align-items:flex-start;gap:4px"><span class="cap" style="font-weight:600">${esc(r.summary)}</span><span class="cap">${what}</span><span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${state}${acts}</span>${r.status === 'UPLOADED' && r.uploaded_by === me && can('signoff') ? '<span class="cap">You uploaded this, so someone else has to attest it.</span>' : ''}</div>`;
+    };
+    return `<div class="fld"><label>Evidence records</label><span class="cap">A control counts in the verified score once a file or a link is kept here and a person who did not upload it, and does not hold the duty, has attested it.</span>
+      ${recs.map(row).join('') || '<span class="cap">None yet.</span>'}
+      <div class="stack" style="gap:6px"><select class="inp" data-chg="evField" data-arg="${esc(control)}|kind">${opt('FILE', 'A file', f.kind)}${opt('URL', 'A link (kept as a snapshot)', f.kind)}</select>
+        ${f.kind === 'FILE' ? `<input class="inp" type="file" data-chg="evFile" data-arg="${esc(control)}">${f.file ? `<span class="cap">${esc(f.file.name)} \u00b7 ${evSize(f.file.size)}</span>` : ''}` : `<input class="inp" data-chg="evField" data-arg="${esc(control)}|url" value="${esc(f.url)}" placeholder="https://\u2026">`}
+        <input class="inp" data-chg="evField" data-arg="${esc(control)}|summary" value="${esc(f.summary)}" placeholder="What this shows, for example: DPIA signed by the DPO">
+        <div class="fxact"><button class="btn2 btn-s" data-act="evAdd" data-arg="${esc(dk)}|${esc(control)}"${EV.busy ? ' disabled' : ''}>${EV.busy ? 'Keeping\u2026' : 'Keep as evidence'}</button></div>
+        ${EV.err ? `<div class="note alert" role="alert">${esc(EV.err)}</div>` : ''}</div></div>`;
+  }
+  async function evReload(dk) { try { EV.by[dk] = await STAI.api.listEvidence(dk); } catch (e) { EV.err = e.message; } EV.rev++; render(true); }
+  function evHolders() { try { const a = buildRegistry().actors || {}; const o = {}; ['trainer', 'validator', 'deployer', 'operator'].forEach((r) => { if (a[r] && a[r].identity) o[r] = a[r].identity; }); return o; } catch (e) { return {}; } }
+  // A signed contract is never rewritten; this shows what the same design would score under the method in force now, beside what it scored when signed.
+  const RESC = {};
+  function rescoreNote(r) {
+    if (!r) return '';
+    if (r.error) return `<span class="cap">${esc(r.error)}</span>`;
+    const f = (x) => `${fmtScore(x.score)} \u00b7 ${esc(String(x.band || '').toLowerCase())} \u00b7 ${esc(String(x.gate || '').replace('_', ' ').toLowerCase())}`;
+    const signedM = r.signed.method ? `Method ${r.signed.method.number}` : 'no method recorded', nowM = r.now.method ? `Method ${r.now.method.number}${r.now.method.unpublished ? ' (changed since published)' : ''}` : 'unknown';
+    return `<span class="cap" style="max-width:520px">Signed under ${esc(signedM)}: ${r.signed.gate == null ? 'no score recorded' : f(r.signed)}. Scored now under ${esc(nowM)}: ${f(r.now)}. ${r.differs ? '<b>The answer differs.</b> Compile or ratify the design again to sign under the current method.' : r.method_changed ? 'The method changed, the answer did not.' : 'Same method, same answer.'}</span>`;
+  }
+  async function doRescore(id) {
+    RESC[id] = { loading: true };
+    try { RESC[id] = await STAI.api.rescoreContract(id); } catch (e) { RESC[id] = { error: 'Could not re-score: ' + e.message }; }
+    render(true);
   }
   const AU = { loaded: false, loading: false, error: null, events: [], verify: null, more: true };
   async function loadAudit(older) {
@@ -1121,8 +1178,8 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     try { RCRR.profiles = await STAI.api.rcrProfiles(); renderIfIdle('studio'); } catch (e) { /* the panel reports scoring errors itself */ }
   }
   function computeRCR() {
-    const st = S.studio, payload = { profile: st.domain || 'payments', graph: agentGraphPayload(), declarations: st.req || {} };
-    const key = JSON.stringify(payload);
+    const st = S.studio, payload = { profile: st.domain || 'payments', graph: agentGraphPayload(), declarations: st.req || {}, design_key: st.designKey || undefined };
+    const key = JSON.stringify([payload, EV.rev]);
     if (key !== RCRR.key && key !== RCRR.want) {
       RCRR.want = key;
       clearTimeout(RCRR.timer);
@@ -1140,7 +1197,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     const floorRow = r.floor_key ? r.rows.find((x) => x.key === r.floor_key) : null;
     return {
       rows: r.rows.map((x) => ({ id: x.key, name: x.name, instrument: x.instrument, cls: x.cls, w: x.w, phi: x.phi, derived: x.derived, declared: x.declared, status: x.counted, note: x.note || x.reason, reason: x.reason, evidence: x.evidence, signed: x.signed_off_by, awaiting: x.awaiting_signoff, placeholder: x.evidence_placeholder, namesRecord: x.evidence_names_record })),
-      G: r.G, F: r.F, floor: floorRow ? { id: floorRow.key, name: floorRow.name, note: floorRow.reason } : null, score: r.score, band: r.band, gate: r.gate, levels: r.levels,
+      G: r.G, F: r.F, floor: floorRow ? { id: floorRow.key, name: floorRow.name, note: floorRow.reason } : null, score: r.score, band: r.band, gate: r.gate, levels: r.levels, sensitivity: r.sensitivity, method: r.method,
       covered: r.covered, binding: r.binding, B: r.blocked_line, W: r.watch_line, instruments: r.instruments, worst: r.worst_instrument, notes: r.notes, pending, has: true, error: RCRR.error
     };
   }
@@ -1742,7 +1799,7 @@ kill_switch:
     const veto = items.filter((x) => x.blocks.indexOf('gate') >= 0).length;
     return `<div class="fxbar" aria-label="What stands between this design and ratification">
       <div><b>Risk gate</b><span class="pill ${gateCls}" style="align-self:flex-start">${Rc.has ? Rc.gate : 'Scoring\u2026'}</span><span class="cap">${Rc.has ? `Score ${fmtScore(Rc.score)} \u00b7 ${esc(Rc.band)}${veto ? ' \u00b7 ' + plural(veto, 'critical requirement') + ' open' : ''}` : ''}</span></div>
-      <div><b>Ratify the design</b><span class="pill ${stop ? 'bad' : 'ok'}" style="align-self:flex-start">${stop ? 'Refused' : 'Ready'}</span><span class="cap">${stop ? plural(stop, 'thing') + ' to fix first' : 'Everything it checks is met'}</span></div></div>${levelsStrip(Rc.levels, 'rcr')}`;
+      <div><b>Ratify the design</b><span class="pill ${stop ? 'bad' : 'ok'}" style="align-self:flex-start">${stop ? 'Refused' : 'Ready'}</span><span class="cap">${stop ? plural(stop, 'thing') + ' to fix first' : 'Everything it checks is met'}</span></div></div>${levelsStrip(Rc.levels, 'rcr')}${restsOn(Rc.sensitivity, 'rcr')}${methodLine(Rc.method)}`;
   }
   function agentReviewForm(Rc, items) {
     const rv = AF.rv;
@@ -1764,6 +1821,7 @@ kill_switch:
     return `<div class="fxform"><div class="fld"><label>Status</label><select class="inp" data-chg="agField" data-arg="status">${sel}</select></div>
       <div class="fld"><label>What the evidence shows</label><textarea class="inp" data-chg="agField" data-arg="evidence" placeholder="For example: the DPIA for this agent was approved by the DPO on 3 March">${esc(AF.evidence)}</textarea></div>
       <div class="fld"><label>Valid until (optional)</label><input class="inp" type="date" data-chg="agField" data-arg="until" value="${esc(AF.until)}"><span class="cap">After this day the evidence no longer counts.</span></div>
+      ${evidencePanel(S.studio.designKey, it.fix.rkey)}
       <div class="fld"><label>Where it is kept</label><input class="inp" data-chg="agField" data-arg="ref" value="${esc(AF.ref)}" placeholder="A link, a document name or a reference number, such as DPIA-2026-014"></div>
       ${it.fix.veto && can('signoff') ? `<label class="cap" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" data-chg="agField" data-arg="sign" ${AF.sign ? 'checked' : ''}><span>Sign this off as ${esc(mine)}. A critical requirement counts as covered only when a named person has signed it.</span></label>` : ''}
       <label class="cap" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" data-chg="agField" data-arg="confirm" ${AF.confirm ? 'checked' : ''}><span>I confirm this evidence is accurate and on record. The platform cannot check it for you.</span></label>
@@ -2534,7 +2592,7 @@ kill_switch:
       const hasLife = !!(registry.lifecycle || registry.incident_register);
       const baseReg = hasLife ? Object.assign({}, registry, { lifecycle: undefined, incident_register: undefined, hallucination_constraint_declared: undefined, confidence_signal: undefined }) : null;
       const differs = JSON.stringify(declared) !== JSON.stringify(registry);
-      const [s, a, b, dc] = await Promise.allSettled([STAI.api.score(registry), STAI.api.assess(M.designKey || 'current', domain, registry, constraintNodeIds, designGraph), baseReg ? STAI.api.score(baseReg) : Promise.resolve(null), differs ? STAI.api.score(declared) : Promise.resolve(null)]);
+      const [s, a, b, dc] = await Promise.allSettled([STAI.api.score(registry, M.designKey), STAI.api.assess(M.designKey || 'current', domain, registry, constraintNodeIds, designGraph), baseReg ? STAI.api.score(baseReg, M.designKey) : Promise.resolve(null), differs ? STAI.api.score(declared, M.designKey) : Promise.resolve(null)]);
       if (REMOTE.want !== key) return; // a newer edit superseded this request
       REMOTE.key = key;
       REMOTE.declaredSame = !differs;
@@ -2557,7 +2615,7 @@ kill_switch:
     const { registry, constraintNodeIds, declared } = buildRegistry();
     const domain = M.domain;
     const designGraph = buildDesignGraph();
-    const key = JSON.stringify([registry, domain, constraintNodeIds, designGraph, M.designKey || null]);   // the saved design's key: its reviews come back with the assessment
+    const key = JSON.stringify([registry, domain, constraintNodeIds, designGraph, M.designKey || null, EV.rev]);   // the saved design's key: its reviews come back with the assessment
     if (key !== REMOTE.key && key !== REMOTE.want) scheduleRemote(key, JSON.parse(JSON.stringify(registry)), constraintNodeIds, domain, designGraph, JSON.parse(JSON.stringify(declared)));
     return { registry, constraintNodeIds, declaredScore: REMOTE.declaredSame ? REMOTE.score : REMOTE.declared, score: REMOTE.score, scoreError: REMOTE.scoreError, assessment: REMOTE.assessment, assessError: REMOTE.assessError, byNode: REMOTE.byNode, issues: validateGraph(), pending: key !== REMOTE.key, backendError: REMOTE.error };
   }
@@ -2745,8 +2803,26 @@ kill_switch:
     const num = (x) => fmtScore(unit === 'pcs' ? x.pcs : x.score), tag = (x) => (unit === 'pcs' ? x.tier : x.band), gate = (x) => String(x.gate || '').replace('_', ' ');
     const cell = (k, label, x) => `<div class="srcbox ${k}"><b>${label}</b><span style="font-size:15px;font-weight:600">${num(x)}</span><span>${esc(String(tag(x) || '').toLowerCase())} \u00b7 ${esc(gate(x))}</span></div>`;
     const un = (lv.unverified || []).length, ex = (lv.expired || []).length;
-    return `<div class="stack" style="gap:6px"><span class="cap"><b>What the controls are worth</b></span><div class="srcsum" aria-label="Risk with and without controls">${cell('pol', 'No controls', lv.inherent)}${cell('reg', 'Only with a record', lv.verified)}${cell('fm', 'As declared', lv.declared)}</div>
-      <span class="cap">${un ? `${un === 1 ? '1 control counts' : un + ' controls count'} in the declared score on a statement with no record behind it (${esc(lv.unverified.join(', '))}). ` : 'Every control that counts has a record behind it. '}${ex ? `Expired, and no longer counted: ${esc(lv.expired.join(', '))}. ` : ''}The gate is decided on the declared score.</span></div>`;
+    return `<div class="stack" style="gap:6px"><span class="cap"><b>What the controls are worth</b></span><div class="srcsum" aria-label="Risk with and without controls">${cell('pol', 'No controls', lv.inherent)}${cell('reg', lv.attested ? 'Only attested' : 'Only with a record', lv.verified)}${cell('fm', 'As declared', lv.declared)}</div>
+      <span class="cap">${un ? `${un === 1 ? '1 control counts' : un + ' controls count'} in the declared score ${lv.attested ? 'with no attested record behind' : 'on a statement with no record behind'} ${un === 1 ? 'it' : 'them'} (${esc(lv.unverified.join(', '))}). ` : lv.attested ? 'Every control that counts has an attested record behind it. ' : 'Every control that counts has a record behind it. '}${ex ? `Expired, and no longer counted: ${esc(lv.expired.join(', '))}. ` : ''}The gate is decided on the <b>${lv.basis === 'verified' ? 'verified' : 'declared'}</b> score.</span></div>`;
+  }
+  // The method the score was made under, and a warning when the rules have changed since it was published.
+  const METHOD_PARTS = { rules: 'the approved rules', domains: 'which rules each domain holds', requirements: 'the agent requirement registries', catalogue: 'the Secure Tropos catalogue', engine: 'the scoring code' };
+  function methodLine(m) {
+    if (!m || !m.number) return '';
+    return `<span class="cap" style="font-size:12px">Scored under <b>Method ${m.number}</b> \u00b7 <span class="mono">${esc(String(m.fingerprint || '').slice(0, 8))}</span>${m.unpublished ? ' \u00b7 <b>the rules have changed since it was published</b>' : ''}</span>`;
+  }
+  // What the score rests on: each control that counts, taken away on its own. The ones that move the gate come first.
+  function restsOn(sn, unit) {
+    if (!sn || !sn.controls || !sn.controls.length) return '';
+    const num = (x) => fmtScore(unit === 'pcs' ? x.pcs : x.score), tag = (x) => (unit === 'pcs' ? x.tier : x.band), gateText = (g) => String(g || '').replace('_', ' ').toLowerCase();
+    const line = (c) => {
+      const effect = c.flips === 'gate' ? `the gate moves from ${gateText(sn.now.gate)} to ${gateText(c.to.gate)}` : c.flips === 'band' ? `the band moves from ${esc(String(tag(sn.now)).toLowerCase())} to ${esc(String(tag(c.to)).toLowerCase())}` : `the score rises to ${num(c.to)}`;
+      const tags = `${c.expires ? ` \u00b7 expires ${esc(c.expires)}` : ''}${c.kind === 'declared' && !c.has_record ? ' \u00b7 no record behind it' : ''}`;
+      return `<span class="cap"><b class="mono">${esc(c.control)}</b>${c.name ? ' ' + esc(c.name) : ''}${tags}: if it were lost, ${effect}.</span>`;
+    };
+    const shown = sn.controls.slice(0, 4);
+    return `<div class="stack" style="gap:4px"><span class="cap"><b>What this result rests on</b>${sn.decisive ? ` \u00b7 ${sn.decisive === 1 ? '1 control decides' : sn.decisive + ' controls decide'} the gate` : ''}</span>${shown.map(line).join('')}${sn.controls.length > shown.length ? `<span class="cap">and ${sn.controls.length - shown.length} more that raise the score.</span>` : ''}</div>`;
   }
   function reviewLine(ev) {
     const rv = ev.assessment && ev.assessment.review, last = rv && rv.reviews[0];
@@ -2760,7 +2836,7 @@ kill_switch:
     const gateTxt = gate ? `<span class="pill ${GATE_CLS[gate]}" style="align-self:flex-start">${gate.replace('_', ' ')}</span>` : '<span class="cap">Scoring\u2026</span>';
     return `<div class="fxbar" aria-label="What stands between this design and approval">
       <div><b>PCS gate</b>${gateTxt}<span class="cap">${g ? plural(g, 'veto constraint') + ' still open' : 'No veto constraint is open'}</span></div>
-      <div><b>Compile contract</b><span class="pill ${c ? 'bad' : 'ok'}" style="align-self:flex-start">${c ? 'Refused' : 'Ready'}</span><span class="cap">${c ? plural(c, 'thing') + ' to fix first' : 'Everything it checks is met'}</span></div></div>${reviewLine(ev)}${levelsStrip(ev.score && ev.score.levels, 'pcs')}`;
+      <div><b>Compile contract</b><span class="pill ${c ? 'bad' : 'ok'}" style="align-self:flex-start">${c ? 'Refused' : 'Ready'}</span><span class="cap">${c ? plural(c, 'thing') + ' to fix first' : 'Everything it checks is met'}</span></div></div>${reviewLine(ev)}${levelsStrip(ev.score && ev.score.levels, 'pcs')}${restsOn(ev.score && ev.score.sensitivity, 'pcs')}${methodLine(ev.score && ev.score.method)}`;
   }
   const ev0 = () => evaluate();
   // The same test the server applies: words that stand in for a record ("test", "tbd", "done") are not evidence.
@@ -2806,6 +2882,7 @@ kill_switch:
     return `<div class="fxform"><div class="fld"><label>Status</label><select class="inp" data-chg="fxField" data-arg="status">${sel}</select></div>
       <div class="fld"><label>What the evidence shows${node ? '' : ' (this adds the box to the design)'}</label><textarea class="inp" data-chg="fxField" data-arg="evidence" placeholder="For example: DPIA-2026-014, approved 3 March, held in the governance folder">${esc(FX.evidence)}</textarea></div>
       <div class="fld"><label>Valid until (optional)</label><input class="inp" type="date" data-chg="fxField" data-arg="until" value="${esc(FX.until)}"><span class="cap">After this day the evidence no longer counts.</span></div>
+      ${f.type === 'constraint_evidence' ? evidencePanel(M.designKey, f.constraint_id) : ''}
       <div class="fld"><label>Where it is kept</label><input class="inp" data-chg="fxField" data-arg="ref" value="${esc(FX.ref)}" placeholder="A link, a document name or a reference number, such as DPIA-2026-014"></div>
       <label class="cap" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" data-chg="fxField" data-arg="confirm" ${FX.confirm ? 'checked' : ''}><span>I confirm this evidence is accurate and on record. The platform cannot check it for you.</span></label>
       ${FX.err ? `<div class="note alert" role="alert">${esc(FX.err)}</div>` : ''}
@@ -3693,7 +3770,7 @@ kill_switch:
   }
   function modelContracts() {
     const v = M.contracts.find((c) => c.contract_id === M.viewContract);
-    return hdr('Contracts compiled from green model designs', 'Compiled contracts', '<a class="btn2" href="#/model">Back to studio</a>') + (M.contracts.length ? `<section class="card" style="padding:8px 0">${M.contracts.slice().reverse().map((c) => `<div class="lrow"><span class="stack"><span style="font-weight:500">${esc((c.design_snapshot.graph && c.design_snapshot.graph.name) || c.design_snapshot.name || c.deployment_id)}</span><span class="cap mono">${c.contract_id} \u00b7 ${c.domain} \u00b7 ${c.issued_at.slice(0, 19).replace('T', ' ')}</span><span class="cap mono">sha256:${c.contract_hash.slice(0, 16)}\u2026</span>${cstatusNote(M.cstatus[c.contract_id])}</span><span style="display:flex;gap:8px;align-items:center">${cstatusPill(M.cstatus[c.contract_id])}<button class="btn2 btn-s" data-act="mVerify" data-arg="${c.contract_id}">${M.verify[c.contract_id] ? (M.verify[c.contract_id] === 'ok' ? 'Hash verified \u2713' : M.verify[c.contract_id] === 'bad' ? 'HASH MISMATCH' : 'Check failed') : 'Verify hash'}</button><button class="btn2 btn-s" data-act="mViewContract" data-arg="${c.contract_id}">View JSON</button>${dlBtn('/api/export/contracts/' + c.contract_id + '.pdf', 'PDF', 'btn2 btn-s')}${dlBtn('/api/export/contracts/' + c.contract_id + '.json', 'JSON', 'btn2 btn-s')}${(M.cstatus[c.contract_id] || {}).status === 'ACTIVE' ? `<button class="btn2 btn-s" data-act="mRevoke" data-arg="${c.contract_id}">Revoke</button>` : ''}</span></div>`).join('')}</section>` : `<section class="card" style="padding:24px"><p style="margin:0">No contracts yet. A contract compiles only when every rule in the selected domain's risk assessment is green.</p></section>`) + (v ? `<section class="card" style="padding:20px;display:flex;flex-direction:column;gap:10px"><div class="hdr" style="align-items:center"><div><h2>${esc(v.contract_id)}</h2></div><button class="btn2 btn-s" data-act="mViewContract" data-arg="">Close</button></div><pre class="code" style="max-height:520px;font-size:12px">${esc(JSON.stringify(v, null, 2))}</pre></section>` : '');
+    return hdr('Contracts compiled from green model designs', 'Compiled contracts', '<a class="btn2" href="#/model">Back to studio</a>') + (M.contracts.length ? `<section class="card" style="padding:8px 0">${M.contracts.slice().reverse().map((c) => `<div class="lrow"><span class="stack"><span style="font-weight:500">${esc((c.design_snapshot.graph && c.design_snapshot.graph.name) || c.design_snapshot.name || c.deployment_id)}</span><span class="cap mono">${c.contract_id} \u00b7 ${c.domain} \u00b7 ${c.issued_at.slice(0, 19).replace('T', ' ')}</span><span class="cap mono">sha256:${c.contract_hash.slice(0, 16)}\u2026</span>${cstatusNote(M.cstatus[c.contract_id])}${rescoreNote(RESC[c.contract_id])}</span><span style="display:flex;gap:8px;align-items:center">${cstatusPill(M.cstatus[c.contract_id])}<button class="btn2 btn-s" data-act="mVerify" data-arg="${c.contract_id}">${M.verify[c.contract_id] ? (M.verify[c.contract_id] === 'ok' ? 'Hash verified \u2713' : M.verify[c.contract_id] === 'bad' ? 'HASH MISMATCH' : 'Check failed') : 'Verify hash'}</button><button class="btn2 btn-s" data-act="mRescore" data-arg="${c.contract_id}">Re-score</button><button class="btn2 btn-s" data-act="mViewContract" data-arg="${c.contract_id}">View JSON</button>${dlBtn('/api/export/contracts/' + c.contract_id + '.pdf', 'PDF', 'btn2 btn-s')}${dlBtn('/api/export/contracts/' + c.contract_id + '.json', 'JSON', 'btn2 btn-s')}${(M.cstatus[c.contract_id] || {}).status === 'ACTIVE' ? `<button class="btn2 btn-s" data-act="mRevoke" data-arg="${c.contract_id}">Revoke</button>` : ''}</span></div>`).join('')}</section>` : `<section class="card" style="padding:24px"><p style="margin:0">No contracts yet. A contract compiles only when every rule in the selected domain's risk assessment is green.</p></section>`) + (v ? `<section class="card" style="padding:20px;display:flex;flex-direction:column;gap:10px"><div class="hdr" style="align-items:center"><div><h2>${esc(v.contract_id)}</h2></div><button class="btn2 btn-s" data-act="mViewContract" data-arg="">Close</button></div><pre class="code" style="max-height:520px;font-size:12px">${esc(JSON.stringify(v, null, 2))}</pre></section>` : '');
   }
 
   /* ----- modelling assistant: sample prompts; replies come from the backend /chat (Ollama) ----- */
@@ -4019,6 +4096,7 @@ kill_switch:
       try { await STAI.api.revokeContract(id, { reason: reason.trim() }); await refreshModelContracts(); } catch (e) { window.alert('Could not revoke: ' + e.message); }
       render(true);
     },
+    mRescore: (id) => { doRescore(id); },
     mVerify: async (id) => { try { const v = await STAI.api.verifyContract(id); M.verify[id] = v.ok ? 'ok' : 'bad'; } catch (e) { M.verify[id] = 'error'; } render(true); },
     mRetry: () => { REMOTE.key = null; REMOTE.want = null; REMOTE.error = null; },
     mRetryBoot: () => { boot(); },
@@ -4360,6 +4438,7 @@ kill_switch:
       RG.domains = { MODEL: dm, AGENT: da };
       if (!RG.form.instrument && RG.regs.length) { RG.form.instrument = RG.regs[0].instrument; RG.form.url = RG.regs[0].source_url || ''; }
       if (!RG.run && runs.length) RG.run = runs[0];
+      await loadMethod();
       RG.loaded = true;
       if (RG.run && RG.run.status === 'RUNNING') pollRun();
     } catch (e) { RG.error = e.message; }
@@ -4405,13 +4484,39 @@ kill_switch:
       <div class="prow"><button class="btn"${RG.busy ? ' disabled' : ''} data-act="rgApprove" data-arg="${c.id}">Approve as rule</button><button class="btn2"${RG.busy ? ' disabled' : ''} data-act="rgReject" data-arg="${c.id}">Reject</button></div>
     </article>`;
   }
+  // The method in force: published deliberately, by someone with sign-off permission, with a reason. Editing a rule never publishes one.
+  const MT = { state: null, note: '', busy: false, err: null, basis: 'declared', basisNote: '', basisErr: null };
+  async function loadMethod() { try { MT.state = await STAI.api.getMethod(); MT.basis = (await STAI.api.evidencePolicy()).gate_basis; } catch (e) { MT.err = e.message; } }
+  function basisCard() {
+    const other = MT.basis === 'verified' ? 'declared' : 'verified';
+    return `<section class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:10px"><h2 class="ph" style="padding:0">Which score decides the gate: ${MT.basis}</h2>
+      <span class="cap" style="max-width:780px">The declared score counts every control as stated. The verified score counts only controls with an attested evidence record behind them. Both are always shown beside each design. This switch chooses which one the gate uses, for every model and agent. It starts on declared and never changes by itself, not even when the first record is attested; a person with sign-off permission changes it, with a reason, and it is written to the audit log.</span>
+      ${can('signoff') ? `<label class="cap">Why (recorded with your name)<br><input class="reqsel" style="width:100%" data-chg="mtBasisNote" value="${esc(MT.basisNote)}" placeholder="For example: the board agreed that verified evidence now decides approval"></label>
+      <div class="prow"><button class="btn2"${MT.busy ? ' disabled' : ''} data-act="mtBasis" data-arg="${other}">Decide the gate on the ${other} score</button></div>` : '<span class="cap">Someone with sign-off permission changes this.</span>'}
+      ${MT.basisErr ? `<div class="note alert" role="alert"><span style="font-size:13px">${esc(MT.basisErr)}</span></div>` : ''}</section>`;
+  }
+  function methodCard() {
+    const st = MT.state;
+    if (!st || !st.current) return MT.err ? `<section class="card" style="padding:16px 20px"><span class="cap">Could not read the method: ${esc(MT.err)}</span></section>` : '';
+    const cur = st.current, top = st.history[0], parts = (st.changed_since_published || []).map((k) => METHOD_PARTS[k] || k);
+    const publish = !can('signoff') ? '<span class="cap">Someone with sign-off permission publishes a method.</span>'
+      : cur.unpublished ? `<label class="cap">What changed, and why (recorded with your name)<br><textarea class="reqsel" style="width:100%;min-height:60px" data-chg="mtNote" placeholder="For example: raised the weight of the impact assessment after the board review">${esc(MT.note)}</textarea></label>
+        <div class="prow"><button class="btn"${MT.busy ? ' disabled' : ''} data-act="mtPublish">Publish as Method ${cur.number + 1}</button></div>`
+        : `<span class="cap">Nothing has changed since Method ${cur.number}.</span>`;
+    return `<section class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:10px"><h2 class="ph" style="padding:0">Method in force: Method ${cur.number}</h2>
+      <span class="cap" style="max-width:780px">Every score and every signed contract says which method it was made under: the approved rules, the requirement registries, the Secure Tropos catalogue and the scoring code. Editing a rule changes the scores straight away but does not publish a method; a person does that, with a reason, so a score from last year can still be explained.</span>
+      ${top ? `<span class="cap">Published by ${esc(top.published_by)} on ${esc(cwhen(top.published_at))}: \u201c${esc(top.note)}\u201d</span>` : ''}
+      ${cur.unpublished ? `<div class="note alert"><strong>The rules have changed since Method ${cur.number}</strong><span style="font-size:13px">${parts.length ? 'Changed: ' + esc(parts.join(', ')) + '. ' : ''}Scores are being made under the changed rules, and say so.</span></div>` : ''}
+      ${publish}${MT.err ? `<div class="note alert" role="alert"><span style="font-size:13px">${esc(MT.err)}</span></div>` : ''}
+      ${st.history.length > 1 ? `<div class="stack" style="gap:2px">${st.history.slice(0, 6).map((h) => `<span class="cap"><b>Method ${h.number}</b> \u00b7 ${esc(cwhen(h.published_at))} \u00b7 ${esc(h.published_by)}${h.changed.length ? ' \u00b7 changed ' + esc(h.changed.map((k) => METHOD_PARTS[k] || k).join(', ')) : ''}</span>`).join('')}</div>` : ''}</section>`;
+  }
   function regulationsScreen() {
     if (!RG.loaded && !RG.loading && !RG.error) loadRegulations();
     const head = hdr('Where the rules come from', 'Regulations and standards');
     if (RG.error && !RG.loaded) return head + `<div class="note alert" role="alert"><strong>Could not load regulations</strong><span style="font-size:13px">${esc(RG.error)}</span><button class="btn2 btn-s" data-act="rgReload" style="align-self:flex-start">Retry</button></div>`;
     if (!RG.loaded) return head + '<p class="cap">Loading\u2026</p>';
     const running = RG.run && RG.run.status === 'RUNNING', f = RG.form;
-    const sources = `<section class="card" style="padding:0 20px 8px"><h2 class="ph">Sources</h2>${RG.regs.map((r) => `<div class="reqrow"><span class="stack" style="gap:2px;min-width:0"><span style="font-weight:500">${esc(r.name)} <span class="cap" style="font-weight:400">${esc(r.instrument)} \u00b7 ${r.kind === 'REGULATION' ? 'law' : 'standard'}</span></span><span class="cap">${r.source_url ? `<a href="${esc(r.source_url)}" target="_blank" rel="noopener noreferrer">${esc(r.source_url)}</a>` : 'No address recorded'}</span></span><span class="pill ${r.approved_rules ? 'ok' : 'muted'}">${r.approved_rules} rule${r.approved_rules === 1 ? '' : 's'}</span></div>`).join('')}</section>`;
+    const sources = methodCard() + basisCard() + `<section class="card" style="padding:0 20px 8px"><h2 class="ph">Sources</h2>${RG.regs.map((r) => `<div class="reqrow"><span class="stack" style="gap:2px;min-width:0"><span style="font-weight:500">${esc(r.name)} <span class="cap" style="font-weight:400">${esc(r.instrument)} \u00b7 ${r.kind === 'REGULATION' ? 'law' : 'standard'}</span></span><span class="cap">${r.source_url ? `<a href="${esc(r.source_url)}" target="_blank" rel="noopener noreferrer">${esc(r.source_url)}</a>` : 'No address recorded'}</span></span><span class="pill ${r.approved_rules ? 'ok' : 'muted'}">${r.approved_rules} rule${r.approved_rules === 1 ? '' : 's'}</span></div>`).join('')}</section>`;
     const reader = `<section class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px"><h2 class="ph" style="padding:0">Read a source and propose rules</h2>
       <span class="cap" style="max-width:780px">The local model reads the page a few passages at a time and proposes obligations, each with a quote. The platform then checks that every quote appears in the page word for word and drops any that does not. What remains is a candidate for you to review; nothing is checked against designs until you approve it. Some sites cannot be read by a program (EUR-Lex, ISO): paste the text instead.</span>
       <div class="prow" style="flex-wrap:wrap;gap:8px"><label class="cap">Source<br><select class="reqsel" data-chg="rgSource">${RG.regs.map((r) => opt(r.instrument, r.instrument, f.instrument)).join('')}</select></label><label class="cap" style="flex:1;min-width:280px">Page address<br><input class="reqsel" style="width:100%" data-chg="rgForm" data-arg="url" value="${esc(f.url)}" placeholder="https://\u2026"></label><label class="cap">Passages to read<br><select class="reqsel" data-chg="rgForm" data-arg="passages">${[1, 2, 4, 8, 12].map((n) => opt(String(n), String(n), String(f.passages))).join('')}</select></label><label class="cap">Start at passage<br><input class="reqsel" type="number" min="0" style="width:90px" data-chg="rgForm" data-arg="offset" value="${f.offset}"></label></div>
@@ -4424,6 +4529,18 @@ kill_switch:
   }
   Object.assign(H, {
     rgReload: () => { RG.error = null; RG.loaded = false; },
+    mtBasis: async (basis) => {
+      if (MT.busy) return;
+      MT.busy = true; MT.basisErr = null; render(true);
+      try { await STAI.api.setEvidencePolicy(basis, MT.basisNote.trim()); MT.basis = basis; MT.basisNote = ''; EV.rev++; } catch (e) { MT.basisErr = e.message; }
+      MT.busy = false; render(true);
+    },
+    mtPublish: async () => {
+      if (MT.busy) return;
+      MT.busy = true; MT.err = null; render(true);
+      try { MT.state = await STAI.api.publishMethod(MT.note.trim()); MT.note = ''; } catch (e) { MT.err = e.message; }
+      MT.busy = false; render(true);
+    },
     rgStart: async () => {
       const f = RG.form; RG.notice = null; RG.busy = true; render(true);
       try {
@@ -4455,6 +4572,8 @@ kill_switch:
     }
   });
   Object.assign(C, {
+    mtNote: (v) => { MT.note = v; },
+    mtBasisNote: (v) => { MT.basisNote = v; },
     rgSource: (v) => { RG.form.instrument = v; const r = RG.regs.find((x) => x.instrument === v); RG.form.url = (r && r.source_url) || ''; RG.form.offset = 0; },
     rgForm: (v, key) => { RG.form[key] = v; },
     rgField: (v, arg) => {
@@ -4518,16 +4637,55 @@ kill_switch:
         <section class="card" style="padding-top:8px"><h2 class="ph">Clause mappings at ratification</h2>${snap.analysis.rows.map((a) => `<div class="map"><span class="stack"><span>${esc(a.id)} ${esc(a.name)}</span><span class="cap">${esc(a.why)}</span></span><span class="pill ${sp[a.status]}">${esc(a.status)}</span></div>`).join('')}</section>
       </div><div style="display:flex;flex-direction:column;gap:24px">
         <section class="card" style="padding:20px;display:flex;flex-direction:column;gap:12px"><h2>Ratification</h2>${status}
-          <span class="cap">Signed by ${esc(c.issued_by || 'unknown')}. Design-time risk score ${fmtScore(rcr.score)} \u00b7 ${esc(rcr.band)} \u00b7 gate ${esc(rcr.gate)}${rcr.worst_instrument ? ' \u00b7 worst regulation ' + esc(rcr.worst_instrument) : ''}.</span>
+          ${rescoreNote(RESC[c.contract_id])}<span class="cap">Signed by ${esc(c.issued_by || 'unknown')}. Design-time risk score ${fmtScore(rcr.score)} \u00b7 ${esc(rcr.band)} \u00b7 gate ${esc(rcr.gate)}${rcr.worst_instrument ? ' \u00b7 worst regulation ' + esc(rcr.worst_instrument) : ''}.</span>
           ${rcr.rows.map((x) => `<div class="box"><span class="stack"><span style="font-weight:500">${esc(x.name)}</span><span class="cap">${esc(x.instrument)} \u00b7 ${esc(clsLabel(x.cls))}${x.signed_off_by ? ' \u00b7 signed off by ' + esc(x.signed_off_by) : ''}</span></span><span class="pill ${sp[x.counted]}">${esc(x.counted)}</span></div>`).join('')}
-          <div class="prow" style="flex-wrap:wrap"><button class="btn2 btn-s" data-act="acVerify" data-arg="${esc(c.contract_id)}">${vr ? (vr === 'ok' ? 'Hash verified \u2713' : vr === 'bad' ? 'HASH MISMATCH' : 'Check failed') : 'Verify hash'}</button>${dlBtn('/api/export/contracts/' + c.contract_id + '.pdf', 'Download PDF', 'btn2 btn-s')}${dlBtn('/api/export/contracts/' + c.contract_id + '.json', 'Download JSON', 'btn2 btn-s')}${dlBtn('/api/export/contracts/' + c.contract_id + '.yaml', 'Download YAML', 'btn2 btn-s')}${r.design_key ? `<button class="btn2 btn-s" data-act="agOpenDesign" data-arg="${esc(r.design_key)}">Open design</button>` : ''}${r.status === 'ACTIVE' ? `<button class="btn2 btn-s" data-act="acRevoke" data-arg="${esc(c.contract_id)}">Revoke</button>` : ''}</div></section>
+          <div class="prow" style="flex-wrap:wrap"><button class="btn2 btn-s" data-act="acVerify" data-arg="${esc(c.contract_id)}">${vr ? (vr === 'ok' ? 'Hash verified \u2713' : vr === 'bad' ? 'HASH MISMATCH' : 'Check failed') : 'Verify hash'}</button><button class="btn2 btn-s" data-act="acRescore" data-arg="${esc(c.contract_id)}">Re-score</button>${dlBtn('/api/export/contracts/' + c.contract_id + '.pdf', 'Download PDF', 'btn2 btn-s')}${dlBtn('/api/export/contracts/' + c.contract_id + '.json', 'Download JSON', 'btn2 btn-s')}${dlBtn('/api/export/contracts/' + c.contract_id + '.yaml', 'Download YAML', 'btn2 btn-s')}${r.design_key ? `<button class="btn2 btn-s" data-act="agOpenDesign" data-arg="${esc(r.design_key)}">Open design</button>` : ''}${r.status === 'ACTIVE' ? `<button class="btn2 btn-s" data-act="acRevoke" data-arg="${esc(c.contract_id)}">Revoke</button>` : ''}</div></section>
         <section class="card" style="padding-top:8px"><h2 class="ph">Versions</h2>${mine.map((x) => `<div class="lrow"><span class="stack"><span style="font-weight:500">Version ${esc(x.contract.version)}${x.contract.design_snapshot.change && x.contract.design_snapshot.change.widens ? ' <span class="pill warn">widens</span>' : ''}</span><span class="cap">${esc(cwhen(x.contract.issued_at))} by ${esc(x.contract.issued_by || 'unknown')}</span></span><span style="display:flex;gap:8px;align-items:center">${cstatusPill(x)}${x.contract.contract_id === c.contract_id ? '<span class="cap">viewing</span>' : `<button class="btn2 btn-s" data-act="acSel" data-arg="${esc(x.contract.contract_id)}">View</button>`}</span></div>`).join('')}</section>
         <section class="card" style="padding:20px;display:flex;flex-direction:column;gap:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h2>agent.contract.yaml</h2><span class="cap">compiled from the ratified design</span></div><pre class="code">${esc(v.yaml)}</pre></section>
       </div></div>`;
   }
   Object.assign(H, {
+    evAdd: async (arg) => {
+      const [dk, control] = arg.split('|'), f = evForm(control);
+      if (EV.busy) return;
+      EV.err = null;
+      if (f.kind === 'FILE' && !f.file) { EV.err = 'Choose a file first.'; return; }
+      if (f.kind === 'URL' && !f.url.trim()) { EV.err = 'Give the address of the page.'; return; }
+      if (f.summary.trim().length < 5) { EV.err = 'Say in a few words what this shows.'; return; }
+      EV.busy = true; render(true);
+      try {
+        await STAI.api.addEvidence(f.kind === 'FILE' ? { design_key: dk, control, kind: 'FILE', summary: f.summary.trim(), filename: f.file.name, content_base64: f.file.b64 } : { design_key: dk, control, kind: 'URL', summary: f.summary.trim(), url: f.url.trim() });
+        EV.form[control] = { kind: f.kind, summary: '', url: '', file: null };
+      } catch (e) { EV.err = e.message; }
+      EV.busy = false; await evReload(dk);
+    },
+    evAttest: async (id) => {
+      const dk = Object.keys(EV.by).find((k) => EV.by[k].some((r) => r.id === id)); EV.err = null;
+      try { await STAI.api.attestEvidence(id, { holders: evHolders() }); } catch (e) { EV.err = e.message; }
+      if (dk) await evReload(dk);
+    },
+    evRevoke: async (id) => {
+      const dk = Object.keys(EV.by).find((k) => EV.by[k].some((r) => r.id === id)), why = window.prompt('Why is this record being revoked? (recorded with your name)'); EV.err = null;
+      if (!why || why.trim().length < 5) return;
+      try { await STAI.api.revokeEvidence(id, why.trim()); } catch (e) { EV.err = e.message; }
+      if (dk) await evReload(dk);
+    }
+  });
+  Object.assign(C, {
+    evField: (v, arg) => { const [control, field] = arg.split('|'); evForm(control)[field] = v; },
+    evFile: (v, control, el) => {
+      const file = el.files && el.files[0], f = evForm(control); f.file = null;
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) { EV.err = 'The file is larger than 5 MB.'; return; }
+      const rd = new FileReader();
+      rd.onload = () => { f.file = { name: file.name, size: file.size, b64: String(rd.result).split(',')[1] || '' }; EV.err = null; render(true); };
+      rd.readAsDataURL(file);
+    }
+  });
+  Object.assign(H, {
     acReload: () => { AC.error = null; AC.loaded = false; },
     acSel: (id) => { AC.sel = id; },
+    acRescore: (id) => { doRescore(id); },
     acVerify: async (id) => { try { const x = await STAI.api.verifyContract(id); AC.verify[id] = x.ok ? 'ok' : 'bad'; } catch (e) { AC.verify[id] = 'error'; } render(true); },
     acDownload: (id) => { const r = AC.recs.find((x) => x.contract.contract_id === id); if (!r) return; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(r.contract, null, 2)], { type: 'application/json' })); a.download = `contract-${r.contract.deployment_id}-v${r.contract.version}.json`; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); },
     acRevoke: async (id) => {

@@ -50,9 +50,9 @@ def is_owner(primary: Optional[Dict[str, Any]], name: str) -> bool:
     return bool(owner) and owner == _norm(name)
 
 
-def _score(session: Session, doc: Dict[str, Any]) -> RcrOut:
+def _score(session: Session, doc: Dict[str, Any], design_key: Optional[str] = None) -> RcrOut:
     declarations = {k: Declaration(**v) for k, v in (doc.get("req") or {}).items()}
-    return score_agent(RcrRequest(profile=doc.get("profile") or "payments", graph=_graph(doc), declarations=declarations), session)
+    return score_agent(RcrRequest(profile=doc.get("profile") or "payments", graph=_graph(doc), declarations=declarations, design_key=design_key), session)
 
 
 def _design(session: Session, key: str) -> Design:
@@ -64,7 +64,7 @@ def _design(session: Session, key: str) -> Design:
 
 def review_state(session: Session, design: Design, viewer: str) -> ReviewState:
     doc = design.document
-    rcr = _score(session, doc)
+    rcr = _score(session, doc, design.design_key)
     fp = design_fingerprint(doc)
     conflict = is_owner(_primary(doc), viewer)
     rows = _rows(session, design.design_key)
@@ -106,7 +106,7 @@ def assurance(rcr: RcrOut, review: Optional[dict], primary: Dict[str, Any], rati
     """What a reader of the contract would otherwise have to recompute: the score and gate at ratification, the review, whether the ratifier owns the agent, and which declared
     requirements rest on evidence that names no record."""
     return {
-        "rcr": {"score": rcr.score, "band": rcr.band, "gate": rcr.gate}, "levels": rcr.levels, "review": review, "ratified_by_is_owner": is_owner(primary, ratifier),
+        "rcr": {"score": rcr.score, "band": rcr.band, "gate": rcr.gate}, "levels": rcr.levels, "method": rcr.method, "review": review, "ratified_by_is_owner": is_owner(primary, ratifier),
         "evidence_without_record": sorted(r.key for r in rcr.rows if not r.derived and r.declared in ("Covered", "Partial") and not r.evidence_names_record),
     }
 
@@ -130,7 +130,7 @@ def record_review(design_key: str, body: AgentReviewIn, session: Session = Depen
         raise HTTPException(status_code=422, detail=f"A design is reviewed once it is correct: {len(errors)} thing(s) are wrong with it, starting with “{errors[0].title}”. Fix them first.")
     if is_owner(_primary(doc), user.name):
         raise HTTPException(status_code=403, detail=f"{user.name} is the owner of this agent and cannot also review it. Another person with sign-off permission has to.")
-    rcr = _score(session, doc)
+    rcr = _score(session, doc, design.design_key)
     session.add(DesignReview(
         id=uuid.uuid4(), organisation_id=current_organisation(session).id, design_key=design.design_key, fingerprint=design_fingerprint(doc), decision=body.decision,
         note=body.note.strip(), reviewer_name=user.name, reviewer_role=user.role, pcs_final=rcr.score, tier=rcr.band, gate=rcr.gate))

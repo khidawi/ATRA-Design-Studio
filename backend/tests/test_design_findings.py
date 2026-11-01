@@ -327,6 +327,25 @@ def test_expired_evidence_stops_counting():
     check("the comparison lists what expired", score_levels(reg)["expired"] == ["SC-HITL-1"])
 
 
+def test_what_the_score_rests_on():
+    from datetime import date, timedelta
+    from scoring_bridge import score_registry, score_sensitivity
+    reg = registry(satisfied=ALL_MET)
+    reg.governance_state.constraints_declared["SC-DPIA-1"].valid_until = date.today() + timedelta(days=20)
+    base, _ = score_registry(reg)
+    sens = score_sensitivity(reg)
+    check("it starts from the score as declared", sens["now"]["pcs"] == base.pcs_final and sens["now"]["gate"] == base.gate, sens["now"])
+    by = {x["control"]: x for x in sens["controls"]}
+    check("losing the impact assessment moves the gate", by.get("SC-DPIA-1", {}).get("flips") == "gate" and by["SC-DPIA-1"]["to"]["gate"] != base.gate, by.get("SC-DPIA-1"))
+    check("it says when the evidence expires", by["SC-DPIA-1"]["expires"] == (date.today() + timedelta(days=20)).isoformat(), by["SC-DPIA-1"])
+    check("the ones that move the gate come first", [x["flips"] for x in sens["controls"]][:sens["decisive"]] == ["gate"] * sens["decisive"] and sens["decisive"] >= 1, sens["controls"])
+    check("a control that earns nothing is left out", all(x["delta"] > 0 or x["flips"] for x in sens["controls"]))
+    check("a design with no controls has nothing to lose", score_sensitivity(registry(satisfied=[]))["controls"] == [])
+    reg2 = registry(satisfied=ALL_MET)
+    reg2.governance_state.constraints_declared["SC-DPIA-1"].valid_until = date.today() - timedelta(days=1)
+    check("expired evidence is no longer something the score rests on", "SC-DPIA-1" not in {x["control"] for x in score_sensitivity(reg2)["controls"]})
+
+
 def test_the_explanation_is_not_signed():
     domain = ComplianceDomain(domain_id="T", name="T", subject="MODEL", rule_set=[rule(maps_to_constraint_id="SC-HITL-1")])
     reg = registry(satisfied=ALL_MET)

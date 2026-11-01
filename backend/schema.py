@@ -289,6 +289,10 @@ class RegistryBlock(BaseModel):
     consent_records:         List[ConsentRecord] = Field(default_factory=list)
     regulatory_requirements: List[RegulatoryRequirement] = Field(default_factory=list)
     data_categories:         List[DataCategory]  = Field(default_factory=list)
+    # Set by the server from its own evidence records (evidence.py), never trusted from a caller: the controls that have an attested record behind them (None: no saved design to look
+    # at, so the evidence text is read instead) and which score decides the gate.
+    attested_controls:       Optional[List[str]] = None
+    gate_basis:              str = "declared"
 
     # Fields that map directly to RegistryState flat fields
     org_size:                Optional[str] = None
@@ -404,6 +408,7 @@ class DesignStudioDocument(BaseModel):
 
 class ScoreRequest(BaseModel):
     registry: RegistryBlock
+    design_key: Optional[str] = None       # the saved design, so its evidence records can be read
 
 
 class ScoreResponse(BaseModel):
@@ -411,3 +416,7 @@ class ScoreResponse(BaseModel):
     warnings:   List[str] = Field(default_factory=list)
     # The same design scored three ways (scoring_bridge.score_levels): with no controls, with only the controls that have a record behind them, and as declared.
     levels:     Optional[Dict[str, Any]] = None
+    # The method the score was made under (method.py): its number, a fingerprint of what was in force, and whether that differs from the last published method.
+    method:     Optional[Dict[str, Any]] = None
+    # What the score rests on: each control that counts, taken away on its own (scoring_bridge.score_sensitivity).
+    sensitivity: Optional[Dict[str, Any]] = None

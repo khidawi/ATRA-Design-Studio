@@ -304,6 +304,7 @@ def compile_design(
     design_graph: Optional[DesignGraph] = None,
     reviewed: bool = False,
     review: Optional[Dict[str, Any]] = None,
+    method_stamp: Optional[Dict[str, Any]] = None,
 ) -> CompiledContract:
     """
     Re-runs assess_design() (never trusts a caller-supplied assessment) and
@@ -340,7 +341,7 @@ def compile_design(
         design_snapshot={
             "registry": registry.model_dump(mode="json"),
             "graph": graph,
-            "assurance": _assurance(registry, graph, pcs, review, issued_by),
+            "assurance": {**_assurance(registry, graph, pcs, review, issued_by), **({"method": method_stamp} if method_stamp else {})},
         },
         risk_assessment=assessment,
         issued_at=datetime.now(tz=timezone.utc),

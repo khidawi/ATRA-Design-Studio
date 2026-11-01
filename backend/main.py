@@ -42,7 +42,10 @@ from schema import (
     DesignStudioDocument,
     VETO_CLASS_CONSTRAINTS, MODULATING_CLASS_CONSTRAINTS,
 )
-from scoring_bridge import score_levels, score_registry
+import evidence
+import method
+from method_api import router as method_router
+from scoring_bridge import score_levels, score_registry, score_sensitivity
 from compliance_schema import CompiledContract, DeploymentDescription, DesignRiskAssessment
 from design_import import json_to_canvas_graph
 from db.bootstrap import init_database
@@ -111,6 +114,8 @@ app.include_router(ingestion_router)
 app.include_router(design_store_router)
 app.include_router(design_review_router)
 app.include_router(agent_review_router)
+app.include_router(method_router)
+app.include_router(evidence.router)
 app.include_router(agent_import_router)
 app.include_router(agent_registry_router)
 app.include_router(agent_compare_router)
@@ -168,11 +173,12 @@ def health() -> Dict[str, Any]:
 # ── Scoring ───────────────────────────────────────────────────────────────────
 
 @app.post("/score", response_model=ScoreResponse)
-def score(req: ScoreRequest) -> ScoreResponse:
+def score(req: ScoreRequest, session: Session = Depends(get_session)) -> ScoreResponse:
     """
     Score a registry block using the existing ST-AI rule engine.
     The engine is called completely unchanged through scoring_bridge.py.
     """
+    evidence.enrich_registry(session, req.design_key, req.registry)
     try:
         pcs_result, warnings = score_registry(req.registry)
     except Exception as exc:
@@ -181,7 +187,11 @@ def score(req: ScoreRequest) -> ScoreResponse:
         levels = score_levels(req.registry)
     except Exception:          # the score above stands on its own; the comparison is an addition
         levels = None
-    return ScoreResponse(pcs_result=pcs_result, warnings=warnings, levels=levels)
+    try:
+        sensitivity = score_sensitivity(req.registry)
+    except Exception:
+        sensitivity = None
+    return ScoreResponse(pcs_result=pcs_result, warnings=warnings, levels=levels, method=method.stamp(session), sensitivity=sensitivity)
 
 
 # ── Standards crosswalk ───────────────────────────────────────────────────────
@@ -285,6 +295,7 @@ def assess(design_id: str, req: AssessRequest, session: Session = Depends(get_se
     than used to look anything up — the assessment itself is computed
     fresh from the request body every call, same statelessness as /score.
     """
+    evidence.enrich_registry(session, design_id, req.registry)
     try:
         assessment = assess_design(
             req.registry, require_domain(session, req.domain), req.constraint_node_ids,
@@ -313,12 +324,13 @@ def compile_design_endpoint(
     sends a falsified overall_status; there is no overall_status field on
     CompileRequest at all for a caller to lie with.
     """
+    evidence.enrich_registry(session, design_id, req.registry)
     review = current_review(session, design_id, req.registry, req.domain, req.design_graph)
     try:
         contract = compile_design(
             req.registry, require_domain(session, req.domain), req.graph,
             req.constraint_node_ids, design_id, user.name, to_design_graph(req.design_graph),
-            reviewed=review is not None, review=review,
+            reviewed=review is not None, review=review, method_stamp=method.stamp(session),
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))

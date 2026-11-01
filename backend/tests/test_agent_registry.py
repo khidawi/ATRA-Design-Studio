@@ -85,6 +85,9 @@ def test_ratify_refuses_blocked_then_issues_a_verifiable_contract():
             assert c["object_type"] == "AGENT" and c["version"] == "1.0.0" and c["deployment_id"] == key_agent
             assert c["design_snapshot"]["rcr"]["gate"] in ("REVIEW", "APPROVE") and c["design_snapshot"]["analysis"]["rows"]
             assert api.get(f"/api/contracts/{c['contract_id']}/verify").json()["ok"]
+            assert c["design_snapshot"]["assurance"]["method"]["number"] >= 1                                  # the contract names the method it was scored under
+            rs = api.get(f"/api/contracts/{c['contract_id']}/rescore").json()
+            assert rs["signed"]["gate"] == rs["now"]["gate"] and not rs["method_changed"] and not rs["differs"], rs
             assert all(x["object_type"] == "AGENT" for x in api.get("/api/contracts?object_type=AGENT").json())
             assert c["contract_id"] not in [x["contract_id"] for x in api.get("/api/contracts").json()]   # model list stays model-only
             again = ratify(api, {"design_key": key, "reviewer": "Compliance lead"}).json()

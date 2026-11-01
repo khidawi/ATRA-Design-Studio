@@ -230,12 +230,17 @@ def _credited(decl) -> bool:
     return decl.status.value == "SATISFIED" and not is_placeholder_evidence(decl.evidence) and not evidence_expired(decl)
 
 
+def _has_record(rb: RegistryBlock, cid: str, decl) -> bool:
+    """A record is behind the control: an attested one when the server has looked at the design's evidence records, else evidence that names where the record is kept."""
+    return cid in rb.attested_controls if rb.attested_controls is not None else names_a_record(decl.evidence)
+
+
 def _controls_removed(rb: RegistryBlock, keep_with_record: bool) -> RegistryBlock:
-    """The same design with its controls taken away: all of them, or all but those whose evidence names a record that is still valid."""
+    """The same design with its controls taken away: all of them, or all but those that have a record behind them and are still valid."""
     r = rb.model_copy(deep=True)
     kept_facts = set()
     for cid, decl in r.governance_state.constraints_declared.items():
-        if keep_with_record and _credited(decl) and names_a_record(decl.evidence):
+        if keep_with_record and _credited(decl) and _has_record(rb, cid, decl):
             kept_facts.update(_CONSTRAINT_FACTS.get(cid, ()))
             continue
         decl.status, decl.evidence = ConstraintStatus.NOT_YET_DETERMINED, None
@@ -247,7 +252,39 @@ def _controls_removed(rb: RegistryBlock, keep_with_record: bool) -> RegistryBloc
     r.lifecycle.bias_metric = None
     r.compensating_controls = 0
     r.hallucination_constraint_declared = "hallucination_constraint_declared" in kept_facts
+    r.gate_basis = "declared"                  # a copy is scored as it stands; the switch is applied once, in score_registry
     return r
+
+
+def _rank(row: Dict[str, Any]):
+    return (0 if row["flips"] == "gate" else 1 if row["flips"] == "band" else 2, -row["delta"], row["control"])
+
+
+def score_sensitivity(rb: RegistryBlock, limit: int = 12) -> Dict[str, Any]:
+    """What the score rests on. Each control that counts is taken away on its own and the design scored again: the ones whose loss moves the gate or the band, or raises the score
+    most, are the ones a reviewer should look at first, and the ones that expire say when. A control whose loss changes nothing is left out: it is not holding the result up."""
+    base, _ = score_registry(rb)
+    rows: List[Dict[str, Any]] = []
+    for cid, decl in rb.governance_state.constraints_declared.items():
+        if not _credited(decl):
+            continue
+        r = rb.model_copy(deep=True)
+        d = r.governance_state.constraints_declared[cid]
+        d.status, d.evidence = ConstraintStatus.NOT_YET_DETERMINED, None
+        for fact in _CONSTRAINT_FACTS.get(cid, ()):
+            if fact == "hallucination_constraint_declared":
+                r.hallucination_constraint_declared = False
+            elif getattr(r.lifecycle, fact, None) is True:
+                setattr(r.lifecycle, fact, False)
+        lost, _ = score_registry(r)
+        delta = round(lost.pcs_final - base.pcs_final, 2)
+        flips = "gate" if lost.gate != base.gate else "band" if lost.tier != base.tier else None
+        if delta <= 0 and flips is None:
+            continue
+        rows.append({"control": cid, "kind": "declared", "flips": flips, "delta": delta, "to": {"pcs": lost.pcs_final, "tier": lost.tier, "gate": lost.gate},
+                     "has_record": names_a_record(decl.evidence), "expires": decl.valid_until.isoformat() if decl.valid_until else None})
+    rows.sort(key=_rank)
+    return {"now": {"pcs": base.pcs_final, "tier": base.tier, "gate": base.gate}, "controls": rows[:limit], "decisive": sum(1 for x in rows if x["flips"]), "counted": len(rows)}
 
 
 def score_levels(rb: RegistryBlock) -> Dict[str, Any]:
@@ -257,9 +294,11 @@ def score_levels(rb: RegistryBlock) -> Dict[str, Any]:
         res, _ = score_registry(registry)
         return {"pcs": res.pcs_final, "tier": res.tier, "gate": res.gate}
     decls = rb.governance_state.constraints_declared
+    stated = rb.model_copy(update={"gate_basis": "declared"})
     return {
-        "inherent": one(_controls_removed(rb, False)), "verified": one(_controls_removed(rb, True)), "declared": one(rb),
-        "unverified": sorted(c for c, d in decls.items() if _credited(d) and not names_a_record(d.evidence)),
+        "inherent": one(_controls_removed(rb, False)), "verified": one(_controls_removed(rb, True)), "declared": one(stated),
+        "basis": "verified" if rb.gate_basis == "verified" and rb.attested_controls is not None else "declared", "attested": rb.attested_controls is not None,
+        "unverified": sorted(c for c, d in decls.items() if _credited(d) and not _has_record(rb, c, d)),
         "expired": sorted(c for c, d in decls.items() if d.status.value == "SATISFIED" and evidence_expired(d)),
     }
 
@@ -268,7 +307,16 @@ def score_registry(rb: RegistryBlock) -> tuple[PCSResultBlock, list[str]]:
     """
     Run the full ST-AI engine against the given registry block.
     Returns (PCSResultBlock, warnings).
+
+    When the organisation has decided the gate on the verified score and the server has looked at the design's evidence records, only the controls with an attested record behind them
+    count. Otherwise the design is scored as declared.
     """
+    if rb.gate_basis == "verified" and rb.attested_controls is not None:
+        rb = _controls_removed(rb, True)
+    return _score_as_stated(rb)
+
+
+def _score_as_stated(rb: RegistryBlock) -> tuple[PCSResultBlock, list[str]]:
     rs = registry_block_to_state(rb)
     dt = derive_terms(rs)
 

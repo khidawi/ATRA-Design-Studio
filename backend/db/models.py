@@ -15,7 +15,7 @@ from typing import Optional
 
 from typing import Any, Dict, List
 
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, Date, DateTime, Float, ForeignKey, Identity, Integer, String, Text, UniqueConstraint, Uuid, func, text
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, Date, DateTime, Float, ForeignKey, Identity, Integer, LargeBinary, String, Text, UniqueConstraint, Uuid, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -259,6 +259,60 @@ class DesignReview(Base):
     tier: Mapped[str] = mapped_column(String(12), nullable=False)
     gate: Mapped[str] = mapped_column(String(20), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class MethodVersion(Base):
+    """A published method: the rules, requirements, catalogue and scoring code a score is made under. Never edited or deleted (method.py)."""
+
+    __tablename__ = "method_versions"
+    __table_args__ = (UniqueConstraint("organisation_id", "number", name="uq_method_number"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    number: Mapped[int] = mapped_column(Integer, nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    parts: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    engine: Mapped[str] = mapped_column(String(16), nullable=False)
+    note: Mapped[str] = mapped_column(Text, nullable=False)
+    published_by: Mapped[str] = mapped_column(String(120), nullable=False)
+    published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class EvidenceRecord(Base):
+    """A piece of evidence for one control of one design: a file kept here (hashed on upload) or a snapshot of a web page (evidence.py). Becomes counted evidence only when a person
+    who is not its uploader and does not hold the duty attests it. Never edited; revoked rather than deleted."""
+
+    __tablename__ = "evidence_records"
+    __table_args__ = (
+        CheckConstraint("kind IN ('FILE', 'URL')", name="ck_evidence_kind"),
+        CheckConstraint("status IN ('UPLOADED', 'ATTESTED', 'REVOKED')", name="ck_evidence_status"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    design_key: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    subject: Mapped[str] = mapped_column(String(8), nullable=False)
+    control_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    kind: Mapped[str] = mapped_column(String(8), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    # FILE: the bytes, their size and SHA-256 when uploaded. URL: the address, what the site answered, when, and the SHA-256 of what it returned (a snapshot; the page may have changed since).
+    filename: Mapped[Optional[str]] = mapped_column(String(255))
+    content_type: Mapped[Optional[str]] = mapped_column(String(120))
+    size: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    content: Mapped[Optional[bytes]] = mapped_column(LargeBinary)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    url: Mapped[Optional[str]] = mapped_column(String(500))
+    url_status: Mapped[Optional[int]] = mapped_column(Integer)
+    fetched_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    uploaded_by: Mapped[str] = mapped_column(String(120), nullable=False)
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    status: Mapped[str] = mapped_column(String(10), nullable=False, server_default="UPLOADED")
+    attested_by: Mapped[Optional[str]] = mapped_column(String(120))
+    attested_role: Mapped[Optional[str]] = mapped_column(String(20))
+    attested_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    revoked_by: Mapped[Optional[str]] = mapped_column(String(120))
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    revoke_reason: Mapped[Optional[str]] = mapped_column(Text)
 
 
 class Contract(Base):

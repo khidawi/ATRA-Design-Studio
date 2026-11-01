@@ -19,6 +19,7 @@ from pydantic import Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+import evidence
 from auth import AuthUser, current_user
 from compliance_engine import AssessRequest
 from compliance_schema import ReviewOut, ReviewState
@@ -38,6 +39,8 @@ def fingerprint(registry, domain: str, design_graph) -> str:
     body = registry.model_dump(mode="json")
     body.pop("lifecycle", None)
     body.pop("incident_register", None)
+    body.pop("attested_controls", None)          # set by the server from its evidence records; a review is of the design
+    body.pop("gate_basis", None)
     graph = design_graph.model_dump(mode="json") if design_graph is not None else None
     canonical = json.dumps({"registry": body, "domain": domain, "graph": graph}, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
@@ -101,6 +104,7 @@ def record_review(design_key: str, body: ReviewRequest, session: Session = Depen
         who = " ".join((getattr(body.registry.actors, role).identity or "").split()).lower()
         if who and who == me:
             raise HTTPException(status_code=403, detail=f"{user.name} is named as the {role} of this model and cannot also review it. Another person with sign-off permission has to.")
+    evidence.enrich_registry(session, design_key, body.registry)
     pcs, _ = score_registry(body.registry)
     fp = fingerprint(body.registry, body.domain, body.design_graph)
     session.add(DesignReview(

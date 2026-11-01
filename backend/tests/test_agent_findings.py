@@ -126,6 +126,27 @@ def test_what_the_controls_are_worth_for_an_agent():
         check("a blank date is no date", score({"status": "Covered", "evidence": "DPIA report DOC-9", "signed_off_by": "Rhea Patel", "valid_until": ""})["score"] == with_record["score"])
 
 
+def test_what_the_score_rests_on_for_an_agent():
+    from datetime import date, timedelta
+    doc = agent_doc("Platform team")
+    graph_body = {"nodes": [{"id": n["id"], "type": n["type"], "props": {"name": n["name"], **n["p"]}, "primary": bool(n.get("primary"))} for n in doc["nodes"]],
+                  "edges": [{"from": e["from"], "to": e["to"], "label": e["label"]} for e in doc["edges"]]}
+    until = (date.today() + timedelta(days=10)).isoformat()
+    with authed_client("compliance", "Rhea Patel") as api:
+        r = api.post("/api/rcr/score", json={"profile": "healthcare", "graph": graph_body,
+                                              "declarations": {"dpia": {"status": "Covered", "evidence": "DPIA report DOC-9", "signed_off_by": "Rhea Patel", "valid_until": until}}})
+        assert r.status_code == 200, r.text
+        out = r.json()
+        sens = out["sensitivity"]
+        check("it starts from the score as it stands", sens["now"]["score"] == out["score"] and sens["now"]["gate"] == out["gate"], sens["now"])
+        by = {x["control"]: x for x in sens["controls"]}
+        check("the impact assessment is something the score rests on, and says when it expires", "dpia" in by and by["dpia"]["expires"] == until and by["dpia"]["kind"] == "declared", by.get("dpia"))
+        check("each loss is worse than the score now", all(x["delta"] > 0 or x["flips"] for x in sens["controls"]))
+        order = [0 if x["flips"] == "gate" else 1 if x["flips"] == "band" else 2 for x in sens["controls"]]
+        check("the ones that move the gate come first", order == sorted(order), order)
+        check("a requirement that is not met is not listed", all(x["control"] != "no-such" for x in sens["controls"]))
+
+
 NAME = "zz-test-review-agent"
 
 
