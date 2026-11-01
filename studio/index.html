@@ -435,6 +435,7 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       attestEvidence: (id, body) => post('/api/evidence/' + encodeURIComponent(id) + '/attest', body),
       revokeEvidence: (id, reason) => post('/api/evidence/' + encodeURIComponent(id) + '/revoke', { reason }),
       evidencePolicy: () => call('/api/evidence/policy'),
+      expiringEvidence: (within) => call('/api/evidence/expiring?within=' + encodeURIComponent(within)),
       setEvidencePolicy: (basis, note) => call('/api/evidence/policy', { method: 'PUT', body: JSON.stringify({ basis, note }) }),
       crosswalk: () => call('/api/crosswalk'),
       assess: (designId, domain, registry, constraintNodeIds, designGraph) => post(designPath(designId, 'assess'), { domain, registry, constraint_node_ids: constraintNodeIds, design_graph: designGraph }),
@@ -755,7 +756,7 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       ${US.err ? `<div class="note alert" role="alert"><span style="font-size:13px;white-space:pre-wrap">${esc(US.err)}</span></div>` : ''}</section>` + keysSection();
   }
   // Evidence records: a file kept here (hashed on upload) or a snapshot of a page, counted only once someone independent has attested it.
-  const EV = { by: {}, loading: {}, form: {}, err: null, busy: false, rev: 0 };
+  const EV = { by: {}, loading: {}, form: {}, exp: {}, err: null, busy: false, rev: 0 };
   function evRecords(dk) {
     if (dk && !EV.by[dk] && !EV.loading[dk]) {
       EV.loading[dk] = true;
@@ -771,10 +772,11 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
     const row = (r) => {
       const what = r.kind === 'FILE' ? `${esc(r.filename)} \u00b7 ${evSize(r.size)} \u00b7 sha256 <span class="mono">${esc(r.sha256.slice(0, 12))}</span>`
         : `${esc(r.url)} \u00b7 the site answered ${r.url_status} on ${esc(cwhen(r.fetched_at))} \u00b7 <b>snapshot, the page may have changed since</b>`;
-      const state = r.integrity === 'changed' ? '<span class="pill bad">Changed since upload</span>' : r.status === 'ATTESTED' ? `<span class="pill ok">Attested by ${esc(r.attested_by)} on ${esc(cwhen(r.attested_at))}</span>`
+      const state = r.integrity === 'changed' ? '<span class="pill bad">Changed since upload</span>' : r.expired ? `<span class="pill warn">Attestation lapsed on ${esc(r.expires_at)} \u00b7 attested again, it counts again</span>`
+        : r.status === 'ATTESTED' ? `<span class="pill ok">Attested by ${esc(r.attested_by)} on ${esc(cwhen(r.attested_at))}${r.expires_at ? ' \u00b7 until ' + esc(r.expires_at) : ''}</span>`
         : r.status === 'REVOKED' ? `<span class="pill muted">Revoked by ${esc(r.revoked_by)}</span>` : `<span class="pill warn">Awaiting attestation \u00b7 uploaded by ${esc(r.uploaded_by)}</span>`;
       const acts = (r.kind === 'FILE' && r.integrity === 'intact' ? dlBtn('/api/evidence/' + r.id + '/download', 'Download', 'btn2 btn-s') : '')
-        + (can('signoff') && r.status === 'UPLOADED' && r.integrity !== 'changed' && r.uploaded_by !== me ? `<button class="btn btn-s" data-act="evAttest" data-arg="${esc(r.id)}">Attest</button>` : '')
+        + (can('signoff') && (r.status === 'UPLOADED' || r.expired) && r.integrity !== 'changed' && r.uploaded_by !== me ? `<label class="cap">Lapses on (optional) <input class="inp" type="date" style="width:auto;min-height:32px" data-chg="evExp" data-arg="${esc(r.id)}" value="${esc(EV.exp[r.id] || '')}"></label><button class="btn btn-s" data-act="evAttest" data-arg="${esc(r.id)}">${r.expired ? 'Attest again' : 'Attest'}</button>` : '')
         + (can('signoff') && r.status !== 'REVOKED' ? `<button class="btn2 btn-s" data-act="evRevoke" data-arg="${esc(r.id)}">Revoke</button>` : '');
       return `<div class="box" style="flex-direction:column;align-items:flex-start;gap:4px"><span class="cap" style="font-weight:600">${esc(r.summary)}</span><span class="cap">${what}</span><span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${state}${acts}</span>${r.status === 'UPLOADED' && r.uploaded_by === me && can('signoff') ? '<span class="cap">You uploaded this, so someone else has to attest it.</span>' : ''}</div>`;
     };
@@ -1196,7 +1198,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     if (!r) return { rows: [], G: 0, F: 0, floor: null, score: 0, band: 'clear', gate: 'REVIEW', covered: 0, binding: 'breadth', B: 80, W: 40, instruments: [], worst: null, notes: [], pending: true, has: false, error: RCRR.error };
     const floorRow = r.floor_key ? r.rows.find((x) => x.key === r.floor_key) : null;
     return {
-      rows: r.rows.map((x) => ({ id: x.key, name: x.name, instrument: x.instrument, cls: x.cls, w: x.w, phi: x.phi, derived: x.derived, declared: x.declared, status: x.counted, note: x.note || x.reason, reason: x.reason, evidence: x.evidence, signed: x.signed_off_by, awaiting: x.awaiting_signoff, placeholder: x.evidence_placeholder, namesRecord: x.evidence_names_record })),
+      rows: r.rows.map((x) => ({ id: x.key, name: x.name, instrument: x.instrument, cls: x.cls, w: x.w, phi: x.phi, derived: x.derived, declared: x.declared, status: x.counted, note: x.note || x.reason, reason: x.reason, evidence: x.evidence, signed: x.signed_off_by, awaiting: x.awaiting_signoff, placeholder: x.evidence_placeholder, namesRecord: x.evidence_names_record, attested: x.evidence_attested })),
       G: r.G, F: r.F, floor: floorRow ? { id: floorRow.key, name: floorRow.name, note: floorRow.reason } : null, score: r.score, band: r.band, gate: r.gate, levels: r.levels, sensitivity: r.sensitivity, method: r.method,
       covered: r.covered, binding: r.binding, B: r.blocked_line, W: r.watch_line, instruments: r.instruments, worst: r.worst_instrument, notes: r.notes, pending, has: true, error: RCRR.error
     };
@@ -1777,8 +1779,10 @@ kill_switch:
         blocks: veto ? ['gate'] : ['score'], nodeId: null, fix: r.derived && r.awaiting ? { type: 'signoff', rkey: r.id, instruction: can('signoff') ? 'The design covers it. A critical requirement counts as covered once a named person signs it off.' : 'The design covers it, but a critical requirement counts only once a named person signs it off. Ask a compliance reviewer.' }
           : r.derived ? { type: 'design', instruction: 'This requirement is checked from the design itself: change the design (see the checks above) and it is covered.' }
           : { type: 'requirement', rkey: r.id, veto, instruction: veto ? 'Record how it is met, and sign it off as yourself.' : 'Record how it is met.' } });
-      else if (!r.derived && !r.namesRecord && !r.placeholder) put({ key: 'n:' + r.id, source: 'reg', status: 'Partial', title: r.name, instrument: r.instrument, wrong: `Its evidence (${JSON.stringify(String(r.evidence || '').slice(0, 80))}) says what is claimed but not where the record is kept.`, why: 'Evidence is a pointer to a record someone can open: a link, a document or a reference number.', blocks: [], nodeId: null,
-        fix: { type: 'requirement', rkey: r.id, veto, instruction: 'Add where the record is kept.' } });
+      else if (!r.derived && !r.placeholder && (!r.namesRecord || r.attested === false)) put({ key: 'n:' + r.id, source: 'reg', status: 'Partial', title: r.name, instrument: r.instrument,
+        wrong: !r.namesRecord ? `Its evidence (${JSON.stringify(String(r.evidence || '').slice(0, 80))}) says what is claimed but not where the record is kept.` : 'It counts as declared. No record is attested yet, so it does not count in the verified score.',
+        why: !r.namesRecord ? 'Evidence is a pointer to a record someone can open: a link, a document or a reference number.' : 'A control counts as verified once a file or a link is kept as evidence and a person who did not upload it, and is not the agent’s owner, has attested it.', blocks: [], nodeId: null,
+        fix: { type: 'requirement', rkey: r.id, veto, instruction: !r.namesRecord ? 'Add where the record is kept.' : 'Keep the record here, then ask someone else with sign-off permission to attest it.' } });
     });
     const rv = AF.rv;
     if (rv && rv.required && !rv.approved) {
@@ -4484,6 +4488,23 @@ kill_switch:
       <div class="prow"><button class="btn"${RG.busy ? ' disabled' : ''} data-act="rgApprove" data-arg="${c.id}">Approve as rule</button><button class="btn2"${RG.busy ? ' disabled' : ''} data-act="rgReject" data-arg="${c.id}">Reject</button></div>
     </article>`;
   }
+  // Evidence that has lapsed or lapses soon, across models and agents.
+  const EX = { loaded: false, loading: false, error: null, rows: [], within: 30 };
+  async function loadExpiring() {
+    EX.loading = true; EX.error = null;
+    try { EX.rows = await STAI.api.expiringEvidence(EX.within); EX.loaded = true; } catch (e) { EX.error = e.message; }
+    EX.loading = false; renderIfIdle('expiring');
+  }
+  function expiringScreen() {
+    if (!EX.loaded && !EX.loading && !EX.error) loadExpiring();
+    const head = hdr('Evidence that has lapsed or lapses soon', 'Expiring evidence');
+    if (EX.error && !EX.loaded) return head + `<div class="note alert" role="alert"><strong>Could not load the list</strong><span style="font-size:13px">${esc(EX.error)}</span></div>`;
+    if (!EX.loaded) return head + '<p class="cap">Loading\u2026</p>';
+    const eff = (r) => (r.gate_effect ? (r.gate_effect.moves_gate ? ` If it lapses, the gate moves from ${esc(String(r.gate_effect.now).toLowerCase())} to <b>${esc(String(r.gate_effect.if_lost).toLowerCase())}</b>.` : ' The gate would not change.') : (r.subject === 'MODEL' ? ' Open the model to see what it would do to the gate.' : ''));
+    const when2 = (r) => (r.days_left < 0 ? `lapsed ${-r.days_left} day${r.days_left === -1 ? '' : 's'} ago` : r.days_left === 0 ? 'lapses today' : `lapses in ${r.days_left} day${r.days_left === 1 ? '' : 's'}`);
+    return head + `<section class="card" style="padding:14px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><label class="cap" for="ex-within">Show what lapses within</label><select id="ex-within" class="reqsel" data-chg="exWithin">${[7, 30, 90, 180, 366].map((n) => opt(String(n), n + ' days', String(EX.within))).join('')}</select><span class="cap">A control stops counting on the day its evidence lapses. Already lapsed evidence is listed first.</span></section>
+      <section class="card" style="padding:8px 0">${EX.rows.length ? EX.rows.map((r) => `<div class="lrow"><span class="stack"><span style="font-weight:500">${esc(r.design)} \u00b7 <span class="mono">${esc(r.control)}</span> <span class="pill ${r.days_left < 0 ? 'bad' : r.days_left <= 7 ? 'warn' : 'muted'}">${esc(when2(r))}</span></span><span class="cap">${esc(r.subject === 'AGENT' ? 'Agent' : 'Model')} \u00b7 ${esc(r.kind === 'record' ? 'attested record' : 'declared evidence')} \u00b7 ${esc(r.date)}. ${esc(r.what)}${eff(r)}</span></span><button class="btn2 btn-s" data-act="exOpen" data-arg="${esc(r.subject)}|${esc(r.design_key)}">Open the design</button></div>`).join('') : '<p class="cap" style="padding:16px 20px">Nothing lapses in this time.</p>'}</section>`;
+  }
   // The method in force: published deliberately, by someone with sign-off permission, with a reason. Editing a rule never publishes one.
   const MT = { state: null, note: '', busy: false, err: null, basis: 'declared', basisNote: '', basisErr: null };
   async function loadMethod() { try { MT.state = await STAI.api.getMethod(); MT.basis = (await STAI.api.evidencePolicy()).gate_basis; } catch (e) { MT.err = e.message; } }
@@ -4529,6 +4550,10 @@ kill_switch:
   }
   Object.assign(H, {
     rgReload: () => { RG.error = null; RG.loaded = false; },
+    exOpen: async (arg) => {
+      const [subject, key] = arg.split('|');
+      try { if (subject === 'AGENT') { await openAgentDesign(key); location.hash = '#/studio'; } else { await openDesign(key); location.hash = '#/model'; } } catch (e) { EX.error = e.message; }
+    },
     mtBasis: async (basis) => {
       if (MT.busy) return;
       MT.busy = true; MT.basisErr = null; render(true);
@@ -4572,6 +4597,7 @@ kill_switch:
     }
   });
   Object.assign(C, {
+    exWithin: (v) => { EX.within = Number(v); EX.loaded = false; },
     mtNote: (v) => { MT.note = v; },
     mtBasisNote: (v) => { MT.basisNote = v; },
     rgSource: (v) => { RG.form.instrument = v; const r = RG.regs.find((x) => x.instrument === v); RG.form.url = (r && r.source_url) || ''; RG.form.offset = 0; },
@@ -4661,7 +4687,7 @@ kill_switch:
     },
     evAttest: async (id) => {
       const dk = Object.keys(EV.by).find((k) => EV.by[k].some((r) => r.id === id)); EV.err = null;
-      try { await STAI.api.attestEvidence(id, { holders: evHolders() }); } catch (e) { EV.err = e.message; }
+      try { await STAI.api.attestEvidence(id, { holders: evHolders(), expires_on: EV.exp[id] || undefined }); } catch (e) { EV.err = e.message; }
       if (dk) await evReload(dk);
     },
     evRevoke: async (id) => {
@@ -4672,6 +4698,7 @@ kill_switch:
     }
   });
   Object.assign(C, {
+    evExp: (v, id) => { EV.exp[id] = v; },
     evField: (v, arg) => { const [control, field] = arg.split('|'); evForm(control)[field] = v; },
     evFile: (v, control, el) => {
       const file = el.files && el.files[0], f = evForm(control); f.file = null;
@@ -5186,6 +5213,7 @@ kill_switch:
         <a href="#/organisation"${active === 'organisation' ? ' class="on" aria-current="page"' : ''}><span>Organisation</span><small></small></a>
         <a href="#/policies"${active === 'policies' ? ' class="on" aria-current="page"' : ''}><span>Policies</span><small></small></a>
         <a href="#/regulations"${active === 'regulations' ? ' class="on" aria-current="page"' : ''}><span>Regulations</span><small></small></a>
+        <a href="#/expiring"${active === 'expiring' ? ' class="on" aria-current="page"' : ''}><span>Expiring evidence</span><small></small></a>
         <div class="navgrp">Modules</div>
         <a href="#/overview"><span>AI Agents</span><small>\u2192</small></a>
         <a href="#/model/overview"><span>AI Models</span><small>\u2192</small></a></div>
@@ -5994,6 +6022,7 @@ kill_switch:
     if (/^model\/(overview|screen|inventory|runtime|governance|incidents|decommission|standards)$/.test(r)) return 'm_' + r.slice(6);
     if (r === 'policies') return 'policies';
     if (r === 'regulations') return 'regulations';
+    if (r === 'expiring') return 'expiring';
     return SCREENS[r] ? r : 'overview';
   }
   function render(keepScroll) {
@@ -6008,6 +6037,7 @@ kill_switch:
     else if (r === 'modelcontracts') html = `<div class="shell">${modelNav('contracts')}<main id="main">${modelContracts()}</main></div>`;
     else if (r === 'policies') html = `<div class="shell">${orgNav('policies')}<main id="main">${policiesScreen()}</main></div>`;
     else if (r === 'regulations') html = `<div class="shell">${orgNav('regulations')}<main id="main">${regulationsScreen()}</main></div>`;
+    else if (r === 'expiring') html = `<div class="shell">${orgNav('expiring')}<main id="main">${expiringScreen()}</main></div>`;
     else if (r === 'organisation') html = `<div class="shell">${orgNav('organisation')}<main id="main">${organisation()}</main></div>`;
     else html = `<div class="shell">${nav(PARENT[r] || r)}<main id="main">${SCREENS[r]()}</main></div>`;
     document.getElementById('app').innerHTML = html;
@@ -6015,7 +6045,7 @@ kill_switch:
     if (mainEl && ME.role === 'auditor') mainEl.insertAdjacentHTML('afterbegin', '<div class="note plain" role="status"><strong>Read-only</strong><span style="font-size:13px">Your role is auditor: you can view everything and the audit log, but not change anything.</span></div>');
     if (keepScroll) Object.keys(keep).forEach((q) => { const el = document.querySelector(q); if (el) { el.scrollLeft = keep[q][0]; el.scrollTop = keep[q][1]; } });
     window.scrollTo(0, keepScroll ? y : 0);
-    const titles = { telemetry: 'ASTRA \u00b7 Telemetry', idps: 'ASTRA \u00b7 Identity providers', repos: 'ASTRA \u00b7 Repositories', m_overview: 'ASTRA \u00b7 Model overview', m_inventory: 'ASTRA \u00b7 Model inventory', m_screen: 'ASTRA \u00b7 Screen a list of models', m_runtime: 'ASTRA \u00b7 Model runtime', m_governance: 'ASTRA \u00b7 Model governance', m_incidents: 'ASTRA \u00b7 Model incidents', m_decommission: 'ASTRA \u00b7 Model decommissioning', m_standards: 'ASTRA \u00b7 Regulations and standards', home: 'ASTRA \u00b7 Choose a module', model: 'ASTRA \u00b7 Model designer', modelcontracts: 'ASTRA \u00b7 Compiled contracts', policies: 'ASTRA \u00b7 Policies', regulations: 'ASTRA \u00b7 Regulations', organisation: 'ASTRA \u00b7 Organisation', users: 'ASTRA \u00b7 Users', audit: 'ASTRA \u00b7 Audit log' };
+    const titles = { telemetry: 'ASTRA \u00b7 Telemetry', idps: 'ASTRA \u00b7 Identity providers', repos: 'ASTRA \u00b7 Repositories', m_overview: 'ASTRA \u00b7 Model overview', m_inventory: 'ASTRA \u00b7 Model inventory', m_screen: 'ASTRA \u00b7 Screen a list of models', m_runtime: 'ASTRA \u00b7 Model runtime', m_governance: 'ASTRA \u00b7 Model governance', m_incidents: 'ASTRA \u00b7 Model incidents', m_decommission: 'ASTRA \u00b7 Model decommissioning', m_standards: 'ASTRA \u00b7 Regulations and standards', home: 'ASTRA \u00b7 Choose a module', model: 'ASTRA \u00b7 Model designer', modelcontracts: 'ASTRA \u00b7 Compiled contracts', policies: 'ASTRA \u00b7 Policies', regulations: 'ASTRA \u00b7 Regulations', expiring: 'ASTRA \u00b7 Expiring evidence', organisation: 'ASTRA \u00b7 Organisation', users: 'ASTRA \u00b7 Users', audit: 'ASTRA \u00b7 Audit log' };
     document.title = titles[r] || 'ASTRA \u00b7 AI Agents';
     agentAutosaveCheck();
   }

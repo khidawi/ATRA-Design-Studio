@@ -126,6 +126,7 @@ class RowOut(BaseModel):
     evidence_placeholder: bool = False   # declared on words that stand in for a record: it earns no credit
     evidence_expired: bool = False       # the evidence passed its valid-until day: it no longer counts
     evidence_names_record: bool = True   # the evidence says where the record is kept
+    evidence_attested: Optional[bool] = None   # an attested record is kept for it (None: not asked, or the design is not saved)
 
 
 class InstrumentOut(BaseModel):
@@ -263,5 +264,6 @@ def score_agent(req: RcrRequest, session: Session = Depends(get_session)) -> Rcr
             key=x.key, name=x.name, instrument=x.instrument, cls=x.cls, w=x.w, phi=x.phi, derived=derived[x.key],
             declared=x.declared, counted=x.counted, c=x.c, reason=x.reason, note=notes[x.key], evidence=x.evidence,
             signed_off_by=x.signed_off_by, awaiting_signoff=x.awaiting_signoff, evidence_placeholder=placeholder.get(x.key, False), evidence_expired=expired.get(x.key, False),
-            evidence_names_record=names.get(x.key, True)) for x in result.rows],
+            evidence_names_record=names.get(x.key, True),
+            evidence_attested=(x.key in attested) if attested is not None and not derived[x.key] and x.declared in credited else None) for x in result.rows],
     )

@@ -346,6 +346,18 @@ def test_what_the_score_rests_on():
     check("expired evidence is no longer something the score rests on", "SC-DPIA-1" not in {x["control"] for x in score_sensitivity(reg2)["controls"]})
 
 
+def test_a_declared_control_without_an_attested_record_stays_on_the_list():
+    reg = registry(satisfied=ALL_MET)
+    ids = lambda r: {x.finding_id for x in formal_findings(r, {}, graph(*FULL)) if x.finding_id.startswith("unattested-")}      # noqa: E731
+    check("nothing is said when the design's records were not looked at", ids(reg) == set())
+    reg.attested_controls = []
+    check("every control that counts as declared, with no attested record, is listed", ids(reg) == {f"unattested-{c}" for c in ALL_MET}, ids(reg))
+    reg.attested_controls = ["SC-DPIA-1"]
+    check("an attested one leaves the list", "unattested-SC-DPIA-1" not in ids(reg) and len(ids(reg)) == len(ALL_MET) - 1)
+    f = next(x for x in formal_findings(reg, {}, graph(*FULL)) if x.finding_id == "unattested-SC-HITL-1")
+    check("it is a warning that blocks nothing and opens the evidence form", f.severity == "warning" and f.blocks == [] and f.fix["type"] == "constraint_evidence", f)
+
+
 def test_the_explanation_is_not_signed():
     domain = ComplianceDomain(domain_id="T", name="T", subject="MODEL", rule_set=[rule(maps_to_constraint_id="SC-HITL-1")])
     reg = registry(satisfied=ALL_MET)

@@ -310,6 +310,8 @@ class EvidenceRecord(Base):
     attested_by: Mapped[Optional[str]] = mapped_column(String(120))
     attested_role: Mapped[Optional[str]] = mapped_column(String(20))
     attested_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    # The attestation lapses after this day: the record stops counting until someone attests it again.
+    expires_at: Mapped[Optional[date]] = mapped_column(Date)
     revoked_by: Mapped[Optional[str]] = mapped_column(String(120))
     revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     revoke_reason: Mapped[Optional[str]] = mapped_column(Text)

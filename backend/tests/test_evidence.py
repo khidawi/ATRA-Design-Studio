@@ -9,7 +9,7 @@ import sys
 
 from sqlalchemy import delete, select
 
-from db.models import AppSetting, AuditEvent, EvidenceRecord
+from db.models import AppSetting, AuditEvent, Design, EvidenceRecord
 from db.session import SessionLocal
 from tests._auth import authed_client
 from tests.test_design_review import DOC, MET, forget, payload
@@ -21,6 +21,7 @@ def clean(key):
     forget(key)
     with SessionLocal() as s:
         s.execute(delete(EvidenceRecord).where(EvidenceRecord.design_key == key))
+        s.execute(delete(Design).where(Design.design_key == key))
         row = s.get(AppSetting, "gate_basis")
         if row is not None:
             s.delete(row)
@@ -116,6 +117,52 @@ def test_the_gate_follows_the_switch_and_only_sign_off_flips_it():
             assert score(comp, key)["pcs_result"]["gate"] == declared_gate
         finally:
             clean(key)
+
+
+def test_an_attestation_can_lapse_and_then_stops_counting():
+    from datetime import date, timedelta
+    with authed_client("compliance", "Rhea Patel") as comp, authed_client("compliance", "Omar Wells") as other:
+        key = comp.post("/api/designs", json={"name": "Evidence expiry", "domain": "GENERAL", "document": DOC}).json()["design_key"]
+        try:
+            rec = comp.post("/api/evidence", json={"design_key": key, "control": "SC-DPIA-1", **FILE}).json()
+            assert other.post(f"/api/evidence/{rec['id']}/attest", json={"expires_on": date.today().isoformat()}).status_code == 422       # it has to run past today
+            soon = (date.today() + timedelta(days=20)).isoformat()
+            ok = other.post(f"/api/evidence/{rec['id']}/attest", json={"expires_on": soon})
+            assert ok.status_code == 200 and ok.json()["expires_at"] == soon and ok.json()["counts"] and not ok.json()["expired"], ok.text
+            assert "SC-DPIA-1" not in score(comp, key)["levels"]["unverified"]
+            with SessionLocal() as s:                                                                                                    # the day passes
+                row = s.scalar(select(EvidenceRecord).where(EvidenceRecord.design_key == key))
+                row.expires_at = date.today() - timedelta(days=1)
+                s.commit()
+            lapsed = comp.get(f"/api/evidence?design_key={key}").json()[0]
+            assert lapsed["expired"] and not lapsed["counts"] and lapsed["status"] == "ATTESTED", lapsed
+            assert "SC-DPIA-1" in score(comp, key)["levels"]["unverified"]                                                               # back to declared only
+        finally:
+            clean(key)
+
+
+def test_the_expiring_list_gathers_declarations_and_records_soonest_first():
+    from datetime import date, timedelta
+    from tests.test_agent_findings import agent_doc
+    day = lambda n: (date.today() + timedelta(days=n)).isoformat()                                                                      # noqa: E731
+    model_doc = {"nodes": [{"id": "c1", "kind": "CONSTRAINT", "x": 0, "y": 0, "data": {"constraintId": "SC-HITL-1", "status": "SATISFIED", "validUntil": day(5)}}], "edges": [], "n": 2}
+    with authed_client("compliance", "Rhea Patel") as comp, authed_client("compliance", "Omar Wells") as other, authed_client("engineer", "Sam Engineer") as eng:
+        m = comp.post("/api/designs", json={"name": "zz-expiring-model", "domain": "GENERAL", "document": model_doc}).json()["design_key"]
+        a = comp.post("/api/designs", json={"name": "zz-expiring-agent", "domain": "OWASP_AGENTIC", "subject": "AGENT",
+                                            "document": agent_doc("Platform team", {"dpia": {"status": "Covered", "evidence": "DPIA report DOC-9", "signed_off_by": "Rhea Patel", "valid_until": day(12)}})}).json()["design_key"]
+        try:
+            rec = comp.post("/api/evidence", json={"design_key": m, "control": "SC-DPIA-1", **FILE}).json()
+            assert other.post(f"/api/evidence/{rec['id']}/attest", json={"expires_on": day(40)}).status_code == 200
+            rows = [r for r in eng.get("/api/evidence/expiring?within=30").json() if r["design"].startswith("zz-expiring")]
+            assert [(r["subject"], r["control"], r["kind"]) for r in rows] == [("MODEL", "SC-HITL-1", "declaration"), ("AGENT", "dpia", "declaration")], rows     # the record lapses after 30 days
+            assert [r["days_left"] for r in rows] == [5, 12] and rows == sorted(rows, key=lambda r: r["date"])
+            assert rows[1]["gate_effect"]["now"] in ("APPROVE", "REVIEW", "BLOCK") and "moves_gate" in rows[1]["gate_effect"], rows[1]                              # an agent says what the gate would do
+            assert "gate_effect" not in rows[0]
+            wide = [r for r in eng.get("/api/evidence/expiring?within=60").json() if r["design"].startswith("zz-expiring")]
+            assert [r["kind"] for r in wide] == ["declaration", "declaration", "record"] and wide[-1]["days_left"] == 40, wide
+        finally:
+            clean(m)
+            clean(a)
 
 
 if __name__ == "__main__":

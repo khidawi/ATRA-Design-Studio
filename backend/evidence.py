@@ -18,7 +18,7 @@ import binascii
 import hashlib
 import mimetypes
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Literal, Optional, Set
 
 import httpx
@@ -86,8 +86,9 @@ def attested_keys(session: Session, design_key: Optional[str]) -> Optional[Set[s
     if not design_key:
         return None
     rows = session.execute(select(EvidenceRecord.control_key, EvidenceRecord.kind, EvidenceRecord.size, func.octet_length(EvidenceRecord.content))
-                           .where(EvidenceRecord.design_key == design_key, EvidenceRecord.status == "ATTESTED")).all()
-    return {key for key, kind, size, stored in rows if kind == "URL" or stored == size}      # a file whose stored size no longer matches is not counted
+                           .where(EvidenceRecord.design_key == design_key, EvidenceRecord.status == "ATTESTED",
+                                  (EvidenceRecord.expires_at.is_(None)) | (EvidenceRecord.expires_at >= date.today()))).all()
+    return {key for key, kind, size, stored in rows if kind == "URL" or stored == size}      # a file whose stored size no longer matches, or whose attestation has lapsed, is not counted
 
 
 def enrich_registry(session: Session, design_key: Optional[str], registry) -> None:
@@ -127,6 +128,8 @@ class EvidenceOut(BaseModel):
     attested_by: Optional[str]
     attested_role: Optional[str]
     attested_at: Optional[str]
+    expires_at: Optional[str]
+    expired: bool
     revoked_by: Optional[str]
     revoke_reason: Optional[str]
     integrity: str                 # intact | changed (a file whose content no longer matches its hash) | snapshot (a page: the site may have changed since)
@@ -143,12 +146,17 @@ def _integrity(r: EvidenceRecord) -> str:
     return "intact" if r.content is not None and hashlib.sha256(r.content).hexdigest() == r.sha256 else "changed"
 
 
+def _lapsed(r: EvidenceRecord) -> bool:
+    return r.status == "ATTESTED" and r.expires_at is not None and r.expires_at < date.today()
+
+
 def _out(r: EvidenceRecord) -> EvidenceOut:
     integrity = _integrity(r)
     return EvidenceOut(
         id=str(r.id), design_key=r.design_key, control=r.control_key, kind=r.kind, summary=r.summary, filename=r.filename, size=r.size, sha256=r.sha256, url=r.url, url_status=r.url_status,
         fetched_at=_iso(r.fetched_at), uploaded_by=r.uploaded_by, uploaded_at=_iso(r.uploaded_at) or "", status=r.status, attested_by=r.attested_by, attested_role=r.attested_role,
-        attested_at=_iso(r.attested_at), revoked_by=r.revoked_by, revoke_reason=r.revoke_reason, integrity=integrity, counts=r.status == "ATTESTED" and integrity != "changed")
+        attested_at=_iso(r.attested_at), expires_at=r.expires_at.isoformat() if r.expires_at else None, expired=_lapsed(r), revoked_by=r.revoked_by, revoke_reason=r.revoke_reason,
+        integrity=integrity, counts=r.status == "ATTESTED" and integrity != "changed" and not _lapsed(r))
 
 
 def _design(session: Session, key: str) -> Design:
@@ -239,6 +247,8 @@ def _get(session: Session, evidence_id: str) -> EvidenceRecord:
 
 
 class AttestBody(BaseModel):
+    # The day the attestation lapses (optional). After it the record stops counting until it is attested again.
+    expires_on: Optional[date] = None
     # What the caller (the model studio) knows about who holds each role now: the effective holders, which can differ from what the canvas names.
     holders: Dict[str, str] = Field(default_factory=dict)
 
@@ -273,7 +283,10 @@ def attest(evidence_id: str, body: AttestBody, session: Session = Depends(get_se
         role = _holds_a_role(session, design, user.name, body.holders)
         if role:
             raise HTTPException(status_code=403, detail=f"{user.name} is named as the {role} of this model and cannot attest its evidence. Another person with sign-off permission has to.")
+    if body.expires_on is not None and body.expires_on <= date.today():
+        raise HTTPException(status_code=422, detail="The attestation has to run past today.")
     row.status, row.attested_by, row.attested_role, row.attested_at = "ATTESTED", user.name, user.role, datetime.now(timezone.utc)
+    row.expires_at = body.expires_on
     session.commit()
     session.refresh(row)
     return _out(row)
@@ -292,3 +305,70 @@ def revoke(evidence_id: str, body: RevokeBody, session: Session = Depends(get_se
     session.commit()
     session.refresh(row)
     return _out(row)
+
+
+# ── What is about to lapse ──────────────────────────────────────────────────
+
+@router.get("/expiring")
+def expiring(within: int = 30, session: Session = Depends(get_session)) -> List[Dict[str, Any]]:
+    """Evidence that has lapsed or lapses within `within` days, across models and agents: the valid-until day of a declaration and the expiry of an attested record, soonest first.
+    For an agent it also says what the gate would be if the evidence lapsed."""
+    within = min(max(within, 0), 366)
+    today = date.today()
+    horizon = today + timedelta(days=within)
+    org = session.scalar(select(Organisation).where(Organisation.slug == DEFAULT_ORG_SLUG))
+    out: List[Dict[str, Any]] = []
+
+    def add(design: Design, control: str, kind: str, day: date, what: str) -> None:
+        if day <= horizon:
+            out.append({"design_key": design.design_key, "design": design.name, "subject": design.subject, "control": control, "kind": kind, "date": day.isoformat(),
+                        "days_left": (day - today).days, "what": what})
+
+    def day_of(value: Any) -> Optional[date]:
+        try:
+            return date.fromisoformat(str(value)[:10])
+        except ValueError:
+            return None
+
+    designs = list(session.scalars(select(Design).where(Design.organisation_id == org.id).order_by(Design.name)))
+    for d in designs:
+        doc = d.document or {}
+        if d.subject == "AGENT":
+            for key, decl in (doc.get("req") or {}).items():
+                day = day_of(decl.get("valid_until")) if decl.get("valid_until") else None
+                if day and decl.get("status") in ("Covered", "Partial"):
+                    add(d, key, "declaration", day, "The evidence declared for it passes its valid-until day.")
+        else:
+            for n in doc.get("nodes", []):
+                data = n.get("data") or {}
+                day = day_of(data.get("validUntil")) if data.get("validUntil") else None
+                if n.get("kind") == "CONSTRAINT" and data.get("status") == "SATISFIED" and day:
+                    add(d, str(data.get("constraintId") or ""), "declaration", day, "The evidence declared for it passes its valid-until day.")
+    names = {d.design_key: d for d in designs}
+    for r in session.scalars(select(EvidenceRecord).where(EvidenceRecord.status == "ATTESTED", EvidenceRecord.expires_at.is_not(None))):
+        if r.design_key in names:
+            add(names[r.design_key], r.control_key, "record", r.expires_at, f"The attestation of \u201c{r.summary}\u201d by {r.attested_by} lapses.")
+    out.sort(key=lambda x: (x["date"], x["design"], x["control"]))
+    _gate_effects(session, names, out)
+    return out
+
+
+def _gate_effects(session: Session, names: Dict[str, Design], rows: List[Dict[str, Any]]) -> None:
+    """For agents: score the design and read what losing that requirement would do to the gate. A model's score is built in the studio from the whole canvas, so for a model the page says to open it."""
+    cache: Dict[str, Any] = {}
+    for row in rows:
+        d = names[row["design_key"]]
+        if d.subject != "AGENT":
+            continue
+        if d.design_key not in cache:
+            try:
+                from agent_review import _score
+                cache[d.design_key] = _score(session, d.document, d.design_key)
+            except Exception:
+                cache[d.design_key] = None
+        res = cache[d.design_key]
+        if res is None or not res.sensitivity:
+            continue
+        hit = next((c for c in res.sensitivity["controls"] if c["control"] == row["control"]), None)
+        if hit is not None:
+            row["gate_effect"] = {"now": res.gate, "if_lost": hit["to"]["gate"], "moves_gate": hit["flips"] == "gate"}

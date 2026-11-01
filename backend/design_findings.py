@@ -395,6 +395,19 @@ def formal_findings(registry, constraint_node_ids: Optional[Dict[str, str]], gra
                 why="Evidence is a pointer to a record someone can open: a link, a document or reference number. Wording that restates the constraint cannot be checked by anyone.",
                 blocks=[], node_id=constraint_node_ids.get(cid), fix=_constraint_fix(cid, constraint_node_ids)))
 
+    # 6d. A control that counts as declared but has no attested record behind it: it does not count in the verified score.
+    if registry.attested_controls is not None:
+        shown = {f.finding_id for f in out}
+        for cid, decl in sorted(registry.governance_state.constraints_declared.items()):
+            if (decl.status.value == "SATISFIED" and not is_placeholder_evidence(decl.evidence) and not evidence_expired(decl) and cid not in registry.attested_controls
+                    and not any(i.endswith(cid) for i in shown)):
+                info = constraint_info(cid) or {"name": cid}
+                out.append(Finding(
+                    finding_id=f"unattested-{cid}", severity="warning", title=f"{cid} · {info['name']}",
+                    detail="It counts as declared. No record of it is attested yet, so it does not count in the verified score.",
+                    why="A control counts as verified once a file or a link is kept as evidence and a person who did not upload it, and does not hold one of the model’s roles, has attested it.",
+                    blocks=[], node_id=constraint_node_ids.get(cid), fix=_constraint_fix(cid, constraint_node_ids)))
+
     # 7. What the PCS says about the design as a whole.
     try:
         from scoring_bridge import score_registry
