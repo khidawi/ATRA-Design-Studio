@@ -1,0 +1,337 @@
+{
+ "m1_spec": {
+  "states": 19608,
+  "transitions": 100645,
+  "release_safety_violations": 0,
+  "update_safety_weak_until_violations": 0,
+  "strong_until_form_has_violating_infinite_path": true,
+  "evidence_expiry_window_states": 4032,
+  "stale_deployed_status_states": 1812,
+  "continuing_compliance_gap_states": 5156,
+  "actions_fired": {
+   "Upload": 270,
+   "Submit": 2034,
+   "Update": 18462,
+   "Observe": 39216,
+   "PolicyChange": 5307,
+   "Tick": 11382,
+   "Attest": 270,
+   "Approve": 1160,
+   "Deploy": 452,
+   "Decommission": 13836,
+   "Expire": 4032,
+   "Rollback": 4224
+  },
+  "release_safety_counterexample": null,
+  "review_states_reachable": 1002,
+  "approve_enabled_while_review": 0
+ },
+ "m1_tick_fixed": {
+  "states": 3480,
+  "transitions": 18085,
+  "release_safety_violations": 0,
+  "update_safety_weak_until_violations": 0,
+  "strong_until_form_has_violating_infinite_path": true,
+  "evidence_expiry_window_states": 0,
+  "stale_deployed_status_states": 228,
+  "continuing_compliance_gap_states": 536,
+  "actions_fired": {
+   "Upload": 270,
+   "Submit": 810,
+   "Update": 4134,
+   "Observe": 6960,
+   "PolicyChange": 1095,
+   "Tick": 1266,
+   "Attest": 270,
+   "Approve": 512,
+   "Deploy": 176,
+   "Decommission": 1884,
+   "Rollback": 708
+  },
+  "release_safety_counterexample": null,
+  "review_states_reachable": 437,
+  "approve_enabled_while_review": 0
+ },
+ "m1_mutation_deploy_without_approval": {
+  "states": 20112,
+  "transitions": 103429,
+  "release_safety_violations": 276,
+  "update_safety_weak_until_violations": 0,
+  "strong_until_form_has_violating_infinite_path": true,
+  "evidence_expiry_window_states": 4140,
+  "stale_deployed_status_states": 2148,
+  "continuing_compliance_gap_states": 5452,
+  "actions_fired": {
+   "Upload": 270,
+   "Submit": 2034,
+   "Update": 18462,
+   "Observe": 40224,
+   "PolicyChange": 5307,
+   "Tick": 11670,
+   "Attest": 270,
+   "Approve": 1160,
+   "Deploy": 728,
+   "Decommission": 14508,
+   "Expire": 4140,
+   "Rollback": 4656
+  },
+  "release_safety_counterexample": [
+   "('Deploy', 0)"
+  ],
+  "review_states_reachable": 1002,
+  "approve_enabled_while_review": 0
+ },
+ "m1_mutation_deploy_without_hard_control": {
+  "states": 19608,
+  "transitions": 101217,
+  "release_safety_violations": 572,
+  "update_safety_weak_until_violations": 0,
+  "strong_until_form_has_violating_infinite_path": true,
+  "evidence_expiry_window_states": 4032,
+  "stale_deployed_status_states": 1812,
+  "continuing_compliance_gap_states": 5156,
+  "actions_fired": {
+   "Upload": 270,
+   "Submit": 2034,
+   "Update": 18462,
+   "Observe": 39216,
+   "PolicyChange": 5307,
+   "Tick": 11382,
+   "Attest": 270,
+   "Approve": 1160,
+   "Deploy": 1024,
+   "Decommission": 13836,
+   "Expire": 4032,
+   "Rollback": 4224
+  },
+  "release_safety_counterexample": [
+   "('Deploy', 0)"
+  ],
+  "review_states_reachable": 1002,
+  "approve_enabled_while_review": 0
+ },
+ "m2_spec": {
+  "states": 91368,
+  "delegations_in_reachable_states": 264576,
+  "non_escalation_violations": 0,
+  "revoked_ancestor_still_valid": 0,
+  "revoked_reactivated_transitions": 0,
+  "cycles": 0,
+  "max_depth_reached": 2
+ },
+ "m2_mutation_no_scope_check": {
+  "states": 110856,
+  "delegations_in_reachable_states": 322176,
+  "non_escalation_violations": 21088,
+  "revoked_ancestor_still_valid": 0,
+  "revoked_reactivated_transitions": 0,
+  "cycles": 0,
+  "max_depth_reached": 2
+ },
+ "m3": {
+  "spec|authorised=True": {
+   "states": 53,
+   "timelock_states": 0,
+   "overdue_open_incident_reachable": false,
+   "breached_reachable": false,
+   "response_within_d_counterexample_from_alert_states": 0
+  },
+  "spec|authorised=False": {
+   "states": 25,
+   "timelock_states": 4,
+   "overdue_open_incident_reachable": false,
+   "breached_reachable": false,
+   "response_within_d_counterexample_from_alert_states": 7
+  },
+  "timeout|authorised=True": {
+   "states": 73,
+   "timelock_states": 0,
+   "overdue_open_incident_reachable": true,
+   "breached_reachable": true,
+   "response_within_d_counterexample_from_alert_states": 4
+  },
+  "timeout|authorised=False": {
+   "states": 45,
+   "timelock_states": 0,
+   "overdue_open_incident_reachable": true,
+   "breached_reachable": true,
+   "response_within_d_counterexample_from_alert_states": 7
+  },
+  "urgent|authorised=True": {
+   "states": 53,
+   "timelock_states": 0,
+   "overdue_open_incident_reachable": false,
+   "breached_reachable": false,
+   "response_within_d_counterexample_from_alert_states": 0
+  },
+  "urgent|authorised=False": {
+   "states": 45,
+   "timelock_states": 0,
+   "overdue_open_incident_reachable": true,
+   "breached_reachable": true,
+   "response_within_d_counterexample_from_alert_states": 7
+  }
+ },
+ "m4_transition": {
+  "PERSON|AT_ACT": {
+   "states": 8,
+   "approve_without_independence_at_act": 0,
+   "deploy_without_current_independence": 0,
+   "production_running_without_current_independence": 0
+  },
+  "PERSON|CONTINUING": {
+   "states": 8,
+   "approve_without_independence_at_act": 0,
+   "deploy_without_current_independence": 0,
+   "production_running_without_current_independence": 0
+  },
+  "REPORTING_LINE|AT_ACT": {
+   "states": 8,
+   "approve_without_independence_at_act": 0,
+   "deploy_without_current_independence": 1,
+   "production_running_without_current_independence": 1
+  },
+  "REPORTING_LINE|CONTINUING": {
+   "states": 8,
+   "approve_without_independence_at_act": 0,
+   "deploy_without_current_independence": 0,
+   "production_running_without_current_independence": 1
+  }
+ },
+ "m4_org": {
+  "3 units, 3 actors, no head rule": {
+   "structures": 27648,
+   "chain_violations": 0,
+   "indep_rl_not_symmetric": 0,
+   "mutual_supervision": 7668
+  },
+  "3 units, 3 actors, head rule": {
+   "structures": 7548,
+   "chain_violations": 0,
+   "indep_rl_not_symmetric": 0,
+   "mutual_supervision": 0
+  },
+  "4 units, 3 actors, no head rule": {
+   "structures": 2048000,
+   "chain_violations": 0,
+   "indep_rl_not_symmetric": 0,
+   "mutual_supervision": 785376
+  },
+  "4 units, 3 actors, head rule": {
+   "structures": 293264,
+   "chain_violations": 0,
+   "indep_rl_not_symmetric": 0,
+   "mutual_supervision": 0
+  }
+ },
+ "gate": {
+  "states": 13500,
+  "APPROVED": 16,
+  "REVIEW": 884,
+  "BLOCKED": 12600,
+  "UNDEFINED": 0,
+  "improving_pairs": 16200,
+  "improvement_worsens_gate": 0,
+  "unknown_improves_gate": 0,
+  "approved_with_stop": 0
+ },
+ "gate_vs_approve_guard": {
+  "states_where_guard_enables_Approve_but_gate_is_not_APPROVED": 24,
+  "example_gate_values": [
+   "REVIEW"
+  ]
+ },
+ "effective_value_table": {
+  "inputs": 6,
+  "all_defined": true,
+  "sat_evaluated_only_when_app_true": true,
+  "not_applicable_distinct_from_satisfied": true
+ },
+ "q1_allocation_implication_violations": 0,
+ "q2_union_bound_violations": 0,
+ "q2_linearity_violations": 0,
+ "q3_bounds_hold_trials": [
+  300,
+  300
+ ],
+ "q3_portfolio_quantile_minus_sum_of_deployment_quantiles": {
+  "min": -20.53474094698433,
+  "max": -5.446523313412863,
+  "share_negative": 1.0,
+  "share_positive": 0.0
+ },
+ "static_audit": {
+  "state_components": 15,
+  "components_no_action_writes": [
+   "v_m",
+   "v_d",
+   "v_c",
+   "assignments",
+   "policy"
+  ],
+  "missing_creating_actions": {
+   "permissions": "no action creates a permission (Grant)",
+   "delegations": "no action creates a delegation (Delegate)",
+   "evidence": "no action creates evidence (Upload); Attest requires it to exist"
+  },
+  "predicates_used_but_not_defined": [
+   "Parses",
+   "Matches",
+   "Qualified",
+   "SchemaOK",
+   "ValidityOK",
+   "Derive",
+   "Trigger",
+   "Closure",
+   "Authority",
+   "ShutdownPlan",
+   "RetentionDutiesMet",
+   "Apply",
+   "Satisfies",
+   "AuthorizedVia",
+   "AuthorizedGrantor",
+   "Responded",
+   "AcceptedWithReason",
+   "ProductionEnabled",
+   "NoActiveDeploymentCredentials",
+   "LegalHold",
+   "Deleted",
+   "Claimed"
+  ],
+  "predicates_defined": [
+   "Tuple",
+   "ValidApproval",
+   "ApprovedExactHash",
+   "Status",
+   "HardPass",
+   "RiskPass",
+   "Recompute",
+   "Valid",
+   "Desc",
+   "Revoked",
+   "Expired",
+   "Authorised",
+   "AuthDecision",
+   "Above",
+   "Supervises",
+   "Conflict",
+   "WF",
+   "Indep_PERSON",
+   "Indep_REPORTING_LINE",
+   "Indep_UNIT"
+  ],
+  "components_stored_and_derived": [
+   "constraints (stored; Status is also defined as a derived predicate)"
+  ],
+  "state_tuple_vs_effects": "effects assign versions, status and prod (inside 'deployment'); the components v_m, v_d, v_c are not assigned by any action",
+  "properties_whose_predicates_are_undefined": [
+   "Evidence expiry (Satisfies)",
+   "Revocation (AuthorizedVia)",
+   "Delegation non-escalation (AuthorizedGrantor)",
+   "Incident response (Responded, AcceptedWithReason)",
+   "Decommissioning (ProductionEnabled, NoActiveDeploymentCredentials)",
+   "Legal hold (LegalHold, Deleted)",
+   "Evidence for a claimed stage (Claimed, Evidence)"
+  ]
+ }
+}

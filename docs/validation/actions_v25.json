@@ -1,0 +1,276 @@
+[
+ {
+  "name": "Submit(v)",
+  "guard": "`Authorised(actor,Submit,v,q)` ∧ `Parses(v)` ∧ v ∉ dom(versions)",
+  "effect": "versions[v] := (Tuple(v), SUBMITTED). No production authority is created.",
+  "writes": [
+   "versions"
+  ]
+ },
+ {
+  "name": "SubmitEvidence(e)",
+  "guard": "`Authorised(actor,SubmitEvidence,e,q)` ∧ e ∉ dom(evidence)",
+  "effect": "evidence[e] := (object, scope, uploader, UPLOADED, claimed validity interval).",
+  "writes": [
+   "evidence"
+  ]
+ },
+ {
+  "name": "Attest(e)",
+  "guard": "evidence[e].status = UPLOADED ∧ `Matches(e,obj,q)` ∧ `Indep_L(attester(e), owner(e), q.clock)` for the level declared for attestation ∧ `Qualified(attester(e))`",
+  "effect": "evidence[e].status := CURRENT if `SchemaOK(e)` ∧ `ValidityOK(e,q)` ∧ q.clock < validity_end(e); otherwise REJECTED.",
+  "writes": [
+   "evidence"
+  ]
+ },
+ {
+  "name": "Expire(e)",
+  "guard": "evidence[e].status = CURRENT ∧ q.clock ≥ validity_end(e)",
+  "effect": "evidence[e].status := EXPIRED. If e is effectiveness evidence and a risk criterion of a deployment j that credits it has the result BLOCKED in q, then j is added to estimates.ratchet (section 3.6).",
+  "writes": [
+   "evidence",
+   "estimates"
+  ]
+ },
+ {
+  "name": "RevokeEvidence(e)",
+  "guard": "`Authority(revoker,e,q)` ∧ evidence[e].status ∈ {UPLOADED, CURRENT, EXPIRED}",
+  "effect": "evidence[e].status := REVOKED, with revoker, reason and time recorded; the status is final. The same ratchet as Expire. Nothing else is assigned: the Status of every constraint that depended on e, the gate of every version that used e, and the residual estimate of every scenario that credited e are derived from the new evidence component (sections 3.3 and 4.6); for effectiveness evidence, π_c reverts to the case without effectiveness evidence and the estimate becomes the bounded estimate; an approval is not deleted, but it no longer satisfies ContinuingPass if the gate result is no longer releasable.",
+  "writes": [
+   "evidence",
+   "estimates"
+  ]
+ },
+ {
+  "name": "Reestimate(j,x)",
+  "guard": "`Authorised(actor,Reestimate,j,q)` ∧ j ∈ estimates.ratchet ∧ `Indep_L(reviewer(x), owner(j), q.clock)`",
+  "effect": "estimates.version(j) := x, a new estimate version; j is removed from estimates.ratchet.",
+  "writes": [
+   "estimates"
+  ]
+ },
+ {
+  "name": "Review(v,r)",
+  "guard": "status(v) ∈ {SUBMITTED, APPROVED, DEPLOYED, SUPERSEDED, SUSPENDED} ∧ Gate(v,q) = REQUIRES_REVIEW ∧ every trigger of that result is resolvable by review (section 3.6) ∧ `Authorised(reviewer,Review,v,q)` ∧ `Indep_L(reviewer, owner(v), q.clock)` for the level declared for review",
+  "effect": "review := review ∪ {(v, Tuple(v), q.policy, fingerprint of the triggers, reviewer, decision r ∈ {ACCEPT, REJECT}, q.clock, basis)}, where basis = (rationale, decision authority, evidence considered, expiry or review trigger). A record with an incomplete basis is stored but is not valid (see Releasable).",
+  "writes": [
+   "review"
+  ]
+ },
+ {
+  "name": "Approve(v)",
+  "guard": "status(v) = SUBMITTED ∧ `WF(M)` ∧ `Authorised(approver,Approve,v,q)` ∧ `Indep_L(approver, owner(v), q.clock)` ∧ `Releasable(v,q)`",
+  "effect": "approval := approval ∪ {(Tuple(v), q.policy, approver, q.clock, expiry)}; status(v) := APPROVED.",
+  "writes": [
+   "versions",
+   "approval"
+  ]
+ },
+ {
+  "name": "Deploy(v)",
+  "guard": "status(v) = APPROVED ∧ `WF(M)` ∧ `ApprovedExactHash(v,q)` ∧ `Releasable(v,q)` ∧ `Authorised(actor,Deploy,v,q)`",
+  "effect": "If prod = p ≠ none then status(p) := SUPERSEDED and the credentials of p are revoked. prod := v; status(v) := DEPLOYED; credentials of v are issued.",
+  "writes": [
+   "versions",
+   "prod",
+   "permissions"
+  ]
+ },
+ {
+  "name": "Update(v')",
+  "guard": "`Authorised(actor,Update,v',q)` ∧ v' ∉ dom(versions) ∧ (`Tuple(v') ≠ Tuple(prod)` ∨ the change is declared)",
+  "effect": "versions[v'] := (Tuple(v'), SUBMITTED). An approval bound to another tuple does not carry over to v'. prod is not assigned.",
+  "writes": [
+   "versions"
+  ]
+ },
+ {
+  "name": "Rollback(v)",
+  "guard": "status(v) = SUPERSEDED ∧ `ApprovedExactHash(v,q)` ∧ `Releasable(v,q)` ∧ `Authorised(actor,Rollback,v,q)` ∧ a rollback reason is given",
+  "effect": "As Deploy(v): the current production version becomes SUPERSEDED, prod := v, status(v) := DEPLOYED. A rollback record is added to incidents.",
+  "writes": [
+   "versions",
+   "prod",
+   "permissions",
+   "incidents"
+  ]
+ },
+ {
+  "name": "Suspend(v)",
+  "guard": "prod = v ∧ `Authorised(responder,Suspend,v,q)`",
+  "effect": "status(v) := SUSPENDED; prod := none; the credentials of v are revoked; the open obligation for v, if any, is closed. (A resumed version that still fails ContinuingPass opens a new obligation with a new deadline.)",
+  "writes": [
+   "versions",
+   "prod",
+   "permissions",
+   "obligations"
+  ]
+ },
+ {
+  "name": "Resume(v)",
+  "guard": "status(v) = SUSPENDED ∧ `ApprovedExactHash(v,q)` ∧ `Releasable(v,q)` ∧ `Authorised(actor,Resume,v,q)`",
+  "effect": "As Deploy(v).",
+  "writes": [
+   "versions",
+   "prod",
+   "permissions"
+  ]
+ },
+ {
+  "name": "Flag(v)",
+  "guard": "prod = v ∧ ¬`ContinuingPass(v,q)` ∧ no open obligation for v",
+  "effect": "obligations := obligations ∪ {(v, OPEN, q.clock, deadline q.clock + d_c)}.",
+  "writes": [
+   "obligations"
+  ]
+ },
+ {
+  "name": "CloseObligation(o)",
+  "guard": "o is open for a version v ∧ (prod ≠ v ∨ `ContinuingPass(v,q)`)",
+  "effect": "status(o) := CLOSED.",
+  "writes": [
+   "obligations"
+  ]
+ },
+ {
+  "name": "Timeout(x)",
+  "guard": "x is an open incident or an open obligation ∧ q.clock > deadline(x) ∧ no response has been recorded for x",
+  "effect": "status(x) := BREACHED. The breach is evidence for the response constraint of section 3.5.1 and for the gate.",
+  "writes": [
+   "incidents",
+   "obligations"
+  ]
+ },
+ {
+  "name": "Observe(o)",
+  "guard": "`Authorised(source(o),Observe,o,q)` ∧ the time and version of o are recorded",
+  "effect": "runtime := runtime ⊕ `Derive(o)`.",
+  "writes": [
+   "runtime"
+  ]
+ },
+ {
+  "name": "Alert(a)",
+  "guard": "`Trigger(a,q)`, a versioned predicate over q",
+  "effect": "incidents := incidents ∪ {Open(a, q.clock, deadline q.clock + d)}.",
+  "writes": [
+   "incidents"
+  ]
+ },
+ {
+  "name": "Respond(i,r)",
+  "guard": "status(i) = OPEN ∧ `Authorised(role,Respond,i,q)`",
+  "effect": "Record r and its evidence on i; status(i) := CLOSED if `Closure(i,r,q)`, otherwise unchanged.",
+  "writes": [
+   "incidents"
+  ]
+ },
+ {
+  "name": "Grant(p)",
+  "guard": "the issuer is in `GrantAuthority(s,op,σ,I)` ∧ all required signatures and evidence are valid ∧ p ∉ dom(permissions)",
+  "effect": "permissions[p] := the permission record with status ACTIVE.",
+  "writes": [
+   "permissions"
+  ]
+ },
+ {
+  "name": "Delegate(d)",
+  "guard": "`AllowProvable(grantor,op,s,σ,q.clock)` through an active delegable parent ∧ op, σ and validity contained in the parent’s ∧ depth(d) ≤ Dmax ∧ the chain stays acyclic",
+  "effect": "delegations[d] := the delegation record with status ACTIVE and source_permission_id := the parent.",
+  "writes": [
+   "delegations"
+  ]
+ },
+ {
+  "name": "Revoke(d)",
+  "guard": "`Authority(revoker,d,q)` ∧ status(d) ≠ REVOKED",
+  "effect": "status(d) := REVOKED. Every descendant of d is invalid from the next state onward, in every later state, by the definition of Valid.",
+  "writes": [
+   "permissions",
+   "delegations"
+  ]
+ },
+ {
+  "name": "AssignRole(h)",
+  "guard": "`Authorised(actor,AssignRole,h,q)` ∧ the interval of h is valid",
+  "effect": "assignments := assignments ∪ {h}. A resulting role conflict is a constraint result (section 3.1.1), not a guard.",
+  "writes": [
+   "assignments"
+  ]
+ },
+ {
+  "name": "ChangePolicy(P')",
+  "guard": "`Authorised(actor,ChangePolicy,P',q)` ∧ P' has a version number above q.policy",
+  "effect": "policy := version(P'). Approvals and reviews bound to an earlier policy version are no longer valid.",
+  "writes": [
+   "policy"
+  ]
+ },
+ {
+  "name": "Reorganise(r)",
+  "guard": "`Authorised(actor,Reorganise,r,q)`",
+  "effect": "structure := `Apply`(r, structure); the result need not be well formed, in which case WF(M) is false until it is corrected.",
+  "writes": [
+   "structure"
+  ]
+ },
+ {
+  "name": "Decommission(v)",
+  "guard": "status(v) ∈ {SUBMITTED, APPROVED, DEPLOYED, SUPERSEDED, SUSPENDED} ∧ `Authorised(actor,Decommission,v,q)` ∧ `ShutdownPlan(v)` ∧ `RetentionDutiesMet(v)`",
+  "effect": "prod := none if prod = v; the credentials of v are revoked; status(v) := DECOMMISSIONED; audit records are kept.",
+  "writes": [
+   "versions",
+   "prod",
+   "permissions"
+  ]
+ },
+ {
+  "name": "PlaceHold(d)",
+  "guard": "`Authorised(actor,PlaceHold,d,q)` ∧ ¬Deleted(d)",
+  "effect": "retention[d].hold := TRUE.",
+  "writes": [
+   "retention"
+  ]
+ },
+ {
+  "name": "RecordRetentionBasis(d)",
+  "guard": "retention[d].hold ∧ `Authorised(actor,RecordRetentionBasis,d,q)`",
+  "effect": "retention[d].basis := (retention basis, disposal method).",
+  "writes": [
+   "retention"
+  ]
+ },
+ {
+  "name": "ReleaseHold(d)",
+  "guard": "retention[d].hold ∧ `Authorised(actor,ReleaseHold,d,q)`",
+  "effect": "retention[d].hold := FALSE; retention[d].basis := none; every version with status RETIREMENT_VERIFIED whose Evidence(RETIREMENT_VERIFIED) no longer holds returns to DECOMMISSIONED.",
+  "writes": [
+   "retention",
+   "versions"
+  ]
+ },
+ {
+  "name": "DeleteData(d)",
+  "guard": "¬retention[d].hold ∧ ¬Deleted(d) ∧ `Authorised(actor,DeleteData,d,q)`",
+  "effect": "retention[d].deleted := TRUE.",
+  "writes": [
+   "retention"
+  ]
+ },
+ {
+  "name": "RetireVerify(v)",
+  "guard": "status(v) = DECOMMISSIONED ∧ `Authorised(actor,RetireVerify,v,q)` ∧ `Evidence(RETIREMENT_VERIFIED,v)`",
+  "effect": "status(v) := RETIREMENT_VERIFIED.",
+  "writes": [
+   "versions"
+  ]
+ },
+ {
+  "name": "Tick(δ)",
+  "guard": "δ ≥ 1 ∧ no urgent action is enabled (Expire(e), Flag(v), CloseObligation(o) or Timeout(x), for any argument) ∧ for every open incident or obligation x with deadline D(x): q.clock + δ ≤ D(x) or no authorised responder is available for x",
+  "effect": "clock := clock + δ.",
+  "writes": [
+   "clock"
+  ]
+ }
+]

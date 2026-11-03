@@ -1,0 +1,199 @@
+{
+ "constants": {
+  "CM": 3,
+  "VE": 2,
+  "VE2": 3,
+  "AP_LEN": 1,
+  "DR": 1,
+  "DC": 1
+ },
+ "scenarios": {
+  "core": {
+   "NV": 2,
+   "NE": 1,
+   "POLCH": "FALSE",
+   "RET": "FALSE",
+   "INCI": "FALSE"
+  },
+  "core1": {
+   "NV": 1,
+   "NE": 1,
+   "POLCH": "TRUE",
+   "RET": "FALSE",
+   "INCI": "FALSE"
+  },
+  "retire": {
+   "NV": 1,
+   "NE": 1,
+   "POLCH": "TRUE",
+   "RET": "TRUE",
+   "INCI": "FALSE"
+  },
+  "incident": {
+   "NV": 1,
+   "NE": 1,
+   "POLCH": "TRUE",
+   "RET": "FALSE",
+   "INCI": "TRUE"
+  }
+ },
+ "core_safety": {
+  "scenario": "core",
+  "mut": "none",
+  "auth": true,
+  "properties": [
+   "ApproveSafety",
+   "ReleaseSafety",
+   "UpdateSafety",
+   "RevokePersist",
+   "NoImprove"
+  ],
+  "invariant": true,
+  "no_error": true,
+  "generated": 67647169,
+  "distinct": 8423728,
+  "depth": 29,
+  "violation": null,
+  "tail": null
+ },
+ "core1_safety_with_policy_change": {
+  "scenario": "core1",
+  "mut": "none",
+  "auth": true,
+  "properties": [
+   "ApproveSafety",
+   "ReleaseSafety",
+   "UpdateSafety",
+   "RevokePersist",
+   "NoImprove"
+  ],
+  "invariant": true,
+  "no_error": true,
+  "generated": 1138285,
+  "distinct": 164192,
+  "depth": 23,
+  "violation": null,
+  "tail": null
+ },
+ "core_live_auth": {
+  "scenario": "core1",
+  "mut": "none",
+  "auth": true,
+  "properties": [
+   "NoTimelock",
+   "ObligationResolved"
+  ],
+  "invariant": false,
+  "no_error": true,
+  "generated": 1138285,
+  "distinct": 164192,
+  "depth": 22,
+  "violation": null,
+  "tail": null
+ },
+ "core_live_noauth": {
+  "scenario": "core1",
+  "mut": "none",
+  "auth": false,
+  "properties": [
+   "NoTimelock",
+   "ObligationResolved"
+  ],
+  "invariant": false,
+  "no_error": true,
+  "generated": 876433,
+  "distinct": 138784,
+  "depth": 22,
+  "violation": null,
+  "tail": null
+ },
+ "retire_safety": {
+  "scenario": "retire",
+  "mut": "none",
+  "auth": true,
+  "properties": [
+   "ApproveSafety",
+   "ReleaseSafety",
+   "UpdateSafety",
+   "RevokePersist",
+   "NoImprove"
+  ],
+  "invariant": true,
+  "no_error": true,
+  "generated": 12382017,
+  "distinct": 1447936,
+  "depth": 26,
+  "violation": null,
+  "tail": null
+ },
+ "incident_safety_auth": {
+  "scenario": "incident",
+  "mut": "none",
+  "auth": true,
+  "properties": [
+   "ApproveSafety",
+   "ReleaseSafety",
+   "UpdateSafety",
+   "RevokePersist",
+   "NoImprove"
+  ],
+  "invariant": true,
+  "no_error": true,
+  "generated": 7107673,
+  "distinct": 964176,
+  "depth": 24,
+  "violation": null,
+  "tail": null
+ },
+ "incident_safety_noauth": {
+  "scenario": "incident",
+  "mut": "none",
+  "auth": false,
+  "properties": [
+   "ApproveSafety",
+   "ReleaseSafety",
+   "UpdateSafety",
+   "RevokePersist",
+   "NoImprove"
+  ],
+  "invariant": true,
+  "no_error": true,
+  "generated": 4386569,
+  "distinct": 658336,
+  "depth": 24,
+  "violation": null,
+  "tail": null
+ },
+ "incident_live_auth": {
+  "scenario": "incident",
+  "mut": "none",
+  "auth": true,
+  "properties": [
+   "NoTimelock",
+   "IncidentResolved"
+  ],
+  "invariant": false,
+  "no_error": true,
+  "generated": 7107673,
+  "distinct": 964176,
+  "depth": 24,
+  "violation": null,
+  "tail": null
+ },
+ "incident_live_noauth": {
+  "scenario": "incident",
+  "mut": "none",
+  "auth": false,
+  "properties": [
+   "NoTimelock",
+   "IncidentResolved"
+  ],
+  "invariant": false,
+  "no_error": true,
+  "generated": 4386569,
+  "distinct": 658336,
+  "depth": 24,
+  "violation": null,
+  "tail": null
+ }
+}

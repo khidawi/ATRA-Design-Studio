@@ -1,0 +1,129 @@
+SPECIFICATION Spec
+INVARIANT InvProdStatus InvExpiry InvReleasable InvRetire InvDecom InvReviewBasis InvHold InvObligation InvIncident
+PROPERTY ApproveSafety ReleaseSafety UpdateSafety RevokePersist NoImprove
+CONSTANTS
+  CM = 3
+  VE = 2
+  VE2 = 3
+  AP_LEN = 1
+  DR = 1
+  DC = 1
+  NV = 2
+  NE = 1
+  POLCH = FALSE
+  RET = FALSE
+  INCI = FALSE
+  AUTH = TRUE
+  MUT = "reviewOverrides"
+
+TLC2 Version 2026.11.02.143702 (rev: 29980f0)
+Running breadth-first search Model-Checking with fp 59 and seed -8742801059023089098 with 16 workers on 16 cores with 2731MB heap and 64MB offheap memory [pid: 1] (Linux 6.18.33.1-microsoft-standard-WSL2 amd64, Eclipse Adoptium 17.0.20.1 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /w/AstraV25.tla
+Parsing file /tmp/tlc-4483836083172435027/Naturals.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-4483836083172435027/_TLCTrace.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-4483836083172435027/TLC.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-4483836083172435027/TLCExt.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-4483836083172435027/Sequences.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-4483836083172435027/FiniteSets.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-4483836083172435027/Integers.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module AstraV25
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module AstraV25
+Starting... (2026-11-03 07:35:46)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-11-03 07:35:47.
+Error: Invariant InvReleasable is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ prod = 0
+/\ cred = <<FALSE, FALSE>>
+/\ apPol = <<0, 0>>
+/\ oblOpen = FALSE
+/\ rvwPol = <<0, 0>>
+/\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>, <<<<0, 0, 0>>, FALSE>>>>
+/\ rvwB = <<FALSE, FALSE>>
+/\ evs = <<"NONE">>
+/\ apUntil = <<0, 0>>
+/\ pol = 1
+/\ pend = <<FALSE, FALSE>>
+/\ clock = 0
+/\ del = FALSE
+/\ lock = FALSE
+/\ ee = "NONE"
+/\ t0 = 0
+/\ rv = <<0, 0, 0>>
+/\ st = <<"NONE", "NONE">>
+/\ inc = "NONE"
+/\ oblBreach = FALSE
+/\ oblT = 0
+/\ rvw = <<FALSE, FALSE>>
+/\ art = FALSE
+/\ basis = FALSE
+/\ hold = FALSE
+
+State 2: <Submit(1) line 64, col 14 to line 65, col 177 of module AstraV25>
+/\ prod = 0
+/\ cred = <<FALSE, FALSE>>
+/\ apPol = <<0, 0>>
+/\ oblOpen = FALSE
+/\ rvwPol = <<0, 0>>
+/\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>, <<<<0, 0, 0>>, FALSE>>>>
+/\ rvwB = <<FALSE, FALSE>>
+/\ evs = <<"NONE">>
+/\ apUntil = <<0, 0>>
+/\ pol = 1
+/\ pend = <<FALSE, FALSE>>
+/\ clock = 0
+/\ del = FALSE
+/\ lock = FALSE
+/\ ee = "NONE"
+/\ t0 = 0
+/\ rv = <<0, 0, 0>>
+/\ st = <<"SUBM", "NONE">>
+/\ inc = "NONE"
+/\ oblBreach = FALSE
+/\ oblT = 0
+/\ rvw = <<FALSE, FALSE>>
+/\ art = FALSE
+/\ basis = FALSE
+/\ hold = FALSE
+
+State 3: <Review(1,TRUE) line 93, col 17 to line 96, col 155 of module AstraV25>
+/\ prod = 0
+/\ cred = <<FALSE, FALSE>>
+/\ apPol = <<0, 0>>
+/\ oblOpen = FALSE
+/\ rvwPol = <<1, 0>>
+/\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>, <<<<0, 0, 0>>, FALSE>>>>
+/\ rvwB = <<TRUE, FALSE>>
+/\ evs = <<"NONE">>
+/\ apUntil = <<0, 0>>
+/\ pol = 1
+/\ pend = <<FALSE, FALSE>>
+/\ clock = 0
+/\ del = FALSE
+/\ lock = FALSE
+/\ ee = "NONE"
+/\ t0 = 0
+/\ rv = <<0, 0, 0>>
+/\ st = <<"SUBM", "NONE">>
+/\ inc = "NONE"
+/\ oblBreach = FALSE
+/\ oblT = 0
+/\ rvw = <<TRUE, FALSE>>
+/\ art = FALSE
+/\ basis = FALSE
+/\ hold = FALSE
+
+200 states generated, 139 distinct states found, 88 states left on queue.
+The depth of the complete state graph search is 5.
+Finished in 02s at (2026-11-03 07:35:47)
+Trace exploration spec path: ./AstraV25_TTrace_1793691345.tla

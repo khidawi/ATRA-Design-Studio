@@ -1,0 +1,264 @@
+SPECIFICATION Spec
+INVARIANT InvProdStatus InvExpiry InvReleasable InvRetire InvDecom InvReviewBasis InvHold InvObligation InvIncident
+PROPERTY ApproveSafety ReleaseSafety UpdateSafety RevokePersist NoImprove
+CONSTANTS
+  CM = 3
+  VE = 2
+  VE2 = 3
+  AP_LEN = 1
+  DR = 1
+  DC = 1
+  NV = 1
+  NE = 1
+  POLCH = TRUE
+  RET = TRUE
+  INCI = FALSE
+  AUTH = TRUE
+  MUT = "keepRetired"
+
+TLC2 Version 2026.11.02.143702 (rev: 29980f0)
+Running breadth-first search Model-Checking with fp 67 and seed -4631969143779791193 with 16 workers on 16 cores with 2731MB heap and 64MB offheap memory [pid: 1] (Linux 6.18.33.1-microsoft-standard-WSL2 amd64, Eclipse Adoptium 17.0.20.1 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /w/AstraV25.tla
+Parsing file /tmp/tlc-425116905164463293/Naturals.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-425116905164463293/_TLCTrace.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-425116905164463293/TLC.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-425116905164463293/TLCExt.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-425116905164463293/Sequences.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-425116905164463293/FiniteSets.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-425116905164463293/Integers.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module AstraV25
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module AstraV25
+Starting... (2026-11-03 07:36:57)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-11-03 07:36:59.
+Error: Invariant InvRetire is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ prod = 0
+/\ cred = <<FALSE>>
+/\ apPol = <<0>>
+/\ oblOpen = FALSE
+/\ rvwPol = <<0>>
+/\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>
+/\ rvwB = <<FALSE>>
+/\ evs = <<"NONE">>
+/\ apUntil = <<0>>
+/\ pol = 1
+/\ pend = <<FALSE>>
+/\ clock = 0
+/\ del = FALSE
+/\ lock = FALSE
+/\ ee = "NONE"
+/\ t0 = 0
+/\ rv = <<0, 0, 0>>
+/\ st = <<"NONE">>
+/\ inc = "NONE"
+/\ oblBreach = FALSE
+/\ oblT = 0
+/\ rvw = <<FALSE>>
+/\ art = FALSE
+/\ basis = FALSE
+/\ hold = FALSE
+
+State 2: <Submit(1) line 64, col 14 to line 65, col 177 of module AstraV25>
+/\ prod = 0
+/\ cred = <<FALSE>>
+/\ apPol = <<0>>
+/\ oblOpen = FALSE
+/\ rvwPol = <<0>>
+/\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>
+/\ rvwB = <<FALSE>>
+/\ evs = <<"NONE">>
+/\ apUntil = <<0>>
+/\ pol = 1
+/\ pend = <<FALSE>>
+/\ clock = 0
+/\ del = FALSE
+/\ lock = FALSE
+/\ ee = "NONE"
+/\ t0 = 0
+/\ rv = <<0, 0, 0>>
+/\ st = <<"SUBM">>
+/\ inc = "NONE"
+/\ oblBreach = FALSE
+/\ oblT = 0
+/\ rvw = <<FALSE>>
+/\ art = FALSE
+/\ basis = FALSE
+/\ hold = FALSE
+
+State 3: <Decommission(1) line 128, col 20 to line 131, col 171 of module AstraV25>
+/\ prod = 0
+/\ cred = <<FALSE>>
+/\ apPol = <<0>>
+/\ oblOpen = FALSE
+/\ rvwPol = <<0>>
+/\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>
+/\ rvwB = <<FALSE>>
+/\ evs = <<"NONE">>
+/\ apUntil = <<0>>
+/\ pol = 1
+/\ pend = <<FALSE>>
+/\ clock = 0
+/\ del = FALSE
+/\ lock = FALSE
+/\ ee = "NONE"
+/\ t0 = 0
+/\ rv = <<0, 0, 0>>
+/\ st = <<"DECOM">>
+/\ inc = "NONE"
+/\ oblBreach = FALSE
+/\ oblT = 0
+/\ rvw = <<FALSE>>
+/\ art = FALSE
+/\ basis = FALSE
+/\ hold = FALSE
+
+State 4: <PlaceHold line 139, col 14 to line 140, col 175 of module AstraV25>
+/\ prod = 0
+/\ cred = <<FALSE>>
+/\ apPol = <<0>>
+/\ oblOpen = FALSE
+/\ rvwPol = <<0>>
+/\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>
+/\ rvwB = <<FALSE>>
+/\ evs = <<"NONE">>
+/\ apUntil = <<0>>
+/\ pol = 1
+/\ pend = <<FALSE>>
+/\ clock = 0
+/\ del = FALSE
+/\ lock = FALSE
+/\ ee = "NONE"
+/\ t0 = 0
+/\ rv = <<0, 0, 0>>
+/\ st = <<"DECOM">>
+/\ inc = "NONE"
+/\ oblBreach = FALSE
+/\ oblT = 0
+/\ rvw = <<FALSE>>
+/\ art = FALSE
+/\ basis = FALSE
+/\ hold = TRUE
+
+State 5: <DisposeArtefacts line 137, col 21 to line 138, col 183 of module AstraV25>
+/\ prod = 0
+/\ cred = <<FALSE>>
+/\ apPol = <<0>>
+/\ oblOpen = FALSE
+/\ rvwPol = <<0>>
+/\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>
+/\ rvwB = <<FALSE>>
+/\ evs = <<"NONE">>
+/\ apUntil = <<0>>
+/\ pol = 1
+/\ pend = <<FALSE>>
+/\ clock = 0
+/\ del = FALSE
+/\ lock = FALSE
+/\ ee = "NONE"
+/\ t0 = 0
+/\ rv = <<0, 0, 0>>
+/\ st = <<"DECOM">>
+/\ inc = "NONE"
+/\ oblBreach = FALSE
+/\ oblT = 0
+/\ rvw = <<FALSE>>
+/\ art = TRUE
+/\ basis = FALSE
+/\ hold = TRUE
+
+State 6: <RecordBasis line 141, col 16 to line 142, col 176 of module AstraV25>
+/\ prod = 0
+/\ cred = <<FALSE>>
+/\ apPol = <<0>>
+/\ oblOpen = FALSE
+/\ rvwPol = <<0>>
+/\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>
+/\ rvwB = <<FALSE>>
+/\ evs = <<"NONE">>
+/\ apUntil = <<0>>
+/\ pol = 1
+/\ pend = <<FALSE>>
+/\ clock = 0
+/\ del = FALSE
+/\ lock = FALSE
+/\ ee = "NONE"
+/\ t0 = 0
+/\ rv = <<0, 0, 0>>
+/\ st = <<"DECOM">>
+/\ inc = "NONE"
+/\ oblBreach = FALSE
+/\ oblT = 0
+/\ rvw = <<FALSE>>
+/\ art = TRUE
+/\ basis = TRUE
+/\ hold = TRUE
+
+State 7: <RetireVerify(1) line 133, col 20 to line 135, col 183 of module AstraV25>
+/\ prod = 0
+/\ cred = <<FALSE>>
+/\ apPol = <<0>>
+/\ oblOpen = FALSE
+/\ rvwPol = <<0>>
+/\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>
+/\ rvwB = <<FALSE>>
+/\ evs = <<"NONE">>
+/\ apUntil = <<0>>
+/\ pol = 1
+/\ pend = <<FALSE>>
+/\ clock = 0
+/\ del = FALSE
+/\ lock = FALSE
+/\ ee = "NONE"
+/\ t0 = 0
+/\ rv = <<0, 0, 0>>
+/\ st = <<"RETIRED">>
+/\ inc = "NONE"
+/\ oblBreach = FALSE
+/\ oblT = 0
+/\ rvw = <<FALSE>>
+/\ art = TRUE
+/\ basis = TRUE
+/\ hold = TRUE
+
+State 8: <ReleaseHold line 144, col 16 to line 146, col 166 of module AstraV25>
+/\ prod = 0
+/\ cred = <<FALSE>>
+/\ apPol = <<0>>
+/\ oblOpen = FALSE
+/\ rvwPol = <<0>>
+/\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>
+/\ rvwB = <<FALSE>>
+/\ evs = <<"NONE">>
+/\ apUntil = <<0>>
+/\ pol = 1
+/\ pend = <<FALSE>>
+/\ clock = 0
+/\ del = FALSE
+/\ lock = FALSE
+/\ ee = "NONE"
+/\ t0 = 0
+/\ rv = <<0, 0, 0>>
+/\ st = <<"RETIRED">>
+/\ inc = "NONE"
+/\ oblBreach = FALSE
+/\ oblT = 0
+/\ rvw = <<FALSE>>
+/\ art = TRUE
+/\ basis = FALSE
+/\ hold = FALSE
+
+32250 states generated, 6724 distinct states found, 3533 states left on queue.
+The depth of the complete state graph search is 9.
+Finished in 04s at (2026-11-03 07:37:00)
+Trace exploration spec path: ./AstraV25_TTrace_1793691415.tla

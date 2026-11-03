@@ -1,0 +1,892 @@
+{
+ "timing_s": 3.1,
+ "n": 12000,
+ "deterministic": true,
+ "range": {
+  "pcs_over_100": 236,
+  "pcs_999": 236,
+  "pcs_below_0": 0,
+  "pillar_out_of_range": 0
+ },
+ "pcs_999_examples": [
+  {
+   "model": "PINN",
+   "domain": null
+  },
+  {
+   "model": "PINN",
+   "domain": null
+  },
+  {
+   "model": "PINN",
+   "domain": null
+  }
+ ],
+ "dist": {
+  "share_100": 0.6874166666666667,
+  "share_ge60": 0.8840833333333333,
+  "share_30_60": 0.06716666666666667,
+  "share_10_30": 0.014916666666666667,
+  "share_lt10": 0.03383333333333333,
+  "median": 100.0,
+  "distinct_values": 750,
+  "min": 0.3
+ },
+ "gate_share": {
+  "APPROVED": 0.005333333333333333,
+  "REQUIRES_REVIEW": 0.028166666666666666,
+  "BLOCKED": 0.9665
+ },
+ "comp_dist": {
+  "median": 34.4,
+  "max": 71.0,
+  "share_ge60": 0.007916666666666667,
+  "share_ge30": 0.68725
+ },
+ "pillar_stats": {
+  "likelihood": {
+   "median": 0.3,
+   "p95": 5.5,
+   "max": 23.3
+  },
+  "severity": {
+   "median": 40.0,
+   "p95": 83.3,
+   "max": 100.0
+  },
+  "vulnerability": {
+   "median": 38.3,
+   "p95": 76.1,
+   "max": 100.0
+  },
+  "uncertainty": {
+   "median": 15.0,
+   "p95": 32.0,
+   "max": 44.5
+  },
+  "autonomy": {
+   "median": 70.0,
+   "p95": 96.0,
+   "max": 100.0
+  },
+  "evolution": {
+   "median": 32.5,
+   "p95": 100.0,
+   "max": 100.0
+  }
+ },
+ "spearman_pcs_vs_composite": 0.33081164489095694,
+ "tier_disagree": {
+  "differ": 0.9494166666666667,
+  "by_two_or_more": 0.2524166666666667,
+  "pcs_critical_comp_below_30": 0.24041666666666667
+ },
+ "best_case": {
+  "pcs": 8.8,
+  "tier": 0,
+  "gate": 0,
+  "comp": 9.0,
+  "pillars": [
+   0.3,
+   6.9,
+   10.3,
+   2.5,
+   16.0,
+   25.0
+  ],
+  "nb": 0,
+  "nw": 0
+ },
+ "worst_case": {
+  "pcs": 100.0,
+  "tier": 3,
+  "gate": 2,
+  "comp": 74.6,
+  "pillars": [
+   0.5,
+   100.0,
+   100.0,
+   44.5,
+   100.0,
+   100.0
+  ],
+  "nb": 9,
+  "nw": 2
+ },
+ "risky_but_all_controls": {
+  "pcs": 100.0,
+  "tier": 3,
+  "gate": 2,
+  "comp": 58.8,
+  "pillars": [
+   0.2,
+   100.0,
+   56.9,
+   12.5,
+   74.0,
+   100.0
+  ],
+  "nb": 1,
+  "nw": 0
+ },
+ "lowrisk_no_controls_advisory": {
+  "pcs": 40.9,
+  "tier": 2,
+  "gate": 2,
+  "comp": 15.8,
+  "pillars": [
+   0.3,
+   11.0,
+   21.5,
+   12.0,
+   33.6,
+   25.0
+  ],
+  "nb": 1,
+  "nw": 3
+ },
+ "lowrisk_no_controls_operational": {
+  "pcs": 77.0,
+  "tier": 3,
+  "gate": 2,
+  "comp": 24.1,
+  "pillars": [
+   0.3,
+   11.0,
+   24.8,
+   12.0,
+   84.0,
+   25.0
+  ],
+  "nb": 5,
+  "nw": 1
+ },
+ "monotonicity": {
+  "audit_frequency (less frequent = riskier)": {
+   "pairs": 7353,
+   "pcs_up": 106,
+   "pcs_flat": 5265,
+   "pcs_down": 1982,
+   "gate_improved": 163,
+   "composite_down": 3172
+  },
+  "feedback_loop (none to automated)": {
+   "pairs": 4902,
+   "pcs_up": 980,
+   "pcs_flat": 3922,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "system_type (in-house to third party)": {
+   "pairs": 4902,
+   "pcs_up": 946,
+   "pcs_flat": 3956,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "ai_criticality (advisory to safety critical)": {
+   "pairs": 7353,
+   "pcs_up": 1140,
+   "pcs_flat": 6213,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "consumption_role (reader to automated executor)": {
+   "pairs": 4902,
+   "pcs_up": 736,
+   "pcs_flat": 4166,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "data_sensitivity (public to special category)": {
+   "pairs": 9804,
+   "pcs_up": 327,
+   "pcs_flat": 9477,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "governance_maturity (optimising to ad hoc)": {
+   "pairs": 9804,
+   "pcs_up": 294,
+   "pcs_flat": 9510,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "experience_level (senior to novice)": {
+   "pairs": 4902,
+   "pcs_up": 60,
+   "pcs_flat": 4275,
+   "pcs_down": 567,
+   "gate_improved": 2,
+   "composite_down": 3
+  },
+  "data_consent (explicit to implied)": {
+   "pairs": 2451,
+   "pcs_up": 0,
+   "pcs_flat": 2451,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "silent failure (none, performance, bias)": {
+   "pairs": 4902,
+   "pcs_up": 1028,
+   "pcs_flat": 3874,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "misuse incidents (0, 1, 3)": {
+   "pairs": 4902,
+   "pcs_up": 789,
+   "pcs_flat": 4113,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "runtime drift (no to yes)": {
+   "pairs": 2451,
+   "pcs_up": 648,
+   "pcs_flat": 1803,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "chained-AI vector (absent to present)": {
+   "pairs": 2451,
+   "pcs_up": 541,
+   "pcs_flat": 1910,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "supply-chain vector (absent to present)": {
+   "pairs": 2451,
+   "pcs_up": 251,
+   "pcs_flat": 2200,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "role consolidation trainer=validator (no to yes)": {
+   "pairs": 2451,
+   "pcs_up": 352,
+   "pcs_flat": 2099,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "compensating controls (1 to 0)": {
+   "pairs": 2451,
+   "pcs_up": 0,
+   "pcs_flat": 2451,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "control dpia_approved (declared to missing)": {
+   "pairs": 2451,
+   "pcs_up": 482,
+   "pcs_flat": 1969,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "control hitl_formally_specified (declared to missing)": {
+   "pairs": 2451,
+   "pcs_up": 735,
+   "pcs_flat": 1716,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "control right_to_challenge_documented (declared to missing)": {
+   "pairs": 2451,
+   "pcs_up": 720,
+   "pcs_flat": 1731,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "control liability_boundary_declared (declared to missing)": {
+   "pairs": 2451,
+   "pcs_up": 754,
+   "pcs_flat": 1697,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "control hallucination_constraint_declared (declared to missing)": {
+   "pairs": 2451,
+   "pcs_up": 404,
+   "pcs_flat": 2047,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "control output_validation_gate_configured (declared to missing)": {
+   "pairs": 2451,
+   "pcs_up": 470,
+   "pcs_flat": 1981,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "control model_card_approved (declared to missing)": {
+   "pairs": 2451,
+   "pcs_up": 373,
+   "pcs_flat": 2078,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "control operator_training_complete (declared to missing)": {
+   "pairs": 2451,
+   "pcs_up": 356,
+   "pcs_flat": 2095,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "control hitl_verified_substantive (declared to missing)": {
+   "pairs": 2451,
+   "pcs_up": 356,
+   "pcs_flat": 2095,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "control policy_hallucination_acknowledged (declared to missing)": {
+   "pairs": 2451,
+   "pcs_up": 102,
+   "pcs_flat": 2349,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "control signed_at_collection (declared to missing)": {
+   "pairs": 2451,
+   "pcs_up": 351,
+   "pcs_flat": 2100,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  },
+  "bias metric (declared to missing)": {
+   "pairs": 2451,
+   "pcs_up": 197,
+   "pcs_flat": 2254,
+   "pcs_down": 0,
+   "gate_improved": 0,
+   "composite_down": 0
+  }
+ },
+ "eta2": {
+  "model_type": {
+   "pcs": 0.0052,
+   "blocked": 0.0011
+  },
+  "system_type": {
+   "pcs": 0.0161,
+   "blocked": 0.0037
+  },
+  "ai_criticality": {
+   "pcs": 0.047,
+   "blocked": 0.0667
+  },
+  "data_sensitivity": {
+   "pcs": 0.0024,
+   "blocked": 0.0005
+  },
+  "consumption_role": {
+   "pcs": 0.0028,
+   "blocked": 0.0008
+  },
+  "feedback_loop": {
+   "pcs": 0.0123,
+   "blocked": 0.0018
+  },
+  "audit_frequency": {
+   "pcs": 0.1644,
+   "blocked": 0.0197
+  },
+  "silent": {
+   "pcs": 0.1241,
+   "blocked": 0.0168
+  },
+  "domain_law": {
+   "pcs": 0.0057,
+   "blocked": 0.0015
+  },
+  "governance_maturity": {
+   "pcs": 0.0007,
+   "blocked": 0.0001
+  },
+  "experience_level": {
+   "pcs": 0.0014,
+   "blocked": 0.0002
+  },
+  "data_consent": {
+   "pcs": 0.0,
+   "blocked": 0.0
+  },
+  "dpia_approved": {
+   "pcs": 0.0017,
+   "blocked": 0.0001
+  },
+  "hitl_formally_specified": {
+   "pcs": 0.0087,
+   "blocked": 0.0004
+  },
+  "right_to_challenge_documented": {
+   "pcs": 0.0055,
+   "blocked": 0.0009
+  },
+  "liability_boundary_declared": {
+   "pcs": 0.0044,
+   "blocked": 0.001
+  },
+  "hallucination_constraint_declared": {
+   "pcs": 0.0001,
+   "blocked": 0.0001
+  },
+  "output_validation_gate_configured": {
+   "pcs": 0.001,
+   "blocked": 0.0001
+  },
+  "model_card_approved": {
+   "pcs": 0.0001,
+   "blocked": 0.0001
+  },
+  "operator_training_complete": {
+   "pcs": 0.0001,
+   "blocked": 0.0
+  },
+  "hitl_verified_substantive": {
+   "pcs": 0.0002,
+   "blocked": 0.0001
+  },
+  "policy_hallucination_acknowledged": {
+   "pcs": 0.0001,
+   "blocked": 0.0
+  },
+  "signed_at_collection": {
+   "pcs": 0.0017,
+   "blocked": 0.035
+  },
+  "bias_metric": {
+   "pcs": 0.0007,
+   "blocked": 0.0004
+  },
+  "chained": {
+   "pcs": 0.0082,
+   "blocked": 0.0014
+  },
+  "supply": {
+   "pcs": 0.0005,
+   "blocked": 0.0001
+  },
+  "data_engineer": {
+   "pcs": 0.0005,
+   "blocked": 0.0001
+  },
+  "tv": {
+   "pcs": 0.0007,
+   "blocked": 0.0004
+  },
+  "vd": {
+   "pcs": 0.0013,
+   "blocked": 0.0005
+  },
+  "td": {
+   "pcs": 0.0001,
+   "blocked": 0.0002
+  },
+  "comp": {
+   "pcs": 0.0003,
+   "blocked": 0.0007
+  },
+  "misuse": {
+   "pcs": 0.0034,
+   "blocked": 0.0004
+  },
+  "drift": {
+   "pcs": 0.0197,
+   "blocked": 0.0021
+  }
+ },
+ "variants": [
+  {
+   "name": "scaling factor 4 to 3",
+   "gate_changed": 0.0072,
+   "tier_changed": 0.0336,
+   "mean_abs_dpcs": 2.05206847360913,
+   "approved_before": 0.0058,
+   "approved_after": 0.0072
+  },
+  {
+   "name": "scaling factor 4 to 5",
+   "gate_changed": 0.004,
+   "tier_changed": 0.0174,
+   "mean_abs_dpcs": 1.4087426125942533,
+   "approved_before": 0.0058,
+   "approved_after": 0.0054
+  },
+  {
+   "name": "CRITICAL cut-off 60 to 50",
+   "gate_changed": 0.0034,
+   "tier_changed": 0.026,
+   "mean_abs_dpcs": 0.0,
+   "approved_before": 0.0058,
+   "approved_after": 0.0058
+  },
+  {
+   "name": "CRITICAL cut-off 60 to 70",
+   "gate_changed": 0.0024,
+   "tier_changed": 0.0628,
+   "mean_abs_dpcs": 0.0,
+   "approved_before": 0.0058,
+   "approved_after": 0.0058
+  },
+  {
+   "name": "HIGH cut-off 30 to 25",
+   "gate_changed": 0.0002,
+   "tier_changed": 0.0028,
+   "mean_abs_dpcs": 0.0,
+   "approved_before": 0.0058,
+   "approved_after": 0.0056
+  },
+  {
+   "name": "HIGH cut-off 30 to 35",
+   "gate_changed": 0.0008,
+   "tier_changed": 0.0056,
+   "mean_abs_dpcs": 0.0,
+   "approved_before": 0.0058,
+   "approved_after": 0.0066
+  },
+  {
+   "name": "veto floor base 30 to 20",
+   "gate_changed": 0.0,
+   "tier_changed": 0.0462,
+   "mean_abs_dpcs": 1.5563480741797433,
+   "approved_before": 0.0058,
+   "approved_after": 0.0058
+  },
+  {
+   "name": "veto floor base 30 to 40",
+   "gate_changed": 0.0,
+   "tier_changed": 0.0162,
+   "mean_abs_dpcs": 1.5679641328714082,
+   "approved_before": 0.0058,
+   "approved_after": 0.0058
+  },
+  {
+   "name": "assumption relaxed: no veto floor",
+   "gate_changed": 0.0,
+   "tier_changed": 0.1442,
+   "mean_abs_dpcs": 8.289545547177502,
+   "approved_before": 0.0058,
+   "approved_after": 0.0058
+  },
+  {
+   "name": "assumption relaxed: no constraint penalties",
+   "gate_changed": 0.0,
+   "tier_changed": 0.0026,
+   "mean_abs_dpcs": 0.46761768901569184,
+   "approved_before": 0.0058,
+   "approved_after": 0.0058
+  }
+ ],
+ "properties": {
+  "runs": 65536,
+  "p1_violations": 0,
+  "p2_violations": 0,
+  "p3_pairs": 360448,
+  "p3_gate_worse": 0,
+  "p3_pcs_up": 0
+ },
+ "p1_examples": [],
+ "p3_examples": [],
+ "reach": {
+  "ADVISORY|SPECIAL_CATEGORY|LLM|True": {
+   "APPROVED": 64,
+   "REQUIRES_REVIEW": 960,
+   "BLOCKED": 1024,
+   "min_pcs": 2.1,
+   "pcs_at_all_controls": 2.1,
+   "gate_at_all_controls": 0
+  },
+  "ADVISORY|SPECIAL_CATEGORY|LLM|False": {
+   "APPROVED": 64,
+   "REQUIRES_REVIEW": 960,
+   "BLOCKED": 1024,
+   "min_pcs": 2.1,
+   "pcs_at_all_controls": 2.1,
+   "gate_at_all_controls": 0
+  },
+  "ADVISORY|SPECIAL_CATEGORY|CNN|True": {
+   "APPROVED": 64,
+   "REQUIRES_REVIEW": 960,
+   "BLOCKED": 1024,
+   "min_pcs": 1.2,
+   "pcs_at_all_controls": 1.2,
+   "gate_at_all_controls": 0
+  },
+  "ADVISORY|SPECIAL_CATEGORY|CNN|False": {
+   "APPROVED": 64,
+   "REQUIRES_REVIEW": 960,
+   "BLOCKED": 1024,
+   "min_pcs": 1.2,
+   "pcs_at_all_controls": 1.2,
+   "gate_at_all_controls": 0
+  },
+  "ADVISORY|INTERNAL|LLM|True": {
+   "APPROVED": 128,
+   "REQUIRES_REVIEW": 896,
+   "BLOCKED": 1024,
+   "min_pcs": 2.1,
+   "pcs_at_all_controls": 2.1,
+   "gate_at_all_controls": 0
+  },
+  "ADVISORY|INTERNAL|LLM|False": {
+   "APPROVED": 128,
+   "REQUIRES_REVIEW": 896,
+   "BLOCKED": 1024,
+   "min_pcs": 2.1,
+   "pcs_at_all_controls": 2.1,
+   "gate_at_all_controls": 0
+  },
+  "ADVISORY|INTERNAL|CNN|True": {
+   "APPROVED": 128,
+   "REQUIRES_REVIEW": 896,
+   "BLOCKED": 1024,
+   "min_pcs": 1.2,
+   "pcs_at_all_controls": 1.2,
+   "gate_at_all_controls": 0
+  },
+  "ADVISORY|INTERNAL|CNN|False": {
+   "APPROVED": 128,
+   "REQUIRES_REVIEW": 896,
+   "BLOCKED": 1024,
+   "min_pcs": 1.2,
+   "pcs_at_all_controls": 1.2,
+   "gate_at_all_controls": 0
+  },
+  "OPERATIONAL|SPECIAL_CATEGORY|LLM|True": {
+   "APPROVED": 8,
+   "REQUIRES_REVIEW": 8,
+   "BLOCKED": 2032,
+   "min_pcs": 2.1,
+   "pcs_at_all_controls": 2.1,
+   "gate_at_all_controls": 0
+  },
+  "OPERATIONAL|SPECIAL_CATEGORY|LLM|False": {
+   "APPROVED": 0,
+   "REQUIRES_REVIEW": 0,
+   "BLOCKED": 2048,
+   "min_pcs": 48.0,
+   "pcs_at_all_controls": 48.0,
+   "gate_at_all_controls": 2
+  },
+  "OPERATIONAL|SPECIAL_CATEGORY|CNN|True": {
+   "APPROVED": 16,
+   "REQUIRES_REVIEW": 16,
+   "BLOCKED": 2016,
+   "min_pcs": 1.2,
+   "pcs_at_all_controls": 1.2,
+   "gate_at_all_controls": 0
+  },
+  "OPERATIONAL|SPECIAL_CATEGORY|CNN|False": {
+   "APPROVED": 0,
+   "REQUIRES_REVIEW": 0,
+   "BLOCKED": 2048,
+   "min_pcs": 48.0,
+   "pcs_at_all_controls": 48.0,
+   "gate_at_all_controls": 2
+  },
+  "OPERATIONAL|INTERNAL|LLM|True": {
+   "APPROVED": 32,
+   "REQUIRES_REVIEW": 32,
+   "BLOCKED": 1984,
+   "min_pcs": 2.1,
+   "pcs_at_all_controls": 2.1,
+   "gate_at_all_controls": 0
+  },
+  "OPERATIONAL|INTERNAL|LLM|False": {
+   "APPROVED": 32,
+   "REQUIRES_REVIEW": 32,
+   "BLOCKED": 1984,
+   "min_pcs": 2.1,
+   "pcs_at_all_controls": 2.1,
+   "gate_at_all_controls": 0
+  },
+  "OPERATIONAL|INTERNAL|CNN|True": {
+   "APPROVED": 64,
+   "REQUIRES_REVIEW": 64,
+   "BLOCKED": 1920,
+   "min_pcs": 1.2,
+   "pcs_at_all_controls": 1.2,
+   "gate_at_all_controls": 0
+  },
+  "OPERATIONAL|INTERNAL|CNN|False": {
+   "APPROVED": 64,
+   "REQUIRES_REVIEW": 64,
+   "BLOCKED": 1920,
+   "min_pcs": 1.2,
+   "pcs_at_all_controls": 1.2,
+   "gate_at_all_controls": 0
+  },
+  "CRITICAL|SPECIAL_CATEGORY|LLM|True": {
+   "APPROVED": 8,
+   "REQUIRES_REVIEW": 8,
+   "BLOCKED": 2032,
+   "min_pcs": 2.1,
+   "pcs_at_all_controls": 2.1,
+   "gate_at_all_controls": 0
+  },
+  "CRITICAL|SPECIAL_CATEGORY|LLM|False": {
+   "APPROVED": 0,
+   "REQUIRES_REVIEW": 0,
+   "BLOCKED": 2048,
+   "min_pcs": 48.0,
+   "pcs_at_all_controls": 48.0,
+   "gate_at_all_controls": 2
+  },
+  "CRITICAL|SPECIAL_CATEGORY|CNN|True": {
+   "APPROVED": 16,
+   "REQUIRES_REVIEW": 16,
+   "BLOCKED": 2016,
+   "min_pcs": 1.2,
+   "pcs_at_all_controls": 1.2,
+   "gate_at_all_controls": 0
+  },
+  "CRITICAL|SPECIAL_CATEGORY|CNN|False": {
+   "APPROVED": 0,
+   "REQUIRES_REVIEW": 0,
+   "BLOCKED": 2048,
+   "min_pcs": 48.0,
+   "pcs_at_all_controls": 48.0,
+   "gate_at_all_controls": 2
+  },
+  "CRITICAL|INTERNAL|LLM|True": {
+   "APPROVED": 16,
+   "REQUIRES_REVIEW": 16,
+   "BLOCKED": 2016,
+   "min_pcs": 2.1,
+   "pcs_at_all_controls": 2.1,
+   "gate_at_all_controls": 0
+  },
+  "CRITICAL|INTERNAL|LLM|False": {
+   "APPROVED": 0,
+   "REQUIRES_REVIEW": 0,
+   "BLOCKED": 2048,
+   "min_pcs": 48.0,
+   "pcs_at_all_controls": 48.0,
+   "gate_at_all_controls": 2
+  },
+  "CRITICAL|INTERNAL|CNN|True": {
+   "APPROVED": 32,
+   "REQUIRES_REVIEW": 32,
+   "BLOCKED": 1984,
+   "min_pcs": 1.2,
+   "pcs_at_all_controls": 1.2,
+   "gate_at_all_controls": 0
+  },
+  "CRITICAL|INTERNAL|CNN|False": {
+   "APPROVED": 0,
+   "REQUIRES_REVIEW": 0,
+   "BLOCKED": 2048,
+   "min_pcs": 48.0,
+   "pcs_at_all_controls": 48.0,
+   "gate_at_all_controls": 2
+  },
+  "SAFETY_CRITICAL|SPECIAL_CATEGORY|LLM|True": {
+   "APPROVED": 8,
+   "REQUIRES_REVIEW": 8,
+   "BLOCKED": 2032,
+   "min_pcs": 2.1,
+   "pcs_at_all_controls": 2.1,
+   "gate_at_all_controls": 0
+  },
+  "SAFETY_CRITICAL|SPECIAL_CATEGORY|LLM|False": {
+   "APPROVED": 0,
+   "REQUIRES_REVIEW": 0,
+   "BLOCKED": 2048,
+   "min_pcs": 48.0,
+   "pcs_at_all_controls": 48.0,
+   "gate_at_all_controls": 2
+  },
+  "SAFETY_CRITICAL|SPECIAL_CATEGORY|CNN|True": {
+   "APPROVED": 16,
+   "REQUIRES_REVIEW": 16,
+   "BLOCKED": 2016,
+   "min_pcs": 1.2,
+   "pcs_at_all_controls": 1.2,
+   "gate_at_all_controls": 0
+  },
+  "SAFETY_CRITICAL|SPECIAL_CATEGORY|CNN|False": {
+   "APPROVED": 0,
+   "REQUIRES_REVIEW": 0,
+   "BLOCKED": 2048,
+   "min_pcs": 48.0,
+   "pcs_at_all_controls": 48.0,
+   "gate_at_all_controls": 2
+  },
+  "SAFETY_CRITICAL|INTERNAL|LLM|True": {
+   "APPROVED": 16,
+   "REQUIRES_REVIEW": 16,
+   "BLOCKED": 2016,
+   "min_pcs": 2.1,
+   "pcs_at_all_controls": 2.1,
+   "gate_at_all_controls": 0
+  },
+  "SAFETY_CRITICAL|INTERNAL|LLM|False": {
+   "APPROVED": 0,
+   "REQUIRES_REVIEW": 0,
+   "BLOCKED": 2048,
+   "min_pcs": 48.0,
+   "pcs_at_all_controls": 48.0,
+   "gate_at_all_controls": 2
+  },
+  "SAFETY_CRITICAL|INTERNAL|CNN|True": {
+   "APPROVED": 32,
+   "REQUIRES_REVIEW": 32,
+   "BLOCKED": 1984,
+   "min_pcs": 1.2,
+   "pcs_at_all_controls": 1.2,
+   "gate_at_all_controls": 0
+  },
+  "SAFETY_CRITICAL|INTERNAL|CNN|False": {
+   "APPROVED": 0,
+   "REQUIRES_REVIEW": 0,
+   "BLOCKED": 2048,
+   "min_pcs": 48.0,
+   "pcs_at_all_controls": 48.0,
+   "gate_at_all_controls": 2
+  }
+ },
+ "controls_effect": {
+  "still_blocked_with_every_control": 0.60875,
+  "mean_reduction_fraction": 0.3204059126849087,
+  "median_reduction_fraction": 0.05
+ },
+ "inventory": {
+  "numeric_literals_in_derive_terms": 323,
+  "distinct": 81,
+  "lines_of_derive_terms": 969,
+  "log_statements": 73,
+  "tables_in_enums": 9
+ },
+ "crash_test": {
+  "NONE": "AttributeError: type object 'PCSBlockReasonEnum' has no attribute 'CONSENT_MISSING'",
+  "NONE_failures_of_300": 300,
+  "UNKNOWN": "AttributeError: type object 'PCSBlockReasonEnum' has no attribute 'CONSENT_MISSING'",
+  "UNKNOWN_failures_of_300": 300
+ }
+}

@@ -1,0 +1,52 @@
+SPECIFICATION Spec
+INVARIANT InvProdStatus InvExpiry InvReleasable InvRetire InvDecom InvReviewBasis InvHold InvObligation InvIncident
+PROPERTY ApproveSafety ReleaseSafety UpdateSafety RevokePersist NoImprove
+CONSTANTS
+  CM = 3
+  VE = 2
+  VE2 = 3
+  AP_LEN = 1
+  DR = 1
+  DC = 1
+  NV = 1
+  NE = 1
+  POLCH = TRUE
+  RET = FALSE
+  INCI = TRUE
+  AUTH = TRUE
+  MUT = "none"
+
+TLC2 Version 2026.11.02.143702 (rev: 29980f0)
+Running breadth-first search Model-Checking with fp 9 and seed 1478719154513895495 with 16 workers on 16 cores with 2731MB heap and 64MB offheap memory [pid: 1] (Linux 6.18.33.1-microsoft-standard-WSL2 amd64, Eclipse Adoptium 17.0.20.1 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /w/AstraV25.tla
+Parsing file /tmp/tlc-9873955960549873155/Naturals.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-9873955960549873155/_TLCTrace.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-9873955960549873155/TLC.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-9873955960549873155/TLCExt.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-9873955960549873155/Sequences.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-9873955960549873155/FiniteSets.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-9873955960549873155/Integers.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module AstraV25
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module AstraV25
+Starting... (2026-11-02 20:45:01)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-11-02 20:45:01.
+Progress(13) at 2026-11-02 20:45:04: 351,018 states generated (351,018 s/min), 75,704 distinct states found (75,704 ds/min), 33,868 states left on queue.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 3.2E-7
+  based on the actual fingerprints:  val = 1.7E-8
+7107673 states generated, 964176 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 24.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 11 and the 95th percentile is 3).
+Finished in 33s at (2026-11-02 20:45:33)

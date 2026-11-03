@@ -1,0 +1,332 @@
+{
+ "constants": {
+  "CM": 3,
+  "VE": 2,
+  "VE2": 3,
+  "AP_LEN": 1,
+  "DR": 1,
+  "DC": 1
+ },
+ "scenarios": {
+  "core": {
+   "NV": 2,
+   "NE": 1,
+   "POLCH": "FALSE",
+   "RET": "FALSE",
+   "INCI": "FALSE"
+  },
+  "core1": {
+   "NV": 1,
+   "NE": 1,
+   "POLCH": "TRUE",
+   "RET": "FALSE",
+   "INCI": "FALSE"
+  },
+  "retire": {
+   "NV": 1,
+   "NE": 1,
+   "POLCH": "TRUE",
+   "RET": "TRUE",
+   "INCI": "FALSE"
+  },
+  "incident": {
+   "NV": 1,
+   "NE": 1,
+   "POLCH": "TRUE",
+   "RET": "FALSE",
+   "INCI": "TRUE"
+  }
+ },
+ "mut_oldSatisfies": {
+  "scenario": "core",
+  "mut": "oldSatisfies",
+  "auth": true,
+  "properties": [
+   "ApproveSafety",
+   "ReleaseSafety",
+   "UpdateSafety",
+   "RevokePersist",
+   "NoImprove"
+  ],
+  "invariant": true,
+  "no_error": false,
+  "generated": 5715,
+  "distinct": 1591,
+  "depth": 8,
+  "violation": "Invariant InvExpiry is violated.",
+  "tail": ", 0, 0>>, FALSE>>, <<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE, FALSE>>\n/\\ evs = <<\"CUR\">>\n/\\ apUntil = <<0, 0>>\n/\\ pol = 1\n/\\ pend = <<FALSE, FALSE>>\n/\\ clock = 1\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"NONE\", \"NONE\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE, FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\nState 5: <Tick line 174, col 9 to line 178, col 169 of module AstraV25>\n/\\ prod = 0\n/\\ cred = <<FALSE, FALSE>>\n/\\ apPol = <<0, 0>>\n/\\ oblOpen = FALSE\n/\\ rvwPol = <<0, 0>>\n/\\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>, <<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE, FALSE>>\n/\\ evs = <<\"CUR\">>\n/\\ apUntil = <<0, 0>>\n/\\ pol = 1\n/\\ pend = <<FALSE, FALSE>>\n/\\ clock = 2\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"NONE\", \"NONE\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE, FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\n5715 states generated, 1591 distinct states found, 909 states left on queue.\nThe depth of the complete state graph search is 8.\nFinished in 03s at (2026-11-03 07:35:35)\nTrace exploration spec path: ./AstraV25_TTrace_1793691331.tla\n"
+ },
+ "mut_noRelDeploy": {
+  "scenario": "core",
+  "mut": "noRelDeploy",
+  "auth": true,
+  "properties": [
+   "ApproveSafety",
+   "ReleaseSafety",
+   "UpdateSafety",
+   "RevokePersist",
+   "NoImprove"
+  ],
+  "invariant": true,
+  "no_error": false,
+  "generated": 10705,
+  "distinct": 2668,
+  "depth": 8,
+  "violation": "Action property ReleaseSafety is violated.",
+  "tail": ">, FALSE>>, <<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE, FALSE>>\n/\\ evs = <<\"REV\">>\n/\\ apUntil = <<1, 0>>\n/\\ pol = 1\n/\\ pend = <<FALSE, FALSE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"APPR\", \"NONE\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE, FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\nState 7: <Deploy(1) line 108, col 14 to line 109, col 165 of module AstraV25>\n/\\ prod = 1\n/\\ cred = <<TRUE, FALSE>>\n/\\ apPol = <<1, 0>>\n/\\ oblOpen = FALSE\n/\\ rvwPol = <<0, 0>>\n/\\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>, <<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE, FALSE>>\n/\\ evs = <<\"REV\">>\n/\\ apUntil = <<1, 0>>\n/\\ pol = 1\n/\\ pend = <<FALSE, FALSE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"DEPL\", \"NONE\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE, FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\n10705 states generated, 2668 distinct states found, 1417 states left on queue.\nThe depth of the complete state graph search is 8.\nFinished in 04s at (2026-11-03 07:35:42)\nTrace exploration spec path: ./AstraV25_TTrace_1793691338.tla\n"
+ },
+ "mut_reviewOverrides": {
+  "scenario": "core",
+  "mut": "reviewOverrides",
+  "auth": true,
+  "properties": [
+   "ApproveSafety",
+   "ReleaseSafety",
+   "UpdateSafety",
+   "RevokePersist",
+   "NoImprove"
+  ],
+  "invariant": true,
+  "no_error": false,
+  "generated": 200,
+  "distinct": 139,
+  "depth": 5,
+  "violation": "Invariant InvReleasable is violated.",
+  "tail": ">>, FALSE>>, <<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE, FALSE>>\n/\\ evs = <<\"NONE\">>\n/\\ apUntil = <<0, 0>>\n/\\ pol = 1\n/\\ pend = <<FALSE, FALSE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"SUBM\", \"NONE\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE, FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\nState 3: <Review(1,TRUE) line 93, col 17 to line 96, col 155 of module AstraV25>\n/\\ prod = 0\n/\\ cred = <<FALSE, FALSE>>\n/\\ apPol = <<0, 0>>\n/\\ oblOpen = FALSE\n/\\ rvwPol = <<1, 0>>\n/\\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>, <<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<TRUE, FALSE>>\n/\\ evs = <<\"NONE\">>\n/\\ apUntil = <<0, 0>>\n/\\ pol = 1\n/\\ pend = <<FALSE, FALSE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"SUBM\", \"NONE\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<TRUE, FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\n200 states generated, 139 distinct states found, 88 states left on queue.\nThe depth of the complete state graph search is 5.\nFinished in 02s at (2026-11-03 07:35:47)\nTrace exploration spec path: ./AstraV25_TTrace_1793691345.tla\n"
+ },
+ "mut_noSupersede": {
+  "scenario": "core",
+  "mut": "noSupersede",
+  "auth": true,
+  "properties": [
+   "ApproveSafety",
+   "ReleaseSafety",
+   "UpdateSafety",
+   "RevokePersist",
+   "NoImprove"
+  ],
+  "invariant": true,
+  "no_error": false,
+  "generated": 34249,
+  "distinct": 8348,
+  "depth": 11,
+  "violation": "Invariant InvProdStatus is violated.",
+  "tail": ", FALSE>>, <<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE, FALSE>>\n/\\ evs = <<\"CUR\">>\n/\\ apUntil = <<1, 1>>\n/\\ pol = 1\n/\\ pend = <<FALSE, FALSE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"APPR\", \"DEPL\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE, FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\nState 9: <Deploy(1) line 108, col 14 to line 109, col 165 of module AstraV25>\n/\\ prod = 1\n/\\ cred = <<TRUE, FALSE>>\n/\\ apPol = <<1, 1>>\n/\\ oblOpen = FALSE\n/\\ rvwPol = <<0, 0>>\n/\\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>, <<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE, FALSE>>\n/\\ evs = <<\"CUR\">>\n/\\ apUntil = <<1, 1>>\n/\\ pol = 1\n/\\ pend = <<FALSE, FALSE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"DEPL\", \"DEPL\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE, FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\n34249 states generated, 8348 distinct states found, 4347 states left on queue.\nThe depth of the complete state graph search is 11.\nFinished in 05s at (2026-11-03 07:35:58)\nTrace exploration spec path: ./AstraV25_TTrace_1793691352.tla\n"
+ },
+ "mut_updateKeepsStatus": {
+  "scenario": "core",
+  "mut": "updateKeepsStatus",
+  "auth": true,
+  "properties": [
+   "ApproveSafety",
+   "ReleaseSafety",
+   "UpdateSafety",
+   "RevokePersist",
+   "NoImprove"
+  ],
+  "invariant": true,
+  "no_error": false,
+  "generated": 16935,
+  "distinct": 4314,
+  "depth": 9,
+  "violation": "Action property UpdateSafety is violated.",
+  "tail": "0>>, FALSE>>, <<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE, FALSE>>\n/\\ evs = <<\"CUR\">>\n/\\ apUntil = <<0, 1>>\n/\\ pol = 1\n/\\ pend = <<FALSE, TRUE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"NONE\", \"APPR\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE, FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\nState 7: <Deploy(2) line 108, col 14 to line 109, col 165 of module AstraV25>\n/\\ prod = 2\n/\\ cred = <<FALSE, TRUE>>\n/\\ apPol = <<0, 1>>\n/\\ oblOpen = FALSE\n/\\ rvwPol = <<0, 0>>\n/\\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>, <<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE, FALSE>>\n/\\ evs = <<\"CUR\">>\n/\\ apUntil = <<0, 1>>\n/\\ pol = 1\n/\\ pend = <<FALSE, TRUE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"NONE\", \"DEPL\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE, FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\n16935 states generated, 4314 distinct states found, 2316 states left on queue.\nThe depth of the complete state graph search is 9.\nFinished in 05s at (2026-11-03 07:36:07)\nTrace exploration spec path: ./AstraV25_TTrace_1793691361.tla\n"
+ },
+ "mut_reinstate": {
+  "scenario": "core",
+  "mut": "reinstate",
+  "auth": true,
+  "properties": [
+   "ApproveSafety",
+   "ReleaseSafety",
+   "UpdateSafety",
+   "RevokePersist",
+   "NoImprove"
+  ],
+  "invariant": true,
+  "no_error": false,
+  "generated": 3062,
+  "distinct": 1005,
+  "depth": 8,
+  "violation": "Action property RevokePersist is violated.",
+  "tail": ">, FALSE>>, <<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE, FALSE>>\n/\\ evs = <<\"REV\">>\n/\\ apUntil = <<0, 0>>\n/\\ pol = 1\n/\\ pend = <<FALSE, FALSE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"NONE\", \"NONE\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE, FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\nState 4: <Reinstate(1) line 90, col 17 to line 91, col 179 of module AstraV25>\n/\\ prod = 0\n/\\ cred = <<FALSE, FALSE>>\n/\\ apPol = <<0, 0>>\n/\\ oblOpen = FALSE\n/\\ rvwPol = <<0, 0>>\n/\\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>, <<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE, FALSE>>\n/\\ evs = <<\"CUR\">>\n/\\ apUntil = <<0, 0>>\n/\\ pol = 1\n/\\ pend = <<FALSE, FALSE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"NONE\", \"NONE\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE, FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\n3062 states generated, 1005 distinct states found, 639 states left on queue.\nThe depth of the complete state graph search is 8.\nFinished in 03s at (2026-11-03 07:36:14)\nTrace exploration spec path: ./AstraV25_TTrace_1793691371.tla\n"
+ },
+ "mut_keepCredentials": {
+  "scenario": "core",
+  "mut": "keepCredentials",
+  "auth": true,
+  "properties": [
+   "ApproveSafety",
+   "ReleaseSafety",
+   "UpdateSafety",
+   "RevokePersist",
+   "NoImprove"
+  ],
+  "invariant": true,
+  "no_error": false,
+  "generated": 10745,
+  "distinct": 2743,
+  "depth": 8,
+  "violation": "Invariant InvDecom is violated.",
+  "tail": "E>>, <<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE, FALSE>>\n/\\ evs = <<\"CUR\">>\n/\\ apUntil = <<1, 0>>\n/\\ pol = 1\n/\\ pend = <<FALSE, FALSE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"DEPL\", \"NONE\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE, FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\nState 7: <Decommission(1) line 128, col 20 to line 131, col 171 of module AstraV25>\n/\\ prod = 0\n/\\ cred = <<TRUE, FALSE>>\n/\\ apPol = <<1, 0>>\n/\\ oblOpen = FALSE\n/\\ rvwPol = <<0, 0>>\n/\\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>, <<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE, FALSE>>\n/\\ evs = <<\"CUR\">>\n/\\ apUntil = <<1, 0>>\n/\\ pol = 1\n/\\ pend = <<FALSE, FALSE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"DECOM\", \"NONE\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE, FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\n10745 states generated, 2743 distinct states found, 1482 states left on queue.\nThe depth of the complete state graph search is 8.\nFinished in 04s at (2026-11-03 07:36:21)\nTrace exploration spec path: ./AstraV25_TTrace_1793691377.tla\n"
+ },
+ "mut_noObligation": {
+  "scenario": "core",
+  "mut": "noObligation",
+  "auth": true,
+  "properties": [
+   "ApproveSafety",
+   "ReleaseSafety",
+   "UpdateSafety",
+   "RevokePersist",
+   "NoImprove"
+  ],
+  "invariant": true,
+  "no_error": false,
+  "generated": 9365,
+  "distinct": 2440,
+  "depth": 8,
+  "violation": "Invariant InvObligation is violated.",
+  "tail": ">>, FALSE>>, <<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE, FALSE>>\n/\\ evs = <<\"CUR\">>\n/\\ apUntil = <<1, 0>>\n/\\ pol = 1\n/\\ pend = <<FALSE, FALSE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"DEPL\", \"NONE\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE, FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\nState 7: <RevokeEv(1) line 83, col 16 to line 84, col 178 of module AstraV25>\n/\\ prod = 1\n/\\ cred = <<TRUE, FALSE>>\n/\\ apPol = <<1, 0>>\n/\\ oblOpen = FALSE\n/\\ rvwPol = <<0, 0>>\n/\\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>, <<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE, FALSE>>\n/\\ evs = <<\"REV\">>\n/\\ apUntil = <<1, 0>>\n/\\ pol = 1\n/\\ pend = <<FALSE, FALSE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"DEPL\", \"NONE\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE, FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\n9365 states generated, 2440 distinct states found, 1353 states left on queue.\nThe depth of the complete state graph search is 8.\nFinished in 02s at (2026-11-03 07:36:26)\nTrace exploration spec path: ./AstraV25_TTrace_1793691384.tla\n"
+ },
+ "mut_noRelApprove": {
+  "scenario": "core",
+  "mut": "noRelApprove",
+  "auth": true,
+  "properties": [
+   "ApproveSafety",
+   "ReleaseSafety",
+   "UpdateSafety",
+   "RevokePersist",
+   "NoImprove"
+  ],
+  "invariant": true,
+  "no_error": false,
+  "generated": 157,
+  "distinct": 107,
+  "depth": 5,
+  "violation": "Action property ApproveSafety is violated.",
+  "tail": "0>>, FALSE>>, <<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE, FALSE>>\n/\\ evs = <<\"NONE\">>\n/\\ apUntil = <<0, 0>>\n/\\ pol = 1\n/\\ pend = <<FALSE, FALSE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"SUBM\", \"NONE\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE, FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\nState 3: <Approve(1) line 98, col 15 to line 101, col 156 of module AstraV25>\n/\\ prod = 0\n/\\ cred = <<FALSE, FALSE>>\n/\\ apPol = <<1, 0>>\n/\\ oblOpen = FALSE\n/\\ rvwPol = <<0, 0>>\n/\\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>, <<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE, FALSE>>\n/\\ evs = <<\"NONE\">>\n/\\ apUntil = <<1, 0>>\n/\\ pol = 1\n/\\ pend = <<FALSE, FALSE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"APPR\", \"NONE\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE, FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\n157 states generated, 107 distinct states found, 59 states left on queue.\nThe depth of the complete state graph search is 5.\nFinished in 03s at (2026-11-03 07:36:32)\nTrace exploration spec path: ./AstraV25_TTrace_1793691388.tla\n"
+ },
+ "mut_reviewNoBasis": {
+  "scenario": "core",
+  "mut": "reviewNoBasis",
+  "auth": true,
+  "properties": [
+   "ApproveSafety",
+   "ReleaseSafety",
+   "UpdateSafety",
+   "RevokePersist",
+   "NoImprove"
+  ],
+  "invariant": true,
+  "no_error": false,
+  "generated": 6289,
+  "distinct": 1733,
+  "depth": 9,
+  "violation": "Invariant InvReviewBasis is violated.",
+  "tail": ">, FALSE>>, <<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE, FALSE>>\n/\\ evs = <<\"CUR\">>\n/\\ apUntil = <<0, 0>>\n/\\ pol = 1\n/\\ pend = <<TRUE, FALSE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 1, 0>>\n/\\ st = <<\"SUBM\", \"NONE\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE, FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\nState 7: <Review(1,FALSE) line 93, col 17 to line 96, col 155 of module AstraV25>\n/\\ prod = 0\n/\\ cred = <<FALSE, FALSE>>\n/\\ apPol = <<0, 0>>\n/\\ oblOpen = FALSE\n/\\ rvwPol = <<1, 0>>\n/\\ rvwFp = <<<<<<0, 1, 0>>, FALSE>>, <<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE, FALSE>>\n/\\ evs = <<\"CUR\">>\n/\\ apUntil = <<0, 0>>\n/\\ pol = 1\n/\\ pend = <<TRUE, FALSE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 1, 0>>\n/\\ st = <<\"SUBM\", \"NONE\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<TRUE, FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\n6289 states generated, 1733 distinct states found, 953 states left on queue.\nThe depth of the complete state graph search is 9.\nFinished in 02s at (2026-11-03 07:36:36)\nTrace exploration spec path: ./AstraV25_TTrace_1793691394.tla\n"
+ },
+ "mut_noRatchet": {
+  "scenario": "core",
+  "mut": "noRatchet",
+  "auth": true,
+  "properties": [
+   "ApproveSafety",
+   "ReleaseSafety",
+   "UpdateSafety",
+   "RevokePersist",
+   "NoImprove"
+  ],
+  "invariant": true,
+  "no_error": false,
+  "generated": 14161,
+  "distinct": 3455,
+  "depth": 9,
+  "violation": "Action property NoImprove is violated.",
+  "tail": " 0>>, FALSE>>, <<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE, FALSE>>\n/\\ evs = <<\"CUR\">>\n/\\ apUntil = <<0, 0>>\n/\\ pol = 1\n/\\ pend = <<FALSE, FALSE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"CUR\"\n/\\ t0 = 0\n/\\ rv = <<0, 1, 1>>\n/\\ st = <<\"SUBM\", \"NONE\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE, FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\nState 7: <RevokeEff line 86, col 14 to line 87, col 171 of module AstraV25>\n/\\ prod = 0\n/\\ cred = <<FALSE, FALSE>>\n/\\ apPol = <<0, 0>>\n/\\ oblOpen = FALSE\n/\\ rvwPol = <<0, 0>>\n/\\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>, <<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE, FALSE>>\n/\\ evs = <<\"CUR\">>\n/\\ apUntil = <<0, 0>>\n/\\ pol = 1\n/\\ pend = <<FALSE, FALSE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"REV\"\n/\\ t0 = 0\n/\\ rv = <<0, 1, 1>>\n/\\ st = <<\"SUBM\", \"NONE\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE, FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\n14161 states generated, 3455 distinct states found, 1801 states left on queue.\nThe depth of the complete state graph search is 9.\nFinished in 05s at (2026-11-03 07:36:44)\nTrace exploration spec path: ./AstraV25_TTrace_1793691399.tla\n"
+ },
+ "mut_retireNoBasis": {
+  "scenario": "retire",
+  "mut": "retireNoBasis",
+  "auth": true,
+  "properties": [
+   "ApproveSafety",
+   "ReleaseSafety",
+   "UpdateSafety",
+   "RevokePersist",
+   "NoImprove"
+  ],
+  "invariant": true,
+  "no_error": false,
+  "generated": 9013,
+  "distinct": 2535,
+  "depth": 8,
+  "violation": "Invariant InvRetire is violated.",
+  "tail": "aV25>\n/\\ prod = 0\n/\\ cred = <<FALSE>>\n/\\ apPol = <<0>>\n/\\ oblOpen = FALSE\n/\\ rvwPol = <<0>>\n/\\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE>>\n/\\ evs = <<\"NONE\">>\n/\\ apUntil = <<0>>\n/\\ pol = 1\n/\\ pend = <<FALSE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"DECOM\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE>>\n/\\ art = TRUE\n/\\ basis = FALSE\n/\\ hold = TRUE\n\nState 6: <RetireVerify(1) line 133, col 20 to line 135, col 183 of module AstraV25>\n/\\ prod = 0\n/\\ cred = <<FALSE>>\n/\\ apPol = <<0>>\n/\\ oblOpen = FALSE\n/\\ rvwPol = <<0>>\n/\\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE>>\n/\\ evs = <<\"NONE\">>\n/\\ apUntil = <<0>>\n/\\ pol = 1\n/\\ pend = <<FALSE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"RETIRED\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE>>\n/\\ art = TRUE\n/\\ basis = FALSE\n/\\ hold = TRUE\n\n9013 states generated, 2535 distinct states found, 1655 states left on queue.\nThe depth of the complete state graph search is 8.\nFinished in 04s at (2026-11-03 07:36:52)\nTrace exploration spec path: ./AstraV25_TTrace_1793691408.tla\n"
+ },
+ "mut_keepRetired": {
+  "scenario": "retire",
+  "mut": "keepRetired",
+  "auth": true,
+  "properties": [
+   "ApproveSafety",
+   "ReleaseSafety",
+   "UpdateSafety",
+   "RevokePersist",
+   "NoImprove"
+  ],
+  "invariant": true,
+  "no_error": false,
+  "generated": 32250,
+  "distinct": 6724,
+  "depth": 9,
+  "violation": "Invariant InvRetire is violated.",
+  "tail": "raV25>\n/\\ prod = 0\n/\\ cred = <<FALSE>>\n/\\ apPol = <<0>>\n/\\ oblOpen = FALSE\n/\\ rvwPol = <<0>>\n/\\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE>>\n/\\ evs = <<\"NONE\">>\n/\\ apUntil = <<0>>\n/\\ pol = 1\n/\\ pend = <<FALSE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"RETIRED\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE>>\n/\\ art = TRUE\n/\\ basis = TRUE\n/\\ hold = TRUE\n\nState 8: <ReleaseHold line 144, col 16 to line 146, col 166 of module AstraV25>\n/\\ prod = 0\n/\\ cred = <<FALSE>>\n/\\ apPol = <<0>>\n/\\ oblOpen = FALSE\n/\\ rvwPol = <<0>>\n/\\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE>>\n/\\ evs = <<\"NONE\">>\n/\\ apUntil = <<0>>\n/\\ pol = 1\n/\\ pend = <<FALSE>>\n/\\ clock = 0\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"NONE\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"RETIRED\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE>>\n/\\ art = TRUE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\n32250 states generated, 6724 distinct states found, 3533 states left on queue.\nThe depth of the complete state graph search is 9.\nFinished in 04s at (2026-11-03 07:37:00)\nTrace exploration spec path: ./AstraV25_TTrace_1793691415.tla\n"
+ },
+ "mut_strictTick_live": {
+  "scenario": "core1",
+  "mut": "strictTick",
+  "auth": true,
+  "properties": [
+   "NoTimelock"
+  ],
+  "invariant": false,
+  "no_error": false,
+  "generated": 127591,
+  "distinct": 26827,
+  "depth": 13,
+  "violation": "Temporal property NoTimelock was violated.",
+  "tail": "ntil = <<2>>\n/\\ pol = 2\n/\\ pend = <<FALSE>>\n/\\ clock = 1\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"REV\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"DECOM\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\nState 11: <Observe(<<0, 1, 1>>) line 157, col 15 to line 158, col 178 of module AstraV25>\n/\\ prod = 0\n/\\ cred = <<FALSE>>\n/\\ apPol = <<2>>\n/\\ oblOpen = FALSE\n/\\ rvwPol = <<0>>\n/\\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE>>\n/\\ evs = <<\"CUR\">>\n/\\ apUntil = <<2>>\n/\\ pol = 2\n/\\ pend = <<FALSE>>\n/\\ clock = 1\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"REV\"\n/\\ t0 = 0\n/\\ rv = <<0, 1, 1>>\n/\\ st = <<\"DECOM\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\nBack to state 10: <Observe(<<0, 0, 0>>) line 157, col 15 to line 158, col 178 of module AstraV25>\n\nFinished checking temporal properties in 00s at 2026-11-03 07:37:07\n127591 states generated, 26827 distinct states found, 8974 states left on queue.\nThe depth of the complete state graph search is 13.\nFinished in 05s at (2026-11-03 07:37:07)\nTrace exploration spec path: ./AstraV25_TTrace_1793691422.tla\n"
+ },
+ "mut_deadlineTick_noauth_live": {
+  "scenario": "incident",
+  "mut": "deadlineTick",
+  "auth": false,
+  "properties": [
+   "NoTimelock"
+  ],
+  "invariant": false,
+  "no_error": false,
+  "generated": 100310,
+  "distinct": 23788,
+  "depth": 12,
+  "violation": "Temporal property NoTimelock was violated.",
+  "tail": ">\n/\\ rvwFp = <<<<<<0, 1, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE>>\n/\\ evs = <<\"CUR\">>\n/\\ apUntil = <<0>>\n/\\ pol = 1\n/\\ pend = <<FALSE>>\n/\\ clock = 1\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"CUR\"\n/\\ t0 = 0\n/\\ rv = <<0, 1, 0>>\n/\\ st = <<\"SUBM\">>\n/\\ inc = \"OPEN\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<TRUE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\nState 10: <Decommission(1) line 128, col 20 to line 131, col 171 of module AstraV25>\n/\\ prod = 0\n/\\ cred = <<FALSE>>\n/\\ apPol = <<0>>\n/\\ oblOpen = FALSE\n/\\ rvwPol = <<1>>\n/\\ rvwFp = <<<<<<0, 1, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE>>\n/\\ evs = <<\"CUR\">>\n/\\ apUntil = <<0>>\n/\\ pol = 1\n/\\ pend = <<FALSE>>\n/\\ clock = 1\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"CUR\"\n/\\ t0 = 0\n/\\ rv = <<0, 1, 0>>\n/\\ st = <<\"DECOM\">>\n/\\ inc = \"OPEN\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<TRUE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\nState 11: Stuttering\nFinished checking temporal properties in 00s at 2026-11-03 07:37:15\n100310 states generated, 23788 distinct states found, 11360 states left on queue.\nThe depth of the complete state graph search is 12.\nFinished in 05s at (2026-11-03 07:37:15)\nTrace exploration spec path: ./AstraV25_TTrace_1793691430.tla\n"
+ },
+ "weak_fairness_for_tick_live": {
+  "scenario": "core1",
+  "mut": "none",
+  "auth": true,
+  "properties": [
+   "NoTimelock"
+  ],
+  "invariant": false,
+  "no_error": false,
+  "generated": 127658,
+  "distinct": 28457,
+  "depth": 13,
+  "violation": "Temporal property NoTimelock was violated.",
+  "tail": "/\\ evs = <<\"CUR\">>\n/\\ apUntil = <<2>>\n/\\ pol = 2\n/\\ pend = <<FALSE>>\n/\\ clock = 1\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"REV\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"SUSP\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\nState 14: <Update(1) line 121, col 14 to line 126, col 159 of module AstraV25>\n/\\ prod = 0\n/\\ cred = <<FALSE>>\n/\\ apPol = <<0>>\n/\\ oblOpen = FALSE\n/\\ rvwPol = <<0>>\n/\\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>\n/\\ rvwB = <<FALSE>>\n/\\ evs = <<\"CUR\">>\n/\\ apUntil = <<2>>\n/\\ pol = 2\n/\\ pend = <<TRUE>>\n/\\ clock = 1\n/\\ del = FALSE\n/\\ lock = FALSE\n/\\ ee = \"REV\"\n/\\ t0 = 0\n/\\ rv = <<0, 0, 0>>\n/\\ st = <<\"SUBM\">>\n/\\ inc = \"NONE\"\n/\\ oblBreach = FALSE\n/\\ oblT = 0\n/\\ rvw = <<FALSE>>\n/\\ art = FALSE\n/\\ basis = FALSE\n/\\ hold = FALSE\n\nBack to state 9: <Approve(1) line 98, col 15 to line 101, col 156 of module AstraV25>\n\nFinished checking temporal properties in 00s at 2026-11-03 07:37:23\n127658 states generated, 28457 distinct states found, 11478 states left on queue.\nThe depth of the complete state graph search is 13.\nFinished in 05s at (2026-11-03 07:37:23)\nTrace exploration spec path: ./AstraV25_TTrace_1793691437.tla\n"
+ }
+}

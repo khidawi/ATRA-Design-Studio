@@ -1,0 +1,351 @@
+SPECIFICATION Spec
+PROPERTY NoTimelock
+CONSTANTS
+  CM = 3
+  VE = 2
+  VE2 = 3
+  AP_LEN = 1
+  DR = 1
+  DC = 1
+  NV = 1
+  NE = 1
+  POLCH = TRUE
+  RET = FALSE
+  INCI = FALSE
+  AUTH = TRUE
+  MUT = "strictTick"
+
+TLC2 Version 2026.11.02.143702 (rev: 29980f0)
+Running breadth-first search Model-Checking with fp 26 and seed 3444715284722263359 with 16 workers on 16 cores with 2731MB heap and 64MB offheap memory [pid: 1] (Linux 6.18.33.1-microsoft-standard-WSL2 amd64, Eclipse Adoptium 17.0.20.1 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /w/AstraV25.tla
+Parsing file /tmp/tlc-4427246149567389872/Naturals.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-4427246149567389872/_TLCTrace.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-4427246149567389872/TLC.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-4427246149567389872/TLCExt.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-4427246149567389872/Sequences.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-4427246149567389872/FiniteSets.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-4427246149567389872/Integers.tla (jar:file:/jar/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module AstraV25
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module AstraV25
+Starting... (2026-11-03 07:37:03)
+Implied-temporal checking--satisfiability problem has 1 branches.
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-11-03 07:37:04.
+Checking temporal properties for the current state space with 26093 total distinct states at (2026-11-03 07:37:07)
+Error: Temporal property NoTimelock was violated.
+
+Error: The following behavior constitutes a counter-example:
+
+State 1: <Initial predicate>
+/\ prod = 0
+/\ cred = <<FALSE>>
+/\ apPol = <<0>>
+/\ oblOpen = FALSE
+/\ rvwPol = <<0>>
+/\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>
+/\ rvwB = <<FALSE>>
+/\ evs = <<"NONE">>
+/\ apUntil = <<0>>
+/\ pol = 1
+/\ pend = <<FALSE>>
+/\ clock = 0
+/\ del = FALSE
+/\ lock = FALSE
+/\ ee = "NONE"
+/\ t0 = 0
+/\ rv = <<0, 0, 0>>
+/\ st = <<"NONE">>
+/\ inc = "NONE"
+/\ oblBreach = FALSE
+/\ oblT = 0
+/\ rvw = <<FALSE>>
+/\ art = FALSE
+/\ basis = FALSE
+/\ hold = FALSE
+
+State 2: <Submit(1) line 64, col 14 to line 65, col 177 of module AstraV25>
+/\ prod = 0
+/\ cred = <<FALSE>>
+/\ apPol = <<0>>
+/\ oblOpen = FALSE
+/\ rvwPol = <<0>>
+/\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>
+/\ rvwB = <<FALSE>>
+/\ evs = <<"NONE">>
+/\ apUntil = <<0>>
+/\ pol = 1
+/\ pend = <<FALSE>>
+/\ clock = 0
+/\ del = FALSE
+/\ lock = FALSE
+/\ ee = "NONE"
+/\ t0 = 0
+/\ rv = <<0, 0, 0>>
+/\ st = <<"SUBM">>
+/\ inc = "NONE"
+/\ oblBreach = FALSE
+/\ oblT = 0
+/\ rvw = <<FALSE>>
+/\ art = FALSE
+/\ basis = FALSE
+/\ hold = FALSE
+
+State 3: <Upload(1) line 67, col 14 to line 68, col 176 of module AstraV25>
+/\ prod = 0
+/\ cred = <<FALSE>>
+/\ apPol = <<0>>
+/\ oblOpen = FALSE
+/\ rvwPol = <<0>>
+/\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>
+/\ rvwB = <<FALSE>>
+/\ evs = <<"UPL">>
+/\ apUntil = <<0>>
+/\ pol = 1
+/\ pend = <<FALSE>>
+/\ clock = 0
+/\ del = FALSE
+/\ lock = FALSE
+/\ ee = "NONE"
+/\ t0 = 0
+/\ rv = <<0, 0, 0>>
+/\ st = <<"SUBM">>
+/\ inc = "NONE"
+/\ oblBreach = FALSE
+/\ oblT = 0
+/\ rvw = <<FALSE>>
+/\ art = FALSE
+/\ basis = FALSE
+/\ hold = FALSE
+
+State 4: <Attest(1) line 70, col 14 to line 71, col 176 of module AstraV25>
+/\ prod = 0
+/\ cred = <<FALSE>>
+/\ apPol = <<0>>
+/\ oblOpen = FALSE
+/\ rvwPol = <<0>>
+/\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>
+/\ rvwB = <<FALSE>>
+/\ evs = <<"CUR">>
+/\ apUntil = <<0>>
+/\ pol = 1
+/\ pend = <<FALSE>>
+/\ clock = 0
+/\ del = FALSE
+/\ lock = FALSE
+/\ ee = "NONE"
+/\ t0 = 0
+/\ rv = <<0, 0, 0>>
+/\ st = <<"SUBM">>
+/\ inc = "NONE"
+/\ oblBreach = FALSE
+/\ oblT = 0
+/\ rvw = <<FALSE>>
+/\ art = FALSE
+/\ basis = FALSE
+/\ hold = FALSE
+
+State 5: <AttestEff line 73, col 14 to line 74, col 177 of module AstraV25>
+/\ prod = 0
+/\ cred = <<FALSE>>
+/\ apPol = <<0>>
+/\ oblOpen = FALSE
+/\ rvwPol = <<0>>
+/\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>
+/\ rvwB = <<FALSE>>
+/\ evs = <<"CUR">>
+/\ apUntil = <<0>>
+/\ pol = 1
+/\ pend = <<FALSE>>
+/\ clock = 0
+/\ del = FALSE
+/\ lock = FALSE
+/\ ee = "CUR"
+/\ t0 = 0
+/\ rv = <<0, 0, 0>>
+/\ st = <<"SUBM">>
+/\ inc = "NONE"
+/\ oblBreach = FALSE
+/\ oblT = 0
+/\ rvw = <<FALSE>>
+/\ art = FALSE
+/\ basis = FALSE
+/\ hold = FALSE
+
+State 6: <ChangePolicy line 154, col 17 to line 155, col 179 of module AstraV25>
+/\ prod = 0
+/\ cred = <<FALSE>>
+/\ apPol = <<0>>
+/\ oblOpen = FALSE
+/\ rvwPol = <<0>>
+/\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>
+/\ rvwB = <<FALSE>>
+/\ evs = <<"CUR">>
+/\ apUntil = <<0>>
+/\ pol = 2
+/\ pend = <<FALSE>>
+/\ clock = 0
+/\ del = FALSE
+/\ lock = FALSE
+/\ ee = "CUR"
+/\ t0 = 0
+/\ rv = <<0, 0, 0>>
+/\ st = <<"SUBM">>
+/\ inc = "NONE"
+/\ oblBreach = FALSE
+/\ oblT = 0
+/\ rvw = <<FALSE>>
+/\ art = FALSE
+/\ basis = FALSE
+/\ hold = FALSE
+
+State 7: <Tick line 174, col 9 to line 178, col 169 of module AstraV25>
+/\ prod = 0
+/\ cred = <<FALSE>>
+/\ apPol = <<0>>
+/\ oblOpen = FALSE
+/\ rvwPol = <<0>>
+/\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>
+/\ rvwB = <<FALSE>>
+/\ evs = <<"CUR">>
+/\ apUntil = <<0>>
+/\ pol = 2
+/\ pend = <<FALSE>>
+/\ clock = 1
+/\ del = FALSE
+/\ lock = FALSE
+/\ ee = "CUR"
+/\ t0 = 0
+/\ rv = <<0, 0, 0>>
+/\ st = <<"SUBM">>
+/\ inc = "NONE"
+/\ oblBreach = FALSE
+/\ oblT = 0
+/\ rvw = <<FALSE>>
+/\ art = FALSE
+/\ basis = FALSE
+/\ hold = FALSE
+
+State 8: <RevokeEff line 86, col 14 to line 87, col 171 of module AstraV25>
+/\ prod = 0
+/\ cred = <<FALSE>>
+/\ apPol = <<0>>
+/\ oblOpen = FALSE
+/\ rvwPol = <<0>>
+/\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>
+/\ rvwB = <<FALSE>>
+/\ evs = <<"CUR">>
+/\ apUntil = <<0>>
+/\ pol = 2
+/\ pend = <<FALSE>>
+/\ clock = 1
+/\ del = FALSE
+/\ lock = FALSE
+/\ ee = "REV"
+/\ t0 = 0
+/\ rv = <<0, 0, 0>>
+/\ st = <<"SUBM">>
+/\ inc = "NONE"
+/\ oblBreach = FALSE
+/\ oblT = 0
+/\ rvw = <<FALSE>>
+/\ art = FALSE
+/\ basis = FALSE
+/\ hold = FALSE
+
+State 9: <Approve(1) line 98, col 15 to line 101, col 156 of module AstraV25>
+/\ prod = 0
+/\ cred = <<FALSE>>
+/\ apPol = <<2>>
+/\ oblOpen = FALSE
+/\ rvwPol = <<0>>
+/\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>
+/\ rvwB = <<FALSE>>
+/\ evs = <<"CUR">>
+/\ apUntil = <<2>>
+/\ pol = 2
+/\ pend = <<FALSE>>
+/\ clock = 1
+/\ del = FALSE
+/\ lock = FALSE
+/\ ee = "REV"
+/\ t0 = 0
+/\ rv = <<0, 0, 0>>
+/\ st = <<"APPR">>
+/\ inc = "NONE"
+/\ oblBreach = FALSE
+/\ oblT = 0
+/\ rvw = <<FALSE>>
+/\ art = FALSE
+/\ basis = FALSE
+/\ hold = FALSE
+
+State 10: <Decommission(1) line 128, col 20 to line 131, col 171 of module AstraV25>
+/\ prod = 0
+/\ cred = <<FALSE>>
+/\ apPol = <<2>>
+/\ oblOpen = FALSE
+/\ rvwPol = <<0>>
+/\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>
+/\ rvwB = <<FALSE>>
+/\ evs = <<"CUR">>
+/\ apUntil = <<2>>
+/\ pol = 2
+/\ pend = <<FALSE>>
+/\ clock = 1
+/\ del = FALSE
+/\ lock = FALSE
+/\ ee = "REV"
+/\ t0 = 0
+/\ rv = <<0, 0, 0>>
+/\ st = <<"DECOM">>
+/\ inc = "NONE"
+/\ oblBreach = FALSE
+/\ oblT = 0
+/\ rvw = <<FALSE>>
+/\ art = FALSE
+/\ basis = FALSE
+/\ hold = FALSE
+
+State 11: <Observe(<<0, 1, 1>>) line 157, col 15 to line 158, col 178 of module AstraV25>
+/\ prod = 0
+/\ cred = <<FALSE>>
+/\ apPol = <<2>>
+/\ oblOpen = FALSE
+/\ rvwPol = <<0>>
+/\ rvwFp = <<<<<<0, 0, 0>>, FALSE>>>>
+/\ rvwB = <<FALSE>>
+/\ evs = <<"CUR">>
+/\ apUntil = <<2>>
+/\ pol = 2
+/\ pend = <<FALSE>>
+/\ clock = 1
+/\ del = FALSE
+/\ lock = FALSE
+/\ ee = "REV"
+/\ t0 = 0
+/\ rv = <<0, 1, 1>>
+/\ st = <<"DECOM">>
+/\ inc = "NONE"
+/\ oblBreach = FALSE
+/\ oblT = 0
+/\ rvw = <<FALSE>>
+/\ art = FALSE
+/\ basis = FALSE
+/\ hold = FALSE
+
+Back to state 10: <Observe(<<0, 0, 0>>) line 157, col 15 to line 158, col 178 of module AstraV25>
+
+Finished checking temporal properties in 00s at 2026-11-03 07:37:07
+127591 states generated, 26827 distinct states found, 8974 states left on queue.
+The depth of the complete state graph search is 13.
+Finished in 05s at (2026-11-03 07:37:07)
+Trace exploration spec path: ./AstraV25_TTrace_1793691422.tla

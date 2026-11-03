@@ -1,0 +1,314 @@
+{
+ "delegation": {
+  "spec": {
+   "states": 91368,
+   "delegations_in_reachable_states": 264576,
+   "non_escalation_violations": 0,
+   "revoked_ancestor_still_valid": 0,
+   "revoked_reactivated_transitions": 0,
+   "cycles": 0,
+   "max_depth_reached": 2
+  },
+  "mutation_no_scope_check": {
+   "states": 110856,
+   "delegations_in_reachable_states": 322176,
+   "non_escalation_violations": 21088,
+   "revoked_ancestor_still_valid": 0,
+   "revoked_reactivated_transitions": 0,
+   "cycles": 0,
+   "max_depth_reached": 2
+  }
+ },
+ "quantitative": {
+  "q1_allocation_implication_violations": 0,
+  "q2_union_bound_violations": 0,
+  "q2_linearity_violations": 0,
+  "q3_bounds_hold_trials": [
+   300,
+   300
+  ],
+  "q3_portfolio_quantile_minus_sum_of_deployment_quantiles": {
+   "min": -20.53474094698433,
+   "max": -5.446523313412863,
+   "share_negative": 1.0,
+   "share_positive": 0.0
+  }
+ },
+ "organisation": {
+  "3 units, 3 actors, no head rule": {
+   "structures": 27648,
+   "chain_violations": 0,
+   "indep_rl_not_symmetric": 0,
+   "mutual_supervision": 7668
+  },
+  "3 units, 3 actors, head rule": {
+   "structures": 7548,
+   "chain_violations": 0,
+   "indep_rl_not_symmetric": 0,
+   "mutual_supervision": 0
+  },
+  "4 units, 3 actors, no head rule": {
+   "structures": 2048000,
+   "chain_violations": 0,
+   "indep_rl_not_symmetric": 0,
+   "mutual_supervision": 785376
+  },
+  "4 units, 3 actors, head rule": {
+   "structures": 293264,
+   "chain_violations": 0,
+   "indep_rl_not_symmetric": 0,
+   "mutual_supervision": 0
+  }
+ },
+ "applicability": {
+  "combinations": 6,
+  "all_defined": true,
+  "not_applicable_only_when_false_and_valid": true,
+  "rationale_never_changes_true_or_unknown": true,
+  "unknown_never_becomes_not_applicable": true
+ },
+ "gate": {
+  "states": 13500,
+  "APPROVED": 16,
+  "REVIEW": 884,
+  "BLOCKED": 12600,
+  "undefined": 0,
+  "improving_pairs": 16200,
+  "improvement_worsens_gate": 0,
+  "unknown_improves_gate": 0,
+  "blocked_states_released_by_best_review": 0,
+  "unresolvable_trigger_states_released_by_best_review": 0,
+  "review_states": 884,
+  "review_states_releasable_by_a_covering_review": 176,
+  "review_states_needing_a_recorded_fact_first": 708,
+  "v24_approve_guard_enabled_but_gate_REVIEW": 24,
+  "v25_release_safety_violations": 0
+ },
+ "independence_with_obligations": {
+  "PERSON|AT_ACT": {
+   "states": 8,
+   "deploy_without_continuing_pass": 0,
+   "production_running_with_requirement_unmet": 0,
+   "of_which_without_open_obligation_and_without_Flag_enabled": 0
+  },
+  "PERSON|CONTINUING": {
+   "states": 8,
+   "deploy_without_continuing_pass": 0,
+   "production_running_with_requirement_unmet": 0,
+   "of_which_without_open_obligation_and_without_Flag_enabled": 0
+  },
+  "REPORTING_LINE|AT_ACT": {
+   "states": 8,
+   "deploy_without_continuing_pass": 0,
+   "production_running_with_requirement_unmet": 0,
+   "of_which_without_open_obligation_and_without_Flag_enabled": 0
+  },
+  "REPORTING_LINE|CONTINUING": {
+   "states": 12,
+   "deploy_without_continuing_pass": 0,
+   "production_running_with_requirement_unmet": 2,
+   "of_which_without_open_obligation_and_without_Flag_enabled": 0
+  }
+ },
+ "quantifier_audit": {
+  "v2.5": {
+   "properties_checked": 19,
+   "with_unbound_variables": []
+  },
+  "v2.4": {
+   "properties_checked": 12,
+   "with_unbound_variables": [
+    [
+     "G(Deploy(v) → ApprovedExactHash(v) ∧ HardPass(v))",
+     [
+      "v"
+     ]
+    ],
+    [
+     "G(Update(v') → (¬Deploy(v') W Approve(v')))",
+     [
+      "v'"
+     ]
+    ],
+    [
+     "G(AuthorizedVia(d,a,op,s,σ) → AuthorizedGrantor(d,op,s,scope(d)) ∧ σ⊆scope(d) ∧ depth(d)≤Dmax)",
+     [
+      "a",
+      "d",
+      "op",
+      "s",
+      "σ"
+     ]
+    ],
+    [
+     "G(Revoked(d) → ∀d' ∈ {d} ∪ Desc(d): ¬AuthorizedVia(d',a,op,s,σ))",
+     [
+      "a",
+      "d",
+      "op",
+      "s",
+      "σ"
+     ]
+    ],
+    [
+     "G(Revoked(d) → X Revoked(d))",
+     [
+      "d"
+     ]
+    ],
+    [
+     "G(Expired(e) → ¬Satisfies(e,c))",
+     [
+      "c",
+      "e"
+     ]
+    ],
+    [
+     "G(Alert(i) → F_[0,d](Responded(i) ∨ AcceptedWithReason(i)))",
+     [
+      "i"
+     ]
+    ],
+    [
+     "G(Decommissioned(v) → ¬ProductionEnabled(v) ∧ NoActiveDeploymentCredentials(v))",
+     [
+      "v"
+     ]
+    ],
+    [
+     "G(LegalHold(d) → ¬Deleted(d))",
+     [
+      "d"
+     ]
+    ],
+    [
+     "G(Claimed(stage,v) → Evidence(stage,v))",
+     [
+      "stage",
+      "v"
+     ]
+    ],
+    [
+     "G(Approve(v) → Indep_L(approver(v), owner(v), now))",
+     [
+      "v"
+     ]
+    ],
+    [
+     "G(Deploy(v) → Indep_L(approver(v), owner(v), now))",
+     [
+      "v"
+     ]
+    ]
+   ]
+  }
+ },
+ "components": {
+  "state_tuple": [
+   "versions",
+   "prod",
+   "approval",
+   "review",
+   "evidence",
+   "estimates",
+   "permissions",
+   "delegations",
+   "assignments",
+   "structure",
+   "policy",
+   "runtime",
+   "incidents",
+   "obligations",
+   "retention",
+   "clock",
+   "last"
+  ],
+  "never_written": [],
+  "written_but_not_in_tuple": []
+ },
+ "predicates": {
+  "used_in_properties": [
+   "AcceptedWithReason",
+   "Alert",
+   "Approve",
+   "ApprovedExactHash",
+   "AuthorizedGrantor",
+   "AuthorizedVia",
+   "Breached",
+   "Claimed",
+   "ContinuingPass",
+   "Decommissioned",
+   "Deleted",
+   "Deploy",
+   "Deployed",
+   "Desc",
+   "Evidence",
+   "Expire",
+   "Expired",
+   "Gate",
+   "Indep_L",
+   "LegalHold",
+   "NoActiveDeploymentCredentials",
+   "ObligationBreached",
+   "ProductionEnabled",
+   "Rank",
+   "Releasable",
+   "Responded",
+   "ResponderAvailable",
+   "Resume",
+   "RevokeEvidence",
+   "Revoked",
+   "Rollback",
+   "Satisfies",
+   "Suspended",
+   "Update",
+   "WF"
+  ],
+  "actions_among_them": [
+   "Alert",
+   "Approve",
+   "Deploy",
+   "Expire",
+   "Resume",
+   "RevokeEvidence",
+   "Rollback",
+   "Update"
+  ],
+  "not_defined_or_declared": [],
+  "parameters_declared": [
+   "Apply",
+   "Authority",
+   "Closure",
+   "Derive",
+   "GrantAuthority",
+   "Matches",
+   "Parses",
+   "Qualified",
+   "RetentionDutiesMet",
+   "SchemaOK",
+   "ShutdownPlan",
+   "Trigger",
+   "ValidityOK"
+  ]
+ },
+ "predicates_v24_contrast": [
+  "AcceptedWithReason",
+  "ApprovedExactHash",
+  "AuthorizedGrantor",
+  "AuthorizedVia",
+  "Claimed",
+  "Decommissioned",
+  "Deleted",
+  "Desc",
+  "Evidence",
+  "Expired",
+  "HardPass",
+  "Indep_L",
+  "LegalHold",
+  "NoActiveDeploymentCredentials",
+  "ProductionEnabled",
+  "Responded",
+  "Revoked",
+  "Satisfies"
+ ]
+}
