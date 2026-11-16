@@ -1,0 +1,104 @@
+{
+  "schema_version": "0.1",
+  "agent": {
+    "id": "claims-triage-agent-04",
+    "owner": "claims-ops@example-insurer.eu",
+    "lifecycle": {
+      "status": "production",
+      "expires": "2027-03-31"
+    },
+    "model_version": "1.3.0",
+    "signature": "MEUCIQD-detached-signature-placeholder"
+  },
+  "permitted_goals": [
+    {
+      "id": "G1",
+      "statement": "Triage inbound motor claims into fast-track or manual-review"
+    }
+  ],
+  "permitted_tasks": [
+    {
+      "id": "T1",
+      "tool": "claims_db.read",
+      "scope": {
+        "records": "own-tenant",
+        "fields": [
+          "claim_id",
+          "status",
+          "amount"
+        ]
+      }
+    },
+    {
+      "id": "T2",
+      "tool": "notify.email",
+      "scope": {
+        "recipients": "internal-only"
+      },
+      "prohibited_chains": [
+        "claims_db.write -> notify.email"
+      ]
+    }
+  ],
+  "resource_scopes": {
+    "memory": {
+      "writes": "validated",
+      "default_context": "ephemeral"
+    },
+    "data": [
+      {
+        "resource": "claims_db",
+        "access": "read"
+      }
+    ]
+  },
+  "delegation": {
+    "may_delegate_to": [
+      "fraud-check-agent-02"
+    ],
+    "accepts_delegation_from": [
+      "intake-orchestrator-01"
+    ],
+    "mode": "execution_only"
+  },
+  "autonomy": {
+    "unattended_actions": [
+      "T1"
+    ],
+    "human_in_the_loop": [
+      {
+        "action": "fast-track approval > EUR 10,000",
+        "require": "forced_confirmation_showing_raw_action"
+      }
+    ]
+  },
+  "constraints": [
+    {
+      "asi": "ASI01",
+      "control": "retrieved_content_quarantine + goal_integrity_check"
+    },
+    {
+      "asi": "ASI03",
+      "control": "per_agent_identity + short_lived_scoped_credentials"
+    },
+    {
+      "asi": "ASI10",
+      "control": "behavioural_baseline + kill_switch"
+    }
+  ],
+  "regulatory_mappings": [
+    {
+      "control": "human_in_the_loop",
+      "clauses": [
+        "EU-AI-Act:Art.14",
+        "ISO-42001:A.9.2"
+      ]
+    },
+    {
+      "control": "immutable_action_log",
+      "clauses": [
+        "EU-AI-Act:Art.12"
+      ]
+    }
+  ]
+}

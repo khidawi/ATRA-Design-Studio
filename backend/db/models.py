@@ -1001,3 +1001,51 @@ class AstraAssessment(Base):
     result: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)                 # the whole assessment, as served
     created_by: Mapped[str] = mapped_column(String(120), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+# ── ASTRA phase 5: the accepted baseline and the signed contract (astra_contract_api.py) ─────────────────────────────────────────────────────────────
+class AstraBaseline(Base):
+    """A person's acceptance of one design as the baseline: the design (by hash) and the recorded assessment that approved it. Never edited."""
+
+    __tablename__ = "astra_baselines"
+    __table_args__ = (Index("ix_astra_baselines_design", "organisation_id", "design_key", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    design_key: Mapped[str] = mapped_column(String(40), nullable=False)
+    design_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    assessment_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("astra_assessments.id"), nullable=False)
+    accepted_by: Mapped[str] = mapped_column(String(120), nullable=False)
+    accepted_by_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    note: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class AstraSignedContract(Base):
+    """A behavioural contract in the Appendix A format, signed with Ed25519 (astra_signing.py). The document and its signature are never edited; only the status beside them
+    changes (ACTIVE, SUPERSEDED when a newer one is signed, REVOKED), and the status is not part of what is signed. One ACTIVE contract per agent."""
+
+    __tablename__ = "astra_signed_contracts"
+    __table_args__ = (CheckConstraint("status IN ('ACTIVE', 'SUPERSEDED', 'REVOKED')", name="ck_astra_signed_status"),
+                      Index("uq_astra_signed_active", "organisation_id", "agent_key", unique=True, postgresql_where=text("status = 'ACTIVE'")),
+                      Index("ix_astra_signed_agent", "organisation_id", "agent_key", "signed_at"))
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    agent_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    design_key: Mapped[str] = mapped_column(String(40), nullable=False)
+    design_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    baseline_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("astra_baselines.id"), nullable=False)
+    version: Mapped[str] = mapped_column(String(20), nullable=False)
+    document: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    contract_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    key_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    signature: Mapped[str] = mapped_column(String(128), nullable=False)
+    not_before: Mapped[str] = mapped_column(String(20), nullable=False)               # UTC, ISO 8601 to the second: exactly what was signed
+    expires_at: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(10), nullable=False, server_default="ACTIVE")
+    signed_by: Mapped[str] = mapped_column(String(120), nullable=False)
+    signed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    revoked_by: Mapped[Optional[str]] = mapped_column(String(120))
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    revoke_reason: Mapped[Optional[str]] = mapped_column(Text)

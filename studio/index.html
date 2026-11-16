@@ -624,6 +624,11 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       agentAssessment: (key) => call('/api/agents/designs/' + encodeURIComponent(key) + '/assessment'),
       agentAssessments: (key) => call('/api/agents/designs/' + encodeURIComponent(key) + '/assessments'),
       agentRecordAssessment: (key) => post('/api/agents/designs/' + encodeURIComponent(key) + '/assessments', {}),
+      agentContract: (key) => call('/api/agents/designs/' + encodeURIComponent(key) + '/contract'),
+      agentAcceptBaseline: (key, note) => post('/api/agents/designs/' + encodeURIComponent(key) + '/baseline', { note: note || null }),
+      agentSignContract: (key) => post('/api/agents/designs/' + encodeURIComponent(key) + '/sign', {}),
+      astraVerifyContract: (id) => call('/api/astra/contracts/' + encodeURIComponent(id) + '/verify'),
+      astraRevokeContract: (id, reason) => post('/api/astra/contracts/' + encodeURIComponent(id) + '/revoke', { reason }),
       riskState: () => call('/api/risk'),
       riskProposeAsset: (body) => post('/api/risk/assets', body),
       riskProposeTolerance: (body) => post('/api/risk/tolerances', body),
@@ -1385,11 +1390,11 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
   }
 
   /* ----- ASTRA phase 3: the Assessment panel (read only). The attack paths of the saved design, the controls each needs, and the verdict the formal model gives ----- */
-  const AS = { key: null, ver: null, loading: false, data: null, err: null, hist: [], busy: false, msg: null };
+  const AS = { key: null, ver: null, loading: false, data: null, err: null, hist: [], ct: null, vf: null, signedDoc: null, busy: false, msg: null };
   async function loadAstra() {
     const st = S.studio, key = st.designKey; if (!key || AS.loading) return;
     AS.loading = true; AS.err = null; AS.key = key; AS.ver = st.version;
-    try { [AS.data, AS.hist] = await Promise.all([STAI.api.agentAssessment(key), STAI.api.agentAssessments(key)]); } catch (e) { AS.data = null; AS.err = e.message; }
+    try { [AS.data, AS.hist, AS.ct] = await Promise.all([STAI.api.agentAssessment(key), STAI.api.agentAssessments(key), STAI.api.agentContract(key).catch(() => null)]); AS.vf = null; } catch (e) { AS.data = null; AS.err = e.message; }
     AS.loading = false; renderIfIdle(route());
   }
   const AS_VERDICT = { APPROVED: ['ok', 'Approved'], REQUIRES_REVIEW: ['warn', 'Requires review'], BLOCKED: ['bad', 'Blocked'], INVALID_CONTRACT: ['bad', 'Invalid'] };
@@ -1409,11 +1414,32 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     const write = can('write');
     const sugs = d.suggestions.length ? `<h3>What keeps this from being approved</h3><div style="display:flex;flex-direction:column;gap:8px">${d.suggestions.map((s) => `<div class="card" style="padding:10px 12px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><span class="stack"><span style="font-weight:500">${esc(s.label)}</span><span class="cap">${esc(s.why)} Affects ${s.paths} path${s.paths === 1 ? '' : 's'} up to tier ${s.tier}.${s.action === 'manual' ? ` Control key <span class="mono">${esc(s.control_key)}</span>.` : ''}</span></span><span class="prow" style="gap:8px"><span class="pill ${s.state === 'VIO' ? 'bad' : 'warn'}">${s.state === 'VIO' ? 'missing' : 'unverified'}</span>${s.action === 'fix' && write ? `<button class="btn btn-s" data-act="astraFix" data-arg="${esc(s.asi)}">Add to design</button>` : ''}</span></div>`).join('')}</div>` : (d.verdict === 'APPROVED' ? '<div class="note good"><strong>Nothing keeps this design from being approved.</strong></div>' : '');
     const hist = `<h3>Recorded assessments</h3>${write ? `<div class="prow"><button class="btn2 btn-s" data-act="astraRecord"${AS.busy ? ' disabled' : ''}>Record this assessment</button><span class="cap">Kept for the record; a recorded assessment is never edited.</span></div>` : ''}${AS.msg ? `<div class="note ${AS.msg.tone}" role="status"><span style="font-size:13px">${esc(AS.msg.text)}</span></div>` : ''}${AS.hist.length ? AS.hist.map((h) => `<div class="lrow"><span class="stack"><span style="font-weight:500">${asVerdict(h.verdict)} \u00b7 version ${h.design_version}</span><span class="cap">${esc(h.created_by)} \u00b7 ${esc(new Date(h.created_at).toLocaleString())}</span></span><span class="cap mono">${esc(h.design_hash.slice(0, 10))}</span></div>`).join('') : '<p class="cap" style="margin:0">None recorded yet.</p>'}`;
+    const ct = AS.ct, sign = can('signoff');
+    let ctr = '';
+    if (ct) {
+      const sg = ct.signed, bl = ct.baseline;
+      const live = sg && sg.current && sg.status === 'ACTIVE';
+      const state = live ? '<span class="pill ok">signed</span>' : (bl ? '<span class="pill warn">baseline accepted, not signed</span>' : '<span class="pill muted">draft</span>');
+      const shown = sg && sg.current && AS.signedDoc ? AS.signedDoc : ct.document;
+      const dl = `<a class="btn2 btn-s" download="${esc(ct.document.agent.id)}-contract.json" href="data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(shown, null, 2))}">Download JSON</a>`;
+      const canBase = sign && !bl && ct.verdict === 'APPROVED' && ct.assessment_recorded;
+      const canSign = sign && bl && !ct.problems.length && ct.signing_configured && !live;
+      ctr = `<h3>Behavioural contract</h3><div class="card" style="padding:12px 14px;display:flex;flex-direction:column;gap:8px">
+        <div class="prow" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><span>${esc(ct.document.agent.id)} \u00b7 version ${esc(ct.document.agent.model_version)}</span>${state}</div>
+        <span class="cap">The contract in the Appendix A format, built from this design and its assessment. It stays a draft until a different person from the one who recorded the assessment accepts the baseline, and a signer signs it.</span>
+        ${ct.problems.length ? `<div class="note alert"><strong>Not valid yet</strong>${list(ct.problems)}</div>` : ''}
+        ${bl ? `<span class="cap">Baseline accepted by ${esc(bl.accepted_by)} on ${esc(new Date(bl.created_at).toLocaleString())}${bl.note ? ': ' + esc(bl.note) : ''}.</span>` : ''}
+        ${sg ? `<span class="cap">Version ${esc(sg.version)} signed by ${esc(sg.signed_by)} with key <span class="mono">${esc(sg.key_id)}</span>, valid ${esc(sg.not_before)} to ${esc(sg.expires_at)}, ${esc(sg.status.toLowerCase())}${sg.current ? '' : ' (the design has changed since)'}. Signature <span class="mono">${esc(sg.signature.slice(0, 16))}\u2026</span></span>` : ''}
+        ${AS.vf ? `<div class="note ${AS.vf.valid ? 'good' : 'alert'}"><span style="font-size:13px">${AS.vf.valid ? 'The signature verifies and the contract is valid now.' : 'Not valid: ' + esc(AS.vf.reasons.join('; ')) + '.'}</span></div>` : ''}
+        <div class="prow" style="flex-wrap:wrap;gap:8px">${canBase ? `<button class="btn btn-s" data-act="astraBaseline"${AS.busy ? ' disabled' : ''}>Accept as baseline</button>` : ''}${canSign ? `<button class="btn btn-s" data-act="astraSign"${AS.busy ? ' disabled' : ''}>Sign contract</button>` : ''}${sg ? `<button class="btn2 btn-s" data-act="astraVerify" data-arg="${esc(sg.id)}">Verify</button>` : ''}${sign && sg && sg.status === 'ACTIVE' ? `<button class="btn2 btn-s" data-act="astraRevoke" data-arg="${esc(sg.id)}">Revoke</button>` : ''}${dl}</div>
+        ${sign && bl && !ct.signing_configured ? '<span class="cap">No signing key is configured on the server (ASTRA_SIGNING_KEY), so it cannot be signed yet.</span>' : ''}
+        ${sign && !bl && !canBase ? '<span class="cap">To accept a baseline the design needs an APPROVED assessment, recorded as the design is now (see below).</span>' : ''}</div>`;
+    }
     return `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><h2>Assessment</h2>${asVerdict(d.verdict)}</div>
       <span class="cap">What the formal model says about the saved design (version ${esc(d.design_version)}). It is a preview: nothing here changes the design, and acting on it comes in a later step. Impact tiers and tolerances are the ones ratified under Organisation risk; an asterisk marks a tier that is not declared and is read as the most severe.</span>
       ${deps}${sugs}<h3 style="margin-top:6px">Attack paths</h3><div style="display:flex;flex-direction:column;gap:8px">${paths}</div>
       ${d.unmapped.length ? `<h3>Not mapped to the organisation</h3>${list(d.unmapped.map((u) => `${u.node} (${u.agent}): ${u.reason}`))}` : ''}
-      ${d.notes.length ? `<h3>Notes</h3>${list(d.notes)}` : ''}<h3>What the assessment assumes</h3>${list(d.limits)}${hist}`;
+      ${d.notes.length ? `<h3>Notes</h3>${list(d.notes)}` : ''}<h3>What the assessment assumes</h3>${list(d.limits)}${ctr}${hist}`;
   }
 
   /* ---------- Drift review ---------- */
@@ -4764,6 +4790,29 @@ kill_switch:
       try { const r = await STAI.api.agentRecordAssessment(key); AS.hist = await STAI.api.agentAssessments(key); AS.msg = { tone: 'good', text: 'Recorded: ' + r.verdict.toLowerCase().replace('_', ' ') + ', version ' + r.design_version + '.' }; }
       catch (e) { AS.msg = { tone: e.status === 409 ? 'plain' : 'alert', text: e.message }; }
       AS.busy = false; render(true);
+    },
+    astraBaseline: async () => {
+      const key = S.studio.designKey; if (!key || AS.busy) return;
+      const note = window.prompt('Note for the baseline (optional):', '');
+      if (note === null) return;
+      AS.busy = true; AS.msg = null; render(true);
+      try { await STAI.api.agentAcceptBaseline(key, note.trim()); AS.ct = await STAI.api.agentContract(key); AS.msg = { tone: 'good', text: 'The design is accepted as the baseline.' }; }
+      catch (e) { AS.msg = { tone: 'alert', text: e.message }; }
+      AS.busy = false; render(true);
+    },
+    astraSign: async () => {
+      const key = S.studio.designKey; if (!key || AS.busy) return;
+      AS.busy = true; AS.msg = null; render(true);
+      try { const r = await STAI.api.agentSignContract(key); AS.signedDoc = r.document; AS.ct = await STAI.api.agentContract(key); AS.vf = null; AS.msg = { tone: 'good', text: 'Signed: version ' + r.version + ' with key ' + r.key_id + '.' }; }
+      catch (e) { AS.msg = { tone: 'alert', text: e.message }; }
+      AS.busy = false; render(true);
+    },
+    astraVerify: async (id) => { try { AS.vf = await STAI.api.astraVerifyContract(id); } catch (e) { AS.vf = { valid: false, reasons: [e.message] }; } render(true); },
+    astraRevoke: async (id) => {
+      const reason = window.prompt('Why is this contract being revoked?', ''); if (!reason || reason.trim().length < 3) return;
+      try { await STAI.api.astraRevokeContract(id, reason.trim()); AS.ct = await STAI.api.agentContract(S.studio.designKey); AS.vf = null; AS.msg = { tone: 'good', text: 'The contract is revoked.' }; }
+      catch (e) { AS.msg = { tone: 'alert', text: e.message }; }
+      render(true);
     }
   });
   const rkReload = async () => { RK.st = await STAI.api.riskState(); RK.at = Date.now(); };

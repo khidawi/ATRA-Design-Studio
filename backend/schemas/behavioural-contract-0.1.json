@@ -1,0 +1,280 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://astra.example/schemas/behavioural-contract-0.1.json",
+  "title": "ASTRA Behavioural Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "agent",
+    "permitted_goals",
+    "permitted_tasks"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+(\\.\\d+)?$"
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "owner",
+        "lifecycle",
+        "model_version"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{1,63}$"
+        },
+        "owner": {
+          "type": "string",
+          "format": "email"
+        },
+        "lifecycle": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "development",
+                "staging",
+                "production",
+                "retired"
+              ]
+            },
+            "expires": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        },
+        "model_version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "signature": {
+          "type": "string"
+        }
+      }
+    },
+    "permitted_goals": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "statement"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^G[0-9]+$"
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "permitted_tasks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "tool"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^T[0-9]+$"
+          },
+          "tool": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope": {
+            "type": "object"
+          },
+          "prohibited_chains": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^.+ -> .+$"
+            }
+          }
+        }
+      }
+    },
+    "resource_scopes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "memory": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "writes": {
+              "type": "string",
+              "enum": [
+                "validated",
+                "unrestricted"
+              ]
+            },
+            "default_context": {
+              "type": "string",
+              "enum": [
+                "ephemeral",
+                "persistent"
+              ]
+            }
+          }
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "resource",
+              "access"
+            ],
+            "properties": {
+              "resource": {
+                "type": "string"
+              },
+              "access": {
+                "type": "string",
+                "enum": [
+                  "read",
+                  "write",
+                  "read-write"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "delegation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "may_delegate_to": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "accepts_delegation_from": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "execution_only",
+            "permission_only",
+            "execution_and_permission"
+          ]
+        }
+      }
+    },
+    "autonomy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "unattended_actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^T[0-9]+$"
+          }
+        },
+        "human_in_the_loop": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "action",
+              "require"
+            ],
+            "properties": {
+              "action": {
+                "type": "string",
+                "minLength": 1
+              },
+              "require": {
+                "type": "string",
+                "enum": [
+                  "forced_confirmation",
+                  "forced_confirmation_showing_raw_action",
+                  "dual_control"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "asi",
+          "control"
+        ],
+        "properties": {
+          "asi": {
+            "type": "string",
+            "pattern": "^ASI(0[1-9]|10)$"
+          },
+          "control": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "regulatory_mappings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "control",
+          "clauses"
+        ],
+        "properties": {
+          "control": {
+            "type": "string",
+            "minLength": 1
+          },
+          "clauses": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}
