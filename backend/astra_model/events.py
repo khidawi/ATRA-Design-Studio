@@ -66,7 +66,7 @@ def conforms(E: Estate, ev: Dict[str, Any], hist: Tuple[Dict[str, Any], ...] = (
         if ev.get("prev_tool") and (ev["prev_tool"], t) in a.prohibited_chains:
             v.append("DVG-TOOL-03")
         if t in a.write_tools:
-            if a.autonomy == "suggest":
+            if a.autonomy == "suggest" or t in a.suggest_only_tools:
                 v.append("DVG-AUT-01")
             elif t in a.hitl_tools:
                 if not ev.get("confirmed"):

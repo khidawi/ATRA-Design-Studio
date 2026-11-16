@@ -19,6 +19,7 @@ class Agent:
     tools: Dict[str, Dict[str, Tuple[int, int]]] = field(default_factory=dict)   # tool -> parameter bounds (inclusive)
     write_tools: Set[str] = field(default_factory=set)
     hitl_tools: Set[str] = field(default_factory=set)                            # tools that need human confirmation
+    suggest_only_tools: Set[str] = field(default_factory=set)                    # write tools the contract allows neither unattended nor with a confirmation
     prohibited_chains: Set[Tuple[str, str]] = field(default_factory=set)
     resources: Dict[str, str] = field(default_factory=dict)                      # resource -> read | write
     validated_memory: bool = True

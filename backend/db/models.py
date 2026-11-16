@@ -407,6 +407,18 @@ class Finding(Base):
     test_spec: Mapped[Optional[str]] = mapped_column(Text)
     halt_requested_by: Mapped[Optional[str]] = mapped_column(String(120))
     halt_requested_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    # phase 6: what a typed divergence record carries (all optional)
+    detection_basis: Mapped[Optional[str]] = mapped_column(String(14))
+    contract_element: Mapped[Optional[str]] = mapped_column(String(60))
+    construct: Mapped[Optional[str]] = mapped_column(String(60))
+    asi_signal: Mapped[Optional[Any]] = mapped_column(JSONB)
+    evidence_refs: Mapped[Optional[Any]] = mapped_column(JSONB)
+    response_recommended: Mapped[Optional[str]] = mapped_column(String(8))
+    class_severity: Mapped[Optional[str]] = mapped_column(String(8))
+    adjudication: Mapped[Optional[str]] = mapped_column(String(10))
+    adjudicated_by: Mapped[Optional[str]] = mapped_column(String(120))
+    adjudicated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    adjudication_note: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
@@ -1049,3 +1061,35 @@ class AstraSignedContract(Base):
     revoked_by: Mapped[Optional[str]] = mapped_column(String(120))
     revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     revoke_reason: Mapped[Optional[str]] = mapped_column(Text)
+
+
+class AstraBinding(Base):
+    """Which contract element an observed name stands for, for one agent (astra_runtime.py). Without a binding the observed name is matched as it is."""
+
+    __tablename__ = "astra_bindings"
+    __table_args__ = (CheckConstraint("element IN ('tool', 'resource', 'delegate', 'component')", name="ck_astra_binding_element"),
+                      Index("uq_astra_binding", "organisation_id", "agent_key", "element", "selector", unique=True))
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    agent_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    element: Mapped[str] = mapped_column(String(12), nullable=False)
+    selector: Mapped[str] = mapped_column(String(200), nullable=False)                      # a glob over the observed name
+    contract_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_by: Mapped[str] = mapped_column(String(120), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class AstraPeerKey(Base):
+    """The public key an agent signs its messages with (public half only), so the platform can check a message itself instead of believing a collector's flag."""
+
+    __tablename__ = "astra_peer_keys"
+    __table_args__ = (Index("uq_astra_peer_key", "organisation_id", "key_id", unique=True),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    key_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    agent_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    public_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_by: Mapped[str] = mapped_column(String(120), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

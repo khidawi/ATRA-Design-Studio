@@ -46,6 +46,11 @@ class FindingOut(BaseModel):
     halt_requested_by: Optional[str]
     halt_requested_at: Optional[datetime]
     created_at: datetime
+    detection_basis: Optional[str] = None
+    class_severity: Optional[str] = None
+    adjudication: Optional[str] = None
+    adjudicated_by: Optional[str] = None
+    asi_signal: Optional[List[str]] = None
 
 
 def _out(f: Finding) -> FindingOut:
@@ -53,7 +58,8 @@ def _out(f: Finding) -> FindingOut:
                       title=f.title, class_code=f.class_code, observed=f.observed, permitted=f.permitted, element=f.element,
                       threat=f.threat, evidence=f.evidence, source=f.source, status=f.status, acknowledged_by=f.acknowledged_by,
                       acknowledged_at=f.acknowledged_at, test_spec=f.test_spec, halt_requested_by=f.halt_requested_by,
-                      halt_requested_at=f.halt_requested_at, created_at=f.created_at)
+                      halt_requested_at=f.halt_requested_at, created_at=f.created_at, detection_basis=f.detection_basis, class_severity=f.class_severity,
+                      adjudication=f.adjudication, adjudicated_by=f.adjudicated_by, asi_signal=f.asi_signal)
 
 
 def _get(session: Session, key: str) -> Finding:

@@ -27,6 +27,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 import agent_contract
+import astra_runtime
 import divergence
 import drift_engine
 import findings as findings_mod
@@ -61,7 +62,7 @@ def _throttle(key: str, n: int) -> Optional[int]:
 
 
 class EventIn(BaseModel):
-    type: Literal["tool_call", "delegation", "mcp_connect", "memory_write", "data_access", "heartbeat"]
+    type: Literal["tool_call", "delegation", "mcp_connect", "memory_write", "data_access", "heartbeat", "exec", "goal_set", "msg", "id", "life", "spawn", "component", "delegation_in"]
     name: str = Field("", max_length=200)
     write: Optional[bool] = None
     signed: Optional[bool] = None
@@ -76,6 +77,25 @@ class EventIn(BaseModel):
     tokens_out: Optional[int] = Field(None, ge=0)
     calls: Optional[int] = Field(None, ge=0)
     via: Optional[str] = Field(None, max_length=12)
+    # what the divergence classes of the signed contract need (astra_runtime.py); numbers, flags, hashes and names only, never prompts, arguments or results
+    params: Optional[Dict[str, float]] = Field(None, max_length=16)       # numeric parameters of a tool call, for bounds
+    prev_tool: Optional[str] = Field(None, max_length=200)
+    confirmed: Optional[bool] = None
+    presented_hash: Optional[str] = Field(None, max_length=128)
+    executed_hash: Optional[str] = Field(None, max_length=128)
+    mode: Optional[str] = Field(None, max_length=32)
+    depth: Optional[int] = Field(None, ge=0, le=100)
+    validated: Optional[bool] = None
+    provenance: Optional[bool] = None
+    sandboxed: Optional[bool] = None
+    host: Optional[str] = Field(None, max_length=200)
+    source: Optional[str] = Field(None, max_length=120)
+    semantic: Optional[Literal["out_of_scope", "integrity"]] = None
+    verified: Optional[bool] = None
+    payload: Optional[str] = Field(None, max_length=4096)
+    signature: Optional[str] = Field(None, max_length=256)
+    key_id: Optional[str] = Field(None, max_length=64)
+    in_aibom: Optional[bool] = None
 
 
 class BatchIn(BaseModel):
@@ -159,7 +179,8 @@ def _active(session: Session, key: str) -> Optional[Contract]:
     return session.scalar(select(Contract).where(Contract.object_type == "AGENT", Contract.deployment_id == key, Contract.status == "ACTIVE").order_by(Contract.issued_at.desc()))
 
 
-ATTR_KEYS = ("write", "signed", "scope", "trace_id", "error", "duration_ms", "model", "tokens_in", "tokens_out", "calls", "via")
+ATTR_KEYS = ("write", "signed", "scope", "trace_id", "error", "duration_ms", "model", "tokens_in", "tokens_out", "calls", "via", "params", "prev_tool", "confirmed", "presented_hash", "executed_hash",
+             "mode", "depth", "validated", "provenance", "sandboxed", "host", "source", "semantic", "verified", "key_id", "in_aibom")
 
 
 @router.post("/events", response_model=BatchOut)
@@ -191,6 +212,7 @@ def ingest_batch(session: Session, actor: str, body: BatchIn) -> BatchOut:
     elif agent.origin == "DEMO":
         raise HTTPException(status_code=409, detail=f"{key!r} is a demo agent; events cannot be reported for it.")
     agent.last_seen_at = now
+    judge = astra_runtime.Judge.load(session, org.id, key)             # None until the agent has had a signed contract; from then on it is judged against that, never the legacy contract
     contract = _active(session, key)
     view = agent_contract.view(contract.document["design_snapshot"]) if contract else None
     version = contract.document["version"] if contract else None
@@ -200,9 +222,15 @@ def ingest_batch(session: Session, actor: str, body: BatchIn) -> BatchOut:
     recent = now - timedelta(minutes=DEDUPE_MINUTES)
     for ev in body.events:
         data = ev.model_dump(exclude_none=True)
-        verdict, finding_key = "CONFORMING", None
+        verdict, finding_key, extra = "CONFORMING", None, {}
         if ev.type != "heartbeat":
-            if contract is None:
+            if judge is not None:
+                verdict, finding_key, extra = judge.run(session, ev.type, data, now)
+                if finding_key and finding_key not in raised and verdict in ("DIVERGENT", "PENDING"):
+                    raised.append(finding_key)
+            elif ev.type in astra_runtime.NEW_TYPES:
+                verdict = "UNKNOWN_AGENT" if discovered else "NO_CONTRACT"
+            elif contract is None:
                 verdict = "UNKNOWN_AGENT" if discovered else "NO_CONTRACT"
             else:
                 found = divergence.check_event(view, {k: v for k, v in data.items() if k in ("type", "name", "write", "signed", "scope")})
@@ -219,15 +247,16 @@ def ingest_batch(session: Session, actor: str, body: BatchIn) -> BatchOut:
                     if obs is not None:
                         newly.append(obs)
         session.add(RuntimeEvent(organisation_id=org.id, agent_key=key, at=_clamp(ev.at, now), type=ev.type, name=(ev.name or "")[:200],
-                                 attrs={k: v for k, v in data.items() if k in ATTR_KEYS}, verdict=verdict, contract_version=version,
+                                 attrs={**{k: v for k, v in data.items() if k in ATTR_KEYS and k not in ("payload", "signature")}, **extra}, verdict=verdict,
+                                 contract_version=judge.version if judge is not None else version,
                                  finding_key=finding_key, reported_by=actor))
         results.append(ResultOut(verdict=verdict, finding_key=finding_key))
-    drift_id = _runtime_drift(session, agent, contract, newly, actor) if (contract is not None and newly) else None
+    drift_id = _runtime_drift(session, agent, contract, newly, actor) if (judge is None and contract is not None and newly) else None
     session.commit()
     if random.random() < 0.02:                                  # keep the table bounded without a scheduler
         session.execute(delete(RuntimeEvent).where(RuntimeEvent.received_at < now - timedelta(days=RETENTION_DAYS)))
         session.commit()
-    return BatchOut(agent_key=key, discovered=discovered, contract_version=version, accepted=len(results), divergent=sum(1 for r in results if r.verdict == "DIVERGENT"),
+    return BatchOut(agent_key=key, discovered=discovered, contract_version=judge.version if judge is not None else version, accepted=len(results), divergent=sum(1 for r in results if r.verdict == "DIVERGENT"),
                     findings=raised, drift_item=drift_id, results=results)
 
 

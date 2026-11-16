@@ -109,6 +109,32 @@ class ClientTests(unittest.TestCase):
         self.assertTrue(all(a == "Bearer astra_abcd1234_secret" for a in self.p.auth))
         c.close()
 
+    def test_the_new_event_kinds_carry_only_numbers_flags_hashes_and_names(self):
+        c = self.client()
+        shown = Client.fingerprint({"to": "a", "amount": 5})
+        c.tool_call("refund", write=True, params={"amount": 5}, prev_tool="lookup", confirmed=True, presented_hash=shown, executed_hash=Client.fingerprint({"amount": 5, "to": "a"}))
+        c.delegation("peer", mode="execution_only", depth=1)
+        c.delegation_in("orchestrator")
+        c.component("parser", signed=True, in_aibom=True, provenance=True)
+        c.execution(sandboxed=True, host="api.example")
+        c.goal_set("Handle refunds", source="user", semantic="integrity")
+        c.message("peer", payload="hi", signature="ab" * 64, key_id="peer-key")
+        c.identity("refund-agent")
+        c.life()
+        c.spawn("child-agent")
+        c.data_access("ledger", write=True)
+        c.memory_write("long_term", validated=True, provenance=False)
+        self.assertTrue(c.flush())
+        self.assertTrue(wait_for(lambda: len(self.p.events()) == 12))
+        got = {e["type"]: e for e in self.p.events()}
+        self.assertEqual(set(got), {"tool_call", "delegation", "delegation_in", "component", "exec", "goal_set", "msg", "id", "life", "spawn", "data_access", "memory_write"})
+        self.assertEqual(got["tool_call"]["params"], {"amount": 5})
+        self.assertEqual(got["tool_call"]["presented_hash"], shown)
+        self.assertEqual(len(shown), 32)
+        self.assertEqual(Client.fingerprint({"a": 1, "b": 2}), Client.fingerprint({"b": 2, "a": 1}), "the fingerprint ignores key order")
+        self.assertIs(got["memory_write"]["provenance"], False)
+        self.assertNotIn("verified", got["msg"])
+
     def test_a_down_platform_never_raises_and_the_queue_is_bounded(self):
         c = Client("http://127.0.0.1:9", "astra_x_y", "agent-a", max_queue=3, flush_interval=0.05, timeout=0.3)
         for i in range(10):

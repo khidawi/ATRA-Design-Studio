@@ -91,20 +91,60 @@ class Client:
         except Exception as exc:                                   # pragma: no cover - reporting must never break the agent
             self._warn("record", f"could not queue an event: {exc}")
 
-    def tool_call(self, name: str, *, write: Optional[bool] = None, agent: Optional[str] = None) -> None:
-        self.record("tool_call", name, write=write, agent=agent)
+    def tool_call(self, name: str, *, write: Optional[bool] = None, agent: Optional[str] = None, params: Optional[Dict[str, float]] = None, prev_tool: Optional[str] = None,
+                  confirmed: Optional[bool] = None, presented_hash: Optional[str] = None, executed_hash: Optional[str] = None) -> None:
+        """params: the numeric parameters of the call (numbers only, for the contract's bounds); prev_tool: the tool called just before (for prohibited chains); confirmed, presented_hash
+        and executed_hash: for a tool that needs a person, whether one confirmed and the fingerprints (see fingerprint()) of what they were shown and of what ran."""
+        self.record("tool_call", name, write=write, agent=agent, params=params, prev_tool=prev_tool, confirmed=confirmed, presented_hash=presented_hash, executed_hash=executed_hash)
 
-    def delegation(self, to_agent: str, *, agent: Optional[str] = None) -> None:
-        self.record("delegation", to_agent, agent=agent)
+    def delegation(self, to_agent: str, *, agent: Optional[str] = None, mode: Optional[str] = None, depth: Optional[int] = None) -> None:
+        self.record("delegation", to_agent, agent=agent, mode=mode, depth=depth)
 
-    def mcp_connect(self, server: str, *, signed: Optional[bool] = None, agent: Optional[str] = None) -> None:
-        self.record("mcp_connect", server, signed=signed, agent=agent)
+    def delegation_in(self, from_agent: str, *, agent: Optional[str] = None) -> None:
+        """Work was handed to this agent by another."""
+        self.record("delegation_in", from_agent, agent=agent)
 
-    def data_access(self, store: str, *, agent: Optional[str] = None) -> None:
-        self.record("data_access", store, agent=agent)
+    def mcp_connect(self, server: str, *, signed: Optional[bool] = None, agent: Optional[str] = None, in_aibom: Optional[bool] = None, provenance: Optional[bool] = None) -> None:
+        self.record("mcp_connect", server, signed=signed, agent=agent, in_aibom=in_aibom, provenance=provenance)
 
-    def memory_write(self, scope: str = "session", *, agent: Optional[str] = None) -> None:
-        self.record("memory_write", "", scope=scope, agent=agent)
+    def component(self, name: str, *, signed: Optional[bool] = None, in_aibom: Optional[bool] = None, provenance: Optional[bool] = None, agent: Optional[str] = None) -> None:
+        """A model, plugin or library the agent loaded: whether it is signed, has provenance and is in the AI bill of materials."""
+        self.record("component", name, signed=signed, in_aibom=in_aibom, provenance=provenance, agent=agent)
+
+    def data_access(self, store: str, *, agent: Optional[str] = None, write: Optional[bool] = None) -> None:
+        self.record("data_access", store, agent=agent, write=write)
+
+    def memory_write(self, scope: str = "session", *, agent: Optional[str] = None, validated: Optional[bool] = None, provenance: Optional[bool] = None) -> None:
+        self.record("memory_write", "", scope=scope, agent=agent, validated=validated, provenance=provenance)
+
+    def execution(self, *, sandboxed: Optional[bool] = None, host: Optional[str] = None, agent: Optional[str] = None) -> None:
+        """The agent ran code or reached out: inside the sandbox or not, and to which host."""
+        self.record("exec", "", sandboxed=sandboxed, host=host, agent=agent)
+
+    def goal_set(self, goal: str, *, source: Optional[str] = None, semantic: Optional[str] = None, agent: Optional[str] = None) -> None:
+        """The agent took on a goal. semantic ("out_of_scope" or "integrity") is the verdict of your own classifier, if you run one; a person adjudicates it on the platform."""
+        self.record("goal_set", goal, source=source, semantic=semantic, agent=agent)
+
+    def message(self, sender: str, *, payload: Optional[str] = None, signature: Optional[str] = None, key_id: Optional[str] = None, verified: Optional[bool] = None, agent: Optional[str] = None) -> None:
+        """A message arrived from another agent. Send the payload, its Ed25519 signature (hex) and the key id so the platform checks it itself; verified is only your own claim."""
+        self.record("msg", sender, payload=payload, signature=signature, key_id=key_id, verified=verified, agent=agent)
+
+    def identity(self, claimed: str, *, agent: Optional[str] = None) -> None:
+        self.record("id", claimed, agent=agent)
+
+    def life(self, *, agent: Optional[str] = None) -> None:
+        """The agent is running now; the platform checks its lifecycle against the contract with its own clock."""
+        self.record("life", "", agent=agent)
+
+    def spawn(self, child: str, *, agent: Optional[str] = None) -> None:
+        self.record("spawn", child, agent=agent)
+
+    @staticmethod
+    def fingerprint(action: Any) -> str:
+        """A short hash of an action as a person saw it or as it ran, to compare the two (presented_hash and executed_hash). Only the hash leaves your process."""
+        import hashlib
+        import json
+        return hashlib.sha256(json.dumps(action, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")).hexdigest()[:32]
 
     def heartbeat(self, *, agent: Optional[str] = None) -> None:
         self.record("heartbeat", "", agent=agent)
