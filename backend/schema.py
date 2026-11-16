@@ -119,11 +119,23 @@ MODULATING_CLASS_CONSTRAINTS = frozenset({
 
 # ── Registry sub-models ────────────────────────────────────────────────────────
 
+class NotApplicableRationale(BaseModel):
+    """Why a constraint does not apply to this design (ST-AI v2.5). A declared "not applicable" counts only with a rationale that says why, names its author and an
+    independent reviewer (a different person) and has an expiry that has not passed; otherwise the constraint is UNKNOWN, never silently dropped."""
+    reason:     str            = ""
+    author:     str            = ""
+    reviewer:   str            = ""
+    expires_on: Optional[date] = None
+
+
 class ConstraintDeclaration(BaseModel):
     status:              ConstraintStatus = ConstraintStatus.NOT_YET_DETERMINED
     evidence:            Optional[str]    = None
     valid_until:         Optional[date]   = None     # evidence stops counting after this day
     evidence_attached_at: Optional[datetime] = None
+    # ST-AI v2.5. None (not stated) means the constraint applies; False declares it not applicable, which needs a valid rationale.
+    applicable:          Optional[bool]   = None
+    not_applicable:      Optional[NotApplicableRationale] = None
 
     @model_validator(mode="after")
     def evidence_required_for_satisfied(self) -> "ConstraintDeclaration":
@@ -279,6 +291,38 @@ class Lifecycle(BaseModel):
     post_retirement_verified:    Optional[bool] = None
 
 
+class RiskInterval(BaseModel):
+    lower: Optional[float] = None
+    upper: Optional[float] = None
+
+
+class RiskCriterionIn(BaseModel):
+    """One risk criterion of ST-AI v2.5: expected annual harm (metric R) or the probability of a severe event (metric Q) in one harm dimension, as an uncertainty interval.
+    `evidenced` is the residual interval when every credited control has effectiveness evidence, valid until `evidenced_valid_until`. When that evidence is absent or has lapsed the
+    `bounded` interval applies instead (lower bound: controls at their maximum credited effectiveness; upper bound: no credit for them). A criterion whose evidenced interval was
+    blocked stays blocked while only the bounded interval is available (the ratchet) until a new evidenced interval is recorded."""
+    id:                    str
+    dimension:             str
+    metric:                str = "R"                    # R expected annual harm | Q probability of at least one severe event
+    evidenced:             Optional[RiskInterval] = None
+    evidenced_valid_until: Optional[date] = None
+    bounded:               Optional[RiskInterval] = None
+    note:                  str = ""
+
+
+class UnquantifiedIn(BaseModel):
+    """A harm dimension with no defensible unit: it is assessed qualitatively. none | noQA (no valid assessment) | ACC (accepted) | UNACC (unacceptable)."""
+    dimension:  str
+    assessment: str = "none"
+    hard:       bool = False
+    note:       str = ""
+
+
+class RiskBlock(BaseModel):
+    criteria:     List[RiskCriterionIn] = Field(default_factory=list)
+    unquantified: List[UnquantifiedIn]  = Field(default_factory=list)
+
+
 class RegistryBlock(BaseModel):
     deployment_context:      DeploymentContext  = Field(default_factory=DeploymentContext)
     actors:                  ActorSet           = Field(default_factory=ActorSet)
@@ -293,6 +337,9 @@ class RegistryBlock(BaseModel):
     # at, so the evidence text is read instead) and which score decides the gate.
     attested_controls:       Optional[List[str]] = None
     gate_basis:              str = "declared"
+    # ST-AI v2.5. `risk` is what the design states; `st_ai` is set by the server (the saved design's key and the policy in force, st_ai_policy.enrich) and never trusted from a caller.
+    risk:                    RiskBlock = Field(default_factory=RiskBlock)
+    st_ai:                   Optional[Dict[str, Any]] = None
 
     # Fields that map directly to RegistryState flat fields
     org_size:                Optional[str] = None

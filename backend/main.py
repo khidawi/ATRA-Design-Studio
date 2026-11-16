@@ -44,6 +44,7 @@ from schema import (
 )
 import evidence
 import method
+from st_ai_policy_api import router as st_ai_policy_router
 from method_api import router as method_router
 from scoring_bridge import score_levels, score_registry, score_sensitivity
 from compliance_schema import CompiledContract, DeploymentDescription, DesignRiskAssessment
@@ -116,6 +117,7 @@ app.include_router(design_review_router)
 app.include_router(agent_review_router)
 app.include_router(method_router)
 app.include_router(evidence.router)
+app.include_router(st_ai_policy_router)
 app.include_router(agent_import_router)
 app.include_router(agent_registry_router)
 app.include_router(agent_compare_router)
@@ -306,7 +308,9 @@ def assess(design_id: str, req: AssessRequest, session: Session = Depends(get_se
     assessment.deployment_id = design_id
     if require_domain(session, req.domain).subject == "MODEL":
         from scoring_bridge import score_registry
-        pcs, _ = score_registry(req.registry)
+        import st_ai_bridge
+        wf = st_ai_bridge.wf_problems_from_design_graph(req.design_graph)
+        pcs, _ = score_registry(req.registry, wf) if wf else score_registry(req.registry)
         assessment.review = review_state(session, design_id, req.registry, req.domain, req.design_graph, pcs, user.name)
     return assessment
 
@@ -326,11 +330,17 @@ def compile_design_endpoint(
     """
     evidence.enrich_registry(session, design_id, req.registry)
     review = current_review(session, design_id, req.registry, req.domain, req.design_graph)
+    import st_ai_guards
+    import st_ai_policy_api
+    try:
+        approver_problems = st_ai_guards.check(session, st_ai_policy_api.current(session), "approval", user.name, req.registry)[0]
+    except Exception:
+        approver_problems = []
     try:
         contract = compile_design(
             req.registry, require_domain(session, req.domain), req.graph,
             req.constraint_node_ids, design_id, user.name, to_design_graph(req.design_graph),
-            reviewed=review is not None, review=review, method_stamp=method.stamp(session),
+            reviewed=review is not None, review=review, method_stamp=method.stamp(session), approver_problems=approver_problems,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))

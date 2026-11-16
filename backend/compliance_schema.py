@@ -93,6 +93,8 @@ class ReviewState(BaseModel):
     approved:    bool = False        # the newest review of this version approves it
     rejected:    bool = False
     reviews:     List[ReviewOut] = Field(default_factory=list)
+    unresolvable: List[str] = Field(default_factory=list)   # review triggers a review cannot clear (a fact has to be recorded first)
+    issuer_problems: List[str] = Field(default_factory=list)   # why the person issuing the contract is not independent of the role holders at the policy level (st_ai_guards.py)
 
 
 class Finding(BaseModel):

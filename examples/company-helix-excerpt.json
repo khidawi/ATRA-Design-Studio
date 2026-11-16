@@ -1,0 +1,228 @@
+{
+ "company": {
+  "name": "Helix Logistics (excerpt)",
+  "id": "ORG-HELIX-X"
+ },
+ "departments": [
+  {
+   "id": "D-EXEC",
+   "name": "Executive",
+   "head": "EMP-001"
+  },
+  {
+   "id": "D-OPS",
+   "name": "Operations",
+   "reports_to": "D-EXEC",
+   "head": "EMP-110"
+  },
+  {
+   "id": "D-DATA",
+   "name": "Data Science",
+   "reports_to": "D-EXEC",
+   "head": "EMP-410"
+  }
+ ],
+ "people": [
+  {
+   "id": "EMP-001",
+   "name": "Nora Blake",
+   "title": "CEO",
+   "department": "D-EXEC"
+  },
+  {
+   "id": "EMP-110",
+   "name": "Karim Haddad",
+   "title": "Head of Operations",
+   "department": "D-OPS"
+  },
+  {
+   "id": "EMP-410",
+   "name": "Priya Raman",
+   "title": "Head of data science",
+   "department": "D-DATA"
+  },
+  {
+   "id": "EMP-411",
+   "name": "Diego Alvarez",
+   "title": "ML engineer",
+   "department": "D-DATA"
+  },
+  {
+   "id": "ROLE-DSP",
+   "name": "Dispatchers",
+   "kind": "role",
+   "headcount": 14,
+   "department": "D-OPS"
+  }
+ ],
+ "external": [],
+ "data_stores": [
+  {
+   "id": "DS-SHIP",
+   "name": "Shipment records",
+   "sensitivity": "Personal data"
+  },
+  {
+   "id": "DS-ROUTE",
+   "name": "Route and traffic data",
+   "sensitivity": "Internal"
+  },
+  {
+   "id": "DS-HIST",
+   "name": "Delivery history",
+   "sensitivity": "Internal"
+  }
+ ],
+ "ai_systems": [
+  {
+   "id": "AG-ROUTE",
+   "type": "agent",
+   "name": "route-planner-agent",
+   "department": "D-OPS",
+   "owner": "EMP-110",
+   "details": {
+    "purpose": "Plans delivery routes and books carrier capacity"
+   },
+   "people": [
+    {
+     "id": "ROLE-DSP",
+     "role": "approves route changes"
+    }
+   ],
+   "uses_data": [
+    {
+     "store": "DS-SHIP",
+     "access": "read"
+    },
+    {
+     "store": "DS-ROUTE",
+     "access": "write"
+    }
+   ]
+  },
+  {
+   "id": "MD-FORECAST",
+   "type": "model",
+   "name": "demand-forecast-model",
+   "department": "D-DATA",
+   "owner": "EMP-410",
+   "details": {
+    "purpose": "Forecasts parcel volumes per depot",
+    "version": "1.4",
+    "risk_class": "Medium",
+    "origin": "In-house",
+    "data_note": "Delivery history and shipment records (personal data)"
+   },
+   "people": [
+    {
+     "id": "EMP-411",
+     "role": "trains"
+    },
+    {
+     "id": "EMP-410",
+     "role": "validates"
+    },
+    {
+     "id": "EMP-410",
+     "role": "deploys"
+    },
+    {
+     "id": "ROLE-DSP",
+     "role": "operates"
+    },
+    {
+     "id": "EMP-110",
+     "role": "consumes forecasts"
+    }
+   ],
+   "uses_data": [
+    {
+     "store": "DS-HIST",
+     "access": "trained on"
+    }
+   ]
+  }
+ ],
+ "elements": [
+  {
+   "id": "OP-PLAN",
+   "type": "operation",
+   "name": "Plan route"
+  },
+  {
+   "id": "OP-APPR",
+   "type": "operation",
+   "name": "Approve route change"
+  },
+  {
+   "id": "G-ONTIME",
+   "type": "goal",
+   "name": "Deliver on time"
+  },
+  {
+   "id": "TH-LEAK",
+   "type": "threat",
+   "name": "Customer data shared with partners"
+  },
+  {
+   "id": "TH-ROUTE",
+   "type": "threat",
+   "name": "Manipulated traffic feed"
+  },
+  {
+   "id": "PR-FEED",
+   "type": "protection",
+   "name": "Signed traffic feed"
+  },
+  {
+   "id": "RULE-SC",
+   "type": "rule",
+   "name": "Separate validator and deployer",
+   "sub": "rule SC-RCF-1",
+   "rule_id": "separate_validator_deployer"
+  }
+ ],
+ "links": [
+  {
+   "from": "AG-ROUTE",
+   "to": "OP-PLAN",
+   "kind": "performs"
+  },
+  {
+   "from": "ROLE-DSP",
+   "to": "OP-APPR",
+   "kind": "performs"
+  },
+  {
+   "from": "OP-APPR",
+   "to": "OP-PLAN",
+   "kind": "gates",
+   "label": "gates"
+  },
+  {
+   "from": "OP-PLAN",
+   "to": "G-ONTIME",
+   "kind": "achieves"
+  },
+  {
+   "from": "TH-LEAK",
+   "to": "DS-SHIP",
+   "kind": "targets"
+  },
+  {
+   "from": "TH-ROUTE",
+   "to": "DS-ROUTE",
+   "kind": "targets"
+  },
+  {
+   "from": "PR-FEED",
+   "to": "TH-ROUTE",
+   "kind": "mitigates"
+  },
+  {
+   "from": "RULE-SC",
+   "to": "EMP-410",
+   "kind": "applies_to"
+  }
+ ]
+}

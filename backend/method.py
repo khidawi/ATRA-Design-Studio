@@ -24,7 +24,7 @@ from db.models import Domain, DomainRule, MethodVersion, Organisation, RcrProfil
 # Bump when the scoring or checking code changes in a way that can change a result (the data is fingerprinted separately).
 ENGINE_VERSION = "1"
 
-PARTS = ("engine", "rules", "domains", "requirements", "catalogue")
+PARTS = ("engine", "rules", "domains", "requirements", "catalogue", "policy")
 
 
 def _digest(obj: Any) -> str:
@@ -51,16 +51,26 @@ def parts_now(session: Session) -> Dict[str, str]:
         catalogue = [c.model_dump(mode="json") for c in CANONICAL_CONSTRAINTS]
     except Exception:
         catalogue = []
-    return {
+    st_policy = None
+    try:
+        import st_ai_policy_api
+        st_policy = st_ai_policy_api.fingerprint_part(session)
+    except Exception:
+        st_policy = None
+    out_parts = {
         "engine": _digest(ENGINE_VERSION),
         "rules": _digest([{"key": r.rule_key, "instrument": instruments.get(r.regulation_id), "citation": r.citation, "severity": r.severity, "constraint": r.maps_to_constraint_id,
                            "type": r.check_type, "config": r.check_config, "subject": r.subject, "all": r.applies_to_all} for r in rules]),
         "domains": _digest(domains), "requirements": _digest(profiles), "catalogue": _digest(catalogue),
     }
+    if st_policy is not None:
+        out_parts["policy"] = st_policy
+    return out_parts
 
 
 def fingerprint_of(parts: Dict[str, str]) -> str:
-    return _digest([parts.get(k) for k in PARTS])
+    # The policy part exists only once a policy has been published: until then the fingerprint is what it was before the ST-AI policy existed.
+    return _digest([parts.get(k) for k in PARTS if k != "policy" or parts.get("policy") is not None])
 
 
 def _org_id(session: Session):

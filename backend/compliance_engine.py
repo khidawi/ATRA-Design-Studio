@@ -99,6 +99,13 @@ def _constraint_verdict(
     if decl is None:
         return _severity_status(severity), f"Constraint {constraint_id} is not declared on the canvas."
 
+    import st_ai_bridge
+    applic, why = st_ai_bridge.applicability_state(decl)
+    if applic == "NA":
+        return RiskStatus.GREEN, f"Constraint {constraint_id} does not apply to this design: {why}"
+    if applic == "UNKNOWN":
+        return RiskStatus.AMBER, f"Constraint {constraint_id}: {why}. Record the rationale, or declare it applicable."
+
     if decl.status == ConstraintStatus.SATISFIED and evidence_expired(decl):
         return _severity_status(severity), f"Constraint {constraint_id} is marked Satisfied, but its evidence expired on {decl.valid_until.isoformat()}. It no longer counts: record it again."
 
@@ -305,6 +312,7 @@ def compile_design(
     reviewed: bool = False,
     review: Optional[Dict[str, Any]] = None,
     method_stamp: Optional[Dict[str, Any]] = None,
+    approver_problems: Optional[List[str]] = None,
 ) -> CompiledContract:
     """
     Re-runs assess_design() (never trusts a caller-supplied assessment) and
@@ -315,13 +323,30 @@ def compile_design(
     assessment = assess_design(registry, domain, constraint_node_ids, design_graph)
     assert_compilable(assessment)
     from scoring_bridge import score_registry
-    pcs, _ = score_registry(registry)
+    import st_ai_bridge
+    import st_ai_gate
+    wf = st_ai_gate.well_formed_graph(graph) + st_ai_bridge.wf_problems_from_design_graph(design_graph)
+    pcs, _ = score_registry(registry, wf) if wf else score_registry(registry)
+    st_ai = (pcs.raw_breakdown or {}).get("st_ai") or {}
+    if pcs.gate == "INVALID_MODEL":
+        raise ValueError("Cannot compile: the design is not well-formed, so nothing else is assessed. " + "; ".join(st_ai.get("wf_problems", [])[:3]))
     if pcs.gate == "BLOCKED":
+        why = f" Blocked by: {'; '.join(st_ai.get('blockers', [])[:3])}." if st_ai.get("blockers") else ""
         raise ValueError(
-            f"Cannot compile: the PCS is {pcs.pcs_final:.1f} / 100 ({pcs.tier}) and the gate is BLOCKED. "
+            f"Cannot compile: the PCS is {pcs.pcs_final:.1f} / 100 ({pcs.tier}) and the gate is BLOCKED.{why} "
             f"A design that scores this high is not signed; clear what drives the score (see the Risk tab) and compile again."
         )
+    if pcs.gate == "REQUIRES_REVIEW" and st_ai.get("unresolvable"):
+        raise ValueError(
+            "Cannot compile: a review cannot clear this result, because a fact is missing that has to be recorded first: "
+            + "; ".join(t["detail"] for t in st_ai.get("triggers", []) if not t["resolvable"])[:600]
+        )
     holds = role_held_by(registry, issued_by)
+    if approver_problems and not holds and not reviewed:
+        raise ValueError(
+            f"Cannot compile: {issued_by} is not independent of the people who hold the model's roles ({approver_problems[0]}), so the contract needs a recorded review by someone who is. "
+            f"A person with sign-off permission who meets the independence the policy asks for records it on the Risk tab; it applies to this version of the design."
+        )
     if holds and not reviewed:
         raise ValueError(
             f"Cannot compile: {issued_by} is named as the model's {holds}, so the contract needs a recorded review by someone who is not. A person with sign-off permission who is not the "

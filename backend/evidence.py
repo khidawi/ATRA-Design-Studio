@@ -96,6 +96,8 @@ def enrich_registry(session: Session, design_key: Optional[str], registry) -> No
     keys = attested_keys(session, design_key)
     registry.attested_controls = sorted(keys) if keys is not None else None
     registry.gate_basis = gate_basis(session)
+    import st_ai_policy_api
+    st_ai_policy_api.enrich(session, design_key, registry)
 
 
 # ── Records ─────────────────────────────────────────────────────────────────

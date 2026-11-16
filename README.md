@@ -83,6 +83,51 @@ in every design it applies to, shows up as `ORG_POLICY: <title>` in the risk pan
 model contract from compiling. **Test on the current design** shows what a policy would do before you save it, and
 **Pause** keeps a policy without enforcing it.
 
+## ST-AI v2.5 gate (AI Models)
+
+The AI Models gate follows the revised ST-AI formal model (the specification and its verification are in the TRUST 2027 paper's supplementary package). The code is
+`backend/st_ai_gate.py` (pure functions, no database) and `backend/st_ai_bridge.py` (registry → gate inputs); `scoring_bridge.py` takes the gate from it.
+
+- **Statuses.** A constraint is SATISFIED (evidence that is not a placeholder and has not expired), VIOLATED, UNKNOWN, or NOT_APPLICABLE. NOT_APPLICABLE exists only when
+  the constraint is declared not applicable (`applicable: false`) with a rationale (`not_applicable`: reason, author, a different reviewer, an expiry that has not passed);
+  without one the constraint is UNKNOWN and a review cannot clear it. An unknown never counts in favour of release.
+- **Gate.** INVALID_MODEL (the design graph is not well-formed), BLOCKED (a hard constraint is violated or unknown, or a risk criterion is blocked), REQUIRES_REVIEW (a
+  review-class constraint is not satisfied, an applicability is unknown, a criterion is unresolved), APPROVED. Hard constraints are the veto-class constraints, review-class
+  the modulating ones. `raw_breakdown.st_ai` in the score response lists the blockers, the triggers and which of them a review can clear.
+- **Review.** A review clears only triggers of a kind a review can resolve (a review-class shortfall, an overlapping risk interval). Where a fact is missing, recording the
+  review is refused and compile says what has to be recorded first.
+- **Role separation** (SC-RCF-1 trainer/validator, SC-RCF-2 validator/deployer) is derived from who holds the roles: it cannot be SATISFIED while one person holds both.
+- **Independence** is judged over the organisation's reporting structure (departments with their parent and head, people with their department: the Organisation screen). The
+  policy sets, for approving a contract, reviewing a design and the other uses, a level (PERSON, REPORTING_LINE, UNIT) and a mode (AT_ACT, or CONTINUING, which judges again at
+  every assessment so a reorganisation or handover can make a review lapse). Recording a review and issuing a contract are refused unless the person is independent of the
+  trainer, validator, deployer and operator at that level; someone the structure does not place cannot be shown independent above PERSON. Everyone who holds a role has to be
+  placed in the organisation. Attestation of evidence still uses the existing role-holder rule.
+- **Risk.** The quantitative criterion is the interval rule: a design states risk criteria (the AI Models studio, "ST-AI gate" tab: a harm dimension, expected annual harm or
+  severe-event probability, an evidenced interval with a validity date, a bounded interval for when the controls' effectiveness is not evidenced) and the policy allocates
+  tolerances down the organisation (organisation, units, deployments; allocations under a unit add up to at most its own). A criterion is blocked if its lower bound is above the
+  tolerance, unresolved by a missing tolerance or bound (a review cannot clear that), an overlap otherwise unless its upper bound is within the tolerance. When the evidenced
+  interval has lapsed the bounded one counts, and a criterion that was blocked stays blocked until a new estimate (the ratchet).
+  The policy's risk basis is `legacy_until_intervals` (default: a design that states no intervals is still judged by the legacy score) or `intervals` (the legacy score is not
+  consulted and a design without intervals is unresolved). Switch it on the **ST-AI policy** screen when your designs state intervals.
+- **Policy.** Company > ST-AI policy (`/api/st-ai/policy`): independence levels and modes, the risk basis, the confidence level, the tolerances. Publishing needs sign-off
+  permission and a note; versions are never edited; a design review is bound to the policy version, so publishing a new version makes earlier reviews lapse. Once a policy is
+  published it is part of the method fingerprint (the method shows as unpublished until the next method is published).
+- **Not applicable** is set in the studio: on a constraint's evidence form, "This constraint does not apply to this model" asks for a reason, a different reviewer and an expiry.
+- **Not yet built:** permissions and delegation, obligations with deadlines, a form for the harm dimensions' qualitative assessments beyond the basics, and independence of
+  attestation at the policy level.
+
+Tests: `docker compose exec backend python -m tests.test_st_ai_gate` (compares the gate with the paper's reference gate on all 13,500 combinations) and
+`... tests.test_st_ai_bridge`, `... tests.test_st_ai_policy` and (on a scratch database) `... tests.test_st_ai_policy_api`.
+
+**Try a company file without touching stored data** (reads the JSON, builds each model's registry, prints the gate, constraint statuses and who is independent of whom):
+
+```bash
+docker compose run --rm --no-deps -v "$PWD/examples:/examples" backend python st_ai_company_check.py /examples/company-helix-logistics.json
+docker compose run --rm --no-deps -v "$PWD/examples:/examples" backend python st_ai_company_check.py /examples/your-company.json --evidence /examples/evidence.json --level REPORTING_LINE
+```
+
+`examples/st-ai-evidence-helix.sample.json` and `examples/st-ai-policy-helix.sample.json` show the evidence and policy file formats (hypothetical data); add `--policy` to the command to use a policy.
+
 ## Running without Docker
 
 If you'd rather run things directly:

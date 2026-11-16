@@ -261,6 +261,21 @@ class DesignReview(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
+class StAiPolicyVersion(Base):
+    """A published version of the ST-AI v2.5 policy (st_ai_policy.py): independence levels and modes, the risk basis, the allocated tolerances. Never edited or deleted."""
+
+    __tablename__ = "st_ai_policy_versions"
+    __table_args__ = (UniqueConstraint("organisation_id", "number", name="uq_st_ai_policy_number"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    number: Mapped[int] = mapped_column(Integer, nullable=False)
+    params: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    note: Mapped[str] = mapped_column(Text, nullable=False)
+    published_by: Mapped[str] = mapped_column(String(120), nullable=False)
+    published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
 class MethodVersion(Base):
     """A published method: the rules, requirements, catalogue and scoring code a score is made under. Never edited or deleted (method.py)."""
 

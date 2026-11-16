@@ -51,7 +51,7 @@ PEOPLE = ("person", "role")
 # What each type may carry. "ref:" values must name an existing node of that kind ("person" accepts a role as well).
 STR, INT, BOOL = "str", "int", "bool"
 SYSTEM = {"department": "ref:department", "owner": "ref:person", "agent_key": STR, "purpose": STR, "version": STR,
-          "risk_class": STR, "origin": STR, "data_note": STR}
+          "risk_class": STR, "origin": STR, "data_note": STR, "model_type": STR}
 NOTE = {"sub": STR, "department": "ref:department"}
 PROPS: Dict[str, Dict[str, str]] = {
     "department": {"parent": "ref:department", "head": "ref:person"},
@@ -1633,7 +1633,7 @@ def model_description(session: Session, ext_id: str) -> Dict[str, Any]:
     hosting = "TYPE_3_THIRDPARTY_API" if re.search(r"third|api|vendor|saas", origin) else "TYPE_2_FINETUNED" if "fine" in origin else "TYPE_1_INHOUSE"
     dep_list = [{"temp_id": f"dep-{i}", "name": n, "reports_to_temp_id": (f"dep-{N[i]['props']['parent']}" if N[i]["props"].get("parent") in depts else None)} for i, n in depts.items()]
     desc = {"schema_version": "1.0", "deployment_name": m["name"], "description": p.get("purpose", ""), "departments": dep_list, "actors": actors,
-            "ai_models": [{"temp_id": "mdl-1", "name": m["name"], "model_type": "LLM", "ai_criticality": criticality, "data_sensitivity": SENSITIVITY[sens][0], "hosting_environment": hosting, "domain": p.get("purpose", "")[:120]}],
+            "ai_models": [{"temp_id": "mdl-1", "name": m["name"], "model_type": (p.get("model_type") if p.get("model_type") in ("NN", "RL", "ENSEMBLE", "PINN", "LLM", "CNN", "HYBRID") else "LLM"), "ai_criticality": criticality, "data_sensitivity": SENSITIVITY[sens][0], "hosting_environment": hosting, "domain": p.get("purpose", "")[:120]}],
             "deployment_environments": envs}
     try:
         DeploymentDescription(**desc)

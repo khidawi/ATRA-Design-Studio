@@ -1,0 +1,90 @@
+{
+  "_comment": "HYPOTHETICAL test data for st_ai_company_check.py. Not evidence about any real organisation. Keys are model ids from the company file.",
+  "MD-FORECAST": {
+    "constraints": {
+      "SC-DPIA-1": {
+        "status": "SATISFIED",
+        "evidence": "record: hypothetical control report CR-PIA-1, 2026-10-01",
+        "valid_until": "2027-10-01"
+      },
+      "SC-HITL-1": {
+        "status": "SATISFIED",
+        "evidence": "record: hypothetical control report CR-ITL-1, 2026-10-01",
+        "valid_until": "2027-10-01"
+      },
+      "SC-HALLU-1": {
+        "status": "SATISFIED",
+        "evidence": "record: hypothetical control report CR-LLU-1, 2026-10-01",
+        "valid_until": "2027-10-01"
+      },
+      "SC-MAP-1": {
+        "status": "SATISFIED",
+        "evidence": "record: hypothetical control report CR-MAP-1, 2026-10-01",
+        "valid_until": "2027-10-01"
+      },
+      "SC-CHALL-1": {
+        "status": "SATISFIED",
+        "evidence": "record: hypothetical control report CR-ALL-1, 2026-10-01",
+        "valid_until": "2027-10-01"
+      },
+      "SC-LIAB-1": {
+        "status": "SATISFIED",
+        "evidence": "record: hypothetical control report CR-IAB-1, 2026-10-01",
+        "valid_until": "2027-10-01"
+      },
+      "SC-MC-1": {
+        "status": "SATISFIED",
+        "evidence": "record: hypothetical review note RN--MC-1, 2026-10-01",
+        "valid_until": "2027-10-01"
+      },
+      "SC-TRAIN-1": {
+        "status": "SATISFIED",
+        "evidence": "record: hypothetical review note RN-AIN-1, 2026-10-01",
+        "valid_until": "2027-10-01"
+      },
+      "SC-RCF-1": {
+        "status": "SATISFIED",
+        "evidence": "record: hypothetical review note RN-RCF-1, 2026-10-01",
+        "valid_until": "2027-10-01"
+      },
+      "SC-RCF-2": {
+        "status": "SATISFIED",
+        "evidence": "record: hypothetical review note RN-RCF-2, 2026-10-01",
+        "valid_until": "2027-10-01"
+      },
+      "SC-DOMAIN-1": {
+        "status": "SATISFIED",
+        "evidence": "record: hypothetical review note RN-AIN-1, 2026-10-01",
+        "valid_until": "2027-10-01"
+      },
+      "SC-CONSENT-1": {
+        "applicable": false,
+        "not_applicable": {
+          "reason": "the model uses shipment volumes only, no personal data",
+          "author": "Diego Alvarez",
+          "reviewer": "Karim Haddad",
+          "expires_on": "2027-06-30"
+        }
+      }
+    },
+    "risk": {
+      "criteria": [
+        {
+          "id": "c1",
+          "dimension": "Financial",
+          "metric": "R",
+          "evidenced": {
+            "lower": 55,
+            "upper": 85
+          },
+          "evidenced_valid_until": "2027-06-30",
+          "bounded": {
+            "lower": 55,
+            "upper": 140
+          },
+          "note": "hypothetical: expected annual cost of forecast errors, in thousands"
+        }
+      ]
+    }
+  }
+}

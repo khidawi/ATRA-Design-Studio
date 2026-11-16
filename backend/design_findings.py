@@ -27,6 +27,11 @@ SEPARATION = [
 ]
 
 
+def _applicability(decl):
+    import st_ai_bridge
+    return st_ai_bridge.applicability_state(decl)
+
+
 def _catalogue() -> Dict[str, Any]:
     from framework.tropos_catalogue import CANONICAL_CONSTRAINTS
     return {c.constraint_id: c for c in CANONICAL_CONSTRAINTS}
@@ -348,8 +353,11 @@ def formal_findings(registry, constraint_node_ids: Optional[Dict[str, str]], gra
         decl = registry.governance_state.constraints_declared.get(cid)
         if decl is not None and decl.status.value == "SATISFIED" and not is_placeholder_evidence(decl.evidence) and not evidence_expired(decl):
             continue
+        if decl is not None and _applicability(decl)[0] == "NA":
+            continue                                   # validly declared not applicable (a rationale with an independent reviewer, not expired)
         info = constraint_info(cid) or {"name": cid, "because": ""}
-        state = ("marked Unmet" if decl is not None and decl.status.value == "UNMET"
+        state = (f"declared not applicable, but {_applicability(decl)[1]}" if decl is not None and _applicability(decl)[0] == "UNKNOWN"
+                 else "marked Unmet" if decl is not None and decl.status.value == "UNMET"
                  else f"marked Satisfied, but its evidence expired on {decl.valid_until.isoformat()}, so it no longer counts" if decl is not None and decl.status.value == "SATISFIED" and evidence_expired(decl)
                  else f"marked Satisfied, but its evidence ({(decl.evidence or '').strip()!r}) is a placeholder, not a record" if decl is not None and decl.status.value == "SATISFIED"
                  else "not yet shown to be met")
@@ -364,6 +372,8 @@ def formal_findings(registry, constraint_node_ids: Optional[Dict[str, str]], gra
     for cid in SCORE_CONSTRAINTS:
         decl = registry.governance_state.constraints_declared.get(cid)
         if decl is not None and decl.status.value == "SATISFIED" and not is_placeholder_evidence(decl.evidence) and not evidence_expired(decl):
+            continue
+        if decl is not None and _applicability(decl)[0] == "NA":
             continue
         info = constraint_info(cid) or {"name": cid}
         out.append(Finding(

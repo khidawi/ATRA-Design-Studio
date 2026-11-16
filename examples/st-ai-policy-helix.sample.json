@@ -1,0 +1,42 @@
+{
+  "_comment": "HYPOTHETICAL policy for st_ai_company_check.py. A deployment's tolerance is the allocation named after the model id.",
+  "independence": {
+    "review": {
+      "level": "REPORTING_LINE",
+      "mode": "AT_ACT"
+    },
+    "approval": {
+      "level": "REPORTING_LINE",
+      "mode": "AT_ACT"
+    }
+  },
+  "risk": {
+    "basis": "intervals",
+    "confidence_level": 0.95
+  },
+  "tolerances": [
+    {
+      "scope": "organisation",
+      "name": "organisation",
+      "dimension": "Financial",
+      "metric": "R",
+      "value": 1000
+    },
+    {
+      "scope": "unit",
+      "name": "Logistics",
+      "dimension": "Financial",
+      "metric": "R",
+      "value": 600,
+      "parent": "organisation"
+    },
+    {
+      "scope": "deployment",
+      "name": "MD-FORECAST",
+      "dimension": "Financial",
+      "metric": "R",
+      "value": 100,
+      "parent": "Logistics"
+    }
+  ]
+}

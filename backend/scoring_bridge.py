@@ -303,7 +303,7 @@ def score_levels(rb: RegistryBlock) -> Dict[str, Any]:
     }
 
 
-def score_registry(rb: RegistryBlock) -> tuple[PCSResultBlock, list[str]]:
+def score_registry(rb: RegistryBlock, wf_problems=()) -> tuple[PCSResultBlock, list[str]]:
     """
     Run the full ST-AI engine against the given registry block.
     Returns (PCSResultBlock, warnings).
@@ -313,10 +313,14 @@ def score_registry(rb: RegistryBlock) -> tuple[PCSResultBlock, list[str]]:
     """
     if rb.gate_basis == "verified" and rb.attested_controls is not None:
         rb = _controls_removed(rb, True)
-    return _score_as_stated(rb)
+    return _score_as_stated(rb, wf_problems)
 
 
-def _score_as_stated(rb: RegistryBlock) -> tuple[PCSResultBlock, list[str]]:
+def _score_as_stated(rb: RegistryBlock, wf_problems=()) -> tuple[PCSResultBlock, list[str]]:
+    import st_ai_bridge
+    stated = rb
+    if st_ai_bridge.enabled():
+        rb = st_ai_bridge.legacy_view(rb)          # the legacy score does not see constraints whose applicability the v2.5 gate judges
     rs = registry_block_to_state(rb)
     dt = derive_terms(rs)
 
@@ -338,6 +342,10 @@ def _score_as_stated(rb: RegistryBlock) -> tuple[PCSResultBlock, list[str]]:
     gate = dt.gate_decision.value if dt.gate_decision else "APPROVED"
     if unmet_veto:
         gate = "BLOCKED"
+    # The gate of the revised ST-AI model (st_ai_gate.py). It is never more lenient than the legacy gate above, which stands in for the quantitative criterion until the
+    # interval rule is wired; ST_AI_GATE=legacy switches this off.
+    legacy_gate = gate
+    gate, st_ai = st_ai_bridge.gate_for_registry(stated, legacy_gate, dt.tier.value if dt.tier else "", wf_problems, legacy_blockers=list(dt.blockers))
 
     # Pillar vector
     rv = dt.risk_vector
@@ -362,6 +370,7 @@ def _score_as_stated(rb: RegistryBlock) -> tuple[PCSResultBlock, list[str]]:
         unmet_veto_constraints=unmet_veto,
         last_scored_at=datetime.now(tz=timezone.utc),
         raw_breakdown={
+            "st_ai": st_ai,
             "L": dt.L, "I": dt.I, "delta": dt.delta, "tau": dt.tau,
             "Dm": dt.Dm, "Wr": dt.Wr, "Ws": dt.Ws, "Wf": dt.Wf, "Wh": dt.Wh,
             "rcf_adj": dt.rcf_adj, "eps_b": dt.eps_b, "eps_ia": dt.eps_ia,
