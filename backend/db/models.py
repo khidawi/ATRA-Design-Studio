@@ -15,7 +15,7 @@ from typing import Optional
 
 from typing import Any, Dict, List
 
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, Date, DateTime, Float, ForeignKey, Identity, Integer, LargeBinary, String, Text, UniqueConstraint, Uuid, func, text
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, Date, DateTime, Float, ForeignKey, Identity, Index, Integer, LargeBinary, String, Text, UniqueConstraint, Uuid, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -911,3 +911,72 @@ class Assignment(Base):
     ended_by: Mapped[Optional[str]] = mapped_column(String(160))
     ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     revoked: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+
+
+# ── ASTRA phase 2: how much harm matters to each department (risk_layer.py, risk_api.py) ──────────────────────────────────────────────────────────────
+# Three kinds of declaration share one life cycle. A person proposes a value; a different person with sign-off permission ratifies it. A ratified value is in force
+# until a newer one is ratified, which marks it SUPERSEDED. Nothing is edited or deleted, so the history shows who declared what and who accepted it.
+
+class RiskDeclaration:
+    """The columns every declaration has."""
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    status: Mapped[str] = mapped_column(String(10), nullable=False, server_default="PROPOSED")      # PROPOSED, RATIFIED, SUPERSEDED or REJECTED
+    rationale: Mapped[str] = mapped_column(Text, nullable=False)
+    proposed_by: Mapped[str] = mapped_column(String(120), nullable=False)
+    proposed_by_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    proposed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    decided_by: Mapped[Optional[str]] = mapped_column(String(120))
+    decided_by_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid)
+    decided_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    decision_note: Mapped[Optional[str]] = mapped_column(Text)
+
+
+class RiskAssetTier(RiskDeclaration, Base):
+    """The impact tier (1 minor to 4 severe) of an asset: what is lost if it is leaked, altered or unavailable. An asset with no ratified tier is treated as tier 4."""
+
+    __tablename__ = "risk_asset_tiers"
+    __table_args__ = (CheckConstraint("tier BETWEEN 1 AND 4", name="ck_risk_asset_tier"),
+                      CheckConstraint("status IN ('PROPOSED', 'RATIFIED', 'SUPERSEDED', 'REJECTED')", name="ck_risk_asset_status"),
+                      Index("uq_risk_asset_ratified", "organisation_id", "asset_ext", unique=True, postgresql_where=text("status = 'RATIFIED'")),
+                      Index("uq_risk_asset_proposed", "organisation_id", "asset_ext", unique=True, postgresql_where=text("status = 'PROPOSED'")))
+
+    asset_ext: Mapped[str] = mapped_column(String(64), nullable=False)             # the ext_id of the data store in the organisation graph
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    department_ext: Mapped[str] = mapped_column(String(64), nullable=False)        # the department the harm falls on
+    kind: Mapped[str] = mapped_column(String(10), nullable=False, server_default="data")      # data or memory
+    tier: Mapped[int] = mapped_column(Integer, nullable=False)
+    confidentiality: Mapped[str] = mapped_column(String(10), nullable=False, server_default="MEDIUM")
+    integrity: Mapped[str] = mapped_column(String(10), nullable=False, server_default="MEDIUM")
+    availability: Mapped[str] = mapped_column(String(10), nullable=False, server_default="MEDIUM")
+
+
+class RiskDepartmentTolerance(RiskDeclaration, Base):
+    """The highest impact tier of an open attack path that a department accepts (0 accepts none). A department with no ratified tolerance accepts none."""
+
+    __tablename__ = "risk_department_tolerance"
+    __table_args__ = (CheckConstraint("tolerance BETWEEN 0 AND 4", name="ck_risk_tolerance"),
+                      CheckConstraint("status IN ('PROPOSED', 'RATIFIED', 'SUPERSEDED', 'REJECTED')", name="ck_risk_tolerance_status"),
+                      Index("uq_risk_tolerance_ratified", "organisation_id", "department_ext", unique=True, postgresql_where=text("status = 'RATIFIED'")),
+                      Index("uq_risk_tolerance_proposed", "organisation_id", "department_ext", unique=True, postgresql_where=text("status = 'PROPOSED'")))
+
+    department_ext: Mapped[str] = mapped_column(String(64), nullable=False)
+    tolerance: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class RiskPosture(RiskDeclaration, Base):
+    """What ASTRA recommends when a divergence of a given severity touches an asset of a given tier: observe, flag, block or halt. Block and halt are recommendations:
+    a person or the control plane enacts them."""
+
+    __tablename__ = "risk_posture"
+    __table_args__ = (CheckConstraint("tier BETWEEN 1 AND 4", name="ck_risk_posture_tier"),
+                      CheckConstraint("severity IN ('Medium', 'High', 'Critical')", name="ck_risk_posture_severity"),
+                      CheckConstraint("posture IN ('observe', 'flag', 'block', 'halt')", name="ck_risk_posture_value"),
+                      CheckConstraint("status IN ('PROPOSED', 'RATIFIED', 'SUPERSEDED', 'REJECTED')", name="ck_risk_posture_status"),
+                      Index("uq_risk_posture_ratified", "organisation_id", "tier", "severity", unique=True, postgresql_where=text("status = 'RATIFIED'")),
+                      Index("uq_risk_posture_proposed", "organisation_id", "tier", "severity", unique=True, postgresql_where=text("status = 'PROPOSED'")))
+
+    tier: Mapped[int] = mapped_column(Integer, nullable=False)
+    severity: Mapped[str] = mapped_column(String(10), nullable=False)
+    posture: Mapped[str] = mapped_column(String(10), nullable=False)
