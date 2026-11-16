@@ -288,7 +288,7 @@ class Judge:
         first = None
         for cid in res["classes"]:
             f = finding_fields(cid, ev, self.agent, pending, str(self.row.id), self.row.version, data)
-            twin = session.scalar(select(Finding).where(Finding.agent_key == self.key, Finding.class_code == cid, Finding.observed == f["observed"], Finding.status == "OPEN",
+            twin = session.scalar(select(Finding).where(Finding.agent_key == self.key, Finding.class_code == cid, Finding.observed == f["observed"], Finding.status == "OPEN", Finding.contract_id == str(self.row.id),
                                                         Finding.created_at > recent).order_by(Finding.created_at.desc()))
             if twin is None:
                 twin = Finding(organisation_id=self.org_id, agent_key=self.key, event=data, source="COLLECTED", **f)
