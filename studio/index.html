@@ -622,6 +622,8 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       deletePolicy: (key) => call('/api/policies/' + encodeURIComponent(key), { method: 'DELETE' }),
       testPolicy: (body) => post('/api/policies/test', body),
       agentAssessment: (key) => call('/api/agents/designs/' + encodeURIComponent(key) + '/assessment'),
+      agentAssessments: (key) => call('/api/agents/designs/' + encodeURIComponent(key) + '/assessments'),
+      agentRecordAssessment: (key) => post('/api/agents/designs/' + encodeURIComponent(key) + '/assessments', {}),
       riskState: () => call('/api/risk'),
       riskProposeAsset: (body) => post('/api/risk/assets', body),
       riskProposeTolerance: (body) => post('/api/risk/tolerances', body),
@@ -1268,7 +1270,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
       } catch (e) { st.saveState = /changed elsewhere/.test(e.message) ? 'conflict' : 'error'; st.saveError = e.message; }
     })();
     await AGS.inflight; AGS.inflight = null;
-    if (st.saveState === 'saving' || st.saveState === 'saved') { if (agentDocSig() !== st.savedSig) agentAutosaveCheck(); else { paintAgentSave(); if (st.panel === 'fix') { AF.rvFor = null; renderIfIdle('studio'); } } } else renderIfIdle('studio');
+    if (st.saveState === 'saving' || st.saveState === 'saved') { if (agentDocSig() !== st.savedSig) agentAutosaveCheck(); else { paintAgentSave(); if (st.panel === 'fix') { AF.rvFor = null; renderIfIdle('studio'); } else if (st.panel === 'astra' && AS.ver !== st.version) renderIfIdle('studio'); } } else renderIfIdle('studio');
   }
   async function openAgentDesign(key) {
     await flushAgentSave();
@@ -1383,11 +1385,11 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
   }
 
   /* ----- ASTRA phase 3: the Assessment panel (read only). The attack paths of the saved design, the controls each needs, and the verdict the formal model gives ----- */
-  const AS = { key: null, ver: null, loading: false, data: null, err: null };
+  const AS = { key: null, ver: null, loading: false, data: null, err: null, hist: [], busy: false, msg: null };
   async function loadAstra() {
     const st = S.studio, key = st.designKey; if (!key || AS.loading) return;
     AS.loading = true; AS.err = null; AS.key = key; AS.ver = st.version;
-    try { AS.data = await STAI.api.agentAssessment(key); } catch (e) { AS.data = null; AS.err = e.message; }
+    try { [AS.data, AS.hist] = await Promise.all([STAI.api.agentAssessment(key), STAI.api.agentAssessments(key)]); } catch (e) { AS.data = null; AS.err = e.message; }
     AS.loading = false; renderIfIdle(route());
   }
   const AS_VERDICT = { APPROVED: ['ok', 'Approved'], REQUIRES_REVIEW: ['warn', 'Requires review'], BLOCKED: ['bad', 'Blocked'], INVALID_CONTRACT: ['bad', 'Invalid'] };
@@ -1404,11 +1406,14 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
         <div class="prow" style="flex-wrap:wrap;gap:6px">${p.controls.map((c) => `<span class="pill ${AS_CTL[c.status][0]}" title="${esc(c.why)}">${esc(c.kind)}${p.chain.length > 1 ? ' · ' + esc(c.agent) : ''}: ${AS_CTL[c.status][1]}</span>`).join('')}</div></div>`).join('') : '<p class="cap" style="margin:0">The design declares no untrusted input, so there is no attack path to assess.</p>';
     const deps = d.departments.length ? `<table class="tbl"><thead><tr><th>Department</th><th>Highest open tier</th><th>Tolerance</th><th>Verdict</th></tr></thead><tbody>${d.departments.map((x) => `<tr><td>${esc(x.department)}</td><td>${x.highest_open_tier || 'none'}</td><td>${x.tolerance}${x.tolerance_declared ? '' : ' <span class="cap">not declared: accepts nothing</span>'}</td><td>${asVerdict(x.verdict)}</td></tr>`).join('')}</tbody></table>` : '';
     const list = (items) => (items.length ? `<ul class="cap" style="margin:4px 0 0;padding-left:18px">${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>` : '');
+    const write = can('write');
+    const sugs = d.suggestions.length ? `<h3>What keeps this from being approved</h3><div style="display:flex;flex-direction:column;gap:8px">${d.suggestions.map((s) => `<div class="card" style="padding:10px 12px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><span class="stack"><span style="font-weight:500">${esc(s.label)}</span><span class="cap">${esc(s.why)} Affects ${s.paths} path${s.paths === 1 ? '' : 's'} up to tier ${s.tier}.${s.action === 'manual' ? ` Control key <span class="mono">${esc(s.control_key)}</span>.` : ''}</span></span><span class="prow" style="gap:8px"><span class="pill ${s.state === 'VIO' ? 'bad' : 'warn'}">${s.state === 'VIO' ? 'missing' : 'unverified'}</span>${s.action === 'fix' && write ? `<button class="btn btn-s" data-act="astraFix" data-arg="${esc(s.asi)}">Add to design</button>` : ''}</span></div>`).join('')}</div>` : (d.verdict === 'APPROVED' ? '<div class="note good"><strong>Nothing keeps this design from being approved.</strong></div>' : '');
+    const hist = `<h3>Recorded assessments</h3>${write ? `<div class="prow"><button class="btn2 btn-s" data-act="astraRecord"${AS.busy ? ' disabled' : ''}>Record this assessment</button><span class="cap">Kept for the record; a recorded assessment is never edited.</span></div>` : ''}${AS.msg ? `<div class="note ${AS.msg.tone}" role="status"><span style="font-size:13px">${esc(AS.msg.text)}</span></div>` : ''}${AS.hist.length ? AS.hist.map((h) => `<div class="lrow"><span class="stack"><span style="font-weight:500">${asVerdict(h.verdict)} \u00b7 version ${h.design_version}</span><span class="cap">${esc(h.created_by)} \u00b7 ${esc(new Date(h.created_at).toLocaleString())}</span></span><span class="cap mono">${esc(h.design_hash.slice(0, 10))}</span></div>`).join('') : '<p class="cap" style="margin:0">None recorded yet.</p>'}`;
     return `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><h2>Assessment</h2>${asVerdict(d.verdict)}</div>
       <span class="cap">What the formal model says about the saved design (version ${esc(d.design_version)}). It is a preview: nothing here changes the design, and acting on it comes in a later step. Impact tiers and tolerances are the ones ratified under Organisation risk; an asterisk marks a tier that is not declared and is read as the most severe.</span>
-      ${deps}<h3 style="margin-top:6px">Attack paths</h3><div style="display:flex;flex-direction:column;gap:8px">${paths}</div>
+      ${deps}${sugs}<h3 style="margin-top:6px">Attack paths</h3><div style="display:flex;flex-direction:column;gap:8px">${paths}</div>
       ${d.unmapped.length ? `<h3>Not mapped to the organisation</h3>${list(d.unmapped.map((u) => `${u.node} (${u.agent}): ${u.reason}`))}` : ''}
-      ${d.notes.length ? `<h3>Notes</h3>${list(d.notes)}` : ''}<h3>What the assessment assumes</h3>${list(d.limits)}`;
+      ${d.notes.length ? `<h3>Notes</h3>${list(d.notes)}` : ''}<h3>What the assessment assumes</h3>${list(d.limits)}${hist}`;
   }
 
   /* ---------- Drift review ---------- */
@@ -4750,7 +4755,17 @@ kill_switch:
         <table class="tbl" style="margin-top:8px"><thead><tr><th>Impact tier</th>${st.scales.severities.map((s) => `<th style="text-align:center">${esc(s)} severity</th>`).join('')}</tr></thead><tbody>${st.scales.tiers.map((t) => `<tr><td>${rkTierPill(t)}</td>${st.scales.severities.map((s) => cell(t, s)).join('')}</tr>`).join('')}</tbody></table></section>
       <section class="card" style="padding:12px 20px"><h2 class="ph" style="padding:0 0 6px">Recent decisions</h2>${hist}</section>`;
   }
-  Object.assign(H, { astraRetry: () => { AS.key = null; AS.err = null; } });
+  Object.assign(H, {
+    astraRetry: () => { AS.key = null; AS.err = null; },
+    astraFix: (asi) => { if (FIX[asi]) { FIX[asi](); AS.msg = null; } },
+    astraRecord: async () => {
+      const key = S.studio.designKey; if (!key || AS.busy) return;
+      AS.busy = true; AS.msg = null; render(true);
+      try { const r = await STAI.api.agentRecordAssessment(key); AS.hist = await STAI.api.agentAssessments(key); AS.msg = { tone: 'good', text: 'Recorded: ' + r.verdict.toLowerCase().replace('_', ' ') + ', version ' + r.design_version + '.' }; }
+      catch (e) { AS.msg = { tone: e.status === 409 ? 'plain' : 'alert', text: e.message }; }
+      AS.busy = false; render(true);
+    }
+  });
   const rkReload = async () => { RK.st = await STAI.api.riskState(); RK.at = Date.now(); };
   Object.assign(C, {
     rkField: (v, path) => { const e = RK.edit; if (!e) return; e[path] = (path === 'tier' || path === 'tolerance') ? Number(v) : v; RK.perr = null; }

@@ -186,6 +186,41 @@ def test_the_result_is_deterministic_and_the_gate_agrees_with_the_paths():
     assert gate.VERDICT_NAME[worst] == a["verdict"]
 
 
+def test_suggestions_name_the_controls_that_keep_the_verdict_down_most_severe_first():
+    _b, out = result(doc(), rows(asi01=("Gap", "no injection filter"), asi02=("Gap", "no approval")))
+    s = out["suggestions"]
+    assert [x["state"] for x in s][:2] == ["VIO", "VIO"] and {x["kind"] for x in s[:2]} == {"iso", "hitl"}, s
+    fix = {x["kind"]: x for x in s}
+    assert fix["iso"]["action"] == "fix" and fix["iso"]["asi"] == "ASI01" and fix["hitl"]["action"] == "fix" and fix["hitl"]["asi"] == "ASI02"
+    assert all(x["tier"] == 4 and x["paths"] == 1 for x in s)
+    assert {x["kind"] for x in s[2:]} == {"least", "ident", "life"} and all(x["action"] == "manual" and x["control_key"] == f"astra:{x['kind']}" for x in s[2:])
+    assert len({x["id"] for x in s}) == len(s), "one suggestion per control and agent"
+
+
+def test_after_the_fixes_only_evidence_is_left_to_attach_and_then_nothing():
+    _b, out = result(doc(approval=True), rows())
+    assert out["verdict"] == "REQUIRES_REVIEW" and {x["action"] for x in out["suggestions"]} == {"manual"} and all(x["state"] == "UNV" for x in out["suggestions"])
+    assert all("attested evidence" in x["label"] for x in out["suggestions"])
+    _b, done = result(doc(approval=True), rows(), ev=ALL)
+    assert done["verdict"] == "APPROVED" and done["suggestions"] == []
+
+
+def test_a_path_the_department_accepts_needs_no_suggestion():
+    _b, out = result(doc(approval=True), rows(), c=ctx(tolerance=4))
+    assert out["verdict"] == "APPROVED" and out["suggestions"] == []
+
+
+def test_a_gap_in_a_delegate_is_a_manual_suggestion_about_that_agent():
+    other = doc(name="ledger-agent", data=("Ledger",), approval=True)
+    c = ctx()
+    c.dept_of_agent["ledger-agent"] = "D-FIN"
+    c.others["ledger-agent"] = AE.Source(other, rows(asi01=("Gap", "no filter")), {})
+    b = AE.build(AE.Source(doc(data=(), delegates=("ledger-agent",), approval=True), rows(), ALL), c)
+    s = AE.describe(b, c, NOW)["suggestions"]
+    gap = next(x for x in s if x["agent"] == "ledger-agent" and x["kind"] == "iso")
+    assert gap["state"] == "VIO" and gap["action"] == "manual" and "ledger-agent" in gap["label"] and gap["asi"] is None
+
+
 def test_a_design_without_a_primary_agent_is_refused():
     try:
         AE.build(AE.Source({"nodes": [], "edges": []}, []), ctx())

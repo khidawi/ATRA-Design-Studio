@@ -980,3 +980,24 @@ class RiskPosture(RiskDeclaration, Base):
     tier: Mapped[int] = mapped_column(Integer, nullable=False)
     severity: Mapped[str] = mapped_column(String(10), nullable=False)
     posture: Mapped[str] = mapped_column(String(10), nullable=False)
+
+
+# ── ASTRA phase 4: recorded assessments of an agent design (astra_assessment_api.py) ─────────────────────────────────────────────────────────────────
+class AstraAssessment(Base):
+    """What the formal model said about one saved agent design at one moment: the verdict, the department risk vector and every attack path with its controls.
+    Never edited or deleted: a later assessment is a new row. The design's hash and version say exactly which design it was."""
+
+    __tablename__ = "astra_assessments"
+    __table_args__ = (CheckConstraint("verdict IN ('INVALID_CONTRACT', 'BLOCKED', 'REQUIRES_REVIEW', 'APPROVED')", name="ck_astra_assessment_verdict"),
+                      Index("ix_astra_assessments_design", "organisation_id", "design_key", "created_at"))
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    design_key: Mapped[str] = mapped_column(String(40), nullable=False)
+    design_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    design_hash: Mapped[str] = mapped_column(String(64), nullable=False)          # SHA-256 of the design document as saved
+    verdict: Mapped[str] = mapped_column(String(20), nullable=False)
+    departments: Mapped[List[Dict[str, Any]]] = mapped_column(JSONB, nullable=False)      # the risk vector: highest open tier, tolerance and verdict per department
+    result: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)                 # the whole assessment, as served
+    created_by: Mapped[str] = mapped_column(String(120), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

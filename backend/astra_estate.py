@@ -179,6 +179,46 @@ def build(primary: Source, ctx: Ctx) -> Built:
     return built
 
 
+# What closes a control that the design shows to be missing. "fix" is an action the studio already offers for the check (studio FIX[asi]); the rest a person does.
+FIXES = {
+    "iso": ("ASI01", "Add a prompt-injection filter", "Untrusted input can reach the agent without a filter that limits it."),
+    "hitl": ("ASI02", "Put a human approval on every write tool", "A write action on a severe asset can run without a person confirming it."),
+    "supply": ("ASI04", "Require signed MCP servers", "An MCP server the agent connects to is not signed."),
+    "memval": ("ASI06", "Limit how long memory is kept", "Long-term memory has no retention limit."),
+}
+OWNER = ("Name an accountable owner for the agent", "The agent has no named owner, so nobody holds its identity and lifecycle.")
+
+
+def suggest(b: Built, paths: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """The controls that keep the verdict down, with what to do about each, the most severe first. Only paths that are not approved count: a path the department accepts needs nothing."""
+    need: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    for p in paths:
+        if p["verdict"] == "APPROVED":
+            continue
+        for c in p["controls"]:
+            if c["status"] in ("VIO", "UNV"):
+                e = need.setdefault((c["kind"], c["agent"]), {"state": c["status"], "tier": 0, "paths": 0, "why": c["why"]})
+                e["tier"], e["paths"] = max(e["tier"], p["tier"]), e["paths"] + 1
+                if c["status"] == "VIO":
+                    e["state"], e["why"] = "VIO", c["why"]
+    out = []
+    for (kind, agent), e in need.items():
+        mine = agent == b.primary
+        s = {"id": f"{kind}:{agent}", "kind": kind, "agent": agent, "state": e["state"], "tier": e["tier"], "paths": e["paths"], "control_key": f"astra:{kind}", "asi": None}
+        if e["state"] == "VIO" and mine and kind in FIXES:
+            s.update(action="fix", asi=FIXES[kind][0], label=FIXES[kind][1], why=FIXES[kind][2])
+        elif e["state"] == "VIO" and mine and kind in ("ident", "life"):
+            s.update(action="manual", label=OWNER[0], why=OWNER[1])
+        elif e["state"] == "VIO":
+            s.update(action="manual", label=f"Close the gap in {kind} for {agent}" + ("" if mine else f": fix it in the design of {agent}"), why=e["why"])
+        else:
+            s.update(action="manual", label=f"Attach attested evidence for {kind}" + ("" if mine else f" ({agent})"),
+                     why=f"Declared but unverified: {e['why']} A record with control key astra:{kind}, attested by someone independent, makes it satisfied.")
+        out.append(s)
+    out.sort(key=lambda s: (s["state"] != "VIO", -s["tier"], s["kind"], s["agent"]))
+    return out
+
+
 def describe(b: Built, ctx: Ctx, now: float) -> Dict[str, Any]:
     """The result the API serves: verdict, risk vector, paths with their controls."""
     E, S = b.estate, b.state
@@ -200,4 +240,4 @@ def describe(b: Built, ctx: Ctx, now: float) -> Dict[str, Any]:
               "verdict": gate.VERDICT_NAME[per_dept.get(d, gate.APPROVED)]} for d, t in sorted(E.tau.items())]
     v = gate.gate(E, S, now)
     return {"agent": b.primary, "verdict": gate.VERDICT_NAME[v], "runtime_name": gate.RUNTIME_NAME[v], "departments": depts, "paths": paths,
-            "agents": sorted(E.agents), "unmapped": b.unmapped, "notes": b.notes, "limits": LIMITS}
+            "agents": sorted(E.agents), "suggestions": suggest(b, paths), "unmapped": b.unmapped, "notes": b.notes, "limits": LIMITS}
