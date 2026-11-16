@@ -221,7 +221,7 @@ def ingest_batch(session: Session, actor: str, body: BatchIn) -> BatchOut:
     newly: List[Dict[str, Any]] = []
     recent = now - timedelta(minutes=DEDUPE_MINUTES)
     for ev in body.events:
-        data = ev.model_dump(exclude_none=True)
+        data = ev.model_dump(mode="json", exclude_none=True)
         verdict, finding_key, extra = "CONFORMING", None, {}
         if ev.type != "heartbeat":
             if judge is not None:

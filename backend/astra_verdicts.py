@@ -30,6 +30,7 @@ from sqlalchemy.orm import Session
 
 import astra_assessment_api as AA
 import astra_estate as AE
+import astra_probe
 import astra_runtime as AR
 import risk_api
 import risk_layer as RL
@@ -112,7 +113,8 @@ def agent_verdict(session: Session, org, row: AstraSignedContract, eff: Dict[str
     out["contract"]["design_changed"] = AA._hash(design.document) != row.design_hash
     try:
         ctx = AA.context(session, design.document)
-        built = AE.build(AE.Source(design.document, AA._rows(session, design.document), AA._evidence(session, design.design_key)), ctx)
+        built = AE.build(AE.Source(design.document, AA._rows(session, design.document), AA._evidence(session, design.design_key),
+                                   astra_probe.latest_evidence(session, org.id, design.design_key, AA._hash(design.document), now_day)), ctx)
     except ValueError as exc:
         return {**out, "verdict": "INVALID_CONTRACT", "runtime_name": "INVALID_CONTRACT", "reason": str(exc), "departments": [], "controls_moved": [], "posture": None,
                 "findings": {"open": 0, "pending": 0}, "halt_requests": []}

@@ -37,7 +37,7 @@ AUTONOMY = {"suggests": "suggest", "approval": "approve", "autonomous": "auto"}
 LIMITS = [
     "The design does not say which data a write tool changes, so when the agent has a write tool every data node counts as writable.",
     "A path starts only at an untrusted input that the design declares; a design that declares none has no paths.",
-    "Control statuses come from the existing OWASP checks on the design and from attested evidence records with the control key astra:<kind>; the Probe adds more in a later phase.",
+    "Control statuses come from the existing OWASP checks on the design and from attested evidence records with the control key astra:<kind>; an ASTRA Probe run of this version of the design adds more (a pass for a control the design does not show to be missing, a miss for any).",
     "An agent it delegates to that is not in the inventory with a saved design is included with no resources: what it can reach is unknown.",
 ]
 
@@ -48,6 +48,7 @@ class Source:
     doc: Dict[str, Any]
     rows: List[Dict[str, Any]]                       # the OWASP check rows: id, status (Covered, Partial, Gap, Not applicable), why
     evidence: Dict[str, Optional[int]] = field(default_factory=dict)      # control key -> day number its attestation lapses (None: it does not)
+    probe: Dict[str, Tuple[bool, Optional[int]]] = field(default_factory=dict)   # control kind -> (the newest Probe run passed, the day number a pass lapses)
 
 
 @dataclass
@@ -117,6 +118,15 @@ def _statuses_for(name: str, src: Source, built: "Built") -> None:
                 why[ctl] = f"{code}: {text}. Declared in the design; no attested evidence."
         else:
             why[ctl] = f"{code}: {text}"
+    for kind, (ok, until) in sorted(src.probe.items()):
+        ctl = (kind, name)
+        if not ok:
+            statuses.adverse(S, ctl, VIO)                    # a planted defect that was not caught: the control does not work
+            why[ctl] = f"ASTRA Probe: a scenario for {kind} was not caught by the reconciler. " + why.get(ctl, "")
+        elif S.st.get(ctl) not in (VIO, NA) and not (S.st.get(ctl) == SAT and S.fresh.get(ctl, float("inf")) >= (float("inf") if until is None else until)):    # a pass never rescues a control the design shows to be missing
+            statuses.support(S, ctl, "probe_pass", 0, float("inf") if until is None else until)
+            S.fresh[ctl] = float("inf") if until is None else until
+            why[ctl] = (why.get(ctl, "") + " Verified by an ASTRA Probe run.").strip()
     why.setdefault(("auth", name), "the design does not say how delegated messages are authenticated")
 
 

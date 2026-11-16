@@ -22,6 +22,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 import astra_estate as AE
+import astra_probe
 import audit
 import risk_api
 from agent_analysis import AgentAnalyseRequest, analyse_agent
@@ -85,7 +86,8 @@ def assess(session: Session, design: Design) -> Dict[str, Any]:
     doc = design.document
     try:
         ctx = context(session, doc)
-        built = AE.build(AE.Source(doc, _rows(session, doc), _evidence(session, design.design_key)), ctx)
+        built = AE.build(AE.Source(doc, _rows(session, doc), _evidence(session, design.design_key),
+                                   astra_probe.latest_evidence(session, current_organisation(session).id, design.design_key, _hash(doc), date.today().toordinal())), ctx)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     out = AE.describe(built, ctx, date.today().toordinal())

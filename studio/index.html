@@ -473,6 +473,13 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       simulateFinding: (body) => post('/api/findings/simulate', body),
       astraClasses: () => call('/api/astra/classes'),
       astraVerdicts: () => call('/api/runtime/verdicts'),
+      probeRun: (key) => post('/api/astra/probe/run', { design_key: key }),
+      probeLatest: (key) => call('/api/astra/probe/latest?design_key=' + encodeURIComponent(key)),
+      probeCatchRate: () => call('/api/astra/probe/catch-rate'),
+      probeAdmission: (key) => call('/api/astra/probe/admission?design_key=' + encodeURIComponent(key)),
+      probeScenarios: () => call('/api/astra/probe/scenarios'),
+      probeFromFinding: (fk) => post('/api/astra/probe/scenarios/from-finding/' + encodeURIComponent(fk), {}),
+      probeDecide: (id, what, note) => post('/api/astra/probe/scenarios/' + encodeURIComponent(id) + '/' + what, { note: note || null }),
       astraAdjudicate: (key, body) => post('/api/astra/findings/' + encodeURIComponent(key) + '/adjudicate', body),
       ackFinding: (key, body) => post('/api/findings/' + encodeURIComponent(key) + '/acknowledge', body),
       draftFindingTest: (key) => post('/api/findings/' + encodeURIComponent(key) + '/test', {}),
@@ -663,7 +670,7 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
     drift: { sel: null }
   };
 
-  const NAV = [['overview', 'Overview', ''], ['agents', 'Agents', '12'], ['triage', 'Screen a list', ''], ['repos', 'Repositories', ''], ['idps', 'Identity providers', ''], ['telemetry', 'Telemetry', ''], ['studio', 'Design studio', ''], ['compare', 'Compare designs', ''], ['drift', 'Drift review', '3'], ['findings', 'Findings', '4'], ['coverage', 'Coverage', '7/10'], ['packs', 'Trust and packs', ''], ['runtime', 'Live runtime', ''], ['workspace', 'Compliance workspace', '2']];
+  const NAV = [['overview', 'Overview', ''], ['agents', 'Agents', '12'], ['triage', 'Screen a list', ''], ['repos', 'Repositories', ''], ['idps', 'Identity providers', ''], ['telemetry', 'Telemetry', ''], ['studio', 'Design studio', ''], ['compare', 'Compare designs', ''], ['drift', 'Drift review', '3'], ['findings', 'Findings', '4'], ['coverage', 'Coverage', '7/10'], ['packs', 'Trust and packs', ''], ['runtime', 'Live runtime', ''], ['probe', 'ASTRA Probe', ''], ['workspace', 'Compliance workspace', '2']];
   const PARENT = { newagent: 'agents', addagent: 'agents', contract: 'agents', pack: 'packs' };
 
   function nav(active) {
@@ -1407,11 +1414,11 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
   }
 
   /* ----- ASTRA phase 3: the Assessment panel (read only). The attack paths of the saved design, the controls each needs, and the verdict the formal model gives ----- */
-  const AS = { key: null, ver: null, loading: false, data: null, err: null, hist: [], ct: null, vf: null, signedDoc: null, busy: false, msg: null };
+  const AS = { key: null, ver: null, loading: false, data: null, err: null, hist: [], ct: null, pb: null, vf: null, signedDoc: null, busy: false, msg: null };
   async function loadAstra() {
     const st = S.studio, key = st.designKey; if (!key || AS.loading) return;
     AS.loading = true; AS.err = null; AS.key = key; AS.ver = st.version;
-    try { [AS.data, AS.hist, AS.ct] = await Promise.all([STAI.api.agentAssessment(key), STAI.api.agentAssessments(key), STAI.api.agentContract(key).catch(() => null)]); AS.vf = null; } catch (e) { AS.data = null; AS.err = e.message; }
+    try { [AS.data, AS.hist, AS.ct, AS.pb] = await Promise.all([STAI.api.agentAssessment(key), STAI.api.agentAssessments(key), STAI.api.agentContract(key).catch(() => null), STAI.api.probeLatest(key).catch(() => null)]); AS.vf = null; } catch (e) { AS.data = null; AS.err = e.message; }
     AS.loading = false; renderIfIdle(route());
   }
   const AS_VERDICT = { APPROVED: ['ok', 'Approved'], REQUIRES_REVIEW: ['warn', 'Requires review'], BLOCKED: ['bad', 'Blocked'], INVALID_CONTRACT: ['bad', 'Invalid'] };
@@ -1431,6 +1438,8 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     const write = can('write');
     const sugs = d.suggestions.length ? `<h3>What keeps this from being approved</h3><div style="display:flex;flex-direction:column;gap:8px">${d.suggestions.map((s) => `<div class="card" style="padding:10px 12px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><span class="stack"><span style="font-weight:500">${esc(s.label)}</span><span class="cap">${esc(s.why)} Affects ${s.paths} path${s.paths === 1 ? '' : 's'} up to tier ${s.tier}.${s.action === 'manual' ? ` Control key <span class="mono">${esc(s.control_key)}</span>.` : ''}</span></span><span class="prow" style="gap:8px"><span class="pill ${s.state === 'VIO' ? 'bad' : 'warn'}">${s.state === 'VIO' ? 'missing' : 'unverified'}</span>${s.action === 'fix' && write ? `<button class="btn btn-s" data-act="astraFix" data-arg="${esc(s.asi)}">Add to design</button>` : ''}</span></div>`).join('')}</div>` : (d.verdict === 'APPROVED' ? '<div class="note good"><strong>Nothing keeps this design from being approved.</strong></div>' : '');
     const hist = `<h3>Recorded assessments</h3>${write ? `<div class="prow"><button class="btn2 btn-s" data-act="astraRecord"${AS.busy ? ' disabled' : ''}>Record this assessment</button><span class="cap">Kept for the record; a recorded assessment is never edited.</span></div>` : ''}${AS.msg ? `<div class="note ${AS.msg.tone}" role="status"><span style="font-size:13px">${esc(AS.msg.text)}</span></div>` : ''}${AS.hist.length ? AS.hist.map((h) => `<div class="lrow"><span class="stack"><span style="font-weight:500">${asVerdict(h.verdict)} \u00b7 version ${h.design_version}</span><span class="cap">${esc(h.created_by)} \u00b7 ${esc(new Date(h.created_at).toLocaleString())}</span></span><span class="cap mono">${esc(h.design_hash.slice(0, 10))}</span></div>`).join('') : '<p class="cap" style="margin:0">None recorded yet.</p>'}`;
+    const PR = AS.pb && AS.pb.run;
+    const probeCard = `<h3>ASTRA Probe</h3><div class="card" style="padding:12px 14px;display:flex;flex-direction:column;gap:8px"><div class="prow" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><span>${PR ? `${PR.summary.passed} of ${PR.summary.applicable} scenarios passed \u00b7 ${esc(new Date(PR.created_at).toLocaleString())}` : 'Not run on this design yet'}</span>${PR ? (PR.current ? '<span class="pill ok">of this version</span>' : '<span class="pill warn">of an earlier version</span>') : '<span class="pill muted">no evidence</span>'}</div><span class="cap">A passing run counts as evidence for the controls whose checks it exercised (for ${PR ? 30 : 30} days, never for a control the design shows to be missing); a scenario the checks miss marks the control violated.</span><div class="prow" style="gap:8px">${write ? `<button class="btn btn-s" data-act="astraProbe"${AS.busy ? ' disabled' : ''}>Run Probe</button>` : ''}<a class="btn2 btn-s" href="#/probe">Open ASTRA Probe</a></div></div>`;
     const ct = AS.ct, sign = can('signoff');
     let ctr = '';
     if (ct) {
@@ -1456,7 +1465,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
       <span class="cap">What the formal model says about the saved design (version ${esc(d.design_version)}). It is a preview: nothing here changes the design, and acting on it comes in a later step. Impact tiers and tolerances are the ones ratified under Organisation risk; an asterisk marks a tier that is not declared and is read as the most severe.</span>
       ${deps}${sugs}<h3 style="margin-top:6px">Attack paths</h3><div style="display:flex;flex-direction:column;gap:8px">${paths}</div>
       ${d.unmapped.length ? `<h3>Not mapped to the organisation</h3>${list(d.unmapped.map((u) => `${u.node} (${u.agent}): ${u.reason}`))}` : ''}
-      ${d.notes.length ? `<h3>Notes</h3>${list(d.notes)}` : ''}<h3>What the assessment assumes</h3>${list(d.limits)}${ctr}${hist}`;
+      ${d.notes.length ? `<h3>Notes</h3>${list(d.notes)}` : ''}<h3>What the assessment assumes</h3>${list(d.limits)}${probeCard}${ctr}${hist}`;
   }
 
   /* ---------- Drift review ---------- */
@@ -1580,7 +1589,7 @@ kill_switch:
       <section class="card" style="padding:24px;display:flex;flex-direction:column;gap:16px"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="pill ${sp[d.severity]}">${d.severity}</span><span class="cap mono">${esc(d.finding_key)} \u00b7 ${esc(cwhen(d.created_at))}</span></div><h3>${esc(d.title)}</h3>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px"><div class="note" style="background:var(--bg-fbe9d3)"><strong style="font-size:12px;color:var(--fg-7f3905)">Observed</strong><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${esc(d.observed)}</span></div><div class="note" style="background:var(--bg-e3ebfb)"><strong style="font-size:12px;color:var(--fg-153c99)">Permitted by contract</strong><span class="mono" style="font-size:13px;overflow-wrap:anywhere">${esc(d.permitted)}</span></div></div>
       <div>${[['Agent', d.agent_key, 1], ['Divergence class', d.class_code, 1], ['Contract element', d.element, 1], ['Contract version', d.contract_version || 'unknown', 1], ['Threat mapping', d.threat], ['Source', srcLabel[d.source]], ...(d.detection_basis ? [['Detection basis', d.detection_basis + (d.class_severity ? ' · class severity ' + d.class_severity : '')]] : []), ['Evidence', d.evidence, 1]].map(([k, v, m]) => `<div class="kv"><span class="cap">${k}</span><span${m ? ' class="mono"' : ''} style="overflow-wrap:anywhere">${esc(v)}</span></div>`).join('')}</div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" data-act="fdTest"${FD.busy ? ' disabled' : ''}>${d.test_spec ? 'Show test' : 'Turn into test'}</button><button class="btn2" data-act="fdAck"${FD.busy ? ' disabled' : ''}>${d.status === 'ACKNOWLEDGED' ? 'Acknowledged (undo)' : 'Acknowledge'}</button><button class="btn3" data-act="fdHalt"${FD.busy ? ' disabled' : ''}>Halt agent</button></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" data-act="fdTest"${FD.busy ? ' disabled' : ''}>${d.test_spec ? 'Show test' : 'Turn into test'}</button>${d.detection_basis ? `<button class="btn2" data-act="fdProbe"${FD.busy ? ' disabled' : ''}>Turn into Probe scenario</button>` : ''}<button class="btn2" data-act="fdAck"${FD.busy ? ' disabled' : ''}>${d.status === 'ACKNOWLEDGED' ? 'Acknowledged (undo)' : 'Acknowledge'}</button><button class="btn3" data-act="fdHalt"${FD.busy ? ' disabled' : ''}>Halt agent</button></div>
       ${FD.ferr ? `<div class="note alert" role="alert"><span style="font-size:13px;white-space:pre-wrap">${esc(FD.ferr)}</span></div>` : ''}
       ${d.test_spec ? `<div class="stack" style="gap:6px"><span class="cap" style="font-weight:600">Regression test drafted from this event</span><pre class="code">${esc(d.test_spec)}</pre></div>` : ''}
       ${d.adjudication === 'PENDING' ? `<div class="note"><strong>Waiting for a judgement</strong><span style="font-size:13px">A classifier flagged this as a semantic divergence. A person decides whether it is one.</span>${can('signoff') ? `<span class="prow" style="gap:8px"><button class="btn btn-s" data-act="fdAdjudicate" data-arg="confirm">It is a divergence</button><button class="btn2 btn-s" data-act="fdAdjudicate" data-arg="dismiss">Not a divergence</button></span>` : ''}</div>` : (d.adjudication ? `<span class="cap">${d.adjudication === 'CONFIRMED' ? 'Confirmed' : 'Dismissed'} by ${esc(d.adjudicated_by || '')}</span>` : '')}
@@ -1752,7 +1761,40 @@ kill_switch:
     return head(tabs) + note + body;
   }
 
-  const SCREENS = { runtime, overview, agents, newagent, addagent, studio, drift, contract, findings, coverage, packs, pack, workspace, users, audit };
+  /* ---------- ASTRA Probe (phase 8): scenarios made from a design's contract, replayed against the reconciler ---------- */
+  const PB = { loaded: false, loading: false, error: null, designs: [], key: '', latest: null, rate: null, scen: [], adm: null, busy: false, msg: null };
+  async function loadProbe() {
+    PB.loading = true; PB.error = null;
+    try {
+      PB.designs = await STAI.api.listAgentDesigns();
+      if (!PB.key || !PB.designs.some((d) => d.design_key === PB.key)) PB.key = (PB.designs[0] || {}).design_key || '';
+      const [rate, scen] = await Promise.all([STAI.api.probeCatchRate(), STAI.api.probeScenarios()]);
+      PB.rate = rate; PB.scen = scen;
+      if (PB.key) [PB.latest, PB.adm] = await Promise.all([STAI.api.probeLatest(PB.key), STAI.api.probeAdmission(PB.key)]); else { PB.latest = null; PB.adm = null; }
+      PB.loaded = true;
+    } catch (e) { PB.error = e.message; }
+    PB.loading = false; renderIfIdle('probe');
+  }
+  function probe() {
+    const head = hdr('Scenarios made from an agent\u2019s contract, replayed against the checks that watch it', 'ASTRA Probe');
+    if (!PB.loaded && !PB.loading) loadProbe();
+    if (PB.error && !PB.loaded) return head + `<div class="note alert" role="alert"><strong>Could not load</strong><span style="font-size:13px">${esc(PB.error)}</span><button class="btn2 btn-s" data-act="pbReload" style="align-self:flex-start">Try again</button></div>`;
+    if (!PB.loaded) return head + '<p class="cap">Loading\u2026</p>';
+    const write = can('write'), sign = can('signoff'), L = PB.latest, run = L && L.run, R = (L && L.results) || [], A = PB.adm;
+    const sel = `<label class="cap">Agent design <select class="reqsel" data-chg="pbDesign">${PB.designs.map((d) => opt(d.design_key, d.name, PB.key)).join('')}</select></label>`;
+    const verdict = A ? `<div class="note ${A.admit ? 'good' : 'alert'}"><strong>${A.admit ? 'Admitted' : 'Refused'}</strong>${A.reasons.length ? `<ul class="cap" style="margin:4px 0 0;padding-left:18px">${A.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : '<span style="font-size:13px">The newest run is of this version of the design and every applicable scenario passed.</span>'}</div>` : '';
+    const sm = run ? run.summary : null;
+    const top = `<section class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:10px"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center">${sel}${write && PB.key ? `<button class="btn" data-act="pbRun"${PB.busy ? ' disabled' : ''}>${PB.busy ? 'Running\u2026' : 'Run Probe'}</button>` : ''}</div>
+      <span class="cap">The Probe builds, for each divergence class, a planted defect that must be caught and a boundary case that must be left alone, from the draft contract of the saved design. It replays them in memory through the same check the runtime uses: it writes no findings, reaches no collector and holds no credentials. What counts as right is read from the class table, never from the check being tested.</span>
+      ${PB.msg ? `<div class="note ${PB.msg.tone}" role="status"><span style="font-size:13px">${esc(PB.msg.text)}</span></div>` : ''}${verdict}</section>`;
+    const stats = sm ? `<section class="kpis"><div class="card kpi"><span class="cap">Scenarios passed</span><big>${sm.passed} <small>of ${sm.applicable}</small></big><span class="cap">${sm.not_applicable} not applicable to this contract</span></div><div class="card kpi"><span class="cap">Defects caught</span><big>${sm.caught} <small>of ${sm.applicable}</small></big><span class="cap">${sm.boundary_ok} boundary cases left alone</span></div><div class="card kpi"><span class="cap">Newest run</span><big style="font-size:16px">${esc(new Date(run.created_at).toLocaleString())}</big><span class="cap">${run.current ? 'of this version of the design' : 'of an earlier version: run it again'} \u00b7 ${esc(run.trigger)}</span></div></section>` : '';
+    const rows = R.length ? `<section class="card" style="padding:16px 20px"><h2>Newest run</h2><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Class</th><th>Control</th><th>Expected</th><th>Defect</th><th>Boundary</th><th>Result</th></tr></thead><tbody>${R.map((r) => `<tr><td><span class="mono">${esc(r.class.replace('DVG-', ''))}</span> ${esc(r.class_name)}${r.source === 'incident' ? ' <span class="pill muted">incident</span>' : ''}</td><td class="cap">${esc(r.control)}</td><td class="cap">${r.applicable ? esc(r.expected.outcome.toLowerCase()) : '\u2014'}</td><td>${!r.applicable ? '' : (r.bad_ok ? '<span class="pill ok">caught</span>' : '<span class="pill bad">missed</span>')}</td><td>${r.good_ok === null || r.good_ok === undefined ? '<span class="cap">none</span>' : (r.good_ok ? '<span class="pill ok">left alone</span>' : '<span class="pill bad">false alarm</span>')}</td><td>${!r.applicable ? `<span class="pill muted" title="${esc(r.reason || '')}">not applicable</span><div class="cap">${esc(r.reason || '')}</div>` : (r.passed ? '<span class="pill ok">pass</span>' : '<span class="pill bad">fail</span>')}</td></tr>`).join('')}</tbody></table></div></section>` : (PB.key ? '<section class="card" style="padding:16px 20px"><p class="cap" style="margin:0">The Probe has not run on this design yet.</p></section>' : '<p class="cap">There is no agent design yet.</p>');
+    const CR = PB.rate;
+    const rate = CR && CR.runs ? `<section class="card" style="padding:16px 20px"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline"><h2>Catch rate per class</h2><span class="cap">Last ${CR.window_days} days, ${CR.runs} run${CR.runs === 1 ? '' : 's'}: ${CR.caught} of ${CR.tested} planted defects caught${CR.catch_rate !== null ? ' (' + Math.round(CR.catch_rate * 100) + '%)' : ''}</span></div><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Class</th><th>OWASP</th><th>Tested</th><th>Caught</th><th>Boundary left alone</th><th>Not applicable</th></tr></thead><tbody>${CR.classes.map((c) => `<tr><td><span class="mono">${esc(c.class.replace('DVG-', ''))}</span> ${esc(c.name)}</td><td class="cap">${esc(c.asi.join(', '))}</td><td>${c.tested}</td><td>${c.catch_rate === null ? '<span class="cap">\u2014</span>' : `<span class="pill ${c.catch_rate === 1 ? 'ok' : 'bad'}">${c.caught} (${Math.round(c.catch_rate * 100)}%)</span>`}</td><td>${c.boundary_tested ? c.boundary_ok + ' of ' + c.boundary_tested : '<span class="cap">\u2014</span>'}</td><td>${c.not_applicable || ''}</td></tr>`).join('')}</tbody></table></div></section>` : '';
+    const sc = `<section class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:8px"><h2>Scenarios from incidents</h2><span class="cap">A finding can be turned into a scenario on the Findings screen. It joins the standing suite only when a person other than the one who proposed it approves it; from then on every run replays it, and a change that makes it pass unnoticed fails the admission check.</span>${PB.scen.length ? PB.scen.map((s) => `<div class="lrow"><span class="stack"><span style="font-weight:500"><span class="mono">${esc(s.finding_key)}</span> ${esc(s.class_name)} \u00b7 ${esc(s.agent_key)}</span><span class="cap">proposed by ${esc(s.proposed_by)}${s.decided_by ? ' \u00b7 ' + (s.status === 'STANDING' ? 'approved' : 'retired') + ' by ' + esc(s.decided_by) : ''}${s.note ? ': ' + esc(s.note) : ''}</span></span><span class="prow" style="gap:8px"><span class="pill ${s.status === 'STANDING' ? 'ok' : (s.status === 'PROPOSED' ? 'warn' : 'muted')}">${esc(s.status.toLowerCase())}</span>${sign && s.status === 'PROPOSED' ? `<button class="btn btn-s" data-act="pbDecide" data-arg="${esc(s.id)}|approve">Approve</button>` : ''}${sign && s.status !== 'RETIRED' ? `<button class="btn2 btn-s" data-act="pbDecide" data-arg="${esc(s.id)}|retire">Retire</button>` : ''}</span></div>`).join('') : '<p class="cap" style="margin:0">None yet.</p>'}</section>`;
+    return head + top + stats + rows + rate + sc;
+  }
+  const SCREENS = { runtime, probe, overview, agents, newagent, addagent, studio, drift, contract, findings, coverage, packs, pack, workspace, users, audit };
 
   /* ---------- Actions ---------- */
   const H = {
@@ -4809,6 +4851,13 @@ kill_switch:
       catch (e) { AS.msg = { tone: e.status === 409 ? 'plain' : 'alert', text: e.message }; }
       AS.busy = false; render(true);
     },
+    astraProbe: async () => {
+      const key = S.studio.designKey; if (!key || AS.busy) return;
+      AS.busy = true; AS.msg = null; render(true);
+      try { const r = await STAI.api.probeRun(key); AS.key = null; PB.loaded = false; AS.msg = { tone: r.summary.missed ? 'alert' : 'good', text: `Probe: ${r.summary.passed} of ${r.summary.applicable} scenarios passed.` }; }
+      catch (e) { AS.msg = { tone: 'alert', text: e.message }; }
+      AS.busy = false; render(true);
+    },
     astraBaseline: async () => {
       const key = S.studio.designKey; if (!key || AS.busy) return;
       const note = window.prompt('Note for the baseline (optional):', '');
@@ -4833,6 +4882,30 @@ kill_switch:
       render(true);
     }
   });
+  Object.assign(C, { pbDesign: (v) => { PB.key = v; PB.loaded = false; PB.msg = null; } });
+  Object.assign(H, {
+    pbReload: () => { PB.loaded = false; PB.error = null; },
+    pbRun: async () => {
+      if (!PB.key || PB.busy) return;
+      PB.busy = true; PB.msg = null; render(true);
+      try { const r = await STAI.api.probeRun(PB.key); PB.msg = { tone: r.summary.missed ? 'alert' : 'good', text: `Ran ${r.summary.scenarios} scenarios: ${r.summary.passed} passed, ${r.summary.missed} missed, ${r.summary.not_applicable} not applicable.` }; AS.key = null; PB.loaded = false; }
+      catch (e) { PB.msg = { tone: 'alert', text: e.message }; }
+      PB.busy = false; render(true);
+    },
+    pbDecide: async (arg) => {
+      const [id, what] = arg.split('|'); const note = window.prompt(what === 'approve' ? 'Note for the approval (optional):' : 'Why is this scenario retired?', ''); if (note === null) return;
+      try { await STAI.api.probeDecide(id, what, note.trim()); PB.loaded = false; PB.msg = { tone: 'good', text: what === 'approve' ? 'The scenario is standing.' : 'The scenario is retired.' }; }
+      catch (e) { PB.msg = { tone: 'alert', text: e.message }; }
+      render(true);
+    },
+    fdProbe: async () => {
+      const d = FD.findings.find((x) => x.finding_key === (S.findings.sel || (FD.findings[0] || {}).finding_key)); if (!d) return;
+      FD.busy = true; FD.ferr = null; render(true);
+      try { await STAI.api.probeFromFinding(d.finding_key); PB.loaded = false; FD.fmsg = 'Proposed as a Probe scenario. A different person approves it on the ASTRA Probe screen.'; } catch (e) { FD.ferr = e.message; }
+      FD.busy = false; render(true);
+    }
+  });
+
   const rkReload = async () => { RK.st = await STAI.api.riskState(); RK.at = Date.now(); };
   Object.assign(C, {
     rkField: (v, path) => { const e = RK.edit; if (!e) return; e[path] = (path === 'tier' || path === 'tolerance') ? Number(v) : v; RK.perr = null; }

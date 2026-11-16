@@ -1093,3 +1093,66 @@ class AstraPeerKey(Base):
     public_key: Mapped[str] = mapped_column(String(64), nullable=False)
     created_by: Mapped[str] = mapped_column(String(120), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class ProbeScenario(Base):
+    """A scenario made from a finding (ASTRA Probe, step 8b). It joins the standing suite only when a person other than its proposer approves it."""
+
+    __tablename__ = "probe_scenarios"
+    __table_args__ = (CheckConstraint("status IN ('PROPOSED', 'STANDING', 'RETIRED')", name="ck_probe_scenario_status"), Index("ix_probe_scenarios_agent", "organisation_id", "agent_key", "status"))
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    agent_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    finding_key: Mapped[str] = mapped_column(String(12), nullable=False)
+    class_code: Mapped[str] = mapped_column(String(16), nullable=False)
+    bad_event: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    status: Mapped[str] = mapped_column(String(10), nullable=False, server_default="PROPOSED")
+    proposed_by: Mapped[str] = mapped_column(String(120), nullable=False)
+    decided_by: Mapped[Optional[str]] = mapped_column(String(120))
+    decided_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    note: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class ProbeRun(Base):
+    """One run of the Probe against one version of an agent design (never edited)."""
+
+    __tablename__ = "probe_runs"
+    __table_args__ = (CheckConstraint("trigger IN ('manual', 'sign', 'nightly', 'admission')", name="ck_probe_run_trigger"), Index("ix_probe_runs_design", "organisation_id", "design_key", "created_at"))
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    design_key: Mapped[str] = mapped_column(String(40), nullable=False)
+    agent_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    design_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    contract_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    trigger: Mapped[str] = mapped_column(String(10), nullable=False)
+    summary: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    created_by: Mapped[str] = mapped_column(String(120), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class ProbeResult(Base):
+    """The outcome of one scenario in a run: what was expected (from the class table), what the reconciler said, and whether they agree."""
+
+    __tablename__ = "probe_results"
+    __table_args__ = (Index("ix_probe_results_run", "run_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("probe_runs.id", ondelete="CASCADE"), nullable=False)
+    class_code: Mapped[str] = mapped_column(String(16), nullable=False)
+    control: Mapped[str] = mapped_column(String(12), nullable=False)
+    basis: Mapped[str] = mapped_column(String(14), nullable=False)
+    source: Mapped[str] = mapped_column(String(10), nullable=False)
+    scenario_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid)
+    applicable: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    reason: Mapped[Optional[str]] = mapped_column(Text)
+    expected: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    bad_event: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB)
+    good_event: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB)
+    bad: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB)
+    good: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB)
+    bad_ok: Mapped[Optional[bool]] = mapped_column(Boolean)
+    good_ok: Mapped[Optional[bool]] = mapped_column(Boolean)
+    passed: Mapped[Optional[bool]] = mapped_column(Boolean)

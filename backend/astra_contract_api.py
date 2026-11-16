@@ -182,7 +182,15 @@ def sign_contract(design_key: str, body: SignIn, session: Session = Depends(get_
     session.add(row)
     session.commit()
     audit.record(user.name, user.role, "astra.sign", detail={"design_key": design_key, "agent": agent_id, "version": row.version, "key_id": row.key_id, "id": str(row.id)})
-    return _public(row, full=True)
+    out = _public(row, full=True)
+    try:                                                         # every new signed contract is probed (the compile step of the plan)
+        import astra_probe_api
+        run = astra_probe_api.execute_run(session, design, user.name, "sign")
+        out["probe"] = {"run": run["id"], **run["summary"]}
+    except Exception as exc:                                    # signing has happened; a Probe that cannot run is reported, never hidden
+        session.rollback()
+        out["probe"] = {"error": f"{type(exc).__name__}: {exc}"}
+    return out
 
 
 def _signed(session: Session, contract_id: uuid.UUID) -> AstraSignedContract:

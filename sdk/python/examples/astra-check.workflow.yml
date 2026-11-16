@@ -1,0 +1,24 @@
+# A GitHub Actions workflow that refuses a change to an agent design unless ASTRA Probe admits it.
+# Put it in the agent repository. ASTRA_URL is the https address of the platform; ASTRA_KEY is a repository secret holding an API key with the engineer role.
+# The design key is the one shown in the studio. The job fails (and so can block the merge) when the check refuses or cannot be made.
+name: astra-check
+on:
+  pull_request:
+    paths: ["agent/**", "astra/**"]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ./sdk/python            # or: pip install astra-runtime
+      - run: astra-check --design refund-agent --run
+        env:
+          ASTRA_URL: ${{ vars.ASTRA_URL }}
+          ASTRA_KEY: ${{ secrets.ASTRA_KEY }}

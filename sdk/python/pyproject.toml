@@ -11,6 +11,9 @@ requires-python = ">=3.8"
 dependencies = []                       # standard library only, on purpose
 classifiers = ["Programming Language :: Python :: 3", "Topic :: Security"]
 
+[project.scripts]
+astra-check = "astra_runtime.check_cli:main"
+
 [project.optional-dependencies]
 openai-agents = ["openai-agents"]
 langchain = ["langchain-core"]

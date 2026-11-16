@@ -50,6 +50,7 @@ from astra_assessment_api import router as astra_assessment_router
 from astra_contract_api import router as astra_contract_router
 from astra_runtime_api import router as astra_runtime_router
 from astra_verdicts import router as astra_verdicts_router
+from astra_probe_api import router as astra_probe_router
 from method_api import router as method_router
 from scoring_bridge import score_levels, score_registry, score_sensitivity
 from compliance_schema import CompiledContract, DeploymentDescription, DesignRiskAssessment
@@ -128,6 +129,7 @@ app.include_router(astra_assessment_router)
 app.include_router(astra_contract_router)
 app.include_router(astra_runtime_router)
 app.include_router(astra_verdicts_router)
+app.include_router(astra_probe_router)
 app.include_router(agent_import_router)
 app.include_router(agent_registry_router)
 app.include_router(agent_compare_router)
