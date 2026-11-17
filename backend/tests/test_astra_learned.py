@@ -256,7 +256,7 @@ def test_calibration_waits_for_enough_conforming_events_and_a_person_who_may_sig
     m2 = two.post(f"/api/astra/learned/agents/{NAME}/calibrate", json=CAL).json()
     assert m2["version"] == 2
     det = {d["id"]: d for d in eng.get("/api/astra/learned/detectors").json()}
-    assert det["baseline"]["status"] == "available" and det["baseline"]["models"] >= 1 and det["tgn"]["status"] == "planned" and det["gnn"]["status"] == "planned"
+    assert det["baseline"]["status"] == "available" and det["baseline"]["models"] >= 1 and det["tgn"]["status"] == "available" and det["tgn"]["models"] == 0 and det["gnn"]["status"] == "planned"
 
 
 @world

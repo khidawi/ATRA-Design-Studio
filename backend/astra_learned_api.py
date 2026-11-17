@@ -72,7 +72,16 @@ def detectors(session: Session = Depends(get_session)) -> List[Dict[str, Any]]:
     org = current_organisation(session)
     n_models = session.scalar(select(func.count()).select_from(LearnedModel).where(LearnedModel.organisation_id == org.id, LearnedModel.status == "ACTIVE", LearnedModel.detector == "baseline"))
     n_flags = session.scalar(select(func.count()).select_from(LearnedFlag).where(LearnedFlag.organisation_id == org.id, LearnedFlag.status == "OPEN"))
-    return [{**d, "models": n_models if d["id"] == "baseline" else 0, "open_flags": n_flags if d["id"] == "baseline" else 0} for d in L.DETECTORS]
+    out = []
+    for d in L.DETECTORS:
+        flags_of = session.scalar(select(func.count()).select_from(LearnedFlag).where(LearnedFlag.organisation_id == org.id, LearnedFlag.status == "OPEN", LearnedFlag.detector == d["id"]))
+        d = {**d, "models": n_models if d["id"] == "baseline" else 0, "open_flags": flags_of if d["id"] != "baseline" else n_flags}
+        if d["id"] == "tgn":
+            cands = session.scalars(select(LearnedModel).where(LearnedModel.organisation_id == org.id, LearnedModel.detector == "tgn", LearnedModel.status == "CANDIDATE")).all()
+            adopted = session.scalar(select(LearnedModel).where(LearnedModel.organisation_id == org.id, LearnedModel.detector == "tgn", LearnedModel.status == "ACTIVE", LearnedModel.adopted.is_(True)))
+            d.update(models=1 if adopted else 0, candidates=len(cands), status="adopted" if adopted else ("candidate" if cands else "available"))
+        out.append(d)
+    return out
 
 
 @router.get("/agents")

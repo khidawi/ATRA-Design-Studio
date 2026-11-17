@@ -25,7 +25,7 @@ from db.models import LearnedFlag, LearnedModel, LearnedScore, RuntimeEvent
 DETECTORS = [
     {"id": "baseline", "name": "Statistical baseline", "status": "available", "phase": 9,
      "what": "Rates of each kind of event and tool-order transitions per time window, learned from conforming events, in plain Python."},
-    {"id": "tgn", "name": "Temporal graph network", "status": "planned", "phase": 10, "what": "Order and timing of events across agents and tools. Needs its own service."},
+    {"id": "tgn", "name": "Temporal graph network", "status": "available", "phase": 10, "what": "Order and timing of events across agents and tools, in its own service. Off until its evaluation against the baseline passes and a person adopts it."},
     {"id": "gnn", "name": "Graph neural network", "status": "planned", "phase": 11, "what": "Which paths through the estate are unlike the others."},
 ]
 LOOKBACK_DAYS = 14                      # the retention of runtime events
@@ -51,7 +51,12 @@ def active_model(session: Session, org_id: uuid.UUID, agent_key: str, detector: 
 
 
 def has_active_model(session: Session, org_id: uuid.UUID, agent_key: str) -> bool:
-    return active_model(session, org_id, agent_key) is not None
+    """Is a behavioural baseline monitored for this agent: its own statistical baseline, or the adopted temporal network once it has scored one of its windows."""
+    if active_model(session, org_id, agent_key) is not None:
+        return True
+    net = session.scalar(select(LearnedModel.id).where(LearnedModel.organisation_id == org_id, LearnedModel.agent_key == "*", LearnedModel.detector == "tgn", LearnedModel.status == "ACTIVE",
+                                                       LearnedModel.adopted.is_(True)))
+    return net is not None and session.scalar(select(LearnedScore.id).where(LearnedScore.model_id == net, LearnedScore.agent_key == agent_key).limit(1)) is not None
 
 
 def counts(session: Session, org_id: uuid.UUID, agent_key: str, window: int) -> Tuple[int, int]:
