@@ -2,7 +2,7 @@
 ASTRA Probe (phase 8): scenarios generated from a behavioural contract, replayed against the reconciler, results folded into evidence.
 
 For every divergence class (all 22, the behavioural baseline included) the Probe builds a pair of events from the contract: a planted defect that must be
-caught, and a boundary case that must be left alone. The pair is replayed through exactly what the runtime uses (astra_runtime.to_event and the conformity predicate), in memory, against
+caught, and a boundary case that must be left alone. The pair is replayed through exactly what the runtime uses (astra_conformity.to_event and the conformity predicate), in memory, against
 a copy of the contract document. What counts as the right answer is read from the class table (the detection basis of the class), never from the reconciler under test:
 
     policy or cryptographic class   the defect DIVERGES with exactly that class
@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
-import astra_runtime as AR
+import astra_conformity as AR
 from astra_model.classes import CLASSES
 
 PROBE_TTL_DAYS = 30

@@ -7,6 +7,9 @@ application (an injection, a stolen session) cannot create, alter or drop a tabl
   * data: SELECT, INSERT, UPDATE and DELETE on every table, and use of every sequence;
   * the audit log: INSERT and SELECT only. The log is a hash chain that claims to be append-only; with no UPDATE, DELETE or TRUNCATE for the application's role,
     the database enforces it, not just the code;
+  * the records ASTRA keeps as evidence (recorded assessments, accepted baselines, Probe runs and results, learned scores and evaluations, regulation reviews): INSERT and SELECT only, because
+    the application never changes one;
+  * the records whose status moves but that are never removed (signed contracts, learned models and flags): no DELETE or TRUNCATE;
   * nothing else: no CREATE on the schema, no ownership, no superuser.
 
 It runs as the owner role (DATABASE_URL_MIGRATE) and does nothing unless that is set and different from DATABASE_URL. It never creates the application's role (that
@@ -19,7 +22,8 @@ from sqlalchemy.engine import make_url
 
 log = logging.getLogger("stai.db")
 
-APPEND_ONLY = ("audit_events",)
+APPEND_ONLY = ("audit_events", "astra_assessments", "astra_baselines", "probe_runs", "probe_results", "learned_scores", "learned_evaluations", "regulation_reviews")
+NO_DELETE = ("astra_signed_contracts", "learned_models", "learned_flags")
 
 
 def harden(owner_url: str, app_url: str) -> None:
@@ -42,6 +46,9 @@ def harden(owner_url: str, app_url: str) -> None:
             for t in APPEND_ONLY:
                 if c.execute(text("SELECT to_regclass(:t)"), {"t": f"public.{t}"}).scalar() is not None:
                     c.execute(text(f'REVOKE UPDATE, DELETE, TRUNCATE ON "{t}" FROM {q}'))
-        log.info("Database privileges set for %r: data only, and the audit log is append-only", app_role)
+            for t in NO_DELETE:
+                if c.execute(text("SELECT to_regclass(:t)"), {"t": f"public.{t}"}).scalar() is not None:
+                    c.execute(text(f'REVOKE DELETE, TRUNCATE ON "{t}" FROM {q}'))
+        log.info("Database privileges set for %r: data only; the audit log and the evidence records are append-only; signed contracts are never deleted", app_role)
     finally:
         eng.dispose()

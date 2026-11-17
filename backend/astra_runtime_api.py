@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-import astra_runtime as AR
+import astra_conformity as AR
 import astra_signing as SG
 import audit
 from agent_registry import agent_key

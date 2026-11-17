@@ -89,6 +89,11 @@ services:
       DATABASE_URL_MIGRATE: postgresql+psycopg://stai_owner:${ASTRA_DB_OWNER_PASSWORD}@db:5432/stai?sslmode=verify-full&sslrootcert=/certs/ca.crt
       # Encrypts the repository tokens, identity-provider credentials and alert webhook addresses kept in the database. Keep it with your backups, apart from them.
       ASTRA_SECRET_KEY: ${ASTRA_SECRET_KEY:?set ASTRA_SECRET_KEY in .env}
+      # Signs behavioural contracts (Ed25519). A different secret from the one above, kept apart from it and from the database. Generate one with:
+      #   docker compose -f docker-compose.prod.yml run --rm backend python astra_signing.py generate astra-2026
+      # Without it nothing can be signed (the platform says so); with it, keep a backup of the line it printed. A retired key's public half goes in ASTRA_SIGNING_PUBLIC_KEYS so old contracts still verify.
+      ASTRA_SIGNING_KEY: ${ASTRA_SIGNING_KEY:-}
+      ASTRA_SIGNING_PUBLIC_KEYS: ${ASTRA_SIGNING_PUBLIC_KEYS:-}
       ASTRA_REPO_ALLOW_PRIVATE_HOSTS: ${ASTRA_REPO_ALLOW_PRIVATE_HOSTS:-0}
       # The page and the API share one address, so the browser never makes a cross-site request: only that address is allowed.
       ASTRA_ALLOWED_ORIGINS: https://${ASTRA_DOMAIN:?set ASTRA_DOMAIN in .env}

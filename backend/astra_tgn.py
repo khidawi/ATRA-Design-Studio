@@ -13,6 +13,7 @@ The network itself runs in the separate `learned` service (learned/, its own ima
 
 Both outcomes of the gate are valid and both are recorded. Every evaluation here is measured on simulated traffic and says so.
 """
+import json
 import math
 import re
 from datetime import datetime, timedelta, timezone
@@ -108,8 +109,13 @@ def _utc(x: datetime) -> datetime:
     return x if x.tzinfo else x.replace(tzinfo=timezone.utc)
 
 
+MAX_EVALUATION_BYTES = 1_000_000                       # an evaluation is a few thousand numbers; a collector key cannot make the platform store more than this
+
+
 def register(session: Session, org_id: Any, user_name: str, body: Dict[str, Any], det: str = "tgn") -> Dict[str, Any]:
     """Record a candidate model and its evaluation. The decision stored is the platform's own."""
+    if len(json.dumps(body, default=str)) > MAX_EVALUATION_BYTES:
+        raise ValueError(f"The evaluation is larger than {MAX_EVALUATION_BYTES // 1000} kB, which no evaluation needs to be.")
     cs = str(body.get("checksum", ""))
     if not CHECKSUM.match(cs):
         raise ValueError("the checksum of the weights is a 64-character hex hash")

@@ -32,6 +32,8 @@ from astra_model.statuses import NA, SAT, UNV, VIO, State
 import risk_layer
 
 UNASSIGNED = "(unassigned)"
+WARN_PATHS = 500                                  # beyond this the assessment says the design is large
+MAX_PATHS = 5000                                  # beyond this it is refused: the number of paths multiplies with every input, delegation and resource
 ASI_OF = {"iso": "ASI01", "hitl": "ASI02", "least": "ASI03", "supply": "ASI04", "memval": "ASI06", "deleg": "ASI07", "ident": "ASI10", "life": "ASI10"}
 AUTONOMY = {"suggests": "suggest", "approval": "approve", "autonomous": "auto"}
 LIMITS = [
@@ -186,6 +188,16 @@ def _make_agent(name: str, src: Source, ctx: Ctx, built: "Built", seen: Set[str]
     return agent
 
 
+def bound(E: Estate, notes: List[str]) -> int:
+    """Check the size of the estate before any path is built: refuse one that is too large, and warn about one that is large. Returns the number of paths (or the limit it stopped at)."""
+    n = exposure.count_paths(E, MAX_PATHS)
+    if n > MAX_PATHS:
+        raise ValueError(f"The estate has more than {MAX_PATHS} attack paths (an untrusted input times every delegation chain times every resource). Narrow the design: fewer untrusted inputs, fewer delegations or fewer data stores.")
+    if n > WARN_PATHS:
+        notes.append(f"This estate has {n} attack paths, which is large: the assessment is slow to read and the verdict is dominated by the worst of them. Consider narrowing the design.")
+    return n
+
+
 def build(primary: Source, ctx: Ctx) -> Built:
     name = str(_primary(primary.doc)["name"]).strip()
     built = Built(Estate({}, {}, {}), State(), {}, {}, [], [], name)
@@ -195,6 +207,7 @@ def build(primary: Source, ctx: Ctx) -> Built:
     bad = E_.problems(built.estate)
     if bad:
         raise ValueError("The estate could not be built: " + "; ".join(bad[:3]))
+    bound(built.estate, built.notes)
     return built
 
 

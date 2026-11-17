@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session
 import astra_assessment_api as AA
 import astra_contract_export as EX
 import astra_learned as L
-import astra_runtime as AR
+import astra_conformity as AR
 import astra_verdicts as V
 from astra_model.classes import CLASSES
 from db.models import (AstraAssessment, AstraBaseline, AstraSignedContract, CoverageAssignment, Design, Finding, LearnedEvaluation, LearnedFlag, LearnedModel, ProbeResult, ProbeRun,

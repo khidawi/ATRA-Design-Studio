@@ -27,7 +27,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 import agent_contract
-import astra_runtime
+import astra_conformity
 import divergence
 import drift_engine
 import findings as findings_mod
@@ -77,7 +77,7 @@ class EventIn(BaseModel):
     tokens_out: Optional[int] = Field(None, ge=0)
     calls: Optional[int] = Field(None, ge=0)
     via: Optional[str] = Field(None, max_length=12)
-    # what the divergence classes of the signed contract need (astra_runtime.py); numbers, flags, hashes and names only, never prompts, arguments or results
+    # what the divergence classes of the signed contract need (astra_conformity.py); numbers, flags, hashes and names only, never prompts, arguments or results
     params: Optional[Dict[str, float]] = Field(None, max_length=16)       # numeric parameters of a tool call, for bounds
     prev_tool: Optional[str] = Field(None, max_length=200)
     confirmed: Optional[bool] = None
@@ -212,7 +212,7 @@ def ingest_batch(session: Session, actor: str, body: BatchIn) -> BatchOut:
     elif agent.origin == "DEMO":
         raise HTTPException(status_code=409, detail=f"{key!r} is a demo agent; events cannot be reported for it.")
     agent.last_seen_at = now
-    judge = astra_runtime.Judge.load(session, org.id, key)             # None until the agent has had a signed contract; from then on it is judged against that, never the legacy contract
+    judge = astra_conformity.Judge.load(session, org.id, key)             # None until the agent has had a signed contract; from then on it is judged against that, never the legacy contract
     contract = _active(session, key)
     view = agent_contract.view(contract.document["design_snapshot"]) if contract else None
     version = contract.document["version"] if contract else None
@@ -228,7 +228,7 @@ def ingest_batch(session: Session, actor: str, body: BatchIn) -> BatchOut:
                 verdict, finding_key, extra = judge.run(session, ev.type, data, now)
                 if finding_key and finding_key not in raised and verdict in ("DIVERGENT", "PENDING"):
                     raised.append(finding_key)
-            elif ev.type in astra_runtime.NEW_TYPES:
+            elif ev.type in astra_conformity.NEW_TYPES:
                 verdict = "UNKNOWN_AGENT" if discovered else "NO_CONTRACT"
             elif contract is None:
                 verdict = "UNKNOWN_AGENT" if discovered else "NO_CONTRACT"

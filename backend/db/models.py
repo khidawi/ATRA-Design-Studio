@@ -1064,7 +1064,7 @@ class AstraSignedContract(Base):
 
 
 class AstraBinding(Base):
-    """Which contract element an observed name stands for, for one agent (astra_runtime.py). Without a binding the observed name is matched as it is."""
+    """Which contract element an observed name stands for, for one agent (astra_conformity.py). Without a binding the observed name is matched as it is."""
 
     __tablename__ = "astra_bindings"
     __table_args__ = (CheckConstraint("element IN ('tool', 'resource', 'delegate', 'component')", name="ck_astra_binding_element"),

@@ -120,6 +120,72 @@ astra.example.org {
 
 Open only ports 80 and 443 on the firewall. The database and the API are not published by this compose file; only the studio is.
 
+
+## ASTRA: signed contracts, runtime verdicts, the Probe and the learned layer (phases 1 to 13)
+
+Everything below is additive: it adds tables (migrations `0037` to `0044`) and endpoints, and changes nothing that was there. **Back up first** (`./backup_db.sh`), because a migration cannot be undone by starting an older image.
+
+### The signing key (needed to sign a contract)
+
+Behavioural contracts are signed with Ed25519. The key is its own secret, **not** `ASTRA_SECRET_KEY`, and it is never stored in the database.
+
+1. Generate one: `docker compose -f docker-compose.prod.yml run --rm backend python astra_signing.py generate astra-2026`. It prints two lines.
+2. Put the `ASTRA_SIGNING_KEY=...` line in `.env`. **Back it up apart from the database backups.** Whoever holds it can sign contracts that verify; whoever loses it cannot sign new ones (old ones still verify with the public half).
+3. Restart the backend (`up -d`). `GET /api/astra/signing` says whether a key is configured and gives its id, never the key; the Assessment tab of an agent design shows the same when you try to sign.
+4. **Rotation.** Generate a new key, put it in `ASTRA_SIGNING_KEY`, and put the old key's *public* line (the second line `generate` printed for it) in `ASTRA_SIGNING_PUBLIC_KEYS` (comma separated). Contracts signed with the old key keep verifying. A key that must be treated as stolen: revoke every contract signed with it (`POST /api/astra/contracts/{id}/revoke`) and re-sign.
+5. A signed contract is checked against its hash, its signature, its validity window and its status on every use. If the key is not known to the platform any more, events for that agent are **unverified**, never conforming.
+
+### Who may do what
+
+| Role | Can |
+|---|---|
+| admin, compliance | everything a person may sign off: ratify the risk layer, accept a baseline, sign, revoke, bind names, approve a Probe scenario, judge a finding or a learned flag, adopt a learned model, review a regulation mapping |
+| engineer | describe and assess designs, record an assessment, run the Probe, propose a scenario |
+| security | everything an engineer can, plus the audit log; **cannot** sign off |
+| auditor | read, and the audit log |
+| collector (API key only) | send runtime events and nothing else; the learned service's key may also read the event stream and post an evaluation and window scores |
+
+A person who recorded an assessment cannot accept it as the baseline; a person who proposed a Probe scenario cannot approve it; whoever proposed a value in the risk layer cannot ratify it.
+
+### Scheduled work (there is no scheduler inside the platform)
+
+Call these from cron or your pipeline with an **engineer** API key (Users > keys):
+
+```
+# nightly: run the Probe on every agent design, score the learned detectors
+curl -s -X POST -H "Authorization: Bearer $ASTRA_KEY" https://astra.example.com/api/astra/probe/run-all
+curl -s -X POST -H "Authorization: Bearer $ASTRA_KEY" https://astra.example.com/api/astra/learned/score-all
+```
+
+A Probe pass lapses after 30 days, so an agent whose design nobody has probed for a month loses that evidence on its own.
+
+### Collectors and the divergence classes
+
+Each agent needs a **collector** key (Users) and the SDK (`sdk/python`). The Live runtime screen lists all 22 divergence classes and says "needs collector event" for any class no collector has sent an event for: a class that is implemented but receives nothing is not coverage. The SDK sends numbers, flags, hashes and names, never prompts, arguments or results.
+
+### The learned service (optional, off by default)
+
+The temporal graph network and the graph model run in their own image so the backend image, its scans and its CI do not change:
+
+```
+docker compose --profile learned up -d learned      # needs ASTRA_LEARNED_KEY in .env: a collector key
+docker compose run --rm learned tgn evaluate --post
+docker compose run --rm learned gnn evaluate --post
+```
+
+A model scores nothing until its recorded evaluation passes the platform's own gate **and** compliance adopts it on the Learned detectors screen. Adopted, it is advisory-only: it can only mark an agent's baseline control unverified. The evaluations use simulated traffic and say so. The first evaluations of both did not pass the gate; they are recorded and neither is adopted.
+
+### What the database enforces
+
+With the production compose file, the application's database role cannot update or delete the audit log, nor the evidence ASTRA records (recorded assessments, accepted baselines, Probe runs and results, learned scores and evaluations, regulation reviews), and cannot delete signed contracts, learned models or flags. A signed contract that someone with direct database access edits fails its own verification.
+
+### Limits you should know before relying on it
+
+- Coverage is read from records; a pilot on a real agent with an independent assessor has not been done (see `docs/pilot/`).
+- The clause anchors in contracts are article-level and indicative; the regulation watch flags mappings for review and says when no platform rule corresponds.
+- Delegation chains are followed at most 4 hops and an estate with more than 5000 attack paths is refused with a message.
+- Keys are held in the environment. There is no hardware module; protect the host accordingly.
+
 ## Day to day
 
 The commands below use the demo file; with the production file, use `-f docker-compose.prod.yml` instead (`up --build -d` rebuilds the API and the studio and leaves the certificates, which are in the `caddy_data` volume, alone).

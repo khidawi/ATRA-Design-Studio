@@ -12,11 +12,15 @@ from .statuses import Control
 
 Path = Tuple[str, Tuple[str, ...], str, str]
 
+# A delegation chain is followed at most this many hops, whatever an agent's own bound says: the number of paths grows with the power of the chain length, so a bound that is not
+# capped is a way to make the platform do unbounded work. The reference bound of the model is 2.
+DEPTH_LIMIT = 4
+
 
 def chains(E: Estate, a0: str) -> List[Tuple[str, ...]]:
     out = [(a0,)]
     frontier = [(a0,)]
-    for _ in range(E.agents[a0].max_depth):
+    for _ in range(min(E.agents[a0].max_depth, DEPTH_LIMIT)):
         nxt = []
         for ch in frontier:
             for b in sorted(E.agents[ch[-1]].may_delegate_to):
@@ -25,6 +29,18 @@ def chains(E: Estate, a0: str) -> List[Tuple[str, ...]]:
         out += nxt
         frontier = nxt
     return out
+
+
+def count_paths(E: Estate, limit: int) -> int:
+    """The number of attack paths, counted without building them, and stopped as soon as it passes `limit` (the return value is then limit + 1)."""
+    n = 0
+    for a0 in E.agents:
+        for _i in E.agents[a0].inputs:
+            for ch in chains(E, a0):
+                n += sum(1 for r in E.agents[ch[-1]].resources if r in E.res)
+                if n > limit:
+                    return limit + 1
+    return n
 
 
 def paths(E: Estate) -> List[Path]:

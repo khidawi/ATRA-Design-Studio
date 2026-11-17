@@ -1,5 +1,5 @@
 """
-Tests for the divergence classes checked against a signed contract (ASTRA phase 6): astra_runtime.py, runtime ingest and astra_runtime_api.py.
+Tests for the divergence classes checked against a signed contract (ASTRA phase 6): astra_conformity.py, runtime ingest and astra_runtime_api.py.
 
     docker compose exec -e DATABASE_URL=...stai_test backend python -m tests.test_astra_classes        # see tests/_guard.py
 
@@ -14,7 +14,7 @@ from datetime import date, datetime, timedelta, timezone
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-import astra_runtime as AR
+import astra_conformity as AR
 import astra_schema
 import astra_signing as SG
 from astra_model.classes import CLASSES

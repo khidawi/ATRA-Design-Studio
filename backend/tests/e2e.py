@@ -1,5 +1,6 @@
 """
-End-to-end script (Task 9): drives the whole platform over HTTP, as four different people, from sign-in to evidence packs.
+End-to-end script (Task 9, extended in ASTRA phase 13): drives the whole platform over HTTP, as five different people, from sign-in to evidence packs, and then the whole ASTRA loop:
+describe an agent, assess it, add controls, ratify the risk layer, accept the baseline, sign a contract, run it, see a divergence and the verdict, Probe it, cover it, generate a pack.
 
     docker compose exec backend python -m tests.e2e                 # everything that needs no language model
     docker compose exec backend python -m tests.e2e --with-ollama   # also drafts an agent with the local model (minutes on a CPU)
@@ -27,7 +28,7 @@ from tests._guard import require_scratch_database
 
 PASSWORD = "e2e-Password-" + uuid.uuid4().hex[:8]
 RUN = uuid.uuid4().hex[:6]
-PEOPLE = {"admin": "Ada Admin", "compliance": "Cora Compliance", "engineer": "Eli Engineer", "auditor": "Ava Auditor"}
+PEOPLE = {"admin": "Ada Admin", "compliance": "Cora Compliance", "engineer": "Eli Engineer", "auditor": "Ava Auditor", "security": "Sam Security"}
 STEPS = []
 
 
@@ -73,6 +74,16 @@ def design_doc(name, extra=None, req=None):
 
 
 S = {}   # what one step hands to the next
+
+
+def ratify_reviewing(client, design_key, **extra):
+    """Ratify an agent design. A design whose gate says REVIEW needs a recorded review by someone who is not its owner first (the Fix tab); record one if the platform asks for it."""
+    r = client.post("/api/agents/ratify", json={"design_key": design_key, **extra})
+    if r.status_code == 422 and "gate says REVIEW" in r.text:
+        rv = client.post(f"/api/agents/designs/{design_key}/review", json={"decision": "APPROVED", "note": "e2e: reviewed against the Fix tab."})
+        assert rv.status_code == 201, rv.text
+        r = client.post("/api/agents/ratify", json={"design_key": design_key, **extra})
+    return r
 AGENT = f"e2e-patient-agent-{RUN}"
 
 
@@ -93,7 +104,8 @@ def s_open(base):
 
 @step("Each role signs in and sees its own permissions")
 def s_roles(base):
-    expect = {"admin": {"admin", "audit", "read", "signoff", "write", "ingest"}, "compliance": {"audit", "read", "signoff", "write", "ingest"}, "engineer": {"read", "write", "ingest"}, "auditor": {"audit", "read"}}
+    expect = {"admin": {"admin", "audit", "read", "signoff", "write", "ingest"}, "compliance": {"audit", "read", "signoff", "write", "ingest"}, "engineer": {"read", "write", "ingest"}, "auditor": {"audit", "read"},
+              "security": {"audit", "read", "write"}}
     for role in PEOPLE:
         S[role] = person(base, role)
         me = S[role].get("/api/auth/me").json()
@@ -186,7 +198,7 @@ def s_signoff(base):
 
 @step("Compliance ratifies; the contract is issued in their name and its hash verifies")
 def s_ratify(base):
-    r = S["compliance"].post("/api/agents/ratify", json={"design_key": S["agent_design"], "reviewer": "Spoofed Name"})
+    r = ratify_reviewing(S["compliance"], S["agent_design"], reviewer="Spoofed Name")
     assert r.status_code == 200, r.text
     c = r.json()["contract"]
     S["contract"] = c
@@ -361,7 +373,7 @@ def s_runtime(base):
     d = S["engineer"].post("/api/designs", json={"name": name, "domain": "OWASP_AGENTIC", "subject": "AGENT", "document": design_doc(name, req={"dpia": {**req["dpia"], "signed_off_by": ""}})}).json()
     cur = S["compliance"].get(f"/api/designs/{d['design_key']}").json()
     assert S["compliance"].put(f"/api/designs/{d['design_key']}", json={"name": name, "domain": "OWASP_AGENTIC", "subject": "AGENT", "document": design_doc(name, req=req), "version": cur["version"]}).status_code == 200
-    assert S["compliance"].post("/api/agents/ratify", json={"design_key": d["design_key"]}).status_code == 200
+    assert ratify_reviewing(S["compliance"], d["design_key"]).status_code == 200
     key = S["admin"].post("/api/keys", json={"name": f"e2e collector {RUN}", "role": "collector"}).json()
     c = Client(base, key["key"], name, flush_interval=0.05)
     try:
@@ -408,6 +420,193 @@ class Skip(Exception):
     pass
 
 
+# ── 9. The ASTRA loop (phases 1 to 12) ──────────────────────────────────────
+
+ASTRA_AGENT = f"e2e-astra-agent-{RUN}"
+DEPT, STORE, AG_NODE = f"E2E-D-{RUN}", f"E2E-DS-{RUN}", f"E2E-AG-{RUN}"
+
+
+def need(key):
+    if key not in S:
+        raise Skip(f"needs the step before it ({key})")
+
+
+def astra_doc(guarded):
+    doc = {"nodes": [{"id": "a1", "type": "agent", "name": ASTRA_AGENT, "p": {"owner": f"e2e-owner-{RUN}@example.test", "auto": "approval"}, "primary": True},
+                     {"id": "g1", "type": "goal", "name": "Refund small claims", "p": {}},
+                     {"id": "i1", "type": "input", "name": "customer email", "p": {"untrusted": True}},
+                     {"id": "t1", "type": "tool", "name": "refund", "p": {"write": True}},
+                     {"id": "t2", "type": "tool", "name": "lookup", "p": {"write": False}},
+                     {"id": "d1", "type": "data", "name": f"E2E Ledger {RUN}", "p": {}}],
+           "edges": [{"from": "a1", "to": "g1", "label": "pursues"}, {"from": "i1", "to": "a1", "label": "feeds"}, {"from": "a1", "to": "t1", "label": "uses"}, {"from": "a1", "to": "t2", "label": "uses"},
+                     {"from": "a1", "to": "d1", "label": "reads"}], "n": 100, "profile": None, "req": {}, "policy": "block"}
+    if guarded:
+        doc["nodes"] += [{"id": "ap1", "type": "approval", "name": "manager approval", "p": {}}, {"id": "gr1", "type": "guardrail", "name": "injection filter", "p": {"kind": "injection"}}]
+        doc["edges"] += [{"from": "ap1", "to": "t1", "label": "gates"}, {"from": "gr1", "to": "a1", "label": "limits"}]
+    return doc
+
+
+def astra_controls(base):
+    a = S["engineer"].get(f"/api/agents/designs/{S['astra_design']}/assessment")
+    assert a.status_code == 200, a.text
+    return a.json()
+
+
+@step("ASTRA: the organisation has a department and a data store, and an engineer describes an agent in it that reads untrusted input")
+def s_astra_describe(base):
+    from db.models import CompanyNode
+    with SessionLocal() as s:
+        org = s.query(Organisation).filter_by(slug=DEFAULT_ORG_SLUG).one()
+        s.add(CompanyNode(organisation_id=org.id, ext_id=DEPT, type="department", name=f"E2E Finance {RUN}", props={}))
+        s.add(CompanyNode(organisation_id=org.id, ext_id=STORE, type="data_store", name=f"E2E Ledger {RUN}", props={"department": DEPT}))
+        s.add(CompanyNode(organisation_id=org.id, ext_id=AG_NODE, type="agent", name=ASTRA_AGENT, props={"department": DEPT, "agent_key": ASTRA_AGENT}))
+        s.commit()
+    d = S["engineer"].post("/api/designs", json={"name": ASTRA_AGENT, "domain": "OWASP_AGENTIC", "subject": "AGENT", "document": astra_doc(False)})
+    assert d.status_code == 201, d.text
+    S["astra_design"], S["astra_version"] = d.json()["design_key"], d.json()["version"]
+
+
+@step("ASTRA: the gate blocks the unguarded design, names what to fix, and adding the controls moves it to review")
+def s_astra_assess(base):
+    need("astra_design")
+    a = astra_controls(base)
+    assert a["verdict"] == "BLOCKED" and a["paths"] and a["paths"][0]["department"] == f"E2E Finance {RUN}", a["verdict"]
+    assert {s["kind"] for s in a["suggestions"]} >= {"iso", "hitl"} and all(s["why"] for s in a["suggestions"])
+    r = S["engineer"].put(f"/api/designs/{S['astra_design']}", json={"name": ASTRA_AGENT, "domain": "OWASP_AGENTIC", "subject": "AGENT", "document": astra_doc(True), "version": S["astra_version"]})
+    assert r.status_code == 200, r.text
+    after = astra_controls(base)
+    assert after["verdict"] == "REQUIRES_REVIEW" and {c["status"] for c in after["paths"][0]["controls"]} <= {"UNV", "NA"}, after["verdict"]
+    assert S["auditor"].get(f"/api/agents/designs/{S['astra_design']}/assessment").status_code == 200, "anyone who can read can read the assessment"
+
+
+@step("ASTRA: impact and tolerance are declared by one person and ratified by another; the gate then approves")
+def s_astra_risk(base):
+    need("astra_design")
+    for kind, path, body in (("tolerance", "/api/risk/tolerances", {"department_ext": DEPT, "tolerance": 4, "rationale": "e2e: the department accepts up to tier 4."}),
+                             ("asset", "/api/risk/assets", {"asset_ext": STORE, "tier": 2, "rationale": "e2e: a low-impact store."})):
+        made = S["compliance"].post(path, json=body)
+        assert made.status_code == 201, made.text
+        assert S["compliance"].post(f"/api/risk/proposals/{kind}/{made.json()['id']}/ratify", json={}).status_code in (403, 409, 422), "the proposer cannot ratify their own declaration"
+        assert S["engineer"].post(f"/api/risk/proposals/{kind}/{made.json()['id']}/ratify", json={}).status_code == 403, "an engineer cannot ratify"
+        done = S["admin"].post(f"/api/risk/proposals/{kind}/{made.json()['id']}/ratify", json={})
+        assert done.status_code == 200, done.text
+    assert astra_controls(base)["verdict"] == "APPROVED"
+
+
+@step("ASTRA: the assessment is recorded, a different person accepts the baseline, and the contract is signed (Ed25519, a key separate from the platform's secret)")
+def s_astra_sign(base):
+    need("astra_design")
+    st = S["admin"].get("/api/astra/signing").json()
+    if not st["configured"]:
+        raise Skip("ASTRA_SIGNING_KEY is not set on the backend, so nothing can be signed (docker compose run --rm backend python astra_signing.py generate <key_id>)")
+    assert set(st) <= {"configured", "key_id", "retired", "error"}, "the signing status carries ids and a flag, never key material"
+    rec = S["compliance"].post(f"/api/agents/designs/{S['astra_design']}/assessments")
+    assert rec.status_code == 201 and rec.json()["verdict"] == "APPROVED", rec.text
+    assert S["compliance"].post(f"/api/agents/designs/{S['astra_design']}/baseline", json={}).status_code == 403, "the person who recorded the assessment cannot accept it"
+    assert S["engineer"].post(f"/api/agents/designs/{S['astra_design']}/baseline", json={}).status_code == 403
+    assert S["admin"].post(f"/api/agents/designs/{S['astra_design']}/sign", json={}).status_code == 409, "nothing is signed without an accepted baseline"
+    assert S["admin"].post(f"/api/agents/designs/{S['astra_design']}/baseline", json={"note": "e2e"}).status_code == 201
+    assert S["engineer"].post(f"/api/agents/designs/{S['astra_design']}/sign", json={}).status_code == 403
+    signed = S["compliance"].post(f"/api/agents/designs/{S['astra_design']}/sign", json={})
+    assert signed.status_code == 201, signed.text
+    c = signed.json()
+    assert c["status"] == "ACTIVE" and c["signed_by"] == PEOPLE["compliance"] and c["document"]["agent"]["signature"].startswith("ed25519:") and c["probe"].get("run"), c.get("probe")
+    S["signed"] = c
+    v = S["auditor"].get(f"/api/astra/contracts/{c['id']}/verify").json()
+    assert v["valid"] and v["reasons"] == [], v
+
+
+@step("ASTRA: a collector key reports a running agent; the verdict is conforming, then a divergence from the signed contract lowers it, and what cannot be judged is never read as fine")
+def s_astra_run(base):
+    need("signed")
+    key = S["admin"].post("/api/keys", json={"name": f"e2e collector {RUN} astra", "role": "collector"}).json()
+    col = httpx.Client(base_url=base, timeout=60, headers={"Authorization": f"Bearer {key['key']}"})
+    def send(**ev):
+        r = col.post("/api/runtime/events", json={"agent": ASTRA_AGENT, "events": [ev]})
+        assert r.status_code == 202, r.text
+        return r.json()["results"][0]
+    def verdict():
+        return S["auditor"].get(f"/api/runtime/verdicts?agent={ASTRA_AGENT}").json()["agents"][0]
+    assert verdict()["verdict"] == "APPROVED" and verdict()["contract"]["valid"]
+    assert send(type="tool_call", name="lookup")["verdict"] == "CONFORMING"
+    assert send(type="tool_call", name="refund")["verdict"] == "UNVERIFIED", "a write tool that needs a person, with no word on a confirmation"
+    div = send(type="tool_call", name="shell")
+    assert div["verdict"] == "DIVERGENT" and div["finding_key"]
+    v = verdict()
+    assert v["verdict"] == "REQUIRES_REVIEW" and any(m["kind"] == "least" and m["to"] == "VIO" for m in v["controls_moved"]), v
+    assert v["posture"]["recommended"] in ("observe", "flag", "block", "halt") and v["findings"]["open"] == 1
+    f = [x for x in S["auditor"].get("/api/findings").json() if x["finding_key"] == div["finding_key"]][0]
+    assert f["class_code"] == "DVG-TOOL-01" and f["detection_basis"] == "policy" and f["asi_signal"] == ["ASI02"]
+    assert col.get("/api/agents").status_code == 403 and col.post("/api/astra/probe/run", json={"design_key": S["astra_design"]}).status_code == 403, "a collector key can do nothing but report"
+    col.close()
+    S["divergence"] = div["finding_key"]
+
+
+@step("ASTRA: the Probe plants a defect for every class, the checks catch them, and the admission check admits this version of the design")
+def s_astra_probe(base):
+    need("signed")
+    run = S["security"].post("/api/astra/probe/run", json={"design_key": S["astra_design"]})
+    assert run.status_code == 201, run.text
+    r = run.json()
+    assert r["summary"]["scenarios"] == 22 and r["summary"]["missed"] == 0 and r["current"], r["summary"]
+    adm = S["auditor"].get(f"/api/astra/probe/admission?design_key={S['astra_design']}").json()
+    assert adm["admit"] is True, adm
+    prop = S["engineer"].post(f"/api/astra/probe/scenarios/from-finding/{S['divergence']}")
+    assert prop.status_code == 201 and prop.json()["status"] == "PROPOSED"
+    assert S["engineer"].post(f"/api/astra/probe/scenarios/{prop.json()['id']}/approve", json={}).status_code == 403, "an incident joins the standing suite only by a person's approval"
+    assert S["security"].post(f"/api/astra/probe/scenarios/{prop.json()['id']}/approve", json={}).status_code == 403, "the security role does not sign off either"
+    assert S["admin"].post(f"/api/astra/probe/scenarios/{prop.json()['id']}/approve", json={}).status_code == 200
+
+
+@step("ASTRA: coverage is per OWASP row from the contract, the Probe and real events; the dossier resolves every claim; the security view lists what is wrong")
+def s_astra_assurance(base):
+    need("signed")
+    cov = S["auditor"].get("/api/astra/coverage").json()
+    assert cov["agents_in_scope"] >= 1 and len(cov["rows"]) == 10 and next(r for r in cov["rows"] if r["code"] == "ASI08")["classes"] == []
+    d = S["auditor"].get(f"/api/astra/assurance/agent/{ASTRA_AGENT}").json()
+    assert d["contract"]["id"] == S["signed"]["id"] and d["contract"]["valid_now"] and [c["row"] for c in d["claims"]] == [f"ASI{i:02d}" for i in range(1, 11)]
+    assert d["unmapped_rows"] and d["gaps"] and d["limits"] and d["probe"]["current"]
+    sec = S["security"].get("/api/astra/security")
+    assert sec.status_code == 200 and sec.json()["findings"]["open"] >= 1 and sec.json()["contracts"]["signed_agents"] >= 1
+    assert S["security"].post("/api/astra/regwatch/review", json={"clause": "EU-AI-Act:Art.14", "note": "e2e review."}).status_code == 403
+    assert S["engineer"].get("/api/astra/learned/detectors").status_code == 200
+
+
+@step("ASTRA: the evidence pack carries the ASTRA section, and the signed contract, the Probe run and the findings it names are the ones on record")
+def s_astra_pack(base):
+    need("signed")
+    p = S["compliance"].post("/api/packs", json={"template": "ASSURANCE", "period": "30d"})
+    assert p.status_code == 201, p.text
+    pk = p.json()
+    sec = pk["content"]["astra"]
+    assert sec["agents_with_signed_contract"] >= 1 and sec["divergence_classes"]["total"] == 22 and sec["limits"] and sec["rows_detail"]
+    mine = next(a for a in sec["agents"] if a["agent"] == ASTRA_AGENT)
+    assert mine["contract"]["id"] == S["signed"]["id"] and mine["contract"]["hash"] == S["signed"]["contract_hash"] and mine["probe"]["current"] and mine["assessments"] >= 1
+    short = S["compliance"].post("/api/packs", json={"template": "TRUST", "period": "all", "frameworks": ["OWASP_AGENTIC"]}).json()
+    assert ASTRA_AGENT not in str(short["content"]), "the short form names no agent"
+    for x in (pk, short):
+        v = S["auditor"].get(f"/api/packs/{x['pack_key']}/verify").json()
+        assert v["ok"] and v["chain_ok"], v
+
+
+@step("ASTRA: the audit log names who recorded, accepted, signed, probed and approved, and refused the attempts that were not allowed")
+def s_astra_audit(base):
+    need("signed")
+    events = S["auditor"].get("/api/audit?limit=1000").json()
+    seen = {(e["actor"], e["action"], e["outcome"]) for e in events}
+    d = S["astra_design"]
+    tpl = "POST /api/agents/designs/{design_key}"                           # an allowed request is logged by its route, a refused one by the path it asked for
+    for who, action, outcome in ((PEOPLE["compliance"], tpl + "/assessments", "ok"), (PEOPLE["admin"], tpl + "/baseline", "ok"), (PEOPLE["compliance"], tpl + "/sign", "ok"),
+                                 (PEOPLE["engineer"], f"POST /api/agents/designs/{d}/sign", "denied"), (PEOPLE["security"], "POST /api/astra/probe/run", "ok"),
+                                 (PEOPLE["compliance"], tpl + "/baseline", "denied")):
+        assert (who, action, outcome) in seen, (who, action, outcome)
+    explicit = {e["action"] for e in events}
+    assert {"astra.assess", "astra.baseline", "astra.sign", "astra.probe"} <= explicit, explicit
+    assert all(S["signed"]["signature"] not in str(e["detail"]) for e in events), "a signature is not copied into the audit log"
+    assert all("ASTRA_SIGNING_KEY" not in str(e["detail"]) for e in events)
+    v = S["auditor"].get("/api/audit/verify").json()
+    assert v["ok"] and v["head_hash"]
+
 # ── Running it ──────────────────────────────────────────────────────────────
 
 def setup():
@@ -429,16 +628,28 @@ def teardown():
             s.delete(c)
         for c in s.query(Contract).filter(Contract.deployment_id.like(f"%{RUN}")).all():
             s.delete(c)
-        from db.models import ApiKey, RuntimeEvent
+        from db.models import (ApiKey, AstraAssessment, AstraBaseline, AstraSignedContract, CompanyNode, ProbeResult, ProbeRun, ProbeScenario, RegulationReview, RiskAssetTier,
+                               RiskDepartmentTolerance, RiskPosture, RuntimeEvent)
         s.query(RuntimeEvent).filter(RuntimeEvent.agent_key.like(f"%{RUN}")).delete(synchronize_session=False)
-        s.query(ApiKey).filter(ApiKey.name.like(f"e2e collector {RUN}")).delete(synchronize_session=False)
+        s.query(ApiKey).filter(ApiKey.name.like(f"e2e collector {RUN}%")).delete(synchronize_session=False)
+        s.query(ProbeScenario).filter(ProbeScenario.agent_key == ASTRA_AGENT).delete(synchronize_session=False)
+        for r in s.query(ProbeRun).filter(ProbeRun.agent_key == ASTRA_AGENT).all():
+            s.query(ProbeResult).filter(ProbeResult.run_id == r.id).delete(synchronize_session=False)
+            s.delete(r)
+        s.query(AstraSignedContract).filter(AstraSignedContract.agent_key == ASTRA_AGENT).delete(synchronize_session=False)
+        s.query(AstraBaseline).filter(AstraBaseline.design_key == S.get("astra_design", "-")).delete(synchronize_session=False)
+        s.query(AstraAssessment).filter(AstraAssessment.design_key == S.get("astra_design", "-")).delete(synchronize_session=False)
+        s.query(RegulationReview).filter(RegulationReview.reviewed_by.in_(list(PEOPLE.values()))).delete(synchronize_session=False)
+        for m in (RiskAssetTier, RiskDepartmentTolerance, RiskPosture):
+            s.query(m).delete()
+        s.query(CompanyNode).filter(CompanyNode.ext_id.in_((DEPT, STORE, AG_NODE))).delete(synchronize_session=False)
         for a in s.query(Agent).filter(Agent.agent_key.like(f"%{RUN}")).all():
             s.delete(a)
         for a in s.query(Agent).filter(Agent.agent_key == AGENT).all():
             s.delete(a)
         for d in s.query(Design).filter(Design.name.like(f"%{RUN}%")).all():
             s.delete(d)
-        for d in s.query(Design).filter(Design.name == AGENT).all():
+        for d in s.query(Design).filter(Design.name.in_((AGENT, ASTRA_AGENT))).all():
             s.delete(d)
         from db.models import Rule, DomainRule
         for r in s.query(Rule).filter(Rule.title.like(f"E2E no external email {RUN}%")).all():
