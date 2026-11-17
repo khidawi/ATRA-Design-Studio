@@ -26,8 +26,17 @@ beats the baseline by a clear margin on at least two held-out families and its f
 attack episodes, built from that company's own agents, tools and targets, into held-out windows only (dev families into validation, held-out families into test). Training sees normal traffic only.
 The result is recorded with `simulated=false` and a data summary, and the platform recomputes the decision exactly as before. It is **semi-synthetic**: real normal behaviour, injected attacks; it
 is not a measurement against real attacks, and the result says so. Too little history is refused with the reason (exit code 3): at least 300 events overall, 40 training events per agent and 10
-active agent-minutes in each of validation and test. A family the estate cannot host (a lateral chain needs a second agent) is skipped and named. The GNN has no real mode yet: it needs peer groups
-and the exact permitted targets from the contracts. Tests: `learned/tests/test_real.py`.
+active agent-minutes in each of validation and test. A family the estate cannot host (a lateral chain needs a second agent) is skipped and named. Tests: `learned/tests/test_real.py`.
+
+### The graph model on a company's own traffic (`gnn evaluate --real`, phase 17)
+
+Same command and the same honesty, plus two things the graph model needs and the TGN does not. **Peers** are the agents of the same department (the stream's department; "(unassigned)" has none).
+**Permissions** are what each agent's *active signed contract* permits, read from the platform's own contract view (`GET /api/runtime/contract/{key}`, readable with the collector key); an agent
+without an active contract is left out and named. Every injected attack uses only targets its contract permits, so the exact reachability check detects none of them and the evaluation fails if
+one is not permitted. Dev families: `rare_resource`, `rare_delegate`; held-out: `cross_peer_read`, `volume_shift`, `mix_shift`. It is **refused** (exit code 3, with the reason) when fewer than two
+contract-holding agents produced events, when no dev family can be built (no department with two agents that have history, or nothing permitted that peers never use), or under the same data floors
+as the TGN. To pass, it must also catch at least 25% of the attacks that neither the baseline nor the reachability check catches, on two held-out families: on a small estate that is often not
+possible, and a "not passed" is a valid, recorded answer. Tests: `learned/tests/test_gnn_real.py`.
 
 **Honest limit:** with the simulator the traffic is simulated, so this is simulator evidence. The simulator (`simulate.py`) is a process model of workflows and does not share any rule with the detector.
 

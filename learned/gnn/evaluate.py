@@ -68,17 +68,26 @@ def baseline_scores(models: Dict[str, Dict[str, Any]], events: List[Dict[str, An
     return out
 
 
-def reach_flags(events: List[Dict[str, Any]], lo: float, hi: float) -> Dict[Key, bool]:
+def violations(ds: Dict[str, Any], events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """The events the estate does not permit: the simulator's estate, or (real traces, phase 17) what each agent's active contract permits."""
+    perms = ds.get("permitted")
+    if perms is None:
+        return S.violates(events)
+    return [e for e in events if (e["kind"], e["target"]) not in perms.get(e["agent"], set())]
+
+
+def reach_flags(ds: Dict[str, Any], events: List[Dict[str, Any]], lo: float, hi: float) -> Dict[Key, bool]:
     out: Dict[Key, bool] = {}
     for w, evs in G.by_window(events, S.WINDOW, lo, hi).items():
         for a in {e["agent"] for e in evs}:
-            out[(a, w)] = bool(S.violates([e for e in evs if e["agent"] == a]))
+            out[(a, w)] = bool(violations(ds, [e for e in evs if e["agent"] == a]))
     return out
 
 
 def evaluate(ds: Dict[str, Any], model: M.SAGE, lay: G.Layout, budget: float = BUDGET, margin: float = MARGIN) -> Dict[str, Any]:
     v0, v1 = ds["spans"]["val"]
     t0, t1 = ds["spans"]["test"]
+    dev_f, test_f, cold = tuple(ds.get("dev_families", S.DEV_FAMILIES)), tuple(ds.get("test_families", S.TEST_FAMILIES)), set(ds.get("cold", S.COLD))
     normal = sorted(ds["train"] + ds["val"] + ds["test"], key=lambda e: (e["t"], e["agent"]))
     raw_n = raw_scores(model, lay, normal, v0, t1)
     nm = norms(raw_n, int(v0 // S.WINDOW), int(v1 // S.WINDOW))
@@ -91,25 +100,27 @@ def evaluate(ds: Dict[str, Any], model: M.SAGE, lay: G.Layout, budget: float = B
     bn = baseline_scores(bm, normal, v0, t1)
     bthr = threshold_for([v for k, v in bn.items() if in_val(k)], budget)
     btest = [v for k, v in bn.items() if in_test(k)]
-    rn = reach_flags(normal, t0, t1)
-    out: Dict[str, Any] = {"simulated": True, "dataset_hash": ds["hash"], "seed": ds["seed"], "budget_fpr": budget, "margin": margin, "novel_min": NOVEL_MIN, "spans_seconds": ds["spans"],
+    rn = reach_flags(ds, normal, t0, t1)
+    out: Dict[str, Any] = {"simulated": ds.get("simulated", True), "dataset_hash": ds["hash"], "seed": ds["seed"], "budget_fpr": budget, "margin": margin, "novel_min": NOVEL_MIN, "spans_seconds": ds["spans"],
                            "windows": {"val": sum(1 for k in zn if in_val(k)), "test_normal": len(test_z)},
                            "gnn": {"threshold": round(thr, 4), "fpr_test": round(sum(1 for x in test_z if x >= thr) / len(test_z), 4), "tpr": {}, "novel": {}, "tpr_late": {}},
                            "baseline": {"threshold": round(bthr, 4), "fpr_test": round(sum(1 for x in btest if x >= bthr) / max(len(btest), 1), 4), "tpr": {}, "tpr_late": {}, "agents_modelled": sorted(bm)},
                            "reachability": {"fpr_test": round(sum(1 for v in rn.values() if v) / max(len(rn), 1), 4), "tpr": {}},
-                           "families": {"dev": list(S.DEV_FAMILIES), "test": list(S.TEST_FAMILIES)}, "normalisation": nm, "attack_events_not_permitted": 0}
+                           "families": {"dev": list(dev_f), "test": list(test_f)}, "normalisation": nm, "attack_events_not_permitted": 0}
+    if ds.get("data"):
+        out["data"] = ds["data"]                                  # real traces: what the evaluation was made from (learned/gnn/real.py)
     for fam, info in ds["attacks"].items():
         lo, hi = (v0, v1) if info["role"] == "dev" else (t0, t1)
         victims = [tuple(v) for v in info["victims"]]
-        out["attack_events_not_permitted"] += sum(len(S.violates([e for e in info["events"] if (e["agent"], S.window_of(e["t"])) == v])) for v in victims)
+        out["attack_events_not_permitted"] += sum(len(violations(ds, [e for e in info["events"] if (e["agent"], S.window_of(e["t"])) == v])) for v in victims)
         gz = z(raw_scores(model, lay, info["events"], lo, hi), nm)
         bs = baseline_scores(bm, info["events"], lo, hi)
-        rf = reach_flags(info["events"], lo, hi)
+        rf = reach_flags(ds, info["events"], lo, hi)
         g_hit = {v: v in gz and gz[v] >= thr for v in victims}
         b_hit = {v: v in bs and bs[v] >= bthr for v in victims}
         r_hit = {v: bool(rf.get(v)) for v in victims}
         n = len(victims) or 1
-        late = [v for v in victims if v[0] in S.COLD]
+        late = [v for v in victims if v[0] in cold]
         out["gnn"]["tpr"][fam] = round(sum(g_hit.values()) / n, 4)
         out["baseline"]["tpr"][fam] = round(sum(b_hit.values()) / n, 4)
         out["reachability"]["tpr"][fam] = round(sum(r_hit.values()) / n, 4)
@@ -117,9 +128,9 @@ def evaluate(ds: Dict[str, Any], model: M.SAGE, lay: G.Layout, budget: float = B
         out["gnn"]["tpr_late"][fam] = round(sum(g_hit[v] for v in late) / len(late), 4) if late else None
         out["baseline"]["tpr_late"][fam] = round(sum(b_hit[v] for v in late) / len(late), 4) if late else None
     for det in ("gnn", "baseline"):
-        for role, fams in (("dev", S.DEV_FAMILIES), ("test", S.TEST_FAMILIES)):
-            xs = [out[det]["tpr"][f] for f in fams]
-            out[det][f"macro_{role}"] = round(sum(xs) / len(xs), 4)
+        for role, fams in (("dev", dev_f), ("test", test_f)):
+            xs = [out[det]["tpr"][f] for f in fams if f in out[det]["tpr"]]          # a family the estate could not host is not measured
+            out[det][f"macro_{role}"] = round(sum(xs) / len(xs), 4) if xs else None
     out["decision"] = decide(out)
     return out
 

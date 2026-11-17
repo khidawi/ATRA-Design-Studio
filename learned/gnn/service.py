@@ -11,15 +11,17 @@ import json
 import os
 import sys
 import time
+import urllib.parse
 from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 
 from ..tgn import schema
-from ..tgn.service import Platform, from_env, stream_events
+from ..tgn.service import Platform, fetch_real, from_env, stream_events
 from . import evaluate as E
 from . import graph as G
 from . import model as M
+from . import real as R
 from . import simulate as S
 
 WINDOW = int(S.WINDOW)
@@ -34,16 +36,19 @@ def snapshots(events: List[Dict[str, Any]], lay: G.Layout, lo: float, hi: float)
     return [G.build(evs, lay) for _, evs in G.by_window(events, S.WINDOW, lo, hi).items()]
 
 
-def train_and_evaluate(seed: int = 11, epochs: Optional[int] = None, emb: int = 6, out: Optional[str] = None, configs: Tuple[Tuple[int, int], ...] = CONFIGS, **sim: Any) -> Dict[str, Any]:
+def train_and_evaluate(seed: int = 11, epochs: Optional[int] = None, emb: int = 6, out: Optional[str] = None, configs: Tuple[Tuple[int, int], ...] = CONFIGS, ds: Optional[Dict[str, Any]] = None, **sim: Any) -> Dict[str, Any]:
     """Simulate, train on normal training snapshots only, evaluate. Settings are chosen on the DEV families only; the TEST families are judged once, for the chosen model."""
-    ds = S.make_dataset(seed=seed, **sim)
-    lay = G.Layout.of(ds["train"], known_agents=sorted(S.AGENTS))
+    if ds is None:
+        ds = S.make_dataset(seed=seed, **sim)
+        lay = G.Layout.of(ds["train"], known_agents=sorted(S.AGENTS))
+    else:
+        lay = ds["layout"]                                                         # real traces: the company's own slots (learned/gnn/real.py)
     train_snaps = snapshots(ds["train"], lay, 0, ds["spans"]["train"][1])
     best, tried = None, []
     for ep, width in ([(epochs, emb)] if epochs else list(configs)):
         mdl, crv = M.train(train_snaps, lay.dim, seed=seed, epochs=ep, emb=width)
         met = E.evaluate(ds, mdl, lay)
-        dev = met["gnn"]["macro_dev"]
+        dev = met["gnn"]["macro_dev"] or 0.0
         tried.append({"epochs": ep, "emb": width, "dev_detection": dev})
         if best is None or dev > best[3] + 1e-9:
             best = (mdl, crv, met, dev, ep, width)
@@ -71,11 +76,31 @@ def load(out: str, checksum: str) -> Tuple[M.SAGE, G.Layout]:
     return model, lay
 
 
+def fetch_permissions(p: Any, agents: List[str]) -> Dict[str, Any]:
+    """What each agent's ACTIVE signed contract permits, from the platform's own contract view (the one the SDK enforces with). An agent without an active contract is left out."""
+    out: Dict[str, Any] = {}
+    for a in agents:
+        c = p.call("GET", "/api/runtime/contract/" + urllib.parse.quote(a, safe=""))
+        if c.get("state") == "contract" and c.get("allowed"):
+            out[a] = R.permitted_of(c["allowed"])
+    return out
+
+
 def cmd_evaluate(a: argparse.Namespace) -> int:
-    r = train_and_evaluate(seed=a.seed, epochs=a.epochs, out=a.out)
+    ds = None
+    if getattr(a, "real", False):                                                  # a company's own events and contracts from the platform, not the simulator
+        p = from_env()
+        raw = fetch_real(p, a.days)
+        try:
+            ds = R.make_dataset(raw, fetch_permissions(p, sorted({e["agent"] for e in raw})), seed=a.seed, episodes=a.episodes)
+        except R.DataError as e:
+            print(f"learned: not enough data to judge a graph model on this company's traffic: {e}", file=sys.stderr)
+            return 3
+        print(R.summary(ds))
+    r = train_and_evaluate(seed=a.seed, epochs=a.epochs, out=a.out, ds=ds)
     m = r["metrics"]
-    print(f"model {r['checksum'][:16]}  simulated traffic, seed {a.seed}  loss {r['training']['loss_curve'][0]} -> {r['training']['loss_curve'][-1]}  ({r['training']['snapshots']} snapshots)")
-    fams = S.DEV_FAMILIES + S.TEST_FAMILIES
+    print(f"model {r['checksum'][:16]}  {'simulated traffic' if m.get('simulated', True) else 'real traces with injected attacks'}, seed {a.seed}  loss {r['training']['loss_curve'][0]} -> {r['training']['loss_curve'][-1]}  ({r['training']['snapshots']} snapshots)")
+    fams = [f for f in m["families"]["dev"] + m["families"]["test"] if f in m["gnn"]["tpr"]]
     for det in ("gnn", "baseline"):
         print(f"  {det:9s} false positives on held-out normal {m[det]['fpr_test']:.3f}  detection on dev {m[det]['macro_dev']}  on held-out families {m[det]['macro_test']}")
         print("            " + "  ".join(f"{f}={m[det]['tpr'][f]}" for f in fams))
@@ -142,6 +167,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             sp.add_argument("--seed", type=int, default=11)
             sp.add_argument("--epochs", type=int, default=None, help="train this many epochs; by default the settings are chosen on the dev families")
             sp.add_argument("--post", action="store_true")
+            sp.add_argument("--real", action="store_true", help="train and judge on this company's own events and active contracts (read from the platform) with permitted-but-unusual attacks injected into held-out windows")
+            sp.add_argument("--days", type=float, default=14.0, help="with --real: how many days of history to read")
+            sp.add_argument("--episodes", type=int, default=14, help="with --real: attack episodes injected per family")
         if name == "loop":
             sp.add_argument("--every", type=float, default=300.0)
     a = ap.parse_args(argv)
