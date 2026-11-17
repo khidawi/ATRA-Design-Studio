@@ -80,6 +80,26 @@ def test_a_schema_keyword_the_validator_does_not_know_is_refused_not_ignored():
         raise AssertionError("an unsupported format must raise")
 
 
+def test_the_email_check_is_linear_and_agrees_with_the_rules():
+    for ok in ("a@b.co", "owner.zz@example.test", "x@y.z"):
+        assert S.is_email(ok), ok
+    for bad_ in ("", "a", "a@b", "@b.co", "a@.co", "a@b.", "a b@c.co", "a@b@c.co", "a@b .co", "a@b..co"):
+        assert not S.is_email(bad_), bad_
+    import time
+    nasty = "!@!." + "!." * 50000                                     # the shape a backtracking expression chokes on
+    t0 = time.perf_counter()
+    assert not S.is_email(nasty)
+    assert time.perf_counter() - t0 < 0.5
+
+
+def test_a_very_long_string_is_refused_before_any_pattern_runs_on_it():
+    long = "a" * (S.MAX_STRING + 1)
+    errs = bad(lambda d: d["agent"].update(id=long))
+    assert any("longer than" in e for e in errs), errs
+    errs = bad(lambda d: d["permitted_tasks"][1].update(prohibited_chains=["x" * 100000]))
+    assert any("longer than" in e for e in errs), errs
+
+
 def test_the_stored_schema_uses_only_supported_keywords():
     S.validate(EXAMPLE)                      # walks every subschema the example touches; raises ValueError on an unsupported keyword
     S.validate({"agent": {"signature": "x"}}, S.load_schema())

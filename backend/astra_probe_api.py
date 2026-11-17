@@ -14,6 +14,7 @@ ASTRA Probe through the API (phase 8): running it, its results, incident scenari
 What a run tests is the draft behavioural contract of the design as saved (the document that is, or would be, signed), replayed in memory (astra_probe.py): nothing is written to the
 findings or to the runtime events, and no collector is reached.
 """
+import logging
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Literal, Optional
@@ -37,6 +38,7 @@ from db.session import get_session
 from organisation import current_organisation
 
 router = APIRouter(prefix="/api/astra/probe", tags=["astra"])
+log = logging.getLogger(__name__)
 WINDOW_DAYS = 30
 NOT_REPLAYABLE = {"DVG-COMM-01": "its signature and payload are never stored, so it cannot be replayed", "DVG-LIFE-01": "it depends on the date it happened, which a replay cannot reproduce"}
 
@@ -105,7 +107,8 @@ def run_all(session: Session = Depends(get_session), user: AuthUser = Depends(cu
             out.append({"design_key": d.design_key, "error": str(exc.detail)})
         except Exception as exc:                                                    # one design that cannot be probed must not stop the rest
             session.rollback()
-            out.append({"design_key": d.design_key, "error": f"{type(exc).__name__}: {exc}"})
+            log.exception("the Probe could not run for %s", d.design_key)
+            out.append({"design_key": d.design_key, "error": "The Probe could not run for this design; the reason is in the server log."})
     return {"runs": out, "failed": sum(1 for r in out if "error" in r)}
 
 

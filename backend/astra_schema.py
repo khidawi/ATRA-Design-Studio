@@ -16,7 +16,15 @@ from typing import Any, Dict, List
 SCHEMA_PATH = Path(__file__).resolve().parent / "schemas" / "behavioural-contract-0.1.json"
 IGNORED = {"$schema", "$id", "title"}
 KNOWN = IGNORED | {"type", "properties", "required", "additionalProperties", "items", "enum", "pattern", "minItems", "minLength", "format"}
-EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+MAX_STRING = 4096                                   # a string longer than this is refused before any pattern is tried on it
+
+
+def is_email(s: str) -> bool:
+    """One "@", no whitespace, a local part, and a domain with a dot that has something on both sides. Linear: no backtracking expression is run on the input."""
+    if len(s) > 254 or any(ch.isspace() for ch in s) or s.count("@") != 1:
+        return False
+    local, domain = s.split("@")
+    return bool(local) and "." in domain and all(domain.split("."))
 
 
 def load_schema() -> Dict[str, Any]:
@@ -52,10 +60,13 @@ def _check(value: Any, schema: Dict[str, Any], path: str, out: List[str]) -> Non
     if isinstance(value, str):
         if "minLength" in schema and len(value) < schema["minLength"]:
             out.append(f"{here}: must not be empty" if schema["minLength"] == 1 else f"{here}: must have at least {schema['minLength']} characters")
+        if len(value) > MAX_STRING:
+            out.append(f"{here}: is longer than {MAX_STRING} characters")
+            return
         if "pattern" in schema and not re.search(schema["pattern"], value):
             out.append(f"{here}: {value!r} does not match {schema['pattern']}")
         fmt = schema.get("format")
-        if fmt == "email" and not EMAIL.match(value):
+        if fmt == "email" and not is_email(value):
             out.append(f"{here}: {value!r} is not an email address")
         elif fmt == "date":
             try:

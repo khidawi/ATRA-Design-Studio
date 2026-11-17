@@ -12,6 +12,7 @@ The accepted baseline and the signed behavioural contract of an agent design (AS
 Nothing here changes the legacy contracts of /api/contracts. Enforcing a signed contract at runtime is phase 6.
 """
 import json
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
@@ -32,6 +33,7 @@ from db.session import get_session
 from organisation import current_organisation
 
 router = APIRouter(tags=["astra"])
+log = logging.getLogger(__name__)
 FMT = "%Y-%m-%dT%H:%M:%SZ"
 
 
@@ -45,7 +47,7 @@ def _is_email(s: Optional[str]) -> bool:
 
 def SG_EMAIL(s: str) -> bool:
     import astra_schema
-    return bool(astra_schema.EMAIL.match(s.strip()))
+    return astra_schema.is_email(s.strip())
 
 
 def _owner_email(session: Session, doc: Dict[str, Any]) -> Optional[str]:
@@ -189,7 +191,8 @@ def sign_contract(design_key: str, body: SignIn, session: Session = Depends(get_
         out["probe"] = {"run": run["id"], **run["summary"]}
     except Exception as exc:                                    # signing has happened; a Probe that cannot run is reported, never hidden
         session.rollback()
-        out["probe"] = {"error": f"{type(exc).__name__}: {exc}"}
+        log.exception("the Probe could not run after signing %s", design_key)
+        out["probe"] = {"error": "The Probe could not run; the contract is signed. The reason is in the server log."}
     return out
 
 
@@ -238,6 +241,7 @@ def signing_status() -> Dict[str, Any]:
         signer = SG.load_signer()
         keys = SG.load_public_keys()
     except SG.SigningError as exc:
-        return {"configured": False, "error": str(exc), "key_id": None, "retired": []}
+        log.warning("the signing configuration is invalid: %s", exc)
+        return {"configured": False, "error": "The signing configuration is invalid; the reason is in the server log.", "key_id": None, "retired": []}
     kid = signer[0] if signer else None
     return {"configured": signer is not None, "key_id": kid, "retired": sorted(k for k in keys if k != kid)}

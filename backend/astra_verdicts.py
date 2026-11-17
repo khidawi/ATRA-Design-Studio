@@ -21,6 +21,7 @@ A contract that is not valid right now (revoked, expired, tampered with, signed 
 ratified matrix of the risk layer applied to the highest impact tier the agent reaches and the severity of each open finding; the worst one is recommended. It is a recommendation: a person
 or the control plane enacts it, and a recorded halt request is shown beside it, unchanged.
 """
+import logging
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -43,6 +44,7 @@ from db.session import get_session
 from organisation import current_organisation
 
 router = APIRouter(prefix="/api/runtime", tags=["astra"])
+log = logging.getLogger(__name__)
 UNVERIFIED_HOURS = 24
 LEGACY_CONTROL = {"DVG-TOOL": "least", "DVG-DEL": "deleg", "DVG-SUP": "supply", "DVG-MEM": "memval", "DVG-DATA": "least"}
 RANK = {"INVALID_CONTRACT": 0, "BLOCKED": 1, "REQUIRES_REVIEW": 2, "APPROVED": 3}
@@ -116,7 +118,8 @@ def agent_verdict(session: Session, org, row: AstraSignedContract, eff: Dict[str
         built = AE.build(AE.Source(design.document, AA._rows(session, design.document), AA._evidence(session, design.design_key),
                                    astra_probe.latest_evidence(session, org.id, design.design_key, AA._hash(design.document), now_day)), ctx)
     except ValueError as exc:
-        return {**out, "verdict": "INVALID_CONTRACT", "runtime_name": "INVALID_CONTRACT", "reason": str(exc), "departments": [], "controls_moved": [], "posture": None,
+        log.warning("the estate of %s could not be built: %s", key, exc)
+        return {**out, "verdict": "INVALID_CONTRACT", "runtime_name": "INVALID_CONTRACT", "reason": "the design could not be read as an estate; the reason is in the server log", "departments": [], "controls_moved": [], "posture": None,
                 "findings": {"open": 0, "pending": 0}, "halt_requests": []}
     before = AE.describe(built, ctx, now_day)
     names = {agent_key(n): n for n in built.estate.agents}

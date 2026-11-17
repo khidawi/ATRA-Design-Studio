@@ -1629,16 +1629,16 @@ kill_switch:
   }
 
   /* ---------- Packs (Task 7e): generated from real data, stored as hashed, chained ---------- */
-  const PK = { loaded: false, loading: false, error: null, list: [], full: {}, sel: null, busy: false, err: null, verify: {}, form: { template: 'ASSURANCE', subject: 'AGENT', period: '30d', asi: true, rcr: true } };
+  const PK = { loaded: false, loading: false, error: null, list: [], full: new Map(), sel: null, busy: false, err: null, verify: {}, form: { template: 'ASSURANCE', subject: 'AGENT', period: '30d', asi: true, rcr: true } };
   async function loadPacks() {
     PK.loading = true; PK.error = null;
     try { PK.list = await STAI.api.listPacks(); PK.loaded = true; } catch (e) { PK.error = e.message; }
     PK.loading = false; renderIfIdle(route());
   }
   async function ensurePack(key) {
-    if (PK.full[key] || PK.loading) return;
+    if (PK.full.has(key) || PK.loading) return;
     PK.loading = true;
-    try { PK.full[key] = await STAI.api.getPack(key); } catch (e) { PK.error = e.message; }
+    try { PK.full.set(key, await STAI.api.getPack(key)); } catch (e) { PK.error = e.message; }
     PK.loading = false; renderIfIdle(route());
   }
   const verifyText = (v) => (!v ? '' : v.ok
@@ -1649,7 +1649,7 @@ kill_switch:
     const head = hdr('Every claim links to dated, tamper-evident evidence', 'Trust reports and Assurance Packs');
     if (PK.error && !PK.loaded) return head + `<div class="note alert" role="alert"><strong>Could not load packs</strong><span style="font-size:13px">${esc(PK.error)}</span><button class="btn2 btn-s" data-act="pkReload" style="align-self:flex-start">Retry</button></div>`;
     if (!PK.loaded) return head + '<p class="cap">Loading\u2026</p>';
-    const f = PK.form, trust = f.template === 'TRUST', key = PK.sel || (PK.list[0] || {}).pack_key, p = key && PK.full[key], meta = PK.list.find((x) => x.pack_key === key);
+    const f = PK.form, trust = f.template === 'TRUST', key = PK.sel || (PK.list[0] || {}).pack_key, p = key && PK.full.get(key), meta = PK.list.find((x) => x.pack_key === key);
     if (key && !p) ensurePack(key);
     const result = meta && p ? `<section class="card" style="padding:24px;display:flex;flex-direction:column;gap:14px"><div class="hdr" style="align-items:center"><div><h2>${meta.template === 'TRUST' ? 'Trust report' : 'Assurance Pack'}${meta.subject === 'MODEL' ? ' for AI models' : ''} \u00b7 ${esc(meta.pack_key)}</h2><span class="cap">${esc(meta.period_label)} \u00b7 generated ${esc(cwhen(meta.generated_at))} by ${esc(meta.generated_by)}</span></div><span class="pill ok">Stored</span></div>
       <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">${[[meta.claims, 'claims'], [meta.evidenced, 'evidenced'], [meta.gaps, 'gaps stated']].map(([a, b]) => `<div class="stack"><span style="font-size:26px;font-weight:600">${a}</span><span class="cap">${b}</span></div>`).join('')}</div>
@@ -1706,7 +1706,7 @@ kill_switch:
     const key = new URLSearchParams(location.hash.split('?')[1] || '').get('key');
     const back = ['packs', 'Trust and packs'];
     if (!key) return hdr('', 'Pack', '', back) + '<p class="cap">No pack chosen.</p>';
-    const p = PK.full[key];
+    const p = PK.full.get(key);
     if (!p) { ensurePack(key); return hdr('', 'Pack ' + esc(key), '', back) + (PK.error ? `<div class="note alert" role="alert">${esc(PK.error)}</div>` : '<p class="cap">Loading\u2026</p>'); }
     if (p.content.subject === 'MODEL') return packModel(p, back);
     const x = p.content, trust = x.template === 'TRUST', pill = { Covered: 'ok', Partial: 'warn', Gap: 'bad', 'No data': 'muted' };
@@ -5264,7 +5264,7 @@ kill_switch:
       PK.busy = false; render(true);
     },
     pkVerify: async (key) => { try { PK.verify[key] = await STAI.api.verifyPack(key); } catch (e) { PK.verify[key] = { ok: false, problems: [e.message], notes: [], contracts_ok: 0, contracts_checked: 0 }; } render(true); },
-    pkDownload: (key) => { const p = PK.full[key]; if (!p) return; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(p, null, 2)], { type: 'application/json' })); a.download = `${p.template === 'TRUST' ? 'trust-report' : 'assurance-pack'}-${p.pack_key}.json`; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
+    pkDownload: (key) => { const p = PK.full.get(key); if (!p) return; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(p, null, 2)], { type: 'application/json' })); a.download = `${p.template === 'TRUST' ? 'trust-report' : 'assurance-pack'}-${p.pack_key}.json`; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
   });
 
 
@@ -6479,6 +6479,8 @@ kill_switch:
   });
   Object.assign(C, { mFromOrgSel: (v) => { if (v) H.mFromOrg(v); } });
 
+  // A function of a table, looked up only among the table's own entries (never something inherited, never a name taken from the address bar that is not in the table).
+  const ownFn = (table, k) => (Object.prototype.hasOwnProperty.call(table, k) && typeof table[k] === 'function' ? table[k] : () => '');
   function route() {
     const r = location.hash.replace(/^#\/?/, '').split('?')[0];
     if (r === '') return 'organisation';
@@ -6501,7 +6503,7 @@ kill_switch:
     let html;
     if (r === 'home') html = home();
     else if (r === 'model') html = `<div class="shell">${modelNav('model')}<main id="main" class="wide">${modelStudio()}</main></div>`;
-    else if (r.startsWith('m_')) html = `<div class="shell">${modelNav(r.slice(2))}<main id="main">${LF_VIEWS[r]()}</main></div>`;
+    else if (r.startsWith('m_')) html = `<div class="shell">${modelNav(r.slice(2))}<main id="main">${ownFn(LF_VIEWS, r)()}</main></div>`;
     else if (r === 'modelcontracts') html = `<div class="shell">${modelNav('contracts')}<main id="main">${modelContracts()}</main></div>`;
     else if (r === 'policies') html = `<div class="shell">${orgNav('policies')}<main id="main">${policiesScreen()}</main></div>`;
     else if (r === 'risk') html = `<div class="shell">${orgNav('risk')}<main id="main">${riskScreen()}</main></div>`;
@@ -6509,7 +6511,7 @@ kill_switch:
     else if (r === 'expiring') html = `<div class="shell">${orgNav('expiring')}<main id="main">${expiringScreen()}</main></div>`;
     else if (r === 'staipolicy') html = `<div class="shell">${orgNav('staipolicy')}<main id="main">${staiPolicyScreen()}</main></div>`;
     else if (r === 'organisation') html = `<div class="shell">${orgNav('organisation')}<main id="main">${organisation()}</main></div>`;
-    else html = `<div class="shell">${nav(PARENT[r] || r)}<main id="main">${SCREENS[r]()}</main></div>`;
+    else html = `<div class="shell">${nav(PARENT[r] || r)}<main id="main">${ownFn(SCREENS, r)()}</main></div>`;
     document.getElementById('app').innerHTML = html;
     const mainEl = document.getElementById('main');
     if (mainEl && ME.role === 'auditor') mainEl.insertAdjacentHTML('afterbegin', '<div class="note plain" role="status"><strong>Read-only</strong><span style="font-size:13px">Your role is auditor: you can view everything and the audit log, but not change anything.</span></div>');
