@@ -11,7 +11,7 @@ The network itself runs in the separate `learned` service (learned/, its own ima
     * an adopted model is advisory-only: what it scores becomes flags that can only mark the baseline control unverified (astra_learned.py, Lemma 3, the table constraint);
     * the service holds a collector-role key: it may read the event stream and post an evaluation and window scores, nothing else.
 
-Both outcomes of the gate are valid and both are recorded. Every evaluation here is measured on simulated traffic and says so.
+Both outcomes of the gate are valid and both are recorded. An evaluation says what it was measured on: simulated traffic, or (phase 16) a company's real normal traffic with attacks injected into held-out windows (simulated=false, with a data summary). Neither is a measurement against real attacks.
 """
 import json
 import math
@@ -155,7 +155,8 @@ def evaluation_row(e: LearnedEvaluation) -> Dict[str, Any]:
             "recorded_by": e.recorded_by, "created_at": e.created_at.isoformat(), "families": m.get("families"), "detector": e.detector, "model_metrics": {k: m[e.detector].get(k) for k in ("threshold", "fpr_test", "tpr", "macro_test", "macro_dev", "novel", "tpr_late")},
             "tgn": {k: m["tgn"].get(k) for k in ("threshold", "fpr_test", "tpr", "macro_test", "macro_dev")} if e.detector == "tgn" else None,
             "baseline": {k: m["baseline"].get(k) for k in ("threshold", "fpr_test", "tpr", "macro_test", "macro_dev", "tpr_late")}, "reachability": m.get("reachability"), "novel_min": m.get("novel_min"),
-            "attack_events_not_permitted": m.get("attack_events_not_permitted"), "selection": m.get("selection")}
+            "attack_events_not_permitted": m.get("attack_events_not_permitted"), "selection": m.get("selection"),
+            "data": m.get("data") if isinstance(m.get("data"), dict) else None}
 
 
 def latest_evaluation(session: Session, model_id: Any) -> Optional[LearnedEvaluation]:

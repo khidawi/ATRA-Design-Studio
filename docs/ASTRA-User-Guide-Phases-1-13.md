@@ -79,7 +79,7 @@ The clause anchors are the specification's article-level, indicative table. A cl
 - **Statistical baseline** per agent: calibrated from the agent's conforming events by compliance or an administrator. Once calibrated, the agent's **baseline control** is required and starts unverified until a Probe run or an attested record `astra:base` validates it.
 - **Temporal graph network** and **graph model**: separate service, off by default. Each must pass an evaluation against the baseline on attack families it never saw (the graph model must also add something to the reachability check) and be adopted by a person. Both first evaluations did **not** pass and are recorded.
 - A flag from any of them can do one thing: mark the baseline control **unverified**. It never blocks an agent. A person judges each flag: benign (for a number of days) or real (it stays until a new contract is signed, and you add a control).
-- Every figure for a learned model is measured on **simulated traffic** and says so.
+- Every figure for a learned model says what it was measured on: **simulated traffic**, or (TGN, phase 16) your own **real normal traffic with attacks injected** by the evaluator (`tgn evaluate --real`). Neither is a measurement against real attacks.
 
 ## 7. Assurance and the Security view
 

@@ -173,7 +173,10 @@ The temporal graph network and the graph model run in their own image so the bac
 docker compose --profile learned up -d learned      # needs ASTRA_LEARNED_KEY in .env: a collector key
 docker compose run --rm learned tgn evaluate --post
 docker compose run --rm learned gnn evaluate --post
+docker compose run --rm learned tgn evaluate --real --days 14 --post   # the TGN on this organisation's own events (phase 16)
 ```
+
+`--real` needs several days of normal traffic from at least one agent that has been collecting (at least 300 events, 40 per scored agent); with less it refuses and says what is missing. It records a semi-synthetic evaluation (real normal traffic, injected attacks, `simulated=false`), never a result against real attacks. A person still adopts the model, and only if the platform's own gate passed.
 
 A model scores nothing until its recorded evaluation passes the platform's own gate **and** compliance adopts it on the Learned detectors screen. Adopted, it is advisory-only: it can only mark an agent's baseline control unverified. The evaluations use simulated traffic and say so. The first evaluations of both did not pass the gate; they are recorded and neither is adopted.
 

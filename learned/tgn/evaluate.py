@@ -105,11 +105,13 @@ def evaluate(ds: Dict[str, Any], model: M.TGN, vocab: M.Vocab, budget: float = B
     bval = [v for k, v in bn.items() if v0 <= k[1] * S.WINDOW < v1]
     bthr = threshold_for(bval, budget)
     btest = [v for k, v in bn.items() if t0 <= k[1] * S.WINDOW < t1]
-    out: Dict[str, Any] = {"simulated": True, "dataset_hash": ds["hash"], "seed": ds["seed"], "budget_fpr": budget, "margin": margin, "spans_seconds": ds["spans"],
+    out: Dict[str, Any] = {"simulated": ds.get("simulated", True), "dataset_hash": ds["hash"], "seed": ds["seed"], "budget_fpr": budget, "margin": margin, "spans_seconds": ds["spans"],
                            "windows": {"val": len(val_z), "test_normal": len(test_z)},
                            "tgn": {"threshold": round(thr, 4), "fpr_test": round(sum(1 for x in test_z if x >= thr) / len(test_z), 4), "tpr": {}},
                            "baseline": {"threshold": round(bthr, 4), "fpr_test": round(sum(1 for x in btest if x >= bthr) / len(btest), 4), "tpr": {}},
                            "families": {"dev": list(S.DEV_FAMILIES), "test": list(S.TEST_FAMILIES)}, "normalisation": norm}
+    if ds.get("data"):
+        out["data"] = ds["data"]                                  # real traces: what the evaluation was made from (learned/real.py)
     for fam, info in ds["attacks"].items():
         lo, hi = (v0, v1) if info["role"] == "dev" else (t0, t1)
         tz = z(tgn_window_means(model, vocab, info["events"], lo, hi), norm)

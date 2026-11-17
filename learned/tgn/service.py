@@ -61,10 +61,10 @@ def artefact_path(out: str, checksum: str) -> str:
 CONFIGS = ((6, 32), (12, 32), (24, 32))                    # (epochs, width) the settings are chosen among
 
 
-def train_and_evaluate(seed: int = 7, epochs: Optional[int] = None, d: int = 32, out: Optional[str] = None, configs: Tuple[Tuple[int, int], ...] = CONFIGS, **sim: Any) -> Dict[str, Any]:
+def train_and_evaluate(seed: int = 7, epochs: Optional[int] = None, d: int = 32, out: Optional[str] = None, configs: Tuple[Tuple[int, int], ...] = CONFIGS, ds: Optional[Dict[str, Any]] = None, **sim: Any) -> Dict[str, Any]:
     """Simulate, train on normal traffic only, evaluate. The settings are chosen by detection on the DEV attack families only; the TEST families are looked at once, for the chosen model, and
     nothing is tuned afterwards. Saves the weights under their checksum when `out` is given."""
-    ds = S.make_dataset(seed=seed, **sim)
+    ds = ds if ds is not None else S.make_dataset(seed=seed, **sim)               # the simulator, unless real traces are given (learned/real.py)
     vocab = M.Vocab.of(ds["train"])
     tried = []
     best = None
@@ -100,9 +100,18 @@ def load(out: str, checksum: str) -> Tuple[M.TGN, M.Vocab]:
 
 
 def cmd_evaluate(a: argparse.Namespace) -> int:
-    r = train_and_evaluate(seed=a.seed, epochs=a.epochs, out=a.out)
+    ds = None
+    if getattr(a, "real", False):                                                  # a company's own events from the platform, not the simulator
+        from .. import real as R
+        try:
+            ds = R.make_dataset(fetch_real(from_env(), a.days), seed=a.seed, episodes=a.episodes)
+        except R.DataError as e:
+            print(f"learned: not enough data to judge a model on this company's traffic: {e}", file=sys.stderr)
+            return 3
+        print(R.summary(ds))
+    r = train_and_evaluate(seed=a.seed, epochs=a.epochs, out=a.out, ds=ds)
     m = r["metrics"]
-    print(f"model {r['checksum'][:16]}  simulated traffic, seed {a.seed}  loss {r['training']['loss_curve'][0]} -> {r['training']['loss_curve'][-1]}")
+    print(f"model {r['checksum'][:16]}  {'simulated traffic' if m.get('simulated', True) else 'real traces with injected attacks'}, seed {a.seed}  loss {r['training']['loss_curve'][0]} -> {r['training']['loss_curve'][-1]}")
     for det in ("tgn", "baseline"):
         print(f"  {det:8s} threshold {m[det]['threshold']:>8}  false positives on held-out normal {m[det]['fpr_test']:.3f}  detection on dev {m[det]['macro_dev']}  on held-out families {m[det]['macro_test']}")
         print("           " + "  ".join(f"{f}={m[det]['tpr'][f]}" for f in S.DEV_FAMILIES + S.TEST_FAMILIES))
@@ -130,6 +139,12 @@ def stream_events(p: Platform, since: float, until: float) -> List[Dict[str, Any
         if not r["more"]:
             return out
         cursor = r["events"][-1]["t"] + 1e-6
+
+
+def fetch_real(p: Platform, days: float) -> List[Dict[str, Any]]:
+    """The company's events of the last `days` days, read from the platform's stream (names, kinds and times; never content)."""
+    now = time.time()
+    return stream_events(p, now - days * 86400, now)
 
 
 def cmd_score(a: argparse.Namespace) -> int:
@@ -177,6 +192,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             sp.add_argument("--seed", type=int, default=7)
             sp.add_argument("--epochs", type=int, default=None, help="train this many epochs; by default the settings are chosen on the dev families among " + ", ".join(str(c[0]) for c in CONFIGS))
             sp.add_argument("--post", action="store_true")
+            sp.add_argument("--real", action="store_true", help="train and judge on this company's own events (read from the platform) with attacks injected into held-out windows, not on the simulator")
+            sp.add_argument("--days", type=float, default=14.0, help="with --real: how many days of history to read")
+            sp.add_argument("--episodes", type=int, default=14, help="with --real: attack episodes injected per family")
         if name == "loop":
             sp.add_argument("--every", type=float, default=300.0)
     a = ap.parse_args(argv)

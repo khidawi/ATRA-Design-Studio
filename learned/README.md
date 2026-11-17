@@ -20,7 +20,16 @@ What it may do is fixed on the platform, not here:
 (training sees no attack at all). It is compared with the phase 9 statistical baseline at the same false-positive budget (5%, set on validation traffic that was normal). It passes only if it
 beats the baseline by a clear margin on at least two held-out families and its false positives on held-out normal traffic stay within twice the budget. Either outcome is recorded.
 
-**Honest limit:** the traffic is simulated, so this is simulator evidence. The simulator (`simulate.py`) is a process model of workflows and does not share any rule with the detector.
+### On a company's own traffic (`tgn evaluate --real`)
+
+`evaluate --real [--days 14] [--episodes 14] --post` reads the organisation's own events from the platform (`learned/stream`), splits them by time (60% train, 20% validation, 20% test) and injects
+attack episodes, built from that company's own agents, tools and targets, into held-out windows only (dev families into validation, held-out families into test). Training sees normal traffic only.
+The result is recorded with `simulated=false` and a data summary, and the platform recomputes the decision exactly as before. It is **semi-synthetic**: real normal behaviour, injected attacks; it
+is not a measurement against real attacks, and the result says so. Too little history is refused with the reason (exit code 3): at least 300 events overall, 40 training events per agent and 10
+active agent-minutes in each of validation and test. A family the estate cannot host (a lateral chain needs a second agent) is skipped and named. The GNN has no real mode yet: it needs peer groups
+and the exact permitted targets from the contracts. Tests: `learned/tests/test_real.py`.
+
+**Honest limit:** with the simulator the traffic is simulated, so this is simulator evidence. The simulator (`simulate.py`) is a process model of workflows and does not share any rule with the detector.
 
 ## Use
 
