@@ -476,6 +476,10 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       learnedDetectors: () => call('/api/astra/learned/detectors'),
       learnedAgents: () => call('/api/astra/learned/agents'),
       learnedFlags: () => call('/api/astra/learned/flags'),
+      astraCoverage: () => call('/api/astra/coverage'),
+      astraSecurity: () => call('/api/astra/security'),
+      astraRegwatch: () => call('/api/astra/regwatch'),
+      astraRegReview: (clause, note) => post('/api/astra/regwatch/review', { clause, note }),
       detModels: (d) => call('/api/astra/learned/' + d + '/models'),
       detHealth: (d) => call('/api/astra/learned/' + d + '/health'),
       detAdopt: (d, id) => post('/api/astra/learned/' + d + '/models/' + encodeURIComponent(id) + '/adopt', {}),
@@ -681,7 +685,7 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
     drift: { sel: null }
   };
 
-  const NAV = [['overview', 'Overview', ''], ['agents', 'Agents', '12'], ['triage', 'Screen a list', ''], ['repos', 'Repositories', ''], ['idps', 'Identity providers', ''], ['telemetry', 'Telemetry', ''], ['studio', 'Design studio', ''], ['compare', 'Compare designs', ''], ['drift', 'Drift review', '3'], ['findings', 'Findings', '4'], ['coverage', 'Coverage', '7/10'], ['packs', 'Trust and packs', ''], ['runtime', 'Live runtime', ''], ['probe', 'ASTRA Probe', ''], ['learned', 'Learned detectors', ''], ['workspace', 'Compliance workspace', '2']];
+  const NAV = [['overview', 'Overview', ''], ['agents', 'Agents', '12'], ['triage', 'Screen a list', ''], ['repos', 'Repositories', ''], ['idps', 'Identity providers', ''], ['telemetry', 'Telemetry', ''], ['studio', 'Design studio', ''], ['compare', 'Compare designs', ''], ['drift', 'Drift review', '3'], ['findings', 'Findings', '4'], ['coverage', 'Coverage', '7/10'], ['packs', 'Trust and packs', ''], ['runtime', 'Live runtime', ''], ['probe', 'ASTRA Probe', ''], ['learned', 'Learned detectors', ''], ['assurance', 'Assurance', ''], ['security', 'Security view', ''], ['workspace', 'Compliance workspace', '2']];
   const PARENT = { newagent: 'agents', addagent: 'agents', contract: 'agents', pack: 'packs' };
 
   function nav(active) {
@@ -701,8 +705,8 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
   let ME = null, PERMS = [];
   const can = (p) => PERMS.includes(p);
   const AUTH = { checked: false, needsBootstrap: false };
-  const ROLE_LABEL = { admin: 'Administrator', compliance: 'Compliance', engineer: 'Engineer', auditor: 'Auditor' };
-  const ROLE_HELP = { admin: 'Everything, including users', compliance: 'Design and sign off', engineer: 'Design and propose; cannot sign off', auditor: 'Read-only, and the audit log' };
+  const ROLE_LABEL = { admin: 'Administrator', compliance: 'Compliance', engineer: 'Engineer', auditor: 'Auditor', security: 'Security' };
+  const ROLE_HELP = { admin: 'Everything, including users', compliance: 'Design and sign off', engineer: 'Design and propose; cannot sign off', auditor: 'Read-only, and the audit log', security: 'Read and write, and the audit log; cannot sign off' };
   function authScreen() {
     const brand = '<div class="brand" style="padding:0"><b style="color:var(--fg-141a22);font-size:26px">ASTRA</b><span style="color:var(--fg-4a5563);font-size:14px">Assurance for AI agents and AI models</span></div>';
     if (!AUTH.checked) return `<div class="landing"><div class="landing-in">${brand}<p class="cap">Loading\u2026</p></div></div>`;
@@ -1814,6 +1818,65 @@ kill_switch:
     const fl = `<section class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:8px"><h2>Flags</h2><span class="cap">Ordered by the impact tier of what the agent can reach (an agent with no saved design is read as the most severe). A person decides what each was: benign for a number of days (it counts again afterwards), or real (it stays until a new contract is signed, and the person adds a control).</span>${LD.flags.length ? LD.flags.map((f) => `<div class="lrow"><span class="stack"><span style="font-weight:500">${esc(f.agent_key)} <span class="pill ${f.tier >= 3 ? 'bad' : 'warn'}">tier ${f.tier}</span> score ${f.score.toFixed(1)} against ${f.threshold}</span><span class="cap">${esc((f.detail.why || []).join('; ') || 'far from the calibrated normal')}${f.detail.unseen_transitions && f.detail.unseen_transitions.length ? ' \u00b7 never seen: ' + esc(f.detail.unseen_transitions.slice(0, 3).join(', ')) : ''}${f.window_start ? ' \u00b7 window ' + esc(new Date(f.window_start).toLocaleString()) : ''}${f.adjudicated_by ? ' \u00b7 ' + esc(f.status.toLowerCase()) + ' by ' + esc(f.adjudicated_by) + ': ' + esc(f.adjudication_note || '') + (f.expires_at ? ' (until ' + esc(new Date(f.expires_at).toLocaleDateString()) + ')' : '') : ''}</span></span><span class="prow" style="gap:6px"><span class="pill ${f.effective ? 'warn' : 'muted'}">${f.effective ? (f.status === 'OPEN' ? 'open' : f.status.toLowerCase()) : 'benign for now'}</span>${sign && (f.status === 'OPEN' || !f.effective) ? `<button class="btn btn-s" data-act="ldAdjudicate" data-arg="${esc(f.id)}|benign">Benign</button><button class="btn2 btn-s" data-act="ldAdjudicate" data-arg="${esc(f.id)}|real">Real</button>` : ''}</span></div>`).join('') : '<p class="cap" style="margin:0">No flags.</p>'}</section>`;
     return head + rule + det + tgn + ag + fl;
   }
+  /* ---------- Assurance (phase 12): coverage per OWASP row from the contract, the Probe and real monitoring; and the regulation-change watch ---------- */
+  const ASR = { loaded: false, loading: false, error: null, cov: null, watch: null, busy: false, msg: null };
+  async function loadAssurance() {
+    ASR.loading = true; ASR.error = null;
+    try { [ASR.cov, ASR.watch] = await Promise.all([STAI.api.astraCoverage(), STAI.api.astraRegwatch()]); ASR.loaded = true; } catch (e) { ASR.error = e.message; }
+    ASR.loading = false; renderIfIdle('assurance');
+  }
+  function assurance() {
+    const head = hdr('What is covered, shown by the records that say so', 'Assurance');
+    if (!ASR.loaded && !ASR.loading) loadAssurance();
+    if (ASR.error && !ASR.loaded) return head + `<div class="note alert" role="alert"><strong>Could not load</strong><span style="font-size:13px">${esc(ASR.error)}</span><button class="btn2 btn-s" data-act="asrReload" style="align-self:flex-start">Try again</button></div>`;
+    if (!ASR.loaded) return head + '<p class="cap">Loading\u2026</p>';
+    const C_ = ASR.cov, W_ = ASR.watch, sign = can('signoff'), write = can('write');
+    const vp = { Covered: 'ok', Partial: 'warn', Gap: 'bad', 'No data': 'muted' }, st = { monitored: 'ok', pending: 'warn', advisory: 'muted' };
+    const fact = (ok, label) => `<span class="pill ${ok ? 'ok' : 'muted'}" title="${esc(label)}">${ok ? '\u2713' : '\u2013'} ${esc(label)}</span>`;
+    const kpis = `<section class="kpis"><div class="card kpi"><span class="cap">Covered rows</span><big>${C_.covered} <small>of 10</small></big><span class="cap">all three facts hold</span></div><div class="card kpi"><span class="cap">Partial</span><big>${C_.partial}</big><span class="cap">some facts hold</span></div><div class="card kpi"><span class="cap">Gaps</span><big>${C_.gap}</big><span class="cap">${C_.rows_without_owner} row${C_.rows_without_owner === 1 ? '' : 's'} not covered with no owner</span></div><div class="card kpi"><span class="cap">Agents in scope</span><big>${C_.agents_in_scope}</big><span class="cap">with an active signed contract</span></div></section>`;
+    const rows = C_.agents_in_scope ? `<section class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:10px"><h2>OWASP agentic rows</h2><span class="cap" style="max-width:900px">A row is <b>covered</b> only when three things hold for an agent: its signed contract declares a constraint for the row, the newest Probe run of this version of the design passed every scenario of the classes that signal the row, and events of those classes have really been received and judged in the last 30 days. A missed Probe scenario is a gap whatever else is true. Across agents a row takes its worst result. A row that no divergence class signals cannot be monitored, so it is at most partial.</span>
+      ${ASR.msg ? `<div class="note ${ASR.msg.tone}" role="status"><span style="font-size:13px">${esc(ASR.msg.text)}</span></div>` : ''}
+      <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Row</th><th>Verdict</th><th>Facts (per agent)</th><th>Classes</th><th>Owner</th><th></th></tr></thead><tbody>${C_.rows.map((r) => `<tr><td><span class="mono">${esc(r.code)}</span> ${esc(r.name)}</td><td><span class="pill ${vp[r.verdict]}">${esc(r.verdict)}</span><div class="cap">${r.agents_covered} of ${r.agents.length} agent${r.agents.length === 1 ? '' : 's'}</div></td>
+        <td>${r.agents.map((a) => `<div class="prow" style="gap:4px;flex-wrap:wrap"><span class="cap mono">${esc(a.agent_key)}</span>${fact(a.facts.constraint, 'constraint')}${fact(a.facts.probe, 'probe ' + (a.probe === 'pass' ? 'passed' : a.probe))}${fact(a.facts.monitored, a.monitored === 'none' ? 'no class' : 'monitored')}</div>`).join('') || '<span class="cap">no agent</span>'}${r.reasons.length ? `<ul class="cap" style="margin:4px 0 0;padding-left:16px">${r.reasons.slice(0, 3).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</td>
+        <td>${r.classes.length ? r.classes.map((c) => `<span class="pill ${st[c.state] || 'muted'}" title="${esc(c.name)}">${esc(c.id.replace('DVG-', ''))}</span>`).join(' ') : '<span class="cap">none</span>'}</td>
+        <td>${r.owner ? `${esc(r.owner)}${r.due ? '<div class="cap">due ' + esc(r.due) + (r.overdue ? ' \u00b7 overdue' : '') + '</div>' : ''}` : (r.verdict === 'Covered' ? '' : '<span class="pill warn">no owner</span>')}</td>
+        <td>${write ? `<button class="btn2 btn-s" data-act="asrOwner" data-arg="${esc(r.code)}">${r.owner ? 'Change' : 'Set'} owner</button>` : ''}</td></tr>`).join('')}</tbody></table></div>
+      <h3>Dossier of one agent</h3><span class="cap">Every claim resolved to a record and the clauses the contract maps the row to, with its gaps and its limits.</span><div class="prow" style="gap:8px;flex-wrap:wrap">${[...new Set(C_.rows.flatMap((r) => r.agents.map((a) => a.agent_key)))].map((k) => `<a class="btn2 btn-s" download="${esc(k)}-assurance-dossier.json" href="/api/astra/assurance/agent/${encodeURIComponent(k)}">${esc(k)}: download dossier (JSON)</a>`).join('')}</div>
+      <ul class="cap" style="margin:0;padding-left:18px">${C_.limits.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></section>` : `<section class="card" style="padding:16px 20px"><h2>OWASP agentic rows</h2><p class="cap" style="margin:0">No agent has an active signed contract yet, so there is nothing to cover. Sign a contract on the Assessment tab of an agent design.</p></section>`;
+    const wtone = { CURRENT: 'ok', UNREVIEWED: 'warn', CHANGED: 'bad', UNRESOLVED: 'muted' };
+    const watch = `<section class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:10px"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline"><h2>Regulation-change watch</h2><span class="cap">${W_.counts.CURRENT} current \u00b7 ${W_.counts.UNREVIEWED} unreviewed \u00b7 ${W_.counts.CHANGED} changed \u00b7 ${W_.counts.UNRESOLVED} unresolved</span></div>
+      <span class="cap" style="max-width:900px">A signed contract maps its controls to clauses of laws and standards. If the rules the platform holds for a clause change afterwards, nothing in the contract changes with them, so the mapping is flagged here until a person reviews it against the rules as they are now. A review changes no contract.</span>
+      ${W_.mappings.length ? `<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Clause</th><th>Controls</th><th>Rules held</th><th>Status</th><th></th></tr></thead><tbody>${W_.mappings.map((m) => `<tr><td class="mono">${esc(m.clause)}</td><td class="cap">${esc(m.controls.join(', '))}<div>${esc(m.agents.join(', '))}</div></td><td class="cap mono">${esc(m.rules.join(', ') || 'none')}</td><td><span class="pill ${wtone[m.status]}">${esc(m.status.toLowerCase())}</span><div class="cap">${esc(m.why)}${m.reviewed_by ? ' \u00b7 ' + esc(m.reviewed_by) : ''}</div></td><td>${sign && m.status !== 'CURRENT' ? `<button class="btn2 btn-s" data-act="asrReview" data-arg="${esc(m.clause)}">Review</button>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<p class="cap" style="margin:0">No signed contract maps to a clause yet.</p>'}</section>`;
+    return head + kpis + rows + watch;
+  }
+
+  /* ---------- Security view (phase 12): what is wrong now, from records ---------- */
+  const SEC = { loaded: false, loading: false, error: null, data: null };
+  async function loadSecurity() {
+    SEC.loading = true; SEC.error = null;
+    try { SEC.data = await STAI.api.astraSecurity(); SEC.loaded = true; } catch (e) { SEC.error = e.message; }
+    SEC.loading = false; renderIfIdle('security');
+  }
+  function security() {
+    const head = hdr('What needs a security person\u2019s attention now', 'Security view');
+    if (!SEC.loaded && !SEC.loading) loadSecurity();
+    if (SEC.error && !SEC.loaded) return head + `<div class="note alert" role="alert"><strong>Could not load</strong><span style="font-size:13px">${esc(SEC.error)}</span><button class="btn2 btn-s" data-act="secReload" style="align-self:flex-start">Try again</button></div>`;
+    if (!SEC.loaded) return head + '<p class="cap">Loading\u2026</p>';
+    const d = SEC.data, card = (title, n, tone, body) => `<div class="card" style="padding:14px 16px;display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b>${title}</b><span class="pill ${tone}">${n}</span></div>${body}</div>`;
+    const list = (xs) => (xs.length ? `<ul class="cap" style="margin:0;padding-left:16px">${xs.map((x) => `<li>${x}</li>`).join('')}</ul>` : '<span class="cap">Nothing.</span>');
+    const tone = (n) => (n ? 'bad' : 'ok');
+    const grid = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">
+      ${card('Contracts not valid', d.contracts.invalid.length, tone(d.contracts.invalid.length), list(d.contracts.invalid.map((c) => `<span class="mono">${esc(c.agent)}</span>: ${esc(c.reason || 'not valid')}`)))}
+      ${card('Contracts expiring in ' + d.contracts.expiring_within_days + ' days', d.contracts.expiring.length, d.contracts.expiring.length ? 'warn' : 'ok', list(d.contracts.expiring.map((c) => `<span class="mono">${esc(c.agent)}</span> v${esc(c.version)} until ${esc(c.expires_at)}`)))}
+      ${card('Agents not conforming', d.verdicts.counts.BLOCKED + d.verdicts.counts.REQUIRES_REVIEW + d.verdicts.counts.INVALID_CONTRACT, tone(d.verdicts.counts.BLOCKED + d.verdicts.counts.REQUIRES_REVIEW + d.verdicts.counts.INVALID_CONTRACT), list(d.verdicts.worst.map((a) => `<span class="mono">${esc(a.agent)}</span>: ${esc(a.verdict.toLowerCase().replace('_', ' '))}${a.posture ? ' (recommend ' + esc(a.posture) + ')' : ''}`)))}
+      ${card('Open findings', d.findings.open, tone(d.findings.open), `<span class="cap">${d.findings.pending_adjudication} waiting for a person to judge</span>${list(d.findings.by_class.map((c) => `<span class="mono">${esc(c.class)}</span> ${esc(c.severity)}: ${c.count}`))}`)}
+      ${card('Learned-detector flags', d.learned.open_flags, d.learned.open_flags ? 'warn' : 'ok', `<span class="cap">baseline ${d.learned.by_detector.baseline} \u00b7 temporal network ${d.learned.by_detector.tgn} \u00b7 graph model ${d.learned.by_detector.gnn}. Advisory: they can only mark the baseline control unverified.</span>`)}
+      ${card('Probe', d.probe.designs_with_misses.length + d.probe.designs_with_stale_runs.length, tone(d.probe.designs_with_misses.length), list([...d.probe.designs_with_misses.map((m) => `<span class="mono">${esc(m.design_key)}</span> missed ${esc(m.classes.map((c) => c.replace('DVG-', '')).join(', '))}`), ...d.probe.designs_with_stale_runs.map((m) => `<span class="mono">${esc(m.design_key)}</span>: newest run is of an earlier version`)]))}
+      ${card('Coverage gaps', d.coverage.gap, tone(d.coverage.gap), `<span class="cap">${d.coverage.covered} covered \u00b7 ${d.coverage.partial} partial \u00b7 ${d.coverage.rows_without_owner} not covered with no owner</span>${list(d.coverage.worst.map((r) => `<span class="mono">${esc(r.code)}</span> ${esc(r.name)}${r.owner ? ' (' + esc(r.owner) + ')' : ''}`))}`)}
+      ${card('Regulation mappings to review', d.regulation_watch.needing_review, d.regulation_watch.needing_review ? 'warn' : 'ok', '<a class="cap" href="#/assurance">Open the watch on Assurance</a>')}</div>`;
+    return head + `<span class="cap">${d.contracts.signed_agents} agent${d.contracts.signed_agents === 1 ? '' : 's'} with an active signed contract \u00b7 ${esc(new Date(d.generated_at).toLocaleString())}. Everything here is read from records; nothing on this page changes anything.</span>` + grid;
+  }
+
   /* ---------- ASTRA Probe (phase 8): scenarios made from a design's contract, replayed against the reconciler ---------- */
   const PB = { loaded: false, loading: false, error: null, designs: [], key: '', latest: null, rate: null, scen: [], adm: null, busy: false, msg: null };
   async function loadProbe() {
@@ -1847,7 +1910,7 @@ kill_switch:
     const sc = `<section class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:8px"><h2>Scenarios from incidents</h2><span class="cap">A finding can be turned into a scenario on the Findings screen. It joins the standing suite only when a person other than the one who proposed it approves it; from then on every run replays it, and a change that makes it pass unnoticed fails the admission check.</span>${PB.scen.length ? PB.scen.map((s) => `<div class="lrow"><span class="stack"><span style="font-weight:500"><span class="mono">${esc(s.finding_key)}</span> ${esc(s.class_name)} \u00b7 ${esc(s.agent_key)}</span><span class="cap">proposed by ${esc(s.proposed_by)}${s.decided_by ? ' \u00b7 ' + (s.status === 'STANDING' ? 'approved' : 'retired') + ' by ' + esc(s.decided_by) : ''}${s.note ? ': ' + esc(s.note) : ''}</span></span><span class="prow" style="gap:8px"><span class="pill ${s.status === 'STANDING' ? 'ok' : (s.status === 'PROPOSED' ? 'warn' : 'muted')}">${esc(s.status.toLowerCase())}</span>${sign && s.status === 'PROPOSED' ? `<button class="btn btn-s" data-act="pbDecide" data-arg="${esc(s.id)}|approve">Approve</button>` : ''}${sign && s.status !== 'RETIRED' ? `<button class="btn2 btn-s" data-act="pbDecide" data-arg="${esc(s.id)}|retire">Retire</button>` : ''}</span></div>`).join('') : '<p class="cap" style="margin:0">None yet.</p>'}</section>`;
     return head + top + stats + rows + rate + sc;
   }
-  const SCREENS = { runtime, probe, learned, overview, agents, newagent, addagent, studio, drift, contract, findings, coverage, packs, pack, workspace, users, audit };
+  const SCREENS = { runtime, probe, learned, assurance, security, overview, agents, newagent, addagent, studio, drift, contract, findings, coverage, packs, pack, workspace, users, audit };
 
   /* ---------- Actions ---------- */
   const H = {
@@ -4993,6 +5056,21 @@ kill_switch:
       const note = window.prompt(outcome === 'benign' ? 'Why is this benign? (it counts again after 30 days)' : 'Why is it real? Then add the control it points to.', ''); if (!note || note.trim().length < 3) return;
       try { await STAI.api.learnedAdjudicate(id, { outcome, note: note.trim(), days: 30 }); LD.loaded = false; LD.msg = { tone: 'good', text: outcome === 'benign' ? 'Marked benign for 30 days.' : 'Marked real. It stays until a new contract is signed.' }; }
       catch (e) { LD.msg = { tone: 'alert', text: e.message }; }
+      render(true);
+    }
+  });
+  Object.assign(H, {
+    asrReload: () => { ASR.loaded = false; ASR.error = null; },
+    secReload: () => { SEC.loaded = false; SEC.error = null; },
+    asrOwner: async (code) => {
+      const owner = window.prompt('Who owns closing ' + code + '? (a name)', ''); if (owner === null) return;
+      const due = window.prompt('Due date (YYYY-MM-DD), or leave empty', ''); if (due === null) return;
+      try { await STAI.api.assignCoverage(code, { owner: owner.trim() || null, due: due.trim() || null, note: null }); ASR.loaded = false; ASR.msg = { tone: 'good', text: 'Saved.' }; } catch (e) { ASR.msg = { tone: 'alert', text: e.message }; }
+      render(true);
+    },
+    asrReview: async (clause) => {
+      const note = window.prompt('Review the mapping to ' + clause + ' against the rules as they are now. What did you check?', ''); if (!note || note.trim().length < 3) return;
+      try { await STAI.api.astraRegReview(clause, note.trim()); ASR.loaded = false; SEC.loaded = false; ASR.msg = { tone: 'good', text: 'Reviewed: ' + clause + '.' }; } catch (e) { ASR.msg = { tone: 'alert', text: e.message }; }
       render(true);
     }
   });

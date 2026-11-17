@@ -10,6 +10,7 @@ Roles (a person has one):
     compliance  design, sign off (ratify, decide drift, revoke, acknowledge, generate packs, approve rules and policies)
     engineer    design and propose; cannot sign anything off
     auditor     read-only, plus the audit log
+    security    read and write (run the Probe, propose, look at everything) and the audit log; cannot sign anything off
 
 Every request except the public ones is authenticated and checked against `required_permission` by the middleware, so a
 new endpoint is protected by default: a write needs the "write" permission unless it is listed as a sign-off or a pure
@@ -41,12 +42,13 @@ CSRF_HEADER = "x-astra-csrf"
 SESSION_HOURS = 12
 MAX_FAILURES, FAILURE_WINDOW_MINUTES = 5, 15
 MIN_PASSWORD = 10
-ROLES = ("admin", "compliance", "engineer", "auditor")
+ROLES = ("admin", "compliance", "engineer", "auditor", "security")
 PERMISSIONS = {
     "admin": {"read", "write", "signoff", "admin", "audit", "ingest"},
     "compliance": {"read", "write", "signoff", "audit", "ingest"},
     "engineer": {"read", "write", "ingest"},
     "auditor": {"read", "audit"},
+    "security": {"read", "write", "audit"},
     "collector": {"ingest"},           # only a key can be a collector: it sends runtime events and reads the contract summary it needs
 }
 SAFE = {"GET", "HEAD", "OPTIONS"}
@@ -91,7 +93,7 @@ PUBLIC = [("GET", r"^/health$"), ("GET", r"^/docs"), ("GET", r"^/redoc"), ("GET"
 PURE = [r"^/score$", r"^/document/validate$", r"^/api/rcr/score$", r"^/api/agents/analyse$", r"^/api/policies/test$", r"^/api/designs/[^/]+/assess$", r"^/api/agents/import/(preview|file-preview)$", r"^/api/agents/(compare|triage)$", r"^/api/model-screening/triage$"]
 SIGNOFF = [r"^/api/responsibilities/(handover|assignments/)", r"^/api/agents/ratify$", r"^/api/drift/[^/]+/decide$", r"^/api/contracts/", r"^/api/designs/[^/]+/(compile|review)$", r"^/api/agents/designs/[^/]+/review$",
            r"^/api/findings/[^/]+/(acknowledge|halt)$", r"^/api/coverage/", r"^/api/packs$", r"^/api/ingestion/candidates/",
-           r"^/api/risk/proposals/", r"^/api/agents/designs/[^/]+/(baseline|sign)$", r"^/api/astra/contracts/[^/]+/revoke$", r"^/api/astra/(bindings|peer-keys)", r"^/api/astra/findings/[^/]+/adjudicate$", r"^/api/astra/probe/scenarios/[^/]+/(approve|retire)$", r"^/api/astra/learned/agents/[^/]+/calibrate$", r"^/api/astra/learned/flags/[^/]+/adjudicate$", r"^/api/astra/learned/(tgn|gnn)/(models/[^/]+/adopt|rollback)$", r"^/api/policies", r"^/api/rules/", r"^/api/model-monitor/floors$", r"^/api/attestations/policy$", r"^/api/method/publish$", r"^/api/st-ai/policy$", r"^/api/evidence/policy$", r"^/api/evidence/[^/]+/(attest|revoke)$"]
+           r"^/api/risk/proposals/", r"^/api/agents/designs/[^/]+/(baseline|sign)$", r"^/api/astra/contracts/[^/]+/revoke$", r"^/api/astra/(bindings|peer-keys)", r"^/api/astra/findings/[^/]+/adjudicate$", r"^/api/astra/probe/scenarios/[^/]+/(approve|retire)$", r"^/api/astra/learned/agents/[^/]+/calibrate$", r"^/api/astra/learned/flags/[^/]+/adjudicate$", r"^/api/astra/regwatch/review$", r"^/api/astra/learned/(tgn|gnn)/(models/[^/]+/adopt|rollback)$", r"^/api/policies", r"^/api/rules/", r"^/api/model-monitor/floors$", r"^/api/attestations/policy$", r"^/api/method/publish$", r"^/api/st-ai/policy$", r"^/api/evidence/policy$", r"^/api/evidence/[^/]+/(attest|revoke)$"]
 
 
 def is_public(method: str, path: str) -> bool:

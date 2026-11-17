@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 
 from auth import AuthUser, current_user
 from compliance_schema import CompiledContract, compute_contract_hash
+import astra_assurance
 from coverage_scorecard import coverage
 from db.models import Agent, Contract, DriftItem, EvidencePack, Finding, RemovedContract
 from db.session import get_session
@@ -187,6 +188,7 @@ def build_content(session: Session, template: str, period: str, frameworks: List
         "scope": {"agents_in_scope": len(in_scope), "agents_without_contract": len(without), "unowned_agents": len(unowned)},
         "agents": agent_rows, "coverage": coverage_rows, "findings": findings_block, "drift": drift_block,
         "claims": claims, "gaps": gaps, "evidence": evidence,
+        "astra": astra_assurance.pack_section(session, trust),                      # class-level coverage, signed contracts, Probe results, monitored classes, learned-layer evaluations, limits
     }
 
 

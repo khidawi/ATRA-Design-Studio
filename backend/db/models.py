@@ -494,7 +494,7 @@ class User(Base):
     """A person who can sign in (Task 8). Local account: the password is kept only as a scrypt hash."""
 
     __tablename__ = "users"
-    __table_args__ = (CheckConstraint("role IN ('admin', 'compliance', 'engineer', 'auditor')", name="ck_users_role"),)
+    __table_args__ = (CheckConstraint("role IN ('admin', 'compliance', 'engineer', 'auditor', 'security')", name="ck_users_role"),)
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
@@ -1243,4 +1243,20 @@ class LearnedEvaluation(Base):
     passed: Mapped[bool] = mapped_column(Boolean, nullable=False)
     reasons: Mapped[List[str]] = mapped_column(JSONB, nullable=False)
     recorded_by: Mapped[str] = mapped_column(String(120), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class RegulationReview(Base):
+    """A person's statement that a contract's mapping to a clause still holds for the rules the platform holds for it now (ASTRA phase 12). Never edited: a change of the rules makes it stale."""
+
+    __tablename__ = "regulation_reviews"
+    __table_args__ = (Index("ix_regulation_reviews_clause", "organisation_id", "clause", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    clause: Mapped[str] = mapped_column(String(120), nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    rules: Mapped[List[str]] = mapped_column(JSONB, nullable=False)
+    reviewed_by: Mapped[str] = mapped_column(String(120), nullable=False)
+    note: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
