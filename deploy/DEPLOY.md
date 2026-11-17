@@ -159,6 +159,8 @@ curl -s -X POST -H "Authorization: Bearer $ASTRA_KEY" https://astra.example.com/
 
 A Probe pass lapses after 30 days, so an agent whose design nobody has probed for a month loses that evidence on its own.
 
+Since phase 14 a contract is signed only after the Probe has passed on the exact version of the design (`POST /api/agents/designs/{key}/sign` answers 409 and says what to do otherwise). A pipeline that signs therefore runs the Probe first (`POST /api/astra/probe/run`, or `astra-check --design KEY --run`), then records the assessment, accepts the baseline and signs. The Probe changes the assessment's evidence, so run it before recording the assessment. `deploy/prepare_demo.py` does the steps in that order.
+
 ### Collectors and the divergence classes
 
 Each agent needs a **collector** key (Users) and the SDK (`sdk/python`). The Live runtime screen lists all 22 divergence classes and says "needs collector event" for any class no collector has sent an event for: a class that is implemented but receives nothing is not coverage. The SDK sends numbers, flags, hashes and names, never prompts, arguments or results.

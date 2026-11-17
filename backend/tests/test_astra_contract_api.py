@@ -11,7 +11,7 @@ import sys
 from sqlalchemy import select
 
 import astra_signing as SG
-from db.models import AstraAssessment, AstraBaseline, AstraSignedContract, Design
+from db.models import AstraAssessment, AstraBaseline, AstraSignedContract, Design, ProbeResult, ProbeRun
 from db.session import SessionLocal
 from tests._auth import authed_client
 from tests.test_astra_assessment_api import DEPT, KEY, STORE, guarded_doc, ratify, reset as reset_org, seed
@@ -33,14 +33,26 @@ def reset():
         s.query(AstraSignedContract).filter(AstraSignedContract.design_key == KEY).delete(synchronize_session=False)
         s.query(AstraBaseline).filter(AstraBaseline.design_key == KEY).delete(synchronize_session=False)
         s.query(AstraAssessment).filter(AstraAssessment.design_key == KEY).delete(synchronize_session=False)
+        ids = list(s.scalars(select(ProbeRun.id).where(ProbeRun.design_key == KEY)))
+        s.query(ProbeResult).filter(ProbeResult.run_id.in_(ids)).delete(synchronize_session=False)
+        s.query(ProbeRun).filter(ProbeRun.design_key == KEY).delete(synchronize_session=False)
         s.commit()
     reset_org()
 
 
-def approved(one, two):
+def probe(client):
+    r = client.post("/api/astra/probe/run", json={"design_key": KEY})
+    assert r.status_code == 201, r.text
+    return r.json()
+
+
+def approved(one, two, probed=True):
+    """The assessment is APPROVED and recorded. The Probe is run first, as a contract is signed only after the Probe has passed on this version: its evidence changes the assessment."""
     seed(doc())
     ratify(one, two, "tolerance", {"department_ext": DEPT, "tolerance": 4, "rationale": "Finance accepts everything for this test."})
     ratify(one, two, "asset", {"asset_ext": STORE, "tier": 2, "rationale": "A low-impact store for this test."})
+    if probed:
+        probe(one)
     r = one.post(f"/api/agents/designs/{KEY}/assessments")
     assert r.status_code == 201 and r.json()["verdict"] == "APPROVED", r.text
 
@@ -132,6 +144,7 @@ def test_changing_the_design_needs_a_new_assessment_baseline_and_signature():
         c = two.get(f"/api/agents/designs/{KEY}/contract").json()
         assert c["baseline"] is None and c["signed"]["current"] is False and not c["assessment_recorded"]
         assert two.post(f"/api/agents/designs/{KEY}/sign", json={}).status_code == 409
+        probe(one)                                                                # the Probe on this new version, before the record and the signature
         assert one.post(f"/api/agents/designs/{KEY}/assessments").status_code == 201
         assert two.post(f"/api/agents/designs/{KEY}/baseline", json={}).status_code == 201
         second = two.post(f"/api/agents/designs/{KEY}/sign", json={}).json()
@@ -186,6 +199,42 @@ def test_a_design_that_cannot_make_a_valid_contract_is_not_signed():
         assert two.post(f"/api/agents/designs/{KEY}/baseline", json={}).status_code == 201
         r = two.post(f"/api/agents/designs/{KEY}/sign", json={})
         assert r.status_code == 422 and "cannot be signed yet" in r.json()["detail"], r.text
+
+
+@with_key
+def test_a_contract_is_signed_only_after_the_probe_has_passed_on_this_version():
+    with authed_client("compliance", "Rhea One") as one, authed_client("compliance", "Rhea Two") as two:
+        approved(one, two, probed=False)
+        assert two.post(f"/api/agents/designs/{KEY}/baseline", json={}).status_code == 201
+        c = two.get(f"/api/agents/designs/{KEY}/contract").json()
+        assert c["probe_admitted"] is False and any("No Probe run" in x for x in c["probe_reasons"]), c
+        r = two.post(f"/api/agents/designs/{KEY}/sign", json={})
+        assert r.status_code == 409 and "Probe has passed" in r.json()["detail"] and "No Probe run" in r.json()["detail"], r.text
+        probe(one)
+        c = two.get(f"/api/agents/designs/{KEY}/contract").json()
+        assert c["probe_admitted"] is True and c["probe_reasons"] == [], c
+        assert two.post(f"/api/agents/designs/{KEY}/sign", json={}).status_code == 201
+
+
+@with_key
+def test_a_probe_run_of_an_earlier_version_does_not_admit_the_next_signature():
+    with authed_client("compliance", "Rhea One") as one, authed_client("compliance", "Rhea Two") as two:
+        approved(one, two)
+        assert two.post(f"/api/agents/designs/{KEY}/baseline", json={}).status_code == 201
+        assert two.post(f"/api/agents/designs/{KEY}/sign", json={}).status_code == 201
+        with SessionLocal() as s:
+            d = s.scalar(select(Design).where(Design.design_key == KEY))
+            nd = doc()
+            nd["nodes"].append({"id": "t2", "type": "tool", "name": "lookup", "p": {}})
+            nd["edges"].append({"from": "a1", "to": "t2", "label": "uses"})
+            d.document, d.version = nd, d.version + 1
+            s.commit()
+        assert one.post(f"/api/agents/designs/{KEY}/assessments").status_code == 201
+        assert two.post(f"/api/agents/designs/{KEY}/baseline", json={}).status_code == 201
+        r = two.post(f"/api/agents/designs/{KEY}/sign", json={})
+        assert r.status_code == 409 and "earlier version" in r.json()["detail"], r.text
+        probe(one)
+        assert two.post(f"/api/agents/designs/{KEY}/sign", json={}).status_code == 201
 
 
 if __name__ == "__main__":

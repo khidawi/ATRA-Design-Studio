@@ -34,7 +34,7 @@ Evidence: an attested record with the control key `astra:<kind>` (for example `a
 
 1. **Record this assessment** (Recorded assessments). Each one is kept and never edited.
 2. A **different** person with sign-off permission presses **Accept as baseline**. It needs a recorded assessment of the design as it is now, with the verdict APPROVED, and nothing in the organisation, risk layer or evidence changed since.
-3. **Sign contract** (compliance or administrator). The contract is written in the Appendix A format, signed with Ed25519, valid for a year by default. Signing also runs the Probe.
+3. **Sign contract** (compliance or administrator). The contract is written in the Appendix A format, signed with Ed25519, valid for a year by default. **Signing is refused unless the Probe has passed on this exact version of the design** (run it first, see section 5); signing then runs it once more for the record.
 4. **Verify** checks hash, signature, validity window and status. **Revoke** needs a reason and does not change the signed bytes.
 
 If the design changes afterwards, the contract applies to the older version: assess, record, accept and sign again. A change that widens the agent always needs a new assessment.
@@ -55,6 +55,22 @@ For every divergence class the Probe plants a defect it must catch and a boundar
 
 - **Turn into Probe scenario** on a finding proposes a regression test from a real incident. A different person approves it into the standing suite; from then on every run replays it.
 - **Admission check**: `astra-check --design KEY --run` (SDK) exits 0 if the newest run is of this version and everything passed, 1 if refused (with reasons), 2 if the check could not be made. Put it in a pipeline (`sdk/python/examples/astra-check.workflow.yml`).
+
+### The Probe at design time (phase 14)
+
+In the Design studio, the architecture view has a **Run Probe** button. It saves the design, runs the Probe on it and opens a panel under the architecture view with one row for each of the 22 divergence classes:
+
+- **Caught**: the planted attack was caught and its boundary case left alone.
+- **Missed**: the check did not catch the planted attack. That is a defect of the check; no design change fixes it, so it has to be reported.
+- **Waits for a person**: a semantic class. The attack is handed to a person, as the class table demands. It is never counted as a pass.
+- **Advisory**: the behavioural-baseline class.
+- **Not tested**: the contract declares nothing to test for this class, so nothing in the design defends against the attack and the Probe cannot plant it. The row says why and, where the design format can say it, what to add. For example, a write tool with an Approval that gates it makes the two confirmation classes testable.
+
+Open a row to see what the planted attack does, the event that was replayed, what the class table expects and what the check did, what it would mean for the department that bears it (the tier and tolerance from the assessment; an undeclared tier or tolerance is read at its strictest and the row says so), and the regulation clauses the class touches. The elements of the design the attack concerns are marked on the architecture view.
+
+The **Probe tab** next to Assessment and Compliance sums the run up, shows whether the Probe lets a contract be signed, and lists the regulation clauses the design must adhere to with their state: met by Probe evidence, at risk, not tested, or waiting for a person. The Assessment tab already uses the run: a missed attack makes the control violated, a pass makes it satisfied for 30 days on this version only. When the design changes, the run is marked as of an earlier version and its evidence no longer counts until you run it again. **Open ASTRA Probe page** goes to the main Probe page for the same agent.
+
+The clause anchors are the specification's article-level, indicative table. A class whose OWASP row has no clause in that table (ASI09, human-agent trust) shows none; the studio does not invent one.
 
 ## 6. Learned detectors
 

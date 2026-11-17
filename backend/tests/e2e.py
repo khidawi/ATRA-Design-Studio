@@ -507,6 +507,12 @@ def s_astra_sign(base):
     assert S["admin"].post(f"/api/agents/designs/{S['astra_design']}/sign", json={}).status_code == 409, "nothing is signed without an accepted baseline"
     assert S["admin"].post(f"/api/agents/designs/{S['astra_design']}/baseline", json={"note": "e2e"}).status_code == 201
     assert S["engineer"].post(f"/api/agents/designs/{S['astra_design']}/sign", json={}).status_code == 403
+    refused = S["compliance"].post(f"/api/agents/designs/{S['astra_design']}/sign", json={})
+    assert refused.status_code == 409 and "Probe has passed" in refused.text, "a contract is signed only after the Probe has passed on this exact version: " + refused.text
+    probed = S["engineer"].post("/api/astra/probe/run", json={"design_key": S["astra_design"]})
+    assert probed.status_code == 201, probed.text
+    ex = S["auditor"].get(f"/api/astra/probe/explain?design_key={S['astra_design']}").json()
+    assert ex["current"] and len(ex["rows"]) == 22 and ex["admission"]["admit"], ex["admission"]
     signed = S["compliance"].post(f"/api/agents/designs/{S['astra_design']}/sign", json={})
     assert signed.status_code == 201, signed.text
     c = signed.json()

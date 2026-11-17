@@ -4,6 +4,7 @@ ASTRA Probe through the API (phase 8): running it, its results, incident scenari
   POST /api/astra/probe/run                       {design_key, trigger?}   replay the scenarios against the design's contract and record the run (write)
   POST /api/astra/probe/run-all                   run every agent design: what a nightly schedule calls (write)
   GET  /api/astra/probe/latest?design_key=        the newest run of the design, and whether it is of the design as it is now
+  GET  /api/astra/probe/explain?design_key=       that run told as attack stories for the Design studio, with impact, clauses and admission (phase 14; reads only)
   GET  /api/astra/probe/runs?design_key=          recent runs;  GET /runs/{id}  one run in full
   GET  /api/astra/probe/catch-rate                per class: how often the planted defect was caught and the boundary case left alone, over the last 30 days
   POST /api/astra/probe/scenarios/from-finding/{key}   turn a finding into a proposed scenario (write)
@@ -29,6 +30,7 @@ import astra_contract_api as CA
 import astra_contract_export as EX
 import astra_estate as AE
 import astra_probe as AP
+import astra_probe_view as PV
 import astra_signing as SG
 import audit
 from astra_model.classes import CLASSES
@@ -126,6 +128,21 @@ def latest(design_key: str, session: Session = Depends(get_session)) -> Dict[str
     rows = session.scalars(select(ProbeResult).where(ProbeResult.run_id == run.id).order_by(ProbeResult.source.desc(), ProbeResult.class_code))
     return {"run": _run_row(run, AA._hash(design.document)), "results": sorted([_result_row(r) for r in rows], key=lambda r: (r["source"] != "template", r["class"])),
             "evidence_days": AP.PROBE_TTL_DAYS}
+
+
+@router.get("/explain")
+def explain(design_key: str, session: Session = Depends(get_session)) -> Dict[str, Any]:
+    """The newest run of the design told as attack stories for the Design studio (astra_probe_view.py): what each planted attack does, what the check did, what a miss would mean for the
+    department, the clauses the class touches, and the elements of the design it concerns. Reads only; it does not run anything."""
+    design = _agent_design(session, design_key)
+    adm = admission_for(session, design)
+    run = _latest(session, design)
+    if run is None:
+        return {"run": None, "version": design.version, "current": False, "rows": [], "counts": PV.counts([]), "regulations": [], "admission": adm, "verdict": None,
+                "evidence_days": AP.PROBE_TTL_DAYS}
+    order = {c: i for i, c in enumerate(AP.CLASS_IDS)}
+    results = sorted([_result_row(r) for r in session.scalars(select(ProbeResult).where(ProbeResult.run_id == run.id))], key=lambda r: (r["source"] != "template", order[r["class"]]))
+    return PV.explain(_run_row(run, AA._hash(design.document)), results, AA.assess(session, design), adm, design.version, AP.PROBE_TTL_DAYS)
 
 
 @router.get("/runs")
@@ -258,9 +275,13 @@ def retire(scenario_id: uuid.UUID, body: DecisionIn, session: Session = Depends(
 
 @router.get("/admission")
 def admission(design_key: str, session: Session = Depends(get_session)) -> Dict[str, Any]:
+    return admission_for(session, _agent_design(session, design_key))
+
+
+def admission_for(session: Session, design: Design) -> Dict[str, Any]:
     """Admit the design only if the newest Probe run is of this exact version, is not older than the lifetime of its evidence, every applicable scenario passed and every standing
-    incident scenario was part of that run. The reasons say what to do."""
-    design = _agent_design(session, design_key)
+    incident scenario was part of that run. The reasons say what to do. Signing a contract asks the same question (astra_contract_api.sign_contract)."""
+    design_key = design.design_key
     org = current_organisation(session)
     run = _latest(session, design)
     reasons: List[str] = []

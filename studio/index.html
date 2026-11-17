@@ -114,6 +114,17 @@ pre.code{margin:0;padding:16px;background:var(--bg-141a22);color:var(--fg-e7eaee
 .node.agent{border:2px solid var(--ln-1e4fcb);background:var(--bg-f2f6fe)}
 .node.goal{border-style:dashed}
 .node.sel{box-shadow:0 0 0 3px var(--focus-ring)}
+.node.pxhot{border-color:var(--ln-b42318)!important;box-shadow:0 0 0 3px rgba(180,35,24,.3);animation:pxpulse 1.1s ease 3}
+.node.pxok{box-shadow:0 0 0 3px rgba(30,127,79,.35)}
+.node.pxopen{box-shadow:0 0 0 3px rgba(180,83,9,.35)}
+@keyframes pxpulse{50%{box-shadow:0 0 0 8px rgba(180,35,24,.12)}}
+.pxp{margin-top:14px;padding:16px 20px;display:flex;flex-direction:column;gap:10px}
+.pxl{display:flex;flex-direction:column;gap:6px}
+.pxr{border:1px solid var(--ln-dde1e7);border-radius:10px;background:#fff}
+.pxr.sel{border-color:var(--ln-1e4fcb)}
+.pxh{all:unset;box-sizing:border-box;display:grid;grid-template-columns:150px minmax(0,1.6fr) 90px 70px 100px;gap:10px;align-items:center;padding:8px 12px;cursor:pointer;width:100%}
+.pxh:focus-visible{outline:2px solid var(--ln-1e4fcb);outline-offset:-2px;border-radius:10px}
+.pxd{display:flex;flex-direction:column;gap:8px;padding:6px 14px 14px;border-top:1px dashed var(--ln-dde1e7)}
 .node .tag{font-size:10px;font-weight:600;letter-spacing:.04em;color:var(--fg-4a5563)}
 .node .nm{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .badge{position:absolute;top:-9px;right:8px;padding:1px 7px;border-radius:999px;background:var(--bg-8c1f17);color:var(--fg-ffffff);font:600 10px 'IBM Plex Mono',monospace}
@@ -492,6 +503,7 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       probeLatest: (key) => call('/api/astra/probe/latest?design_key=' + encodeURIComponent(key)),
       probeCatchRate: () => call('/api/astra/probe/catch-rate'),
       probeAdmission: (key) => call('/api/astra/probe/admission?design_key=' + encodeURIComponent(key)),
+      probeExplain: (key) => call('/api/astra/probe/explain?design_key=' + encodeURIComponent(key)),
       probeScenarios: () => call('/api/astra/probe/scenarios'),
       probeFromFinding: (fk) => post('/api/astra/probe/scenarios/from-finding/' + encodeURIComponent(fk), {}),
       probeDecide: (id, what, note) => post('/api/astra/probe/scenarios/' + encodeURIComponent(id) + '/' + what, { note: note || null }),
@@ -1314,7 +1326,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
       } catch (e) { st.saveState = /changed elsewhere/.test(e.message) ? 'conflict' : 'error'; st.saveError = e.message; }
     })();
     await AGS.inflight; AGS.inflight = null;
-    if (st.saveState === 'saving' || st.saveState === 'saved') { if (agentDocSig() !== st.savedSig) agentAutosaveCheck(); else { paintAgentSave(); if (st.panel === 'fix') { AF.rvFor = null; renderIfIdle('studio'); } else if (st.panel === 'astra' && AS.ver !== st.version) renderIfIdle('studio'); } } else renderIfIdle('studio');
+    if (st.saveState === 'saving' || st.saveState === 'saved') { if (agentDocSig() !== st.savedSig) agentAutosaveCheck(); else { paintAgentSave(); if (st.panel === 'fix') { AF.rvFor = null; renderIfIdle('studio'); } else if (st.panel === 'astra' && AS.ver !== st.version) renderIfIdle('studio'); else if ((PX.open || st.panel === 'probe') && PX.ver !== st.version) renderIfIdle('studio'); } } else renderIfIdle('studio');
   }
   async function openAgentDesign(key) {
     await flushAgentSave();
@@ -1358,7 +1370,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
       const a = xy(e.from), b = xy(e.to), x1 = a.x + 84, y1 = a.y + 26, x2 = b.x + 84, y2 = b.y + 26, dx = x2 - x1, dy = y2 - y1;
       return { line: `<div class="edge" style="left:${x1}px;top:${y1}px;width:${Math.round(Math.hypot(dx, dy))}px;transform:rotate(${(Math.atan2(dy, dx) * 180 / Math.PI).toFixed(1)}deg)"></div>`, label: `<span class="elabel" style="left:${Math.round((x1 + x2) / 2)}px;top:${Math.round((y1 + y2) / 2)}px">${esc(e.label)}</span>` };
     });
-    const nodesHtml = st.nodes.map((x) => { const q = xy(x.id); const cls = 'node el-' + (AGENT_EL[x.type] || 'task') + (x.primary ? ' agent' : '') + (x.type === 'goal' ? ' goal' : '') + (st.sel === x.id ? ' sel' : ''); return `<button class="${cls}" style="left:${q.x}px;top:${q.y}px" data-act="sSel" data-arg="${x.id}" aria-label="${esc(TAGS[x.type] + ' ' + x.name)}"><span class="tag">${TAGS[x.type]}</span><span class="nm">${esc(x.name)}</span>${A.flags[x.id] ? `<span class="badge">${A.flags[x.id]}</span>` : ''}</button>`; }).join('');
+    const nodesHtml = st.nodes.map((x) => { const q = xy(x.id); const cls = 'node el-' + (AGENT_EL[x.type] || 'task') + (x.primary ? ' agent' : '') + (x.type === 'goal' ? ' goal' : '') + (st.sel === x.id ? ' sel' : '') + pxMark(x); return `<button class="${cls}" style="left:${q.x}px;top:${q.y}px" data-act="sSel" data-arg="${x.id}" aria-label="${esc(TAGS[x.type] + ' ' + x.name)}"><span class="tag">${TAGS[x.type]}</span><span class="nm">${esc(x.name)}</span>${A.flags[x.id] ? `<span class="badge">${A.flags[x.id]}</span>` : ''}</button>`; }).join('');
     const applicable = A.rows.filter((r) => r.status !== 'Not applicable').length, covered = A.rows.filter((r) => r.status === 'Covered').length;
     let panel = '';
     if (st.panel === 'fix') {
@@ -1379,6 +1391,8 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
         return `<div class="reqrow"><span class="stack" style="gap:2px;min-width:0"><span style="font-weight:500">${esc(r.name)} <span class="cap" style="font-weight:400">${esc(r.instrument)}${veto ? ' \u00b7 critical requirement' : ''}</span></span><span class="cap">${esc(r.reason)}${r.derived ? ' \u00b7 ' + esc(r.note) + ' \u00b7 from the design' : ''}</span>${inputs}</span><span class="pill ${pillFor(r.status)}">${counted}</span></div>`;
       };
       panel = `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><h2>Live compliance analysis</h2><span class="cap">${Rc.covered} / ${Rc.rows.length} requirements covered \u00b7 feeds breadth and depth</span></div><div>${Rc.rows.map(rowHtml).join('')}</div><span class="cap">Every requirement needs evidence. A critical requirement counts as Covered only with evidence and a reviewer sign-off; evidence alone counts as Partial, and a claim with no evidence counts as a Gap. A sign-off records the person who is signed in and who is allowed to sign off.</span>`;
+    } else if (st.panel === 'probe') {
+      panel = agentProbeTab();
     } else if (st.panel === 'props') {
       const sel = st.nodes.find((x) => x.id === st.sel);
       if (!sel) panel = '<p class="cap" style="margin:0">Select an element on the canvas to edit it.</p>';
@@ -1423,9 +1437,9 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     const R = computeRCR();
     out += rcrPanel(R);
     return out + `<section aria-label="Add elements" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="cap">Add</span>${pal.map(([t, l]) => `<button class="chip" data-act="sAdd" data-arg="${t}">${palIco(AGENT_OG[t])}${l}</button>`).join('')}</section>
-    <div class="studiocols"><section class="card" style="overflow:auto;padding:16px;min-height:420px"><div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap"><span style="font-size:13px;font-weight:600">Agent architecture view</span><span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="cap">Secure Tropos with agent elements · click to edit</span><button class="btn2 btn-s" data-act="vwOpen" data-arg="agent">Enlarge view</button></span></div>
+    <div class="studiocols"><section class="card" style="overflow:auto;padding:16px;min-height:420px"><div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap"><span style="font-size:13px;font-weight:600">Agent architecture view</span><span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="cap">Secure Tropos with agent elements · click to edit</span>${pxRunBtn()}<button class="btn2 btn-s" data-act="vwOpen" data-arg="agent">Enlarge view</button></span></div>
     <div class="canvas" data-viewable="agent" style="height:${canvasH}px">${edgesHtml.map((e) => e.line).join('')}${edgesHtml.map((e) => e.label).join('')}${nodesHtml}</div></section>
-    <section class="card" style="padding:16px 20px 20px;display:flex;flex-direction:column;gap:14px">${segTabs([['fix', 'Fix' + (agFixCount(A) ? ` (${agFixCount(A)})` : '')], ['assistant', 'Assistant'], ['analysis', 'ASI'], ['astra', 'Assessment'], ['compliance', 'Compliance'], ['props', 'Properties'], ['yaml', 'YAML']], st.panel, 'sPanel')}${panel}</section></div>`;
+    <section class="card" style="padding:16px 20px 20px;display:flex;flex-direction:column;gap:14px">${segTabs([['fix', 'Fix' + (agFixCount(A) ? ` (${agFixCount(A)})` : '')], ['assistant', 'Assistant'], ['analysis', 'ASI'], ['astra', 'Assessment'], ['compliance', 'Compliance'], ['probe', 'Probe' + pxTabCount()], ['props', 'Properties'], ['yaml', 'YAML']], st.panel, 'sPanel')}${panel}</section></div>${pxPanel()}`;
   }
 
   /* ----- ASTRA phase 3: the Assessment panel (read only). The attack paths of the saved design, the controls each needs, and the verdict the formal model gives ----- */
@@ -1464,7 +1478,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
       const shown = sg && sg.current && AS.signedDoc ? AS.signedDoc : ct.document;
       const dl = `<a class="btn2 btn-s" download="${esc(ct.document.agent.id)}-contract.json" href="data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(shown, null, 2))}">Download JSON</a>`;
       const canBase = sign && !bl && ct.verdict === 'APPROVED' && ct.assessment_recorded;
-      const canSign = sign && bl && !ct.problems.length && ct.signing_configured && !live;
+      const canSign = sign && bl && !ct.problems.length && ct.signing_configured && !live && ct.probe_admitted;
       ctr = `<h3>Behavioural contract</h3><div class="card" style="padding:12px 14px;display:flex;flex-direction:column;gap:8px">
         <div class="prow" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><span>${esc(ct.document.agent.id)} \u00b7 version ${esc(ct.document.agent.model_version)}</span>${state}</div>
         <span class="cap">The contract in the Appendix A format, built from this design and its assessment. It stays a draft until a different person from the one who recorded the assessment accepts the baseline, and a signer signs it.</span>
@@ -1473,6 +1487,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
         ${sg ? `<span class="cap">Version ${esc(sg.version)} signed by ${esc(sg.signed_by)} with key <span class="mono">${esc(sg.key_id)}</span>, valid ${esc(sg.not_before)} to ${esc(sg.expires_at)}, ${esc(sg.status.toLowerCase())}${sg.current ? '' : ' (the design has changed since)'}. Signature <span class="mono">${esc(sg.signature.slice(0, 16))}\u2026</span></span>` : ''}
         ${AS.vf ? `<div class="note ${AS.vf.valid ? 'good' : 'alert'}"><span style="font-size:13px">${AS.vf.valid ? 'The signature verifies and the contract is valid now.' : 'Not valid: ' + esc(AS.vf.reasons.join('; ')) + '.'}</span></div>` : ''}
         <div class="prow" style="flex-wrap:wrap;gap:8px">${canBase ? `<button class="btn btn-s" data-act="astraBaseline"${AS.busy ? ' disabled' : ''}>Accept as baseline</button>` : ''}${canSign ? `<button class="btn btn-s" data-act="astraSign"${AS.busy ? ' disabled' : ''}>Sign contract</button>` : ''}${sg ? `<button class="btn2 btn-s" data-act="astraVerify" data-arg="${esc(sg.id)}">Verify</button>` : ''}${sign && sg && sg.status === 'ACTIVE' ? `<button class="btn2 btn-s" data-act="astraRevoke" data-arg="${esc(sg.id)}">Revoke</button>` : ''}${dl}</div>
+        ${sign && bl && !live && !ct.problems.length && ct.signing_configured && !ct.probe_admitted ? `<div class="note plain" role="status"><strong>Run the Probe before signing</strong><span style="font-size:13px">A contract is signed only after the Probe has passed on this exact version of the design. ${esc((ct.probe_reasons || []).join(' '))}</span>${can('write') ? '<button class="btn2 btn-s" data-act="pxRun" style="align-self:flex-start">Run Probe</button>' : ''}</div>` : ''}
         ${sign && bl && !ct.signing_configured ? '<span class="cap">No signing key is configured on the server (ASTRA_SIGNING_KEY), so it cannot be signed yet.</span>' : ''}
         ${sign && !bl && !canBase ? '<span class="cap">To accept a baseline the design needs an APPROVED assessment, recorded as the design is now (see below).</span>' : ''}</div>`;
     }
@@ -1481,6 +1496,60 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
       ${deps}${sugs}<h3 style="margin-top:6px">Attack paths</h3><div style="display:flex;flex-direction:column;gap:8px">${paths}</div>
       ${d.unmapped.length ? `<h3>Not mapped to the organisation</h3>${list(d.unmapped.map((u) => `${u.node} (${u.agent}): ${u.reason}`))}` : ''}
       ${d.notes.length ? `<h3>Notes</h3>${list(d.notes)}` : ''}<h3>What the assessment assumes</h3>${list(d.limits)}${probeCard}${ctr}${hist}`;
+  }
+
+  /* ----- ASTRA phase 14: the Probe at design time. A Run Probe button on the architecture view, the attack scenarios under it (what each planted attack does, what the check did,
+     what it would mean for the department, which clauses it touches), a Probe tab, and a link to the main Probe page. It reads /api/astra/probe/explain; nothing here decides anything. ----- */
+  const PX = { key: null, ver: null, loading: false, busy: false, data: null, err: null, open: false, sel: null };
+  const PX_ST = { caught: ['ok', 'Caught'], missed: ['bad', 'Missed'], pending: ['muted', 'Waits for a person'], advisory: ['muted', 'Advisory'], open: ['warn', 'Not tested'] };
+  const PX_REG = { met: ['ok', 'Met by Probe evidence'], risk: ['bad', 'At risk: an attack got through'], untested: ['warn', 'Not tested'], person: ['muted', 'Waits for a person'] };
+  async function pxLoad() {
+    const st = S.studio, key = st.designKey; if (!key || PX.loading) return;
+    PX.loading = true; PX.key = key; PX.ver = st.version; PX.err = null;
+    try { PX.data = await STAI.api.probeExplain(key); } catch (e) { PX.data = null; PX.err = e.message; }
+    PX.loading = false; renderIfIdle(route());
+  }
+  function pxEnsure() { const st = S.studio; if (st.designKey && !PX.loading && !PX.busy && (PX.key !== st.designKey || PX.ver !== st.version)) pxLoad(); }
+  const pxTabCount = () => { const d = PX.data; if (!d || !d.run) return ''; const n = d.rows.filter((r) => r.state === 'missed' || r.state === 'open').length; return n ? ` (${n})` : ''; };
+  function pxMark(x) {
+    const d = PX.data; if (!PX.open || !PX.sel || !d) return '';
+    const r = d.rows.find((q) => q.class === PX.sel); if (!r || !(x.primary || r.kinds.includes(x.type))) return '';
+    return r.state === 'missed' ? ' pxhot' : (r.state === 'open' ? ' pxopen' : ' pxok');
+  }
+  const pxRunBtn = () => (can('write') ? `<button class="btn btn-s" data-act="pxRun"${PX.busy ? ' disabled' : ''}>${PX.busy ? 'Running…' : '▶ Run Probe'}</button>` : '');
+  const pxPill = (s) => `<span class="pill ${PX_ST[s][0]}">${PX_ST[s][1]}</span>`;
+  const pxSummary = (d) => `<span class="prow" style="gap:6px;flex-wrap:wrap"><span class="pill ok">${d.counts.caught} caught</span><span class="pill bad">${d.counts.missed} missed</span><span class="pill warn">${d.counts.open} not tested</span><span class="pill muted">${d.counts.pending} wait for a person</span><span class="pill muted">${d.counts.advisory} advisory</span></span>`;
+  function pxDetail(r) {
+    const cl = r.clauses.length ? r.clauses.map((c) => `<span class="pill muted">${esc(c.label)}</span>`).join(' ') : '<span class="cap">No regulation clause is mapped to this class in the specification table.</span>';
+    if (r.state === 'open') return `<div class="pxd"><div><b>Not tested.</b> ${esc(r.what)}</div><div class="cap">The contract declares nothing to test for this class (${esc(r.reason || 'no reason recorded')}), so nothing in the design defends against it and the Probe cannot plant it.</div><div class="note plain"><span style="font-size:13px">${esc(r.fix)}</span></div><div class="prow" style="gap:6px;flex-wrap:wrap">${cl}</div></div>`;
+    return `<div class="pxd"><div>${esc(r.what)}</div><span class="cap">Attack planted</span><pre class="code" style="margin:0">${esc(r.planted || '')}</pre>`
+      + `<div class="cap">Expected from the class table: <span class="mono">${esc(r.expected)}</span> · the check did: <span class="mono">${esc(r.observed)}</span>${r.boundary_observed ? ' · the boundary case: <span class="mono">' + esc(r.boundary_observed) + '</span>' : ''}</div>`
+      + `<div class="note ${r.state === 'missed' ? 'alert' : 'plain'}"><span style="font-size:13px">${esc(r.impact)}</span></div>${r.state === 'missed' ? `<div class="note alert"><span style="font-size:13px">${esc(r.fix)}</span></div>` : ''}<div class="prow" style="gap:6px;flex-wrap:wrap">${cl}</div></div>`;
+  }
+  const pxRow = (r) => `<div class="pxr${PX.sel === r.class ? ' sel' : ''}"><button class="pxh" data-act="pxSel" data-arg="${esc(r.class)}" aria-expanded="${PX.sel === r.class ? 'true' : 'false'}"><span>${pxPill(r.state)}</span><span class="stack" style="gap:0;text-align:left"><b>${esc(r.name)}</b><span class="mono cap">${esc(r.class)}</span></span><span class="cap">${esc(r.basis)}</span><span class="pill ${r.severity === 'Critical' ? 'bad' : (r.severity === 'High' ? 'warn' : 'muted')}">${esc(r.severity)}</span><span class="mono cap">${esc(r.asi.join(' '))}</span></button>${PX.sel === r.class ? pxDetail(r) : ''}</div>`;
+  function pxPanel() {
+    const st = S.studio; if (!PX.open || !st.drafted) return '';
+    pxEnsure();
+    const d = PX.data, agent = (st.nodes.find((x) => x.primary) || {}).name || 'this agent';
+    let body;
+    if (PX.err) body = `<div class="note alert" role="alert"><strong>Could not run the Probe</strong><span style="font-size:13px">${esc(PX.err)}</span></div>`;
+    else if (PX.busy || (!d && PX.loading)) body = '<p class="cap" style="margin:0">Running the Probe on the saved design…</p>';
+    else if (!d || !d.run) body = '<p class="cap" style="margin:0">No Probe run on this design yet. Press <b>Run Probe</b>.</p>';
+    else body = `<div class="prow" style="gap:10px;flex-wrap:wrap;justify-content:space-between">${pxSummary(d)}<span class="cap">${d.current ? 'design version ' : 'the design is now at version '}${esc(d.version)} · run ${esc(new Date(d.run.created_at).toLocaleString())}</span></div>${d.current ? '' : '<div class="note plain" role="status"><span style="font-size:13px"><b>This run is of an earlier version of the design.</b> The design has changed since, so its evidence no longer counts. Run the Probe again.</span></div>'}<div class="pxl">${d.rows.map(pxRow).join('')}</div>`;
+    return `<section class="card pxp" aria-label="ASTRA Probe attack scenarios"><div class="prow" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><div class="stack" style="gap:2px"><h2>ASTRA Probe · attack scenarios on this design</h2><span class="cap">Planted from the contract of the saved design and replayed in memory through the same check the runtime uses. Nothing is written to the findings and no collector is reached.</span></div><span class="prow" style="gap:8px;flex-wrap:wrap">${pxRunBtn()}<button class="btn2 btn-s" data-act="pxOpenPage">Open ASTRA Probe page for ${esc(agent)} →</button><button class="btn2 btn-s" data-act="pxClose">Close</button></span></div>${body}</section>`;
+  }
+  function agentProbeTab() {
+    const st = S.studio;
+    if (!st.designKey) return '<h2>Probe</h2><p class="cap" style="margin:0">Save the design first: the Probe reads the saved design.</p>';
+    pxEnsure();
+    const d = PX.data, head = `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><h2>Probe</h2><span class="prow" style="gap:8px">${pxRunBtn()}</span></div>`;
+    if (PX.err) return head + `<div class="note alert" role="alert"><span style="font-size:13px">${esc(PX.err)}</span></div>`;
+    if (!d) return head + '<p class="cap" style="margin:0">Loading…</p>';
+    if (!d.run) return head + '<p class="cap" style="margin:0">No Probe run on this design yet. <b>Run Probe</b> plants an attack for each of the 22 divergence classes and shows which the design and the check stop, and what that means for the departments and the regulations.</p>';
+    const A = d.admission;
+    const adm = `<div class="note ${A.admit ? 'good' : 'alert'}"><strong>${A.admit ? 'The Probe passed on this version' : 'The Probe has not passed on this version: a contract cannot be signed yet'}</strong>${A.reasons.length ? `<ul class="cap" style="margin:4px 0 0;padding-left:18px">${A.reasons.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : '<span style="font-size:13px">The newest run is of this exact version and everything applicable passed. Signing also needs an approved assessment and an accepted baseline.</span>'}</div>`;
+    const regs = d.regulations.length ? `<table class="tbl"><thead><tr><th>Clause</th><th>Classes</th><th>State</th></tr></thead><tbody>${d.regulations.map((g) => `<tr><td>${esc(g.label)}</td><td class="mono cap">${esc(g.classes.map((c) => c.replace('DVG-', '')).join(' '))}</td><td><span class="pill ${PX_REG[g.state][0]}">${PX_REG[g.state][1]}</span></td></tr>`).join('')}</tbody></table>` : '';
+    return `${head}<div class="prow" style="gap:8px;flex-wrap:wrap;align-items:center">${pxSummary(d)}${asVerdict(d.verdict)}</div><span class="cap">Run on design version ${esc(d.version)}${d.current ? '' : ' (the design has changed since: run it again)'}. The assessment tab already uses this run: a missed attack makes the control violated, a pass makes it satisfied for ${esc(d.evidence_days)} days on this version only.</span>${adm}<h3>Regulations the design must adhere to</h3><span class="cap">Read from the OWASP rows each class signals; anchors are article-level and indicative.</span>${regs}<div class="prow" style="gap:8px"><button class="btn2 btn-s" data-act="pxShow">Show the attack scenarios</button><button class="btn2 btn-s" data-act="pxOpenPage">Open the Probe page</button></div>`;
   }
 
   /* ---------- Drift review ---------- */
@@ -5073,6 +5142,26 @@ kill_switch:
       try { await STAI.api.astraRegReview(clause, note.trim()); ASR.loaded = false; SEC.loaded = false; ASR.msg = { tone: 'good', text: 'Reviewed: ' + clause + '.' }; } catch (e) { ASR.msg = { tone: 'alert', text: e.message }; }
       render(true);
     }
+  });
+  /* ASTRA phase 14: handlers of the design-time Probe (assigned here because H exists by now) */
+  Object.assign(H, {
+    pxRun: async () => {
+      const st = S.studio; if (PX.busy) return;
+      PX.open = true; PX.busy = true; PX.err = null; render(true);
+      try {
+        await flushAgentSave();                                            // the Probe reads the design as saved: save what is on the canvas first
+        if (!st.designKey) throw new Error('Save the design first: the Probe reads the saved design.');
+        await STAI.api.probeRun(st.designKey);
+        PX.key = null; AS.key = null;                                      // the assessment now carries the Probe evidence: read both again
+        PX.busy = false; await pxLoad();
+        const d = PX.data; if (d && d.run) { const first = d.rows.find((r) => r.state === 'missed') || d.rows.find((r) => r.state === 'open'); PX.sel = first ? first.class : null; }
+      } catch (e) { PX.err = e.message; }
+      PX.busy = false; render(true);
+    },
+    pxSel: (c) => { PX.sel = PX.sel === c ? null : c; PX.open = true; },
+    pxShow: () => { PX.open = true; },
+    pxClose: () => { PX.open = false; PX.sel = null; },
+    pxOpenPage: () => { const k = S.studio.designKey; if (k) { PB.key = k; PB.loaded = false; } location.hash = '#/probe'; },
   });
   const rkReload = async () => { RK.st = await STAI.api.riskState(); RK.at = Date.now(); };
   Object.assign(C, {

@@ -3,7 +3,7 @@ The accepted baseline and the signed behavioural contract of an agent design (AS
 
   GET  /api/agents/designs/{key}/contract        the draft contract in the Appendix A format, what in the design stops it being valid, the accepted baseline and the signed contract
   POST /api/agents/designs/{key}/baseline        accept the design as it is now (signoff: compliance or admin; the assessment must be recorded, APPROVED, current, and recorded by someone else)
-  POST /api/agents/designs/{key}/sign            sign the contract of the accepted baseline with the signing key (signoff)
+  POST /api/agents/designs/{key}/sign            sign the contract of the accepted baseline with the signing key (signoff); refused unless a Probe run of this exact version passed
   GET  /api/astra/contracts/{id}                 one signed contract with its signature
   GET  /api/astra/contracts/{id}/verify          is it valid right now, and if not, why
   POST /api/astra/contracts/{id}/revoke          revoke it with a reason (signoff)
@@ -114,7 +114,10 @@ def get_contract(design_key: str, session: Session = Depends(get_session)) -> Di
     signed = session.scalar(select(AstraSignedContract).where(AstraSignedContract.organisation_id == org.id, AstraSignedContract.design_key == design_key)
                             .order_by(AstraSignedContract.signed_at.desc()).limit(1))
     signer = SG.load_signer()
+    import astra_probe_api                                       # lazily: that module imports this one
+    adm = astra_probe_api.admission_for(session, design)
     return {"design_key": design_key, "document": document, "problems": problems, "verdict": assessment["verdict"],
+            "probe_admitted": adm["admit"], "probe_reasons": adm["reasons"],
             "assessment_recorded": last is not None and last.design_hash == dhash,
             "baseline": None if base is None else {"id": str(base.id), "accepted_by": base.accepted_by, "note": base.note, "created_at": base.created_at.isoformat(),
                                                    "assessment_id": str(base.assessment_id)},
@@ -171,6 +174,10 @@ def sign_contract(design_key: str, body: SignIn, session: Session = Depends(get_
     (document, problems), _ = _draft(session, design, version=_next_version(session, agent_id), status=body.lifecycle_status, valid_days=body.valid_days)
     if problems:
         raise HTTPException(status_code=422, detail="The contract cannot be signed yet: " + " ".join(problems))
+    import astra_probe_api                                       # lazily: that module imports this one
+    adm = astra_probe_api.admission_for(session, design)
+    if not adm["admit"]:                                         # the Probe is tested before the contract is signed, not after (phase 14)
+        raise HTTPException(status_code=409, detail="A contract is signed only after the Probe has passed on this exact version of the design. " + " ".join(adm["reasons"]))
     now = _now()
     not_before, expires = now.strftime(FMT), (now + timedelta(days=body.valid_days)).strftime(FMT)
     s = SG.sign(document, signer[0], signer[1], not_before, expires)

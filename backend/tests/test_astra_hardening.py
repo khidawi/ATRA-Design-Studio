@@ -40,7 +40,7 @@ TABLE = [
     ("GET", "/api/astra/learned/{det}/models", "read"), ("POST", "/api/astra/learned/{det}/models/{model_id}/adopt", "signoff"), ("POST", "/api/astra/learned/{det}/rollback", "signoff"),
     ("POST", "/api/astra/learned/{det}/scores", "ingest"),
     ("GET", "/api/astra/peer-keys", "read"), ("POST", "/api/astra/peer-keys", "signoff"),
-    ("GET", "/api/astra/probe/admission", "read"), ("GET", "/api/astra/probe/catch-rate", "read"), ("GET", "/api/astra/probe/latest", "read"), ("POST", "/api/astra/probe/run", "write"),
+    ("GET", "/api/astra/probe/admission", "read"), ("GET", "/api/astra/probe/catch-rate", "read"), ("GET", "/api/astra/probe/latest", "read"), ("GET", "/api/astra/probe/explain", "read"), ("POST", "/api/astra/probe/run", "write"),
     ("POST", "/api/astra/probe/run-all", "write"), ("GET", "/api/astra/probe/runs", "read"), ("GET", "/api/astra/probe/runs/{run_id}", "read"), ("GET", "/api/astra/probe/scenarios", "read"),
     ("POST", "/api/astra/probe/scenarios/from-finding/{finding_key}", "write"), ("POST", "/api/astra/probe/scenarios/{scenario_id}/approve", "signoff"),
     ("POST", "/api/astra/probe/scenarios/{scenario_id}/retire", "signoff"), ("GET", "/api/astra/regwatch", "read"), ("POST", "/api/astra/regwatch/review", "signoff"),
