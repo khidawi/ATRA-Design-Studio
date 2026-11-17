@@ -53,6 +53,24 @@ services:
     depends_on:
       - backend
 
+  # The temporal graph network (ASTRA phase 10). Off unless asked for:  docker compose --profile learned up -d learned
+  # It trains and evaluates on simulated traffic (docker compose run --rm learned evaluate --post) and, once a person has adopted a model on the platform, scores live windows.
+  # ASTRA_LEARNED_KEY is an API key with the collector role (Users screen). The service has its own image, so the backend image, its scans and its CI are unchanged.
+  learned:
+    profiles: ["learned"]
+    build:
+      context: .
+      dockerfile: learned/Dockerfile
+    environment:
+      ASTRA_URL: http://backend:8765
+      ASTRA_KEY: ${ASTRA_LEARNED_KEY:-}
+    volumes:
+      - learned_models:/models
+    depends_on:
+      - backend
+    restart: unless-stopped
+
 volumes:
   ollama_data:
   pg_data:
+  learned_models:

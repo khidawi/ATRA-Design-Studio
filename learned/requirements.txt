@@ -1,0 +1,5 @@
+# CPU-only PyTorch. The +cpu build is preferred over the (much larger) default build because a local version tag sorts after the plain version.
+--index-url https://download.pytorch.org/whl/cpu
+--extra-index-url https://pypi.org/simple
+torch==2.15.0+cpu
+numpy==2.3.4

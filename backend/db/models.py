@@ -1156,3 +1156,91 @@ class ProbeResult(Base):
     bad_ok: Mapped[Optional[bool]] = mapped_column(Boolean)
     good_ok: Mapped[Optional[bool]] = mapped_column(Boolean)
     passed: Mapped[Optional[bool]] = mapped_column(Boolean)
+
+
+class LearnedModel(Base):
+    """A learned detector for one agent (ASTRA phase 9): its parameters and what it was trained on. A new version retires the active one."""
+
+    __tablename__ = "learned_models"
+    __table_args__ = (CheckConstraint("detector IN ('baseline', 'tgn', 'gnn')", name="ck_learned_model_detector"), CheckConstraint("status IN ('ACTIVE', 'RETIRED', 'CANDIDATE')", name="ck_learned_model_status"),
+                      Index("uq_learned_model_active", "organisation_id", "agent_key", "detector", unique=True, postgresql_where=text("status = 'ACTIVE'")))
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    agent_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    detector: Mapped[str] = mapped_column(String(10), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(9), nullable=False, server_default="ACTIVE")
+    adopted: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))        # a person adopted it, after its evaluation passed
+    adopted_by: Mapped[Optional[str]] = mapped_column(String(120))
+    adopted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    trained_on: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    parameters: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    created_by: Mapped[str] = mapped_column(String(120), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class LearnedScore(Base):
+    """The score of one window of one agent by one model (never edited)."""
+
+    __tablename__ = "learned_scores"
+    __table_args__ = (Index("uq_learned_score_window", "model_id", "agent_key", "window_start", unique=True), Index("ix_learned_scores_agent", "organisation_id", "agent_key", "window_start"))
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    model_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("learned_models.id"), nullable=False)
+    agent_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    detector: Mapped[str] = mapped_column(String(10), nullable=False)
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    window_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    events: Mapped[int] = mapped_column(Integer, nullable=False)
+    score: Mapped[float] = mapped_column(Float, nullable=False)
+    threshold: Mapped[float] = mapped_column(Float, nullable=False)
+    detail: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class LearnedFlag(Base):
+    """A window a learned detector found far from normal. Whatever the detector, a flag can only say the baseline control is unverified: the table does not allow anything else (Lemma 3)."""
+
+    __tablename__ = "learned_flags"
+    __table_args__ = (CheckConstraint("control = 'base' AND level = 'UNV'", name="ck_learned_flag_lemma3"), CheckConstraint("status IN ('OPEN', 'BENIGN', 'REAL')", name="ck_learned_flag_status"),
+                      Index("ix_learned_flags_agent", "organisation_id", "agent_key", "status"))
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    model_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("learned_models.id"), nullable=False)
+    score_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("learned_scores.id"), nullable=False)
+    agent_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    detector: Mapped[str] = mapped_column(String(10), nullable=False)
+    score: Mapped[float] = mapped_column(Float, nullable=False)
+    threshold: Mapped[float] = mapped_column(Float, nullable=False)
+    control: Mapped[str] = mapped_column(String(8), nullable=False, server_default="base")
+    level: Mapped[str] = mapped_column(String(3), nullable=False, server_default="UNV")
+    status: Mapped[str] = mapped_column(String(8), nullable=False, server_default="OPEN")
+    detail: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    adjudicated_by: Mapped[Optional[str]] = mapped_column(String(120))
+    adjudicated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    adjudication_note: Mapped[Optional[str]] = mapped_column(Text)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class LearnedEvaluation(Base):
+    """The recorded evaluation of a candidate model against the baseline on held-out attack families (never edited). Its decision is the platform's own, recomputed from the numbers."""
+
+    __tablename__ = "learned_evaluations"
+    __table_args__ = (Index("ix_learned_evaluations_model", "organisation_id", "model_id", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id"), nullable=False)
+    model_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("learned_models.id"), nullable=False)
+    detector: Mapped[str] = mapped_column(String(10), nullable=False)
+    dataset_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    simulated: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    budget_fpr: Mapped[float] = mapped_column(Float, nullable=False)
+    metrics: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    passed: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    reasons: Mapped[List[str]] = mapped_column(JSONB, nullable=False)
+    recorded_by: Mapped[str] = mapped_column(String(120), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

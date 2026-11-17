@@ -43,7 +43,12 @@ def adverse(S: State, c: Control, level: str) -> None:
     """Adverse evidence: the status can only go down."""
     if level not in (UNV, VIO):
         raise ValueError(f"adverse evidence has level UNV or VIO, not {level!r}")
-    S.st[c] = worse(S.st.get(c, UNV), level)
+    cur = S.st.get(c, UNV)
+    if cur == NA:                                    # the rationale said it does not apply, and something shows it does: it counts, at the level of that evidence
+        S.st[c] = level
+        S.rationale.pop(c, None)
+        return
+    S.st[c] = worse(cur, level)
 
 
 def support(S: State, c: Control, source: str, now: float, ttl: float = float("inf")) -> None:

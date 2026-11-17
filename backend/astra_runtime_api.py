@@ -28,7 +28,7 @@ import audit
 from agent_registry import agent_key
 from astra_model.classes import CLASSES
 from auth import AuthUser, current_user
-from db.models import AstraBinding, AstraPeerKey, Finding, RuntimeEvent
+from db.models import AstraBinding, AstraPeerKey, Finding, LearnedScore, RuntimeEvent
 from db.session import get_session
 from organisation import current_organisation
 
@@ -46,15 +46,17 @@ def classes(session: Session = Depends(get_session)) -> Dict[str, Any]:
         state = AR.class_state(cid)
         wires = AR.WIRE.get(c.event, [])
         n = sum(seen.get(w, (0, None))[0] for w in wires)
+        if c.event == "score":                                                       # the baseline is not fed by collector events but by the windows it has scored
+            n = session.scalar(select(func.count()).select_from(LearnedScore).where(LearnedScore.created_at >= since)) or 0
         last = max([seen[w][1] for w in wires if w in seen] or [None], key=lambda x: x or datetime.min.replace(tzinfo=timezone.utc))
         rows.append({"id": cid, "name": c.name, "element": c.element, "construct": c.construct, "asi": list(c.asi), "basis": c.basis, "severity": c.severity, "event": c.event, "state": state,
                      "events": n, "last_event": last.isoformat() if last else None, "open_findings": opened.get(cid, 0),
-                     "needs": None if state == "later" else (AR.NEEDS.get(c.event) if n == 0 else None),
-                     "note": "waits for the behavioural baseline (phase 9)" if state == "later" else ("a classifier or a person judges; the platform queues it for adjudication" if state == "pending" else None)})
-    monitored = [r for r in rows if r["state"] in ("monitored", "pending")]
+                     "needs": AR.NEEDS.get(c.event) if n == 0 else None,
+                     "note": "a learned detector: it can only mark the baseline control unverified, never block on its own" if state == "advisory" else ("a classifier or a person judges; the platform queues it for adjudication" if state == "pending" else None)})
+    monitored = [r for r in rows if r["state"] in ("monitored", "pending", "advisory")]
     return {"classes": rows, "window_days": WINDOW_DAYS,
             "counts": {"total": len(rows), "monitored": len(monitored), "deterministic": sum(1 for r in rows if r["state"] == "monitored"), "pending": sum(1 for r in rows if r["state"] == "pending"),
-                       "later": sum(1 for r in rows if r["state"] == "later"), "receiving_events": sum(1 for r in monitored if r["events"] > 0), "needs_collector": sum(1 for r in monitored if r["events"] == 0)}}
+                       "advisory": sum(1 for r in rows if r["state"] == "advisory"), "receiving_events": sum(1 for r in monitored if r["events"] > 0), "needs_collector": sum(1 for r in monitored if r["events"] == 0)}}
 
 
 class BindingIn(BaseModel):

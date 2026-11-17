@@ -41,7 +41,7 @@ DEDUPE_MINUTES = 10
 
 # the event type the collector sends -> the kind of event the model judges
 KIND = {"tool_call": "tool_call", "delegation": "deleg_out", "delegation_in": "deleg_in", "data_access": "res_access", "memory_write": "mem_write", "mcp_connect": "component",
-        "component": "component", "exec": "exec", "goal_set": "goal_set", "msg": "msg", "id": "id", "life": "life", "spawn": "spawn"}
+        "component": "component", "exec": "exec", "goal_set": "goal_set", "msg": "msg", "id": "id", "life": "life", "spawn": "spawn", "score": "score"}
 # the wire types that carry each kind (to count what a collector really sends)
 WIRE = {}
 for _w, _k in KIND.items():
@@ -65,14 +65,14 @@ NEEDS = {
     "life": "any life event (the server's clock decides)",
     "spawn": "a spawn event naming the child agent",
     "component": "a component event (or an mcp_connect) with whether it is signed and in the AIBOM",
-    "score": "the behavioural baseline (a later phase)",
+    "score": "a calibrated behavioural baseline for the agent, and scored windows (Learned detectors)",
 }
 
 
 def class_state(cid: str) -> str:
-    """What the platform can do about a class today: monitored | pending | later."""
+    """What the platform can do about a class today: monitored | pending (a person judges) | advisory (a learned detector: tighten-only evidence)."""
     c = CLASSES[cid]
-    return "later" if c.basis == "baseline" else ("pending" if c.basis == "semantic" else "monitored")
+    return "advisory" if c.basis == "baseline" else ("pending" if c.basis == "semantic" else "monitored")
 
 
 # ── Pure: the contract document as an agent of the model ────────────────────────────────────────────────────────
@@ -191,6 +191,10 @@ def to_event(agent_id: str, wire: str, data: Dict[str, Any], bindings: List[Tupl
             ev["claimed"] = name
     elif kind == "life":
         ev["now_t"] = today                                                                              # the server's clock
+    elif kind == "score":                                                                                    # made by the platform (the Probe, the scorer), never accepted from a collector
+        for k in ("score", "theta"):
+            if k in data:
+                ev[k] = data[k]
     elif kind == "spawn":
         if name:
             ev["child"] = apply_binding(bindings, "delegate", name)
