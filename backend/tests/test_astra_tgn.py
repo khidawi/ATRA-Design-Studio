@@ -100,9 +100,9 @@ def clean_tgn():
     from db.session import SessionLocal
     with SessionLocal() as s:
         for M in (LearnedFlag, LearnedScore):
-            s.query(M).filter(M.detector == "tgn").delete(synchronize_session=False)
-        s.query(LearnedEvaluation).filter(LearnedEvaluation.detector == "tgn").delete(synchronize_session=False)
-        s.query(LearnedModel).filter(LearnedModel.detector == "tgn").delete(synchronize_session=False)
+            s.query(M).filter(M.detector.in_(("tgn", "gnn"))).delete(synchronize_session=False)
+        s.query(LearnedEvaluation).filter(LearnedEvaluation.detector.in_(("tgn", "gnn"))).delete(synchronize_session=False)
+        s.query(LearnedModel).filter(LearnedModel.detector.in_(("tgn", "gnn"))).delete(synchronize_session=False)
         s.query(ApiKey).filter(ApiKey.name.like("zz-test-tgn%")).delete(synchronize_session=False)
         s.commit()
 
@@ -345,6 +345,82 @@ def test_only_the_flag_the_table_allows_can_be_stored_for_a_network_too(one, two
                     raise AssertionError(f"the table accepted a network flag on {control} at {level}")
                 finally:
                     s2.close()
+
+
+# ── the graph model: the same registry and gate, plus the second question ──────────────────────────────────────────────────────────────────────
+
+def gnn_metrics(**over):
+    m = copy.deepcopy(GOOD)
+    m["gnn"] = m.pop("tgn")
+    m["gnn"]["novel"] = {"metronome": 0.4, "lateral_chain": 0.5, "slow_drip": 0.0, "kind_switch": 0.0}
+    m["reachability"] = {"fpr_test": 0.0, "tpr": {f: 0.0 for f in m["gnn"]["tpr"]}}
+    m["attack_events_not_permitted"] = 0
+    m["novel_min"] = 0.25
+    for k, v in over.items():
+        if k == "novel":
+            m["gnn"]["novel"].update(v)
+        else:
+            m[k] = v
+    return m
+
+
+def test_the_graph_model_must_also_add_something_to_the_reachability_check_and_the_baseline():
+    assert T.decide(gnn_metrics(), "gnn") == {"passed": True, "reasons": []}
+    one_family = gnn_metrics(novel={"lateral_chain": 0.0})
+    d = T.decide(one_family, "gnn")
+    assert not d["passed"] and any("does not add enough" in r and "only 1" in r for r in d["reasons"]), d
+    low = gnn_metrics(novel={"metronome": 0.2, "lateral_chain": 0.24})
+    assert not T.decide(low, "gnn")["passed"], "just under a quarter on both families is not enough"
+    leaky = gnn_metrics(attack_events_not_permitted=3)
+    assert any("not permitted by the estate" in r for r in T.decide(leaky, "gnn")["reasons"])
+    lax = gnn_metrics(novel_min=0.0)
+    assert T.decide(lax, "gnn")["passed"] is True and not T.decide(gnn_metrics(novel={"metronome": 0.0, "lateral_chain": 0.1}, novel_min=0.0), "gnn")["passed"], "a service cannot lower the platform's floor"
+    bare = gnn_metrics()
+    del bare["reachability"]
+    assert not T.decide(bare, "gnn")["passed"] and "cannot be judged" in T.decide(bare, "gnn")["reasons"][0]
+    not_better = gnn_metrics()
+    not_better["gnn"]["tpr"] = {f: 0.2 for f in not_better["gnn"]["tpr"]}
+    assert any("not clearly better" in r for r in T.decide(not_better, "gnn")["reasons"])
+    assert not T.decide(GOOD, "gnn")["passed"], "a temporal-network evaluation is not a graph-model evaluation"
+    assert T.decide(GOOD, "tgn")["passed"], "and the temporal network is judged by the rule it always was"
+
+
+@tgn_world
+def test_both_detectors_share_one_registry_and_the_graph_model_is_refused_when_it_adds_too_little(one, two, eng):
+    from tests._auth import authed_client
+    from tests.test_astra_assessment_api import NAME
+    with authed_client("admin", "Alice Admin") as admin:
+        svc = service_key(admin)
+        assert one.post("/api/astra/learned/xyz/evaluations", json={"checksum": cs(), "metrics": GOOD, "hyper": {"window_seconds": WS}}).status_code == 404
+        weak = svc.post("/api/astra/learned/gnn/evaluations", json={"checksum": cs(), "metrics": gnn_metrics(novel={"lateral_chain": 0.0}), "vocab": {"agents": []}, "hyper": {"window_seconds": 120}})
+        assert weak.status_code == 201, weak.text
+        w = weak.json()
+        assert w["model"]["detector"] == "gnn" and w["evaluation"]["passed"] is False and w["evaluation"]["detector"] == "gnn" and w["evaluation"]["tgn"] is None
+        assert w["evaluation"]["model_metrics"]["novel"]["metronome"] == 0.4 and w["evaluation"]["reachability"]["tpr"]["metronome"] == 0.0
+        for who in (two, admin):
+            a = who.post(f"/api/astra/learned/gnn/models/{w['model']['id']}/adopt")
+            assert a.status_code == 409 and "does not add enough" in a.json()["detail"], a.text
+        assert svc.get("/api/astra/learned/gnn/active").json() is None and eng.get("/api/astra/learned/gnn/health").json()["status"] == "off"
+        good = svc.post("/api/astra/learned/gnn/evaluations", json={"checksum": cs(), "metrics": gnn_metrics(), "vocab": {"agents": []}, "hyper": {"window_seconds": 120}}).json()
+        assert good["evaluation"]["passed"] and good["model"]["version"] == 2
+        tg = post_eval(svc, cs(), GOOD).json()
+        assert tg["model"]["detector"] == "tgn" and tg["model"]["version"] == 1, "versions are counted per detector"
+        assert two.post(f"/api/astra/learned/gnn/models/{good['model']['id']}/adopt").status_code == 200
+        assert two.post(f"/api/astra/learned/tgn/models/{tg['model']['id']}/adopt").status_code == 200
+        assert svc.get("/api/astra/learned/gnn/active").json()["id"] == good["model"]["id"] and svc.get("/api/astra/learned/tgn/active").json()["id"] == tg["model"]["id"]
+        assert two.post(f"/api/astra/learned/gnn/models/{tg['model']['id']}/adopt").status_code == 404, "a model is adopted through its own detector"
+        backdate(good["model"]["id"])
+        backdate(tg["model"]["id"])
+        start = aligned(0.0) // 120 * 120 - 120 * 4                              # the graph model works in windows of two minutes, so the start has to be a multiple of 120
+        r = svc.post("/api/astra/learned/gnn/scores", json={"model_id": good["model"]["id"], "windows": [{"agent": NAME, "window_start": start, "events": 6, "score": 12.0}]}).json()
+        assert r == {"scored": 1, "flagged": 1, "skipped": 0}, r
+        assert svc.post("/api/astra/learned/gnn/scores", json={"model_id": tg["model"]["id"], "windows": [{"agent": NAME, "window_start": start, "events": 6, "score": 12.0}]}).status_code == 409, "tgn's model cannot post gnn scores"
+        flags = [f for f in eng.get("/api/astra/learned/flags").json() if f["agent_key"] == NAME]
+        assert [(f["detector"], f["control"], f["level"]) for f in flags] == [("gnn", "base", "UNV")]
+        det = {d["id"]: d for d in eng.get("/api/astra/learned/detectors").json()}
+        assert det["gnn"]["status"] == "adopted" and det["tgn"]["status"] == "adopted" and det["gnn"]["open_flags"] == 1 and det["tgn"]["open_flags"] == 0
+        assert two.post("/api/astra/learned/gnn/rollback").json() == {"restored": None, "adopted": False}
+        assert svc.get("/api/astra/learned/gnn/active").json() is None and svc.get("/api/astra/learned/tgn/active").json() is not None, "rolling one back leaves the other"
 
 
 if __name__ == "__main__":

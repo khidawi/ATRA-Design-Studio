@@ -476,10 +476,10 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       learnedDetectors: () => call('/api/astra/learned/detectors'),
       learnedAgents: () => call('/api/astra/learned/agents'),
       learnedFlags: () => call('/api/astra/learned/flags'),
-      tgnModels: () => call('/api/astra/learned/tgn/models'),
-      tgnHealth: () => call('/api/astra/learned/tgn/health'),
-      tgnAdopt: (id) => post('/api/astra/learned/tgn/models/' + encodeURIComponent(id) + '/adopt', {}),
-      tgnRollback: () => post('/api/astra/learned/tgn/rollback', {}),
+      detModels: (d) => call('/api/astra/learned/' + d + '/models'),
+      detHealth: (d) => call('/api/astra/learned/' + d + '/health'),
+      detAdopt: (d, id) => post('/api/astra/learned/' + d + '/models/' + encodeURIComponent(id) + '/adopt', {}),
+      detRollback: (d) => post('/api/astra/learned/' + d + '/rollback', {}),
       learnedCalibrate: (key, body) => post('/api/astra/learned/agents/' + encodeURIComponent(key) + '/calibrate', body),
       learnedScore: (key) => post('/api/astra/learned/agents/' + encodeURIComponent(key) + '/score', {}),
       learnedScoreAll: () => post('/api/astra/learned/score-all', {}),
@@ -1773,10 +1773,10 @@ kill_switch:
   }
 
   /* ---------- Learned detectors (phase 9): what a learned detector may do is little: mark the baseline control unverified ---------- */
-  const LD = { loaded: false, loading: false, error: null, det: [], agents: [], flags: [], tgn: [], tgnHealth: null, busy: false, msg: null };
+  const LD = { loaded: false, loading: false, error: null, det: [], agents: [], flags: [], models: { tgn: [], gnn: [] }, health: { tgn: null, gnn: null }, busy: false, msg: null };
   async function loadLearned() {
     LD.loading = true; LD.error = null;
-    try { [LD.det, LD.agents, LD.flags, LD.tgn, LD.tgnHealth] = await Promise.all([STAI.api.learnedDetectors(), STAI.api.learnedAgents(), STAI.api.learnedFlags(), STAI.api.tgnModels(), STAI.api.tgnHealth()]); LD.loaded = true; } catch (e) { LD.error = e.message; }
+    try { let tm, gm, th, gh; [LD.det, LD.agents, LD.flags, tm, gm, th, gh] = await Promise.all([STAI.api.learnedDetectors(), STAI.api.learnedAgents(), STAI.api.learnedFlags(), STAI.api.detModels('tgn'), STAI.api.detModels('gnn'), STAI.api.detHealth('tgn'), STAI.api.detHealth('gnn')]); LD.models = { tgn: tm, gnn: gm }; LD.health = { tgn: th, gnn: gh }; LD.loaded = true; } catch (e) { LD.error = e.message; }
     LD.loading = false; renderIfIdle('learned');
   }
   function learned() {
@@ -1791,15 +1791,22 @@ kill_switch:
     const pct = (x) => (x === null || x === undefined ? '\u2014' : Math.round(x * 100) + '%');
     const evalCard = (m) => {
       const e = m.evaluation; if (!e) return '<span class="cap">no evaluation</span>';
+      const gnn = e.detector === 'gnn', mm = e.model_metrics || e.tgn || {};
       const fams = [...(e.families.dev || []).map((f) => [f, 'dev']), ...(e.families.test || []).map((f) => [f, 'held out'])];
-      return `<div class="stack" style="gap:6px"><span><span class="pill ${e.passed ? 'ok' : 'bad'}">${e.passed ? 'gate passed' : 'gate not passed'}</span> <span class="pill muted">simulated traffic</span> <span class="cap">false positives on held-out normal: network ${pct(e.tgn.fpr_test)}, baseline ${pct(e.baseline.fpr_test)} (budget ${pct(e.budget_fpr)})</span></span>
-        <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Attack family</th><th>Used for</th><th>Baseline</th><th>Network</th></tr></thead><tbody>${fams.map(([f, role]) => `<tr><td>${esc(f.replace('_', ' '))}</td><td class="cap">${role === 'dev' ? 'choosing settings' : 'judging'}</td><td>${pct(e.baseline.tpr[f])}</td><td>${pct(e.tgn.tpr[f])}</td></tr>`).join('')}<tr><td><b>Held-out average</b></td><td></td><td><b>${pct(e.baseline.macro_test)}</b></td><td><b>${pct(e.tgn.macro_test)}</b></td></tr></tbody></table></div>
+      return `<div class="stack" style="gap:6px"><span><span class="pill ${e.passed ? 'ok' : 'bad'}">${e.passed ? 'gate passed' : (gnn ? 'no-go: gate not passed' : 'gate not passed')}</span> <span class="pill muted">simulated traffic</span> <span class="cap">false positives on held-out normal: model ${pct(mm.fpr_test)}, baseline ${pct(e.baseline.fpr_test)} (budget ${pct(e.budget_fpr)})</span></span>
+        <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Attack family</th><th>Used for</th>${gnn ? '<th>Reachability check</th>' : ''}<th>Baseline</th><th>Model</th>${gnn ? '<th>Only the model</th>' : ''}</tr></thead><tbody>${fams.map(([f, role]) => `<tr><td>${esc(f.replace('_', ' '))}</td><td class="cap">${role === 'dev' ? 'choosing settings' : 'judging'}</td>${gnn ? `<td>${pct(e.reachability && e.reachability.tpr[f])}</td>` : ''}<td>${pct(e.baseline.tpr[f])}</td><td>${pct(mm.tpr && mm.tpr[f])}</td>${gnn ? `<td>${pct(mm.novel && mm.novel[f])}</td>` : ''}</tr>`).join('')}<tr><td><b>Held-out average</b></td><td></td>${gnn ? '<td></td>' : ''}<td><b>${pct(e.baseline.macro_test)}</b></td><td><b>${pct(mm.macro_test)}</b></td>${gnn ? '<td></td>' : ''}</tr></tbody></table></div>
+        ${gnn ? '<span class="cap">"Only the model" is the share of attacks that the graph model flagged and neither the exact reachability check nor the per-agent baseline did. Every attack here is something the estate permits, so the reachability check cannot see any of them; the baseline cannot judge an agent that joined late. The model has to catch at least a quarter of the attacks on two held-out families that nothing else catches.</span>' : ''}
         ${e.reasons.length ? `<ul class="cap" style="margin:0;padding-left:18px">${e.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}</div>`;
     };
-    const H_ = LD.tgnHealth, hTone = { ok: 'ok', collecting: 'muted', drifting: 'bad', off: 'muted' };
-    const tgn = `<section class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:10px"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline"><h2>Temporal graph network</h2>${H_ && H_.adopted ? `<span class="pill ${hTone[H_.status]}" title="${esc((H_.reasons || []).join('; '))}">health: ${esc(H_.status)}${H_.flag_rate !== null ? ' \u00b7 ' + pct(H_.flag_rate) + ' of live windows flagged' : ''}</span>` : '<span class="pill muted">off</span>'}${sign && H_ && H_.adopted ? `<button class="btn2 btn-s" data-act="ldTgnRollback"${LD.busy ? ' disabled' : ''}>Roll back</button>` : ''}</div>
-      <span class="cap" style="max-width:900px">Scores each event by how surprising it is given what the agents and tools did before (order and timing). It runs as its own service and is trained on normal traffic only. It stays <b>off</b> until its evaluation against the baseline passes on attack families it never saw and a person adopts it; the platform recomputes that decision itself and refuses to adopt a model that did not pass. Once adopted it is advisory-only, exactly like the baseline. Both outcomes are recorded. Every number here is measured on <b>simulated traffic</b>.</span>
-      ${LD.tgn.length ? LD.tgn.map((m) => `<div class="card" style="padding:12px 14px;display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><span><b>Version ${m.version}</b> <span class="cap mono">${esc((m.checksum || '').slice(0, 12))}</span> <span class="cap">recorded by ${esc(m.created_by)} \u00b7 ${esc(new Date(m.created_at).toLocaleString())}</span></span><span class="prow" style="gap:6px"><span class="pill ${m.status === 'ACTIVE' ? 'ok' : (m.status === 'CANDIDATE' ? 'warn' : 'muted')}">${m.status === 'ACTIVE' ? 'adopted' : m.status.toLowerCase()}</span>${sign && m.status === 'CANDIDATE' ? `<button class="btn btn-s" data-act="ldTgnAdopt" data-arg="${esc(m.id)}"${LD.busy || !(m.evaluation && m.evaluation.passed) ? ' disabled' : ''} title="${m.evaluation && m.evaluation.passed ? '' : 'its evaluation did not pass'}">Adopt (advisory-only)</button>` : ''}</span></div>${evalCard(m)}</div>`).join('') : '<p class="cap" style="margin:0">No model has been evaluated yet. Run <span class="mono">docker compose run --rm learned evaluate --post</span> to train one on simulated traffic and record its evaluation.</p>'}</section>`;
+    const hTone = { ok: 'ok', collecting: 'muted', drifting: 'bad', off: 'muted' };
+    const modelSection = (det, title, blurb) => {
+      const H_ = LD.health[det], list = LD.models[det];
+      return `<section class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:10px"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline"><h2>${title}</h2>${H_ && H_.adopted ? `<span class="pill ${hTone[H_.status]}" title="${esc((H_.reasons || []).join('; '))}">health: ${esc(H_.status)}${H_.flag_rate !== null ? ' \u00b7 ' + pct(H_.flag_rate) + ' of live windows flagged' : ''}</span>` : '<span class="pill muted">off</span>'}${sign && H_ && H_.adopted ? `<button class="btn2 btn-s" data-act="ldRollback" data-arg="${det}"${LD.busy ? ' disabled' : ''}>Roll back</button>` : ''}</div>
+      <span class="cap" style="max-width:900px">${blurb} It runs as its own service and is trained on normal traffic only. It stays <b>off</b> until its evaluation passes on attack families it never saw and a person adopts it; the platform recomputes that decision itself and refuses to adopt a model that did not pass. Once adopted it is advisory-only, exactly like the baseline. Both outcomes are recorded. Every number here is measured on <b>simulated traffic</b>.</span>
+      ${list.length ? list.map((m) => `<div class="card" style="padding:12px 14px;display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><span><b>Version ${m.version}</b> <span class="cap mono">${esc((m.checksum || '').slice(0, 12))}</span> <span class="cap">recorded by ${esc(m.created_by)} \u00b7 ${esc(new Date(m.created_at).toLocaleString())}</span></span><span class="prow" style="gap:6px"><span class="pill ${m.status === 'ACTIVE' ? 'ok' : (m.status === 'CANDIDATE' ? 'warn' : 'muted')}">${m.status === 'ACTIVE' ? 'adopted' : m.status.toLowerCase()}</span>${sign && m.status === 'CANDIDATE' ? `<button class="btn btn-s" data-act="ldAdopt" data-arg="${det}|${esc(m.id)}"${LD.busy || !(m.evaluation && m.evaluation.passed) ? ' disabled' : ''} title="${m.evaluation && m.evaluation.passed ? '' : 'its evaluation did not pass'}">Adopt (advisory-only)</button>` : ''}</span></div>${evalCard(m)}</div>`).join('') : `<p class="cap" style="margin:0">No model has been evaluated yet. Run <span class="mono">docker compose run --rm learned ${det} evaluate --post</span> to train one on simulated traffic and record its evaluation.</p>`}</section>`;
+    };
+    const tgn = modelSection('tgn', 'Temporal graph network', 'Scores each event by how surprising it is given what the agents and tools did before (order and timing).')
+      + modelSection('gnn', 'Graph neural network', 'Looks at the graph of who did what to which tool, store or agent in a window, and scores an agent by how unlike its normal and its peers\u2019 pattern is: flows the contract permits that look unlike the rest. It has to clear a second bar, because the platform already has an exact reachability check: it must add something to that and to the baseline.');
     const ag = `<section class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:10px"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline"><h2>Statistical baseline per agent</h2>${write ? `<button class="btn2 btn-s" data-act="ldScoreAll"${LD.busy ? ' disabled' : ''}>Score every calibrated agent now</button>` : ''}</div>
       <span class="cap">Learned from the events that conformed to the contract: how many events of each kind per time window, and which tool follows which. Calibration needs enough events and windows; deciding what counts as normal is for compliance or an administrator. Windows are scored once they are complete, and a schedule can call the scorer.</span>
       ${LD.msg ? `<div class="note ${LD.msg.tone}" role="status"><span style="font-size:13px">${esc(LD.msg.text)}</span></div>` : ''}
@@ -4954,24 +4961,17 @@ kill_switch:
 
   Object.assign(H, {
     ldReload: () => { LD.loaded = false; LD.error = null; },
-    ldTgnAdopt: async (id) => {
+    ldAdopt: async (arg) => {
+      const [det, id] = arg.split('|');
       if (LD.busy || !window.confirm('Adopt this model? It will score live windows and its flags can only mark the baseline control unverified.')) return;
       LD.busy = true; LD.msg = null; render(true);
-      try { await STAI.api.tgnAdopt(id); LD.loaded = false; LD.msg = { tone: 'good', text: 'The network is adopted, advisory-only. The service scores live windows with it.' }; } catch (e) { LD.msg = { tone: 'alert', text: e.message }; }
+      try { await STAI.api.detAdopt(det, id); LD.loaded = false; LD.msg = { tone: 'good', text: 'The model is adopted, advisory-only. The service scores live windows with it.' }; } catch (e) { LD.msg = { tone: 'alert', text: e.message }; }
       LD.busy = false; render(true);
     },
-    ldTgnRollback: async () => {
-      if (LD.busy || !window.confirm('Roll back? The adopted network is retired and the one adopted before it, if its evaluation passed, comes back. Otherwise the network is off.')) return;
+    ldRollback: async (det) => {
+      if (LD.busy || !window.confirm('Roll back? The adopted model is retired and the one adopted before it, if its evaluation passed, comes back. Otherwise the detector is off.')) return;
       LD.busy = true; LD.msg = null; render(true);
-      try { const r = await STAI.api.tgnRollback(); LD.loaded = false; LD.msg = { tone: 'good', text: r.adopted ? 'Rolled back to version ' + r.restored.version + '.' : 'Rolled back: the network is off.' }; } catch (e) { LD.msg = { tone: 'alert', text: e.message }; }
-      LD.busy = false; render(true);
-    },
-    ldCalibrate: async (key) => {
-      if (LD.busy) return;
-      const a = LD.agents.find((x) => x.agent_key === key), d = a ? a.defaults : {};
-      LD.busy = true; LD.msg = null; render(true);
-      try { const m = await STAI.api.learnedCalibrate(key, { window_seconds: d.window_seconds, threshold: d.threshold, min_events: d.min_events, min_windows: d.min_windows }); LD.msg = { tone: 'good', text: `Calibrated ${key}: version ${m.version} from ${m.trained_on.events} events. Its baseline control is now required and starts unverified until a Probe run or an attested record validates it.` }; LD.loaded = false; }
-      catch (e) { LD.msg = { tone: 'alert', text: e.message }; }
+      try { const r = await STAI.api.detRollback(det); LD.loaded = false; LD.msg = { tone: 'good', text: r.adopted ? 'Rolled back to version ' + r.restored.version + '.' : 'Rolled back: the detector is off.' }; } catch (e) { LD.msg = { tone: 'alert', text: e.message }; }
       LD.busy = false; render(true);
     },
     ldScore: async (key) => {

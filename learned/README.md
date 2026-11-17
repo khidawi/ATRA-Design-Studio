@@ -1,4 +1,6 @@
-# The learned service (ASTRA phase 10)
+# The learned service (ASTRA phases 10 and 11)
+
+Two learned detectors run here, each behind the same adoption gate: a temporal graph network (TGN, phase 10) and a graph neural network (GNN, phase 11). The rest of this page is written about the TGN; the GNN follows the same rules and is described at the end.
 
 A temporal graph network (TGN) that scores each runtime event by how surprising it is given the history of the agents and tools involved: order and timing. It runs on its own, in its own image,
 so the main backend image, its scans and its CI are unchanged.
@@ -24,9 +26,24 @@ beats the baseline by a clear margin on at least two held-out families and its f
 
 ```bash
 docker compose build learned
-docker compose run --rm learned evaluate                  # train and evaluate, print the numbers (nothing is sent)
-docker compose run --rm learned evaluate --post           # also record it on the platform (needs ASTRA_LEARNED_KEY)
-docker compose --profile learned up -d learned             # score live windows every five minutes with the adopted model
+docker compose run --rm learned tgn evaluate             # train and evaluate, print the numbers (nothing is sent)
+docker compose run --rm learned tgn evaluate --post      # also record it on the platform (needs ASTRA_LEARNED_KEY)
+docker compose run --rm learned gnn evaluate --post      # the same for the graph model
+docker compose --profile learned up -d learned            # score live windows every five minutes with whichever models are adopted
 ```
 
-Tests: `docker build -f learned/Dockerfile -t astra-learned . && docker run --rm --entrypoint python astra-learned -m unittest learned.tests.test_tgn`
+Tests: `docker build -f learned/Dockerfile -t astra-learned . && docker run --rm --entrypoint python astra-learned -m unittest learned.tests.test_tgn learned.tests.test_gnn`
+
+## The graph model (GNN, phase 11)
+
+A two-layer GraphSAGE over the graph of one time window (agents, tools, data stores, departments; what each did to what), trained on normal windows only to reconstruct each node's own features and
+its neighbours' and to predict links. An agent's score is its reconstruction error against its own normal spread (median and MAD). Nodes carry no identity, only what they do and what is around
+them, so an agent that joined yesterday can be scored against its peers.
+
+The platform already has an exact reachability check (what the contract permits) and a per-agent baseline, so the graph model faces **two** questions, both on attack families it never saw:
+
+1. does it detect clearly more than the baseline at the same false-positive budget?
+2. does it catch things that neither the reachability check nor the baseline catch? At least a quarter of the attacks, on at least two held-out families.
+
+Every attack in its simulator is something the estate permits (the evaluation fails if one is not), so it is about flows that are allowed but unlike the agent's peers. If it does not clear both,
+it is **not adopted** and the reason is recorded. On the first evaluation it cleared the first and not the second: no-go.

@@ -18,5 +18,5 @@ RUN mkdir -p /models && chown astralearned:astralearned /models
 VOLUME ["/models"]
 USER 10002:10002
 
-ENTRYPOINT ["python", "-m", "learned.tgn.service"]
+ENTRYPOINT ["python", "-m", "learned"]
 CMD ["loop"]

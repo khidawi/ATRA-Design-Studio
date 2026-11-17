@@ -1,14 +1,15 @@
 """
-The temporal graph network through the API (ASTRA phase 10). The network runs in the separate `learned` service; see astra_tgn.py for what the platform does and refuses.
+The learned detectors of the `learned` service through the API (ASTRA phases 10 and 11): the temporal graph network ({det} = tgn) and the graph model ({det} = gnn). They run in the separate service; see
+astra_tgn.py for what the platform does and refuses.
 
   GET  /api/astra/learned/stream                      names, kinds and times of runtime events, with the department and the impact tier of the agent (collector key allowed)
-  POST /api/astra/learned/tgn/evaluations             a candidate model and its evaluation against the baseline; the decision recorded is the platform's own (collector key allowed)
-  GET  /api/astra/learned/tgn/models                  candidate and past models, each with its newest evaluation
-  GET  /api/astra/learned/tgn/active                  the adopted model: what a service needs to score with it (collector key allowed)
-  POST /api/astra/learned/tgn/scores                  window scores from the service, accepted only for the adopted model (collector key allowed)
-  POST /api/astra/learned/tgn/models/{id}/adopt       switch a candidate on, advisory-only; refused unless its evaluation passed (signoff)
-  POST /api/astra/learned/tgn/rollback                retire the adopted model and bring back the previous one that passed (signoff)
-  GET  /api/astra/learned/tgn/health                  is the detector itself still behaving like the one that was evaluated
+  POST /api/astra/learned/{det}/evaluations             a candidate model and its evaluation against the baseline; the decision recorded is the platform's own (collector key allowed)
+  GET  /api/astra/learned/{det}/models                  candidate and past models, each with its newest evaluation
+  GET  /api/astra/learned/{det}/active                  the adopted model: what a service needs to score with it (collector key allowed)
+  POST /api/astra/learned/{det}/scores                  window scores from the service, accepted only for the adopted model (collector key allowed)
+  POST /api/astra/learned/{det}/models/{id}/adopt       switch a candidate on, advisory-only; refused unless its evaluation passed (signoff)
+  POST /api/astra/learned/{det}/rollback                retire the adopted model and bring back the previous one that passed (signoff)
+  GET  /api/astra/learned/{det}/health                  is the detector itself still behaving like the one that was evaluated
 """
 import logging
 import uuid
@@ -35,6 +36,12 @@ from organisation import current_organisation
 router = APIRouter(prefix="/api/astra/learned", tags=["astra"])
 log = logging.getLogger(__name__)
 MAX_STREAM = 5000
+
+
+def _det(det: str) -> str:
+    if det not in T.DETECTORS:
+        raise HTTPException(status_code=404, detail="No such detector.")
+    return det
 
 
 def _estate_of(session: Session, org_id: uuid.UUID, agent_key: str, cache: Dict[str, Any]) -> Dict[str, Any]:
@@ -86,31 +93,31 @@ class EvaluationIn(BaseModel):
     training: Optional[Dict[str, Any]] = None
 
 
-@router.post("/tgn/evaluations", status_code=201)
-def post_evaluation(body: EvaluationIn, session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> Dict[str, Any]:
+@router.post("/{det}/evaluations", status_code=201)
+def post_evaluation(det: str, body: EvaluationIn, session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> Dict[str, Any]:
     org = current_organisation(session)
     try:
-        out = T.register(session, org.id, user.name, body.model_dump())
+        out = T.register(session, org.id, user.name, body.model_dump(), _det(det))
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     session.commit()
-    audit.record(user.name, user.role, "astra.tgn.evaluation", detail={"model": out["model"]["id"], "passed": out["evaluation"]["passed"], "disagrees": out["disagrees"]})
+    audit.record(user.name, user.role, f"astra.{det}.evaluation", detail={"model": out["model"]["id"], "passed": out["evaluation"]["passed"], "disagrees": out["disagrees"]})
     return out
 
 
-@router.get("/tgn/models")
-def models(session: Session = Depends(get_session)) -> List[Dict[str, Any]]:
+@router.get("/{det}/models")
+def models(det: str, session: Session = Depends(get_session)) -> List[Dict[str, Any]]:
     org = current_organisation(session)
     out = []
-    for m in session.scalars(select(LearnedModel).where(LearnedModel.organisation_id == org.id, LearnedModel.detector == "tgn").order_by(LearnedModel.version.desc()).limit(20)):
+    for m in session.scalars(select(LearnedModel).where(LearnedModel.organisation_id == org.id, LearnedModel.detector == _det(det)).order_by(LearnedModel.version.desc()).limit(20)):
         ev = T.latest_evaluation(session, m.id)
         out.append({**T.model_row(m), "evaluation": T.evaluation_row(ev) if ev else None})
     return out
 
 
-@router.get("/tgn/active")
-def active(session: Session = Depends(get_session)) -> Optional[Dict[str, Any]]:
-    return T.active_info(session, current_organisation(session).id)
+@router.get("/{det}/active")
+def active(det: str, session: Session = Depends(get_session)) -> Optional[Dict[str, Any]]:
+    return T.active_info(session, current_organisation(session).id, _det(det))
 
 
 class WindowIn(BaseModel):
@@ -125,24 +132,24 @@ class ScoresIn(BaseModel):
     windows: List[WindowIn] = Field(max_length=500)
 
 
-@router.post("/tgn/scores")
-def post_scores(body: ScoresIn, session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> Dict[str, Any]:
+@router.post("/{det}/scores")
+def post_scores(det: str, body: ScoresIn, session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> Dict[str, Any]:
     org = current_organisation(session)
     try:
-        out = T.accept_scores(session, org.id, body.model_id, [w.model_dump() for w in body.windows])
+        out = T.accept_scores(session, org.id, body.model_id, [w.model_dump() for w in body.windows], det=_det(det))
     except PermissionError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
     session.commit()
     if out["flagged"]:
-        audit.record(user.name, user.role, "astra.tgn.flag", detail={"model": str(body.model_id), **out})
+        audit.record(user.name, user.role, f"astra.{det}.flag", detail={"model": str(body.model_id), **out})
     return out
 
 
-@router.post("/tgn/models/{model_id}/adopt")
-def adopt(model_id: uuid.UUID, session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> Dict[str, Any]:
+@router.post("/{det}/models/{model_id}/adopt")
+def adopt(det: str, model_id: uuid.UUID, session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> Dict[str, Any]:
     org = current_organisation(session)
     m = session.get(LearnedModel, model_id)
-    if m is None or m.organisation_id != org.id or m.detector != "tgn":
+    if m is None or m.organisation_id != org.id or m.detector != _det(det):
         raise HTTPException(status_code=404, detail="No such model.")
     try:
         T.adopt(session, org.id, user.name, m)
@@ -151,22 +158,22 @@ def adopt(model_id: uuid.UUID, session: Session = Depends(get_session), user: Au
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
     session.commit()
-    audit.record(user.name, user.role, "astra.tgn.adopt", detail={"model": str(m.id), "version": m.version, "advisory_only": True})
+    audit.record(user.name, user.role, f"astra.{det}.adopt", detail={"model": str(m.id), "version": m.version, "advisory_only": True})
     return T.model_row(m)
 
 
-@router.post("/tgn/rollback")
-def rollback(session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> Dict[str, Any]:
+@router.post("/{det}/rollback")
+def rollback(det: str, session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> Dict[str, Any]:
     org = current_organisation(session)
     try:
-        prev = T.rollback(session, org.id, user.name)
+        prev = T.rollback(session, org.id, user.name, _det(det))
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
     session.commit()
-    audit.record(user.name, user.role, "astra.tgn.rollback", detail={"restored": str(prev.id) if prev else None})
+    audit.record(user.name, user.role, f"astra.{det}.rollback", detail={"restored": str(prev.id) if prev else None})
     return {"restored": T.model_row(prev) if prev else None, "adopted": prev is not None}
 
 
-@router.get("/tgn/health")
-def tgn_health(session: Session = Depends(get_session)) -> Dict[str, Any]:
-    return T.health(session, current_organisation(session).id)
+@router.get("/{det}/health")
+def detector_health(det: str, session: Session = Depends(get_session)) -> Dict[str, Any]:
+    return T.health(session, current_organisation(session).id, det=_det(det))
