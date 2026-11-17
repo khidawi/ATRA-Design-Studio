@@ -76,12 +76,12 @@ def drop(cid):
 
 # ── pure ──────────────────────────────────────────────────────────────────────────────────────────────────────
 
-def test_every_class_but_the_baseline_gets_a_scenario_and_the_honest_reconciler_passes_them_all():
+def test_every_class_gets_a_scenario_and_the_honest_reconciler_passes_them_all():
     sc = AP.generate(RICH)
-    assert [s["class"] for s in sc] == AP.CLASS_IDS and len(AP.CLASS_IDS) == 21 and "DVG-BASE-01" not in AP.CLASS_IDS
+    assert [s["class"] for s in sc] == AP.CLASS_IDS and len(AP.CLASS_IDS) == 22 and "DVG-BASE-01" in AP.CLASS_IDS
     results = AP.run(RICH)
     assert all(r["applicable"] for r in results), [r["class"] for r in results if not r["applicable"]]
-    assert failed(results) == [] and AP.summary(results)["passed"] == 21 and AP.summary(results)["caught"] == 21
+    assert failed(results) == [] and AP.summary(results)["passed"] == 22 and AP.summary(results)["caught"] == 22
     assert AP.generate(RICH) == AP.generate(RICH), "scenarios are reproducible"
 
 
@@ -89,7 +89,7 @@ def test_the_expected_outcome_comes_from_the_class_table_not_from_the_reconciler
     for cid in AP.CLASS_IDS:
         e = AP.expected(cid)
         assert e["classes"] == [cid]
-        assert e["outcome"] == ("PENDING" if CLASSES[cid].basis == "semantic" else "DIVERGES"), cid
+        assert e["outcome"] == {"semantic": "PENDING", "baseline": "ADVISORY"}.get(CLASSES[cid].basis, "DIVERGES"), cid
     assert AP.expected("DVG-GOAL-01")["outcome"] == "PENDING" and AP.expected("DVG-COMM-01")["outcome"] == "DIVERGES"
     src = open(AP.__file__, encoding="utf-8").read()
     assert "AR.conforms(" in src and src.count("AR.conforms(") == 1, "the reconciler is called in one place only, to observe, never to decide what is expected"
@@ -152,7 +152,7 @@ def test_the_fold_turns_results_into_evidence_by_the_rules_of_the_model():
     with mutated(drop("DVG-GOAL-01")):
         ev = AP.fold(AP.run(RICH))
     assert ev["iso"]["ok"] is False, "a miss counts for a semantic class too"
-    assert "base" not in AP.fold(AP.run(RICH))
+    assert AP.fold(AP.run(RICH))["base"]["supports"], "a replayed score at the threshold is advisory and one below it is left alone: that validates the advisory path"
 
 
 # ── through the API ───────────────────────────────────────────────────────────────────────────────────────────────
@@ -205,12 +205,12 @@ def test_a_run_through_the_api_records_results_and_changes_no_runtime_state():
         r = eng.post("/api/astra/probe/run", json={"design_key": KEY})
         assert r.status_code == 201, r.text
         run = r.json()
-        assert run["summary"]["scenarios"] == 21 and run["trigger"] == "manual" and run["current"] and run["agent_key"] == NAME
+        assert run["summary"]["scenarios"] == 22 and run["trigger"] == "manual" and run["current"] and run["agent_key"] == NAME
         assert all(x["passed"] for x in run["results"] if x["applicable"])
         with SessionLocal() as s:
             assert (s.query(Finding).count(), s.query(RuntimeEvent).count()) == before, "the Probe writes nothing to the findings or the runtime events"
         latest = eng.get(f"/api/astra/probe/latest?design_key={KEY}").json()
-        assert latest["run"]["id"] == run["id"] and latest["run"]["current"] and len(latest["results"]) == 21
+        assert latest["run"]["id"] == run["id"] and latest["run"]["current"] and len(latest["results"]) == 22
         assert eng.get(f"/api/astra/probe/runs/{run['id']}").json()["results"][0]["class"] in AP.CLASS_IDS
         assert len(eng.get(f"/api/astra/probe/runs?design_key={KEY}").json()) == 1
         cr = eng.get("/api/astra/probe/catch-rate").json()

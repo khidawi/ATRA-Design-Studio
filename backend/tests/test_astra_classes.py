@@ -163,7 +163,7 @@ def test_a_missing_attribute_or_an_unknown_agent_is_never_conforming():
 def test_every_class_has_a_state_and_a_need_and_the_counts_add_up():
     states = {c: AR.class_state(c) for c in CLASSES}
     assert len(CLASSES) == 22 and sum(1 for s in states.values() if s == "monitored") == 19
-    assert sorted(c for c, s in states.items() if s == "pending") == ["DVG-GOAL-01", "DVG-GOAL-02"] and [c for c, s in states.items() if s == "later"] == ["DVG-BASE-01"]
+    assert sorted(c for c, s in states.items() if s == "pending") == ["DVG-GOAL-01", "DVG-GOAL-02"] and [c for c, s in states.items() if s == "advisory"] == ["DVG-BASE-01"]
     for c in CLASSES.values():
         assert c.event in AR.NEEDS and c.event in AR.WIRE or c.event == "score", c.id
 
@@ -425,9 +425,9 @@ def test_the_classes_screen_counts_what_is_monitored_and_asks_for_collector_even
             s.commit()
         before = c.get("/api/astra/classes").json()
         n = before["counts"]
-        assert n["total"] == 22 and n["monitored"] == 21 and n["deterministic"] == 19 and n["pending"] == 2 and n["later"] == 1
+        assert n["total"] == 22 and n["monitored"] == 22 and n["deterministic"] == 19 and n["pending"] == 2 and n["advisory"] == 1
         by = {r["id"]: r for r in before["classes"]}
-        assert by["DVG-BASE-01"]["state"] == "later" and "phase 9" in by["DVG-BASE-01"]["note"]
+        assert by["DVG-BASE-01"]["state"] == "advisory" and "never block on its own" in by["DVG-BASE-01"]["note"]
         assert by["DVG-EXEC-01"]["state"] == "monitored" and by["DVG-EXEC-01"]["events"] == 0 and "exec event" in by["DVG-EXEC-01"]["needs"], "no collector event: say so instead of claiming coverage"
         sign_into_db()
         send(c, "tool_call", name="shell")
