@@ -125,6 +125,17 @@ pre.code{margin:0;padding:16px;background:var(--bg-141a22);color:var(--fg-e7eaee
 .pxh{all:unset;box-sizing:border-box;display:grid;grid-template-columns:150px minmax(0,1.6fr) 90px 70px 100px;gap:10px;align-items:center;padding:8px 12px;cursor:pointer;width:100%}
 .pxh:focus-visible{outline:2px solid var(--ln-1e4fcb);outline-offset:-2px;border-radius:10px}
 .pxd{display:flex;flex-direction:column;gap:8px;padding:6px 14px 14px;border-top:1px dashed var(--ln-dde1e7)}
+.rm{padding:16px 20px;display:flex;flex-direction:column;gap:6px}
+.rm-grid{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(310px,1fr);gap:14px;align-items:start;margin-top:8px}
+.rm-stage{position:relative;background:#17181B;border:1px solid #2A2B30;border-radius:14px;overflow:hidden}
+.rm-cv{display:block;width:100%;height:540px;cursor:grab;touch-action:none}.rm-cv:active{cursor:grabbing}
+.rm-legend{position:absolute;left:10px;bottom:10px;display:grid;grid-template-columns:1fr 1fr;gap:2px 14px;font-size:11px;color:#C5C8D2;background:rgba(23,24,27,.82);padding:7px 9px;border-radius:9px;border:1px solid #2A2B30;pointer-events:none;max-height:46%;overflow:hidden}
+.rm-legend i,.rm-key i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.rm-key{position:absolute;right:10px;top:10px;display:flex;gap:10px;font-size:11px;color:#E4E6EC;background:rgba(23,24,27,.82);padding:6px 10px;border-radius:9px;border:1px solid #2A2B30;pointer-events:none}
+.rm-tip{position:absolute;display:none;pointer-events:none;background:rgba(15,16,19,.95);border:1px solid #3A3B42;border-radius:8px;padding:6px 9px;font-size:12px;color:#EEF0F6;max-width:230px;z-index:3}
+.rm-side{display:flex;flex-direction:column;gap:10px}
+.rm-lane{padding:11px 14px;display:flex;flex-direction:column;gap:2px}
+@media (max-width:1100px){.rm-grid{grid-template-columns:1fr}.rm-cv{height:420px}}
 .node .tag{font-size:10px;font-weight:600;letter-spacing:.04em;color:var(--fg-4a5563)}
 .node .nm{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .badge{position:absolute;top:-9px;right:8px;padding:1px 7px;border-radius:999px;background:var(--bg-8c1f17);color:var(--fg-ffffff);font:600 10px 'IBM Plex Mono',monospace}
@@ -621,6 +632,7 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       runtimeSeries: (hours, agent) => call('/api/runtime/series?hours=' + encodeURIComponent(hours) + (agent ? '&agent=' + encodeURIComponent(agent) : '')),
       findingsSeries: (days) => call('/api/findings/series?days=' + encodeURIComponent(days)),
       runtimeOverview: (agent) => call('/api/runtime/overview?limit=80' + (agent ? '&agent=' + encodeURIComponent(agent) : '')),
+      runtimeEvents: () => call('/api/runtime/overview?limit=300'),
       listAgents: () => call('/api/agents'),
       registerAgent: (body) => post('/api/agents/register', body),
       setAgentOwner: (key, owner) => call('/api/agents/' + encodeURIComponent(key), { method: 'PATCH', body: JSON.stringify({ owner }) }),
@@ -918,6 +930,7 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
     }
     if (RT.loaded && Date.now() - RT.classesAt > 15000) { try { [RT.classes, RT.verdicts] = await Promise.all([STAI.api.astraClasses(), STAI.api.astraVerdicts().catch(() => null)]); RT.classesAt = Date.now(); } catch (e) { /* an extra */ } }
     RT.loading = false;
+    rmRefresh();
   }
   async function pollRuntime() {
     if (RT.polling) return;
@@ -967,7 +980,7 @@ def lookup_order(order_id): ...
 
 # OpenAI Agents SDK: report tool calls, handoffs and MCP connections from its tracing
 from astra_runtime.adapters.openai_agents import install; install()</pre><span class="cap">LangChain and LangGraph: <span class="mono">from astra_runtime.adapters.langchain import handler</span>, then pass <span class="mono">callbacks=[handler()]</span>. Add <span class="mono">enforce=True</span> to <span class="mono">init</span> to refuse a call the contract does not allow.</span></section>`;
-    return head + kpis + runtimeCharts() + table + verdicts + classes + feed + connect;
+    return head + kpis + runtimeMap() + runtimeCharts() + table + verdicts + classes + feed + connect;
   }
   // The three charts of the Live runtime page: activity over time, what kinds of thing the agents did, and what appeared outside a contract for the first time.
   function runtimeCharts() {
@@ -988,6 +1001,195 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     const kindPill = { tool_call: 'tool', data_access: 'data', delegation: 'handoff', mcp_connect: 'MCP server', memory_write: 'memory' };
     const C2 = `<section class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:6px"><div class="stack" style="gap:2px"><h2>New outside the contract</h2><span class="cap">The first time each thing outside a contract was seen in this period: the agent\u2019s drift, one capability at a time.</span></div>${caps.length ? caps.slice(-8).reverse().map((c) => `<div class="ch-cap"><span class="cap mono" style="min-width:48px">${esc(new Date(c.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }))}</span><span class="pill bad">${esc(kindPill[c.type] || c.type)}</span><span class="mono" style="overflow-wrap:anywhere">${esc(c.name)}</span><span class="cap" style="margin-left:auto">${esc(c.agent_key)}</span></div>`).join('') + (caps.length > 8 ? `<span class="cap">and ${caps.length - 8} earlier in this period</span>` : '') : '<div class="note good" style="font-size:13px"><strong>Nothing new outside a contract</strong><span>Every action in this period was one a contract allows.</span></div>'}</section>`;
     return A + `<div class="ch-grid2">${B}${C2}</div>`;
+  }
+
+  /* ----- ASTRA phase 15: the map on the Live runtime page. Who talks to whom: the organisation's departments as communities of its real people, roles, data stores and AI agents,
+     the real edges between them (hand-offs, data access, who works with an agent), and the events the collectors report flying along them. Beside it, one lane for each detector, in its own
+     colour: the rules of the signed contracts (red), the statistical baseline (teal), the temporal graph network (amber) and the graph neural network (violet). Every number and flag comes from
+     the platform (the runtime overview, the organisation graph and the learned-detector endpoints); nothing is simulated. A detector that is not adopted shows that, and shows nothing else. ----- */
+  const RM = { org: null, orgAt: 0, ev: [], seq: -1, det: null, ag: null, fl: [], lAt: 0, busy: false, err: null, g: null, cv: null, raf: 0, k: 1, px: 0, py: 0, sel: null, hover: null, drag: null, part: [], proj: [] };
+  const RM_COL = { rule: '#FF5C5C', base: '#2DD4BF', tgn: '#FFB030', gnn: '#A078FF' };
+  const RM_DET = { baseline: 'base', tgn: 'tgn', gnn: 'gnn' };
+  const RM_DEPT = ['#8ECDF5', '#F28B9B', '#F5A66B', '#A98BF2', '#9CCB8A', '#E08AD0', '#7FD6C8', '#E6C86E', '#8FA8FF', '#C0C7D1'];
+  const rmHash = (s) => { let h = 2166136261; for (const c of String(s)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967296; };
+  const rmSlug = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const rmRgba = (h, a) => { const n = parseInt(h.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; };
+  async function rmRefresh() {
+    if (RM.busy) return; RM.busy = true;
+    try {
+      if (!RM.org || Date.now() - RM.orgAt > 30000) { RM.org = await STAI.api.companyGet(); RM.orgAt = Date.now(); RM.g = null; }
+      RM.ev = (await STAI.api.runtimeEvents()).events || [];
+      if (!RM.lAt || Date.now() - RM.lAt > 6000) { [RM.det, RM.ag, RM.fl] = await Promise.all([STAI.api.learnedDetectors().catch(() => null), STAI.api.learnedAgents().catch(() => null), STAI.api.learnedFlags().catch(() => [])]); RM.lAt = Date.now(); }
+      RM.err = null;
+    } catch (e) { RM.err = e.message; }
+    RM.busy = false; rmSpawn();
+  }
+  // The graph: laid out once per version of the organisation. A role with a headcount is drawn as a small cloud of dots (not one dot per person); everything else is one-to-one.
+  function rmBuild() {
+    const org = RM.org; if (!org) return null;
+    const nodes = [], byId = {}, depts = org.nodes.filter((n) => n.type === 'department');
+    const live = (org.live && org.live.agents) || {};
+    const memberOf = (n) => (n.props || {}).department;
+    const groups = depts.map((d) => ({ d, items: org.nodes.filter((n) => memberOf(n) === d.id && ['person', 'role', 'data_store', 'agent', 'model'].includes(n.type)) }));
+    const outside = org.nodes.filter((n) => n.type === 'external'); if (outside.length) groups.push({ d: { id: '_ext', name: 'Outside the company' }, items: outside });
+    const dots = (n) => n.type === 'role' ? Math.min(60, Math.max(2, Math.round(((n.props || {}).headcount || 4) / (((n.props || {}).headcount || 4) > 120 ? 4 : 2)))) : 1;
+    const m = groups.length, f = Math.min(1, 7 / Math.max(m, 1) + 0.35);
+    groups.forEach((g, gi) => {
+      const total = g.items.reduce((a, n) => a + dots(n), 0), R = (24 + Math.sqrt(Math.max(total, 4)) * 9) * f;
+      const nIn = m > 8 ? Math.ceil(m / 3) : 0, inner = gi < nIn, ringN = m > 8 ? (inner ? nIn : m - nIn) : m, ringI = m > 8 && !inner ? gi - nIn : gi, rx = m > 8 ? (inner ? 150 : 360) : 330, ry = m > 8 ? (inner ? 95 : 225) : 200, a = -Math.PI / 2 + ringI / Math.max(ringN, 1) * Math.PI * 2 + (inner ? 0.5 : 0), cx = m > 1 ? 500 + Math.cos(a) * rx : 500, cy = m > 1 ? 320 + Math.sin(a) * ry : 320;
+      g.cx = cx; g.cy = cy; g.R = R; g.col = g.d.id === '_ext' ? '#9AA1AD' : RM_DEPT[gi % RM_DEPT.length]; g.n = 0;
+      const sorted = g.items.slice().sort((p, q) => (p.type === 'agent' ? -1 : 0) - (q.type === 'agent' ? -1 : 0));
+      sorted.forEach((n, i) => {
+        const base = { id: n.id, type: n.type, name: n.name, dept: g.d.id, col: g.col, title: n.type === 'person' ? ((n.props || {}).title || 'Person') : n.type.replace('_', ' ') };
+        if (n.type === 'role') {
+          const k = dots(n), hc = (n.props || {}).headcount; base.title = 'Role' + (hc ? ' · ' + hc + ' people' : '');
+          for (let j = 0; j < k; j++) { const aa = rmHash(n.id + 'a' + j) * Math.PI * 2, rr = Math.sqrt(rmHash(n.id + 'r' + j)) * R * 0.92; nodes.push(Object.assign({}, base, { x: cx + Math.cos(aa) * rr * 1.1, y: cy + Math.sin(aa) * rr, r: 2.1, dot: true, first: j === 0 })); }
+          byId[n.id] = nodes.filter((q) => q.id === n.id)[0]; g.n += k;
+        } else {
+          const golden = 2.399963, rr = n.type === 'agent' ? (i === 0 ? 0 : R * 0.25) : Math.sqrt((i + 1) / (sorted.length + 1)) * R * 0.88, aa = i * golden + rmHash(n.id) * 0.5;
+          const o = Object.assign(base, { x: cx + Math.cos(aa) * rr * 1.1, y: cy + Math.sin(aa) * rr, r: n.type === 'agent' ? 11 : (n.type === 'data_store' ? 4.6 : (n.type === 'model' ? 5.2 : 4.2)) });
+          if (n.type === 'agent') { const lv = live[n.id]; o.key = lv ? lv.agent_key : rmSlug(n.name); }
+          nodes.push(o); byId[n.id] = o; g.n += 1;
+        }
+      });
+    });
+    const edges = org.edges.filter((e) => ['works_with', 'task', 'access'].includes(e.kind) && byId[e.from] && byId[e.to]).map((e) => ({ a: byId[e.from], b: byId[e.to], kind: e.kind }));
+    const agentByKey = {}, agentByName = {}, storeByName = {};
+    nodes.forEach((n) => { if (n.type === 'agent') { agentByKey[n.key] = n; agentByName[n.name.toLowerCase()] = n; } if (n.type === 'data_store') storeByName[n.name.toLowerCase()] = n; });
+    return { nodes, byId, edges, groups, agentByKey, agentByName, storeByName };
+  }
+  const rmG = () => (RM.g || (RM.g = rmBuild()));
+  // an event to the two dots it joins: the agent, and the data store or the agent it handed work to
+  function rmPair(e) {
+    const G = rmG(); if (!G) return null; const a = G.agentByKey[e.agent_key]; if (!a) return null;
+    const nm = String(e.name || '').toLowerCase(); let b = null;
+    if (e.type === 'data_access') b = G.storeByName[nm]; else if (e.type === 'delegation') b = G.agentByName[nm] || G.agentByKey[rmSlug(nm)];
+    return { a, b: b || null };
+  }
+  function rmSpawn() { // events newer than the last one seen become particles, spread over the poll interval
+    const fresh = RM.ev.filter((e) => e.seq > RM.seq).reverse(); if (RM.seq < 0) { RM.seq = RM.ev.length ? RM.ev[0].seq : 0; return; }
+    fresh.forEach((e, i) => { const p = rmPair(e); if (p) RM.part.push({ a: p.a, b: p.b, t0: performance.now() + (i / Math.max(fresh.length, 1)) * 2500, dur: 1100, hot: e.verdict === 'DIVERGENT' }); });
+    if (fresh.length) RM.seq = Math.max(RM.seq, fresh[fresh.length - 1].seq);
+  }
+  // what each detector says right now, per agent
+  function rmFlags() { const out = {}; (RM.fl || []).filter((f) => f.effective).forEach((f) => { (out[f.agent_key] = out[f.agent_key] || new Set()).add(RM_DET[f.detector] || 'base'); }); return out; }
+  function rmRule(now) { const out = {}; RM.ev.forEach((e) => { if (e.verdict !== 'DIVERGENT') return; const age = (Date.now() - new Date(e.at).getTime()) / 1000; if (age > 240) return; out[e.agent_key] = Math.max(out[e.agent_key] || 0, Math.exp(-age / 90)); }); return out; }
+  function rmInit() {
+    const cv = document.createElement('canvas'); cv.className = 'rm-cv'; cv.setAttribute('aria-label', 'Network of the organisation: departments, people, data stores and AI agents, with the events agents report'); RM.cv = cv;
+    cv.addEventListener('pointerdown', (e) => { RM.drag = { x: e.clientX, y: e.clientY, moved: false }; cv.setPointerCapture(e.pointerId); });
+    cv.addEventListener('pointermove', (e) => { if (RM.drag) { const dx = e.clientX - RM.drag.x, dy = e.clientY - RM.drag.y; if (Math.abs(dx) + Math.abs(dy) > 2) RM.drag.moved = true; RM.px += dx; RM.py += dy; RM.drag.x = e.clientX; RM.drag.y = e.clientY; } RM.hover = rmPick(e); rmTip(e); });
+    cv.addEventListener('pointerup', (e) => { const was = RM.drag && RM.drag.moved; RM.drag = null; if (!was) { const n = rmPick(e); RM.sel = n ? n.id : null; const el = document.getElementById('rm-sel'); if (el) el.innerHTML = rmSelHtml(); } });
+    cv.addEventListener('pointerleave', () => { RM.hover = null; const t = document.getElementById('rm-tip'); if (t) t.style.display = 'none'; });
+    cv.addEventListener('wheel', (e) => { e.preventDefault(); const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top, W = r.width, H = r.height, base = Math.min(W / 1000, H / 640) * 0.98; const k0 = RM.k, k1 = Math.min(6, Math.max(0.6, k0 * (e.deltaY < 0 ? 1.12 : 0.89))); const wx = (mx - W / 2 - RM.px) / (base * k0) + 500, wy = (my - H / 2 - RM.py) / (base * k0) + 320; RM.k = k1; RM.px = mx - W / 2 - (wx - 500) * base * k1; RM.py = my - H / 2 - (wy - 320) * base * k1; }, { passive: false });
+    cv.addEventListener('dblclick', () => { RM.k = 1; RM.px = 0; RM.py = 0; });
+  }
+  function rmAttach() {
+    const host = document.getElementById('rm-host'); if (!host) return;
+    if (!RM.cv) rmInit();
+    host.appendChild(RM.cv); if (!RM.raf) RM.raf = requestAnimationFrame(rmFrame);
+  }
+  function rmFrame(now) { RM.raf = 0; if (route() !== 'runtime' || !RM.cv || !RM.cv.isConnected) return; rmDraw(now); RM.raf = requestAnimationFrame(rmFrame); }
+  const rmXY = (n, W, H, base) => [W / 2 + (n.x - 500) * base * RM.k + RM.px, H / 2 + (n.y - 320) * base * RM.k + RM.py];
+  function rmPick(e) { const r = RM.cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top; let best = null, bd = 1e9; for (const q of RM.proj) { const d = Math.hypot(q.x - x, q.y - y); if (d < q.r + 4 && (d < bd || q.n.type === 'agent')) { bd = d; best = q.n; } } return best; }
+  function rmTip(e) {
+    const t = document.getElementById('rm-tip'); if (!t) return; const n = RM.hover; if (!n) { t.style.display = 'none'; return; }
+    const r = RM.cv.getBoundingClientRect(); t.style.display = 'block'; t.style.left = Math.min(e.clientX - r.left + 14, r.width - 230) + 'px'; t.style.top = (e.clientY - r.top + 14) + 'px';
+    t.innerHTML = `<b>${esc(n.name)}</b><br><span style="opacity:.75">${esc(n.type === 'agent' ? 'AI agent' : n.title)} · ${esc((RM.org.nodes.find((d) => d.id === n.dept) || { name: n.dept }).name)}</span>`;
+  }
+  function rmDraw(now) {
+    const G = rmG(), cv = RM.cv; if (!G) return;
+    const d = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight; if (cv.width !== Math.round(W * d) || cv.height !== Math.round(H * d)) { cv.width = Math.round(W * d); cv.height = Math.round(H * d); }
+    const c = cv.getContext('2d'); c.setTransform(d, 0, 0, d, 0, 0); c.fillStyle = '#17181B'; c.fillRect(0, 0, W, H);
+    const base = Math.min(W / 1000, H / 640) * 0.98, s = base * RM.k;
+    const g = 60 * s; if (g > 14) { c.strokeStyle = 'rgba(255,255,255,0.045)'; c.lineWidth = 1; const ox = (((W / 2 + RM.px - 500 * s) % g) + g) % g, oy = (((H / 2 + RM.py - 320 * s) % g) + g) % g; c.beginPath(); for (let x = ox; x < W; x += g) { c.moveTo(x, 0); c.lineTo(x, H); } for (let y = oy; y < H; y += g) { c.moveTo(0, y); c.lineTo(W, y); } c.stroke(); }
+    const flags = rmFlags(), rule = rmRule(now);
+    // the communities
+    for (const gr of G.groups) { const [x, y] = [W / 2 + (gr.cx - 500) * s + RM.px, H / 2 + (gr.cy - 320) * s + RM.py]; const gg = c.createRadialGradient(x, y, 0, x, y, gr.R * s * 1.3); gg.addColorStop(0, rmRgba(gr.col, 0.09)); gg.addColorStop(1, rmRgba(gr.col, 0)); c.fillStyle = gg; c.beginPath(); c.arc(x, y, gr.R * s * 1.3, 0, 7); c.fill(); }
+    // the real edges: who works with an agent, hand-offs between agents, data access
+    for (const e of G.edges) { const [x1, y1] = rmXY(e.a, W, H, base), [x2, y2] = rmXY(e.b, W, H, base); c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.lineWidth = e.kind === 'task' ? 1.6 : 0.7; c.strokeStyle = e.kind === 'task' ? 'rgba(120,230,255,0.6)' : (e.kind === 'access' ? 'rgba(200,205,225,0.22)' : 'rgba(200,205,225,0.14)'); c.stroke(); }
+    // dots
+    RM.proj = []; const sc = Math.min(Math.max(s, 0.5), 2.2);
+    for (const n of G.nodes) {
+      const [x, y] = rmXY(n, W, H, base), r = n.r * (0.55 + 0.45 * sc); if (x < -20 || y < -20 || x > W + 20 || y > H + 20) continue; RM.proj.push({ n, x, y, r });
+      if (n.type === 'agent') {
+        const sets = []; if (rule[n.key]) sets.push(['rule', rule[n.key]]); (flags[n.key] ? [...flags[n.key]] : []).forEach((k) => sets.push([k, 0.8]));
+        sets.forEach(([k, v], i) => { for (let j = 0; j < 3; j++) { const rr = r * (3 + i * 0.9 + j * 1.05 + 0.3 * Math.sin(now / 260 + j + i)); const gg = c.createRadialGradient(x, y, r * 0.6, x, y, rr); gg.addColorStop(0, rmRgba(RM_COL[k], 0.4 * v)); gg.addColorStop(1, rmRgba(RM_COL[k], 0)); c.fillStyle = gg; c.beginPath(); c.arc(x, y, rr, 0, 7); c.fill(); } });
+        c.fillStyle = n.col; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); c.fillStyle = '#17181B'; c.beginPath(); c.arc(x, y, r * 0.55, 0, 7); c.fill(); c.lineWidth = 2.2; c.strokeStyle = '#fff'; c.beginPath(); c.arc(x, y, r * 1.08, 0, 7); c.stroke(); c.fillStyle = n.col; c.beginPath(); c.arc(x, y, r * 0.3, 0, 7); c.fill();
+        c.fillStyle = 'rgba(240,243,250,0.95)'; c.font = '600 11px IBM Plex Sans, system-ui, sans-serif'; c.textAlign = 'center'; c.fillText(n.name, x, y + r + 14);
+      } else if (n.type === 'data_store') { c.fillStyle = rmRgba(n.col, 0.95); c.fillRect(x - r, y - r, r * 2, r * 2); c.strokeStyle = 'rgba(255,255,255,0.5)'; c.lineWidth = 1; c.strokeRect(x - r, y - r, r * 2, r * 2); }
+      else if (n.type === 'model') { c.fillStyle = rmRgba(n.col, 0.95); c.beginPath(); c.moveTo(x, y - r * 1.2); c.lineTo(x + r * 1.1, y); c.lineTo(x, y + r * 1.2); c.lineTo(x - r * 1.1, y); c.closePath(); c.fill(); }
+      else { c.globalAlpha = 0.9; c.fillStyle = n.col; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); c.globalAlpha = 1; }
+      if (RM.sel === n.id || RM.hover === n) { c.strokeStyle = '#fff'; c.lineWidth = 1.6; c.beginPath(); c.arc(x, y, r + 4, 0, 7); c.stroke(); }
+    }
+    // the label of each community: its name, and how many events outside a contract its agents reported in the last ten minutes, with one dot for each detector that has an open flag there
+    const cnt = {}, fl = {}; RM.ev.forEach((e) => { const a = G.agentByKey[e.agent_key]; if (!a) return; if (e.verdict === 'DIVERGENT' && Date.now() - new Date(e.at).getTime() < 600000) cnt[a.dept] = (cnt[a.dept] || 0) + 1; });
+    Object.keys(flags).forEach((k) => { const a = G.agentByKey[k]; if (a) (fl[a.dept] = fl[a.dept] || new Set()), flags[k].forEach((x) => fl[a.dept].add(x)); });
+    for (const gr of G.groups) {
+      const x = W / 2 + (gr.cx - 500) * s + RM.px, y = H / 2 + (gr.cy - 320) * s + RM.py - gr.R * s - 8, v = cnt[gr.d.id] || 0, dotsN = fl[gr.d.id] ? [...fl[gr.d.id]] : [];
+      if (!v && !dotsN.length) { c.fillStyle = 'rgba(205,210,225,0.7)'; c.font = '10px IBM Plex Sans, system-ui, sans-serif'; c.textAlign = 'center'; c.fillText(gr.d.name, x, y + 4); continue; }
+      const txt = String(v); c.font = '500 11px IBM Plex Mono, monospace'; const w = c.measureText(txt).width + 12 + dotsN.length * 10, hot = v > 0 || dotsN.length;
+      c.fillStyle = 'rgba(8,9,12,0.88)'; c.beginPath(); c.roundRect ? c.roundRect(x - w / 2, y - 9, w, 18, 4) : c.rect(x - w / 2, y - 9, w, 18); c.fill(); if (hot) { c.strokeStyle = v ? RM_COL.rule : RM_COL[dotsN[0]]; c.lineWidth = 1.2; c.stroke(); }
+      c.fillStyle = v ? '#FFB3B3' : '#EEF0F6'; c.textAlign = 'left'; c.fillText(txt, x - w / 2 + 6, y + 4); dotsN.forEach((k, i) => { c.fillStyle = RM_COL[k]; c.beginPath(); c.arc(x - w / 2 + 6 + c.measureText(txt).width + 8 + i * 10, y, 3.4, 0, 7); c.fill(); });
+      c.fillStyle = 'rgba(205,210,225,0.78)'; c.font = '10px IBM Plex Sans, system-ui, sans-serif'; c.textAlign = 'center'; c.fillText(gr.d.name, x, y - 14);
+    }
+    // events travelling along the edges (a pulse on the agent when the event has no second end that the organisation knows)
+    RM.part = RM.part.filter((q) => now - q.t0 < q.dur);
+    for (const q of RM.part) { const u = (now - q.t0) / q.dur; if (u < 0) continue; const [x1, y1] = rmXY(q.a, W, H, base); const col = q.hot ? '255,92,92' : '235,245,255'; c.save(); c.shadowColor = `rgba(${col},1)`; c.shadowBlur = 10; c.fillStyle = `rgba(${col},${0.95 * (1 - u * 0.4)})`; c.beginPath();
+      if (q.b) { const [x2, y2] = rmXY(q.b, W, H, base); c.arc(x1 + (x2 - x1) * u, y1 + (y2 - y1) * u, q.hot ? 3.6 : 2.2, 0, 7); } else { c.arc(x1, y1, 8 + u * 20, 0, 7); c.strokeStyle = `rgba(${col},${0.7 * (1 - u)})`; c.lineWidth = 2; c.stroke(); c.beginPath(); c.arc(x1, y1, 2.5, 0, 7); } c.fill(); c.restore(); }
+  }
+  // the panels beside the map
+  function rmSelHtml() {
+    const G = rmG(), n = G && RM.sel ? G.byId[RM.sel] || G.nodes.find((q) => q.id === RM.sel) : null; if (!n) return '<span class="cap">Click a dot, a square or a ring in the map.</span>';
+    const dept = (RM.org.nodes.find((x) => x.id === n.dept) || { name: n.dept }).name; let h = `<b>${esc(n.name)}</b><br><span class="cap">${esc(n.type === 'agent' ? 'AI agent' : n.title)} · ${esc(dept)}</span>`;
+    if (n.type === 'agent') {
+      const D = RT.data && RT.data.agents.find((a) => a.agent_key === n.key), fl = (RM.fl || []).filter((f) => f.agent_key === n.key && f.effective), la = RM.ag && RM.ag.find((a) => a.agent_key === n.key);
+      h += D ? `<div class="cap" style="margin-top:6px">${D.events_1h} events in the last hour, ${D.divergent_1h} outside the contract. ${D.open_findings} open finding${D.open_findings === 1 ? '' : 's'}.</div>` : '<div class="cap" style="margin-top:6px">No runtime events yet.</div>';
+      h += `<div class="cap" style="margin-top:4px">Baseline: ${la ? esc(String(la.state).toLowerCase()) + (la.last_score ? ', last score ' + la.last_score.score.toFixed(1) + ' against ' + la.last_score.threshold.toFixed(1) : '') : 'no events yet'}. ${fl.length ? fl.map((f) => `<span class="pill muted" style="border:1px solid ${RM_COL[RM_DET[f.detector] || 'base']}">${esc(f.detector)} flag ${f.score.toFixed(1)}</span>`).join(' ') : 'No open learned flag.'}</div>`;
+    }
+    const nb = G.edges.filter((e) => e.a === n || e.b === n).map((e) => (e.a === n ? e.b : e.a)); if (nb.length) h += `<div class="cap" style="margin-top:6px">Connected to: ${[...new Set(nb.map((q) => q.name))].slice(0, 6).map(esc).join(', ')}.</div>`;
+    return h;
+  }
+  const RM_DETINFO = [
+    ['base', 'baseline', 'Baseline', 'statistics', 'Learns each agent’s normal event rates and tool-to-tool order from its own conforming events, and flags a window far from its history.'],
+    ['tgn', 'tgn', 'TGN', 'temporal graph network', 'From the literature on dynamic graphs: scores each event given the history of the agents and tools involved, so order and timing count.'],
+    ['gnn', 'gnn', 'GNN', 'GraphSAGE', 'A standard graph-learning method: reads the graph of who talks to whom across departments and flags “this flow between departments is unusual”.']];
+  function rmLanes() {
+    const lane = (col, title, sub, pill, body) => `<div class="card rm-lane" style="border-left:4px solid ${col}"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap"><span><b style="color:${col === '#FF5C5C' ? 'var(--fg-b42318)' : 'inherit'}">${esc(title)}</b> <span class="cap">${esc(sub)}</span></span>${pill}</div>${body}</div>`;
+    const hr = Date.now() - 3600000, div = RM.ev.filter((e) => e.verdict === 'DIVERGENT' && new Date(e.at).getTime() > hr), byClass = {};
+    const rules = lane(RM_COL.rule, 'Rules', 'the signed contracts', `<span class="pill ${div.length ? 'bad' : 'ok'}">${div.length} outside in the last hour</span>`, `<span class="cap">Every event is checked against the signed contract: a deterministic answer, and the only layer that can block. ${div.length ? 'Latest: ' + esc(div.slice(0, 3).map((e) => (RM.g && RM.g.agentByKey[e.agent_key] ? RM.g.agentByKey[e.agent_key].name : e.agent_key) + ' ' + e.type.replace('_', ' ') + (e.name ? ' ' + e.name : '')).join('; ')) + '.' : 'Nothing outside a contract in the last hour.'}</span>`);
+    const lanes = RM_DETINFO.map(([k, id, short, long, what]) => {
+      const info = RM.det && RM.det.find((d) => d.id === id), flags = (RM.fl || []).filter((f) => f.detector === id && f.effective);
+      let pill, extra = '';
+      if (id === 'baseline') {
+        const A = RM.ag || [], cal = A.filter((a) => a.state === 'CALIBRATED').length;
+        pill = `<span class="pill ${cal ? 'ok' : 'warn'}">${cal ? 'calibrated for ' + cal + ' of ' + A.length + ' agent' + (A.length === 1 ? '' : 's') : (A.length ? 'collecting: not calibrated yet' : 'no events yet')}</span>`;
+        extra = A.length ? `<div class="cap" style="margin-top:4px">${A.slice(0, 4).map((a) => `${esc(a.agent_key)}: ${esc(String(a.state).toLowerCase())}${a.last_score ? ', score ' + a.last_score.score.toFixed(1) + ' / ' + a.last_score.threshold.toFixed(1) : ''}`).join('<br>')}</div>` : '';
+        extra += `<div class="prow" style="gap:8px;flex-wrap:wrap;margin-top:6px">${can('write') ? '<button class="btn2 btn-s" data-act="rmScore">Score now</button>' : ''}<a class="btn2 btn-s" href="#/learned">Calibrate on Learned detectors</a></div>`;
+      } else {
+        const st = info ? info.status : 'available';
+        pill = `<span class="pill ${st === 'adopted' ? 'ok' : 'muted'}">${st === 'adopted' ? 'adopted' : (st === 'candidate' ? 'candidate: not adopted' : 'not adopted')}</span>`;
+        extra = st === 'adopted' ? '' : '<div class="cap" style="margin-top:4px">No model is adopted, so this detector scores nothing and flags nothing. A person adopts it only after it beats the baseline on attack families it never saw (Learned detectors).</div>';
+      }
+      const fl = flags.length ? `<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">${flags.slice(0, 3).map((f) => `<span class="cap"><span class="pill" style="background:${rmRgba(RM_COL[k], 0.18)};color:inherit">flag ${f.score.toFixed(1)}</span> ${esc(f.agent_key)}${f.detail && f.detail.why && f.detail.why[0] ? ': ' + esc(f.detail.why[0]) : ''}</span>`).join('')}</div>` : '';
+      return lane(RM_COL[k], short, long, pill, `<span class="cap">${what}</span>${extra}${fl}<span class="cap" style="display:block;margin-top:4px">Advisory: it can only lower the agent’s baseline control to unverified, so the worst it can do is a review. It never blocks.</span>`);
+    }).join('');
+    return rules + lanes;
+  }
+  function rmFlows() { // observed flows between departments, from the events of the last hour
+    const G = rmG(); if (!G) return ''; const hr = Date.now() - 3600000, by = {}, name = Object.fromEntries(G.groups.map((g) => [g.d.id, g.d.name]));
+    RM.ev.forEach((e) => { if (new Date(e.at).getTime() < hr) return; const p = rmPair(e); if (!p || !p.b || p.a.dept === p.b.dept) return; const k = p.a.dept + '>' + p.b.dept, r = by[k] = by[k] || { a: p.a.dept, b: p.b.dept, n: 0, bad: 0, who: new Set() }; r.n++; if (e.verdict === 'DIVERGENT') r.bad++; r.who.add(p.a.name); });
+    const rows = Object.values(by).sort((x, y) => y.n - x.n).slice(0, 6); if (!rows.length) return '<span class="cap">No event in the last hour crossed from one department to another.</span>';
+    return `<table class="tbl"><thead><tr><th>From</th><th>To</th><th>Events</th><th>Outside a contract</th><th>Agents</th></tr></thead><tbody>${rows.map((r) => `<tr><td>${esc(name[r.a])}</td><td>${esc(name[r.b])}</td><td>${r.n}</td><td>${r.bad ? `<span class="pill bad">${r.bad}</span>` : '<span class="cap">0</span>'}</td><td class="cap">${esc([...r.who].join(', '))}</td></tr>`).join('')}</tbody></table>`;
+  }
+  function runtimeMap() {
+    if (RM.err && !RM.org) return `<section class="card" style="padding:14px 20px"><h2>Who talks to whom</h2><span class="cap">Could not load the organisation: ${esc(RM.err)}</span></section>`;
+    if (!RM.org) return '<section class="card" style="padding:14px 20px"><h2>Who talks to whom</h2><span class="cap">Loading the organisation…</span></section>';
+    const G = rmG(); if (!G || !G.groups.length) return '<section class="card" style="padding:14px 20px"><h2>Who talks to whom</h2><span class="cap">The organisation has no departments yet. Describe the company on the Organisation page and its departments, people and agents appear here.</span></section>';
+    const legend = G.groups.map((g) => `<span><i style="background:${g.col}"></i>${esc(g.d.name)}</span>`).join('') + `<span><i style="background:#fff;box-shadow:inset 0 0 0 3px #17181B"></i>AI agent (ring)</span><span><i style="background:#ddd;border-radius:2px"></i>data store</span>`;
+    return `<section class="card rm" aria-label="Who talks to whom: the map, and the detectors"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><div class="stack" style="gap:2px"><h2>Who talks to whom</h2><span class="cap">Departments as communities of the organisation’s people, roles, data stores and AI agents. The events your agents report fly along the real edges; a red glow is a rule of a contract broken, and a colour glow is a detector flag. A role with a headcount is drawn as a cloud of dots, not one dot per person.</span></div><span class="cap">Drag to pan, scroll to zoom, double-click to reset</span></div>
+      <div class="rm-grid"><div class="rm-stage"><div id="rm-host"></div><div class="rm-legend">${legend}</div><div class="rm-key"><span><i style="background:${RM_COL.rule}"></i>rule</span><span><i style="background:${RM_COL.base}"></i>baseline</span><span><i style="background:${RM_COL.tgn}"></i>TGN</span><span><i style="background:${RM_COL.gnn}"></i>GNN</span></div><div class="rm-tip" id="rm-tip"></div></div>
+        <div class="rm-side"><div class="card" style="padding:12px 14px"><h3 style="margin:0 0 6px">Selected</h3><div id="rm-sel">${rmSelHtml()}</div></div>${rmLanes()}</div></div>
+      <h3 style="margin:14px 0 6px">Flows between departments, last hour</h3><span class="cap">What the collectors observed an agent doing to a store or an agent that belongs to another department. These are counts; a score for a flow comes from the GNN once one is adopted.</span>${rmFlows()}</section>`;
   }
 
   /* ---------- Overview and workspace (Task 7f): computed from what the other screens keep ---------- */
@@ -5143,6 +5345,10 @@ kill_switch:
       render(true);
     }
   });
+  /* ASTRA phase 15: the map on the Live runtime page */
+  Object.assign(H, {
+    rmScore: async () => { try { await STAI.api.learnedScoreAll(); } catch (e) { window.alert('Could not score: ' + e.message); } RM.lAt = 0; rmRefresh(); },
+  });
   /* ASTRA phase 14: handlers of the design-time Probe (assigned here because H exists by now) */
   Object.assign(H, {
     pxRun: async () => {
@@ -6770,6 +6976,7 @@ kill_switch:
     else if (r === 'organisation') html = `<div class="shell">${orgNav('organisation')}<main id="main">${organisation()}</main></div>`;
     else html = `<div class="shell">${nav(PARENT[r] || r)}<main id="main">${ownFn(SCREENS, r)()}</main></div>`;
     document.getElementById('app').innerHTML = html;
+    if (r === 'runtime') rmAttach();
     const mainEl = document.getElementById('main');
     if (mainEl && ME.role === 'auditor') mainEl.insertAdjacentHTML('afterbegin', '<div class="note plain" role="status"><strong>Read-only</strong><span style="font-size:13px">Your role is auditor: you can view everything and the audit log, but not change anything.</span></div>');
     if (keepScroll) Object.keys(keep).forEach((q) => { const el = document.querySelector(q); if (el) { el.scrollLeft = keep[q][0]; el.scrollTop = keep[q][1]; } });
