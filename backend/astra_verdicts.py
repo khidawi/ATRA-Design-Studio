@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session
 
 import astra_assessment_api as AA
 import astra_estate as AE
+import astra_learned
 import astra_probe
 import astra_runtime as AR
 import risk_api
@@ -65,7 +66,7 @@ def finding_effect(f: Dict[str, Any]) -> Optional[Tuple[str, str]]:
     return (control, level) if level else None
 
 
-def overlay(S: State, names: Dict[str, str], findings: List[Dict[str, Any]], unverified: Dict[str, List[str]]) -> Dict[Tuple[str, str], List[str]]:
+def overlay(S: State, names: Dict[str, str], findings: List[Dict[str, Any]], unverified: Dict[str, List[str]], learned: Optional[List[Dict[str, Any]]] = None) -> Dict[Tuple[str, str], List[str]]:
     """Lay live evidence over the starting statuses. names: agent key -> the agent's name in the estate. Returns control -> what moved it."""
     because: Dict[Tuple[str, str], List[str]] = {}
     for f in findings:
@@ -75,6 +76,11 @@ def overlay(S: State, names: Dict[str, str], findings: List[Dict[str, Any]], unv
             continue
         statuses.adverse(S, (eff[0], who), eff[1])
         because.setdefault((eff[0], who), []).append(f["key"])
+    for fl in learned or []:                         # a learned detector can do one thing: mark the baseline control unverified (statuses.learned_evidence, Lemma 3)
+        who = names.get(fl["agent_key"])
+        if who is not None:
+            statuses.learned_evidence(S, who, fl["score"], fl["threshold"])
+            because.setdefault(("base", who), []).append("a learned flag (baseline score " + format(fl["score"], ".1f") + " against " + format(fl["threshold"], ".1f") + ")")
     for key, kinds in unverified.items():
         who = names.get(key)
         for kind in kinds:
@@ -116,7 +122,8 @@ def agent_verdict(session: Session, org, row: AstraSignedContract, eff: Dict[str
     try:
         ctx = AA.context(session, design.document)
         built = AE.build(AE.Source(design.document, AA._rows(session, design.document), AA._evidence(session, design.design_key),
-                                   astra_probe.latest_evidence(session, org.id, design.design_key, AA._hash(design.document), now_day)), ctx)
+                                   astra_probe.latest_evidence(session, org.id, design.design_key, AA._hash(design.document), now_day),
+                                   astra_learned.has_active_model(session, org.id, key)), ctx)
     except ValueError as exc:
         log.warning("the estate of %s could not be built: %s", key, exc)
         return {**out, "verdict": "INVALID_CONTRACT", "runtime_name": "INVALID_CONTRACT", "reason": "the design could not be read as an estate; the reason is in the server log", "departments": [], "controls_moved": [], "posture": None,
@@ -132,7 +139,8 @@ def agent_verdict(session: Session, org, row: AstraSignedContract, eff: Dict[str
                                                                                            RuntimeEvent.verdict == "UNVERIFIED", RuntimeEvent.at >= since).distinct()).all():
             unv.setdefault(k, []).append(t)
     start = built.state.copy()
-    because = overlay(built.state, names, fs, unv)
+    learned = astra_learned.flags_for_overlay(session, org.id, list(names), row.signed_at)
+    because = overlay(built.state, names, fs, unv, learned)
     after = AE.describe(built, ctx, now_day)
     E = built.estate
     moved = []
@@ -159,7 +167,7 @@ def agent_verdict(session: Session, org, row: AstraSignedContract, eff: Dict[str
     return {**out, "name": built.primary, "verdict": verdict, "runtime_name": gate.RUNTIME_NAME[gate.INVALID_CONTRACT] if why else after["runtime_name"], "design_verdict": before["verdict"],
             "reason": None if not why else "; ".join(why), "departments": after["departments"], "controls_moved": moved, "posture": posture,
             "findings": {"open": len([f for f in open_f if f["adjudication"] != "PENDING"]), "pending": len([f for f in mine if f["adjudication"] == "PENDING"]), "total": len(mine)},
-            "unverified_events": sorted({t for ts in unv.values() for t in ts}),
+            "unverified_events": sorted({t for ts in unv.values() for t in ts}), "learned": {"monitored": astra_learned.has_active_model(session, org.id, key), "flags": len(learned)},
             "halt_requests": [{"finding": f["key"], "by": f["halt_requested_by"], "at": f["halt_requested_at"].isoformat()} for f in mine if f["halt_requested_at"]]}
 
 

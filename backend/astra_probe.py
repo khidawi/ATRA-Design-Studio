@@ -1,12 +1,13 @@
 """
 ASTRA Probe (phase 8): scenarios generated from a behavioural contract, replayed against the reconciler, results folded into evidence.
 
-For every divergence class (21 of the 22: the behavioural baseline waits for the learned layer) the Probe builds a pair of events from the contract: a planted defect that must be
+For every divergence class (all 22, the behavioural baseline included) the Probe builds a pair of events from the contract: a planted defect that must be
 caught, and a boundary case that must be left alone. The pair is replayed through exactly what the runtime uses (astra_runtime.to_event and the conformity predicate), in memory, against
 a copy of the contract document. What counts as the right answer is read from the class table (the detection basis of the class), never from the reconciler under test:
 
     policy or cryptographic class   the defect DIVERGES with exactly that class
     semantic class                  the defect is PENDING (a person adjudicates) with exactly that class
+    baseline class                  a score at its threshold is ADVISORY (tighten-only evidence); a score below it CONFORMS
     the boundary case               CONFORMS
 
 A scenario passes when both hold. A class the contract gives nothing to test (no parameter bounds declared, no delegate to spell a boundary with) is reported as not applicable, with
@@ -32,8 +33,8 @@ import astra_runtime as AR
 from astra_model.classes import CLASSES
 
 PROBE_TTL_DAYS = 30
-CLASS_IDS = [c for c, v in CLASSES.items() if v.basis != "baseline"]
-EXPECTED_BY_BASIS = {"policy": "DIVERGES", "cryptographic": "DIVERGES", "semantic": "PENDING"}
+CLASS_IDS = list(CLASSES)
+EXPECTED_BY_BASIS = {"policy": "DIVERGES", "cryptographic": "DIVERGES", "semantic": "PENDING", "baseline": "ADVISORY"}
 UNDECLARED = "probe-undeclared"
 
 
@@ -99,6 +100,7 @@ def generate(doc: Dict[str, Any]) -> List[Dict[str, Any]]:
     else:
         sc.append(_na("DVG-AUT-02", "no write tool needs a person's confirmation"))
         sc.append(_na("DVG-AUT-03", "no write tool needs a person's confirmation"))
+    add("DVG-BASE-01", {"type": "score", "score": 0.9, "theta": 0.8}, {"type": "score", "score": 0.5, "theta": 0.8})
     add("DVG-EXEC-01", {"type": "exec", "sandboxed": False}, {"type": "exec", "sandboxed": True})
     res = sorted(a.resources)
     add("DVG-RES-01", {"type": "data_access", "name": f"{UNDECLARED}-resource"}, {"type": "data_access", "name": res[0]} if res else None)

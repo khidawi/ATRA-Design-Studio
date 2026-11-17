@@ -473,6 +473,13 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       simulateFinding: (body) => post('/api/findings/simulate', body),
       astraClasses: () => call('/api/astra/classes'),
       astraVerdicts: () => call('/api/runtime/verdicts'),
+      learnedDetectors: () => call('/api/astra/learned/detectors'),
+      learnedAgents: () => call('/api/astra/learned/agents'),
+      learnedFlags: () => call('/api/astra/learned/flags'),
+      learnedCalibrate: (key, body) => post('/api/astra/learned/agents/' + encodeURIComponent(key) + '/calibrate', body),
+      learnedScore: (key) => post('/api/astra/learned/agents/' + encodeURIComponent(key) + '/score', {}),
+      learnedScoreAll: () => post('/api/astra/learned/score-all', {}),
+      learnedAdjudicate: (id, body) => post('/api/astra/learned/flags/' + encodeURIComponent(id) + '/adjudicate', body),
       probeRun: (key) => post('/api/astra/probe/run', { design_key: key }),
       probeLatest: (key) => call('/api/astra/probe/latest?design_key=' + encodeURIComponent(key)),
       probeCatchRate: () => call('/api/astra/probe/catch-rate'),
@@ -670,7 +677,7 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
     drift: { sel: null }
   };
 
-  const NAV = [['overview', 'Overview', ''], ['agents', 'Agents', '12'], ['triage', 'Screen a list', ''], ['repos', 'Repositories', ''], ['idps', 'Identity providers', ''], ['telemetry', 'Telemetry', ''], ['studio', 'Design studio', ''], ['compare', 'Compare designs', ''], ['drift', 'Drift review', '3'], ['findings', 'Findings', '4'], ['coverage', 'Coverage', '7/10'], ['packs', 'Trust and packs', ''], ['runtime', 'Live runtime', ''], ['probe', 'ASTRA Probe', ''], ['workspace', 'Compliance workspace', '2']];
+  const NAV = [['overview', 'Overview', ''], ['agents', 'Agents', '12'], ['triage', 'Screen a list', ''], ['repos', 'Repositories', ''], ['idps', 'Identity providers', ''], ['telemetry', 'Telemetry', ''], ['studio', 'Design studio', ''], ['compare', 'Compare designs', ''], ['drift', 'Drift review', '3'], ['findings', 'Findings', '4'], ['coverage', 'Coverage', '7/10'], ['packs', 'Trust and packs', ''], ['runtime', 'Live runtime', ''], ['probe', 'ASTRA Probe', ''], ['learned', 'Learned detectors', ''], ['workspace', 'Compliance workspace', '2']];
   const PARENT = { newagent: 'agents', addagent: 'agents', contract: 'agents', pack: 'packs' };
 
   function nav(active) {
@@ -924,7 +931,7 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
         ${a.controls_moved.length ? `<ul class="cap" style="margin:0;padding-left:18px">${a.controls_moved.map((m) => `<li>${esc(m.kind)}${m.agent !== a.name ? ' (' + esc(m.agent) + ')' : ''}: ${esc(m.from)} \u2192 ${esc(m.to)} because ${esc(m.because.join(', '))}</li>`).join('')}</ul>` : '<span class="cap">Nothing live has moved a control.</span>'}
         <span class="cap">${a.findings ? `${a.findings.open} open finding${a.findings.open === 1 ? '' : 's'}${a.findings.pending ? `, ${a.findings.pending} waiting for a person` : ''}` : ''}${a.contract.design_changed ? ' \u00b7 the design has changed since this contract was signed' : ''}${(a.halt_requests || []).length ? ' \u00b7 halt requested for ' + a.halt_requests.map((h) => esc(h.finding)).join(', ') + ' (a recorded request: nothing stops the agent)' : ''}</span></div>`).join('')}
       ${VD.feed.length ? `<h3>Typed findings</h3><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>When</th><th>Agent</th><th>Class</th><th>Basis</th><th>OWASP</th><th>Severity</th><th>State</th></tr></thead><tbody>${VD.feed.slice(0, 10).map((f) => `<tr><td class="cap">${esc(new Date(f.created_at).toLocaleTimeString())}</td><td>${esc(f.event_agent)}</td><td><a class="mono" href="#/findings">${esc(f.key)}</a> ${esc(f.class_name)}</td><td class="cap">${esc(f.detection_basis || 'legacy check')}</td><td class="cap">${esc((f.asi_signal || []).join(', '))}</td><td>${esc(f.class_severity || f.severity)}</td><td class="cap">${f.adjudication === 'PENDING' ? 'waiting for a person' : (f.adjudication ? f.adjudication.toLowerCase() : f.status.toLowerCase())}</td></tr>`).join('')}</tbody></table></div>` : ''}</section>` : '';
-    const CL = RT.classes, clState = { monitored: ['ok', 'Monitored'], pending: ['warn', 'Pending: a person judges'], later: ['muted', 'Later'] };
+    const CL = RT.classes, clState = { monitored: ['ok', 'Monitored'], pending: ['warn', 'Pending: a person judges'], advisory: ['muted', 'Advisory: tighten-only'], later: ['muted', 'Later'] };
     const classes = CL ? `<section class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:10px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><h2>Divergence classes</h2><span class="cap"><b>${CL.counts.monitored}</b> of ${CL.counts.total} monitored (${CL.counts.deterministic} checked by the platform, ${CL.counts.pending} judged by a person) \u00b7 ${CL.counts.receiving_events} receiving events \u00b7 ${CL.counts.needs_collector} need a collector event</span></div>
       <span class="cap">Every class of the specification. Monitored means the check runs on each event of its kind against the signed contract; the events column is what collectors really sent in the last ${CL.window_days} days, and a class with none says what it needs instead of claiming coverage.</span>
       <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Class</th><th>Checks</th><th>Basis</th><th>Severity</th><th>State</th><th>Events</th><th>Open</th></tr></thead><tbody>${CL.classes.map((c) => `<tr><td><span class="mono">${esc(c.id.replace('DVG-', ''))}</span> ${esc(c.name)}</td><td class="cap">${esc(c.element)}</td><td class="cap">${esc(c.basis)}</td><td>${esc(c.severity)}</td><td><span class="pill ${clState[c.state][0]}">${clState[c.state][1]}</span>${c.needs ? `<div class="cap">Needs collector event: ${esc(c.needs)}</div>` : ''}${c.note ? `<div class="cap">${esc(c.note)}</div>` : ''}</td><td>${c.events}</td><td>${c.open_findings || ''}</td></tr>`).join('')}</tbody></table></div></section>` : '';
@@ -1761,6 +1768,29 @@ kill_switch:
     return head(tabs) + note + body;
   }
 
+  /* ---------- Learned detectors (phase 9): what a learned detector may do is little: mark the baseline control unverified ---------- */
+  const LD = { loaded: false, loading: false, error: null, det: [], agents: [], flags: [], busy: false, msg: null };
+  async function loadLearned() {
+    LD.loading = true; LD.error = null;
+    try { [LD.det, LD.agents, LD.flags] = await Promise.all([STAI.api.learnedDetectors(), STAI.api.learnedAgents(), STAI.api.learnedFlags()]); LD.loaded = true; } catch (e) { LD.error = e.message; }
+    LD.loading = false; renderIfIdle('learned');
+  }
+  function learned() {
+    const head = hdr('Detectors that learn what is normal, and what they are allowed to do about it', 'Learned detectors');
+    if (!LD.loaded && !LD.loading) loadLearned();
+    if (LD.error && !LD.loaded) return head + `<div class="note alert" role="alert"><strong>Could not load</strong><span style="font-size:13px">${esc(LD.error)}</span><button class="btn2 btn-s" data-act="ldReload" style="align-self:flex-start">Try again</button></div>`;
+    if (!LD.loaded) return head + '<p class="cap">Loading\u2026</p>';
+    const write = can('write'), sign = can('signoff');
+    const stTone = { COLLECTING: ['muted', 'Collecting'], READY: ['warn', 'Ready to calibrate'], CALIBRATED: ['ok', 'Calibrated'], RETIRED: ['muted', 'Retired'] };
+    const rule = `<section class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:6px"><h2>The rule</h2><span class="cap" style="max-width:900px">A learned detector can do one thing: when it scores something far from normal, the agent\u2019s <b>baseline control</b> becomes <b>unverified</b>. It can never mark a control violated, never make one satisfied, and is not a source of supportive evidence. So a flag never blocks anything by itself: at worst an agent whose baseline is monitored and validated moves to <b>review</b>. The flag table in the database allows nothing stronger. A baseline is monitored once it is calibrated; its control then starts unverified until a Probe run or an attested record with the control key <span class="mono">astra:base</span> validates the calibration.</span></section>`;
+    const det = `<section class="card" style="padding:16px 20px"><h2>Detectors</h2><table class="tbl"><thead><tr><th>Detector</th><th>What it looks at</th><th>Status</th><th>Calibrated agents</th><th>Open flags</th></tr></thead><tbody>${LD.det.map((d) => `<tr><td>${esc(d.name)}</td><td class="cap">${esc(d.what)}</td><td><span class="pill ${d.status === 'available' ? 'ok' : 'muted'}">${d.status === 'available' ? 'available' : 'planned: phase ' + d.phase}</span></td><td>${d.status === 'available' ? d.models : ''}</td><td>${d.status === 'available' ? d.open_flags : ''}</td></tr>`).join('')}</tbody></table></section>`;
+    const ag = `<section class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:10px"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline"><h2>Statistical baseline per agent</h2>${write ? `<button class="btn2 btn-s" data-act="ldScoreAll"${LD.busy ? ' disabled' : ''}>Score every calibrated agent now</button>` : ''}</div>
+      <span class="cap">Learned from the events that conformed to the contract: how many events of each kind per time window, and which tool follows which. Calibration needs enough events and windows; deciding what counts as normal is for compliance or an administrator. Windows are scored once they are complete, and a schedule can call the scorer.</span>
+      ${LD.msg ? `<div class="note ${LD.msg.tone}" role="status"><span style="font-size:13px">${esc(LD.msg.text)}</span></div>` : ''}
+      ${LD.agents.length ? `<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Agent</th><th>State</th><th>Conforming events</th><th>Windows</th><th>Model</th><th>Last score</th><th>Open flags</th><th></th></tr></thead><tbody>${LD.agents.map((a) => `<tr><td><b>${esc(a.agent_key)}</b></td><td><span class="pill ${stTone[a.state][0]}">${stTone[a.state][1]}</span>${a.missing.length ? `<div class="cap">needs ${esc(a.missing.join(' and '))}</div>` : ''}</td><td>${a.events}</td><td>${a.windows}</td><td>${a.model ? `v${a.model.version} \u00b7 ${esc(new Date(a.model.created_at).toLocaleDateString())}<div class="cap">${a.model.trained_on.events} events, windows of ${a.model.window_seconds / 60} min, flag at ${a.model.threshold}</div>` : '<span class="cap">none</span>'}</td><td>${a.last_score ? `<span class="pill ${a.last_score.score >= a.last_score.threshold ? 'warn' : 'ok'}">${a.last_score.score.toFixed(1)}</span><div class="cap">${esc((a.last_score.why || [])[0] || '')}</div>` : '<span class="cap">\u2014</span>'}</td><td>${a.open_flags || ''}</td><td><span class="prow" style="gap:6px">${sign && (a.state === 'READY' || a.state === 'CALIBRATED' || a.state === 'RETIRED') ? `<button class="btn btn-s" data-act="ldCalibrate" data-arg="${esc(a.agent_key)}"${LD.busy ? ' disabled' : ''}>${a.model ? 'Recalibrate' : 'Calibrate'}</button>` : ''}${write && a.model ? `<button class="btn2 btn-s" data-act="ldScore" data-arg="${esc(a.agent_key)}"${LD.busy ? ' disabled' : ''}>Score</button>` : ''}</span></td></tr>`).join('')}</tbody></table></div>` : '<p class="cap" style="margin:0">No agent has reported events yet.</p>'}</section>`;
+    const fl = `<section class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:8px"><h2>Flags</h2><span class="cap">Ordered by the impact tier of what the agent can reach (an agent with no saved design is read as the most severe). A person decides what each was: benign for a number of days (it counts again afterwards), or real (it stays until a new contract is signed, and the person adds a control).</span>${LD.flags.length ? LD.flags.map((f) => `<div class="lrow"><span class="stack"><span style="font-weight:500">${esc(f.agent_key)} <span class="pill ${f.tier >= 3 ? 'bad' : 'warn'}">tier ${f.tier}</span> score ${f.score.toFixed(1)} against ${f.threshold}</span><span class="cap">${esc((f.detail.why || []).join('; ') || 'far from the calibrated normal')}${f.detail.unseen_transitions && f.detail.unseen_transitions.length ? ' \u00b7 never seen: ' + esc(f.detail.unseen_transitions.slice(0, 3).join(', ')) : ''}${f.window_start ? ' \u00b7 window ' + esc(new Date(f.window_start).toLocaleString()) : ''}${f.adjudicated_by ? ' \u00b7 ' + esc(f.status.toLowerCase()) + ' by ' + esc(f.adjudicated_by) + ': ' + esc(f.adjudication_note || '') + (f.expires_at ? ' (until ' + esc(new Date(f.expires_at).toLocaleDateString()) + ')' : '') : ''}</span></span><span class="prow" style="gap:6px"><span class="pill ${f.effective ? 'warn' : 'muted'}">${f.effective ? (f.status === 'OPEN' ? 'open' : f.status.toLowerCase()) : 'benign for now'}</span>${sign && (f.status === 'OPEN' || !f.effective) ? `<button class="btn btn-s" data-act="ldAdjudicate" data-arg="${esc(f.id)}|benign">Benign</button><button class="btn2 btn-s" data-act="ldAdjudicate" data-arg="${esc(f.id)}|real">Real</button>` : ''}</span></div>`).join('') : '<p class="cap" style="margin:0">No flags.</p>'}</section>`;
+    return head + rule + det + ag + fl;
+  }
   /* ---------- ASTRA Probe (phase 8): scenarios made from a design's contract, replayed against the reconciler ---------- */
   const PB = { loaded: false, loading: false, error: null, designs: [], key: '', latest: null, rate: null, scen: [], adm: null, busy: false, msg: null };
   async function loadProbe() {
@@ -1794,7 +1824,7 @@ kill_switch:
     const sc = `<section class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:8px"><h2>Scenarios from incidents</h2><span class="cap">A finding can be turned into a scenario on the Findings screen. It joins the standing suite only when a person other than the one who proposed it approves it; from then on every run replays it, and a change that makes it pass unnoticed fails the admission check.</span>${PB.scen.length ? PB.scen.map((s) => `<div class="lrow"><span class="stack"><span style="font-weight:500"><span class="mono">${esc(s.finding_key)}</span> ${esc(s.class_name)} \u00b7 ${esc(s.agent_key)}</span><span class="cap">proposed by ${esc(s.proposed_by)}${s.decided_by ? ' \u00b7 ' + (s.status === 'STANDING' ? 'approved' : 'retired') + ' by ' + esc(s.decided_by) : ''}${s.note ? ': ' + esc(s.note) : ''}</span></span><span class="prow" style="gap:8px"><span class="pill ${s.status === 'STANDING' ? 'ok' : (s.status === 'PROPOSED' ? 'warn' : 'muted')}">${esc(s.status.toLowerCase())}</span>${sign && s.status === 'PROPOSED' ? `<button class="btn btn-s" data-act="pbDecide" data-arg="${esc(s.id)}|approve">Approve</button>` : ''}${sign && s.status !== 'RETIRED' ? `<button class="btn2 btn-s" data-act="pbDecide" data-arg="${esc(s.id)}|retire">Retire</button>` : ''}</span></div>`).join('') : '<p class="cap" style="margin:0">None yet.</p>'}</section>`;
     return head + top + stats + rows + rate + sc;
   }
-  const SCREENS = { runtime, probe, overview, agents, newagent, addagent, studio, drift, contract, findings, coverage, packs, pack, workspace, users, audit };
+  const SCREENS = { runtime, probe, learned, overview, agents, newagent, addagent, studio, drift, contract, findings, coverage, packs, pack, workspace, users, audit };
 
   /* ---------- Actions ---------- */
   const H = {
@@ -4906,6 +4936,38 @@ kill_switch:
     }
   });
 
+  Object.assign(H, {
+    ldReload: () => { LD.loaded = false; LD.error = null; },
+    ldCalibrate: async (key) => {
+      if (LD.busy) return;
+      const a = LD.agents.find((x) => x.agent_key === key), d = a ? a.defaults : {};
+      LD.busy = true; LD.msg = null; render(true);
+      try { const m = await STAI.api.learnedCalibrate(key, { window_seconds: d.window_seconds, threshold: d.threshold, min_events: d.min_events, min_windows: d.min_windows }); LD.msg = { tone: 'good', text: `Calibrated ${key}: version ${m.version} from ${m.trained_on.events} events. Its baseline control is now required and starts unverified until a Probe run or an attested record validates it.` }; LD.loaded = false; }
+      catch (e) { LD.msg = { tone: 'alert', text: e.message }; }
+      LD.busy = false; render(true);
+    },
+    ldScore: async (key) => {
+      if (LD.busy) return;
+      LD.busy = true; LD.msg = null; render(true);
+      try { const r = await STAI.api.learnedScore(key); LD.msg = { tone: r.flagged ? 'alert' : 'good', text: `Scored ${r.scored} window${r.scored === 1 ? '' : 's'} of ${key}: ${r.flagged} flagged.` }; LD.loaded = false; }
+      catch (e) { LD.msg = { tone: 'alert', text: e.message }; }
+      LD.busy = false; render(true);
+    },
+    ldScoreAll: async () => {
+      if (LD.busy) return;
+      LD.busy = true; LD.msg = null; render(true);
+      try { const r = await STAI.api.learnedScoreAll(); LD.msg = { tone: r.failed ? 'alert' : (r.flagged ? 'alert' : 'good'), text: `Scored ${r.agents.length} agent${r.agents.length === 1 ? '' : 's'}: ${r.flagged} window${r.flagged === 1 ? '' : 's'} flagged${r.failed ? ', ' + r.failed + ' could not be scored' : ''}.` }; LD.loaded = false; }
+      catch (e) { LD.msg = { tone: 'alert', text: e.message }; }
+      LD.busy = false; render(true);
+    },
+    ldAdjudicate: async (arg) => {
+      const [id, outcome] = arg.split('|');
+      const note = window.prompt(outcome === 'benign' ? 'Why is this benign? (it counts again after 30 days)' : 'Why is it real? Then add the control it points to.', ''); if (!note || note.trim().length < 3) return;
+      try { await STAI.api.learnedAdjudicate(id, { outcome, note: note.trim(), days: 30 }); LD.loaded = false; LD.msg = { tone: 'good', text: outcome === 'benign' ? 'Marked benign for 30 days.' : 'Marked real. It stays until a new contract is signed.' }; }
+      catch (e) { LD.msg = { tone: 'alert', text: e.message }; }
+      render(true);
+    }
+  });
   const rkReload = async () => { RK.st = await STAI.api.riskState(); RK.at = Date.now(); };
   Object.assign(C, {
     rkField: (v, path) => { const e = RK.edit; if (!e) return; e[path] = (path === 'tier' || path === 'tolerance') ? Number(v) : v; RK.perr = null; }

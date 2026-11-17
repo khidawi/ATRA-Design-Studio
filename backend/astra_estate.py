@@ -49,6 +49,7 @@ class Source:
     rows: List[Dict[str, Any]]                       # the OWASP check rows: id, status (Covered, Partial, Gap, Not applicable), why
     evidence: Dict[str, Optional[int]] = field(default_factory=dict)      # control key -> day number its attestation lapses (None: it does not)
     probe: Dict[str, Tuple[bool, Optional[int]]] = field(default_factory=dict)   # control kind -> (the newest Probe run passed, the day number a pass lapses)
+    monitored: bool = False                                                       # a behavioural baseline is calibrated for this agent: its baseline control is required
 
 
 @dataclass
@@ -118,6 +119,14 @@ def _statuses_for(name: str, src: Source, built: "Built") -> None:
                 why[ctl] = f"{code}: {text}. Declared in the design; no attested evidence."
         else:
             why[ctl] = f"{code}: {text}"
+    if built.estate.agents[name].baseline_monitored:
+        ctl = ("base", name)
+        text = "A behavioural baseline is calibrated for this agent, so the baseline control is required. It stays unverified until an ASTRA Probe run or an attested record with the control key astra:base validates the calibration."
+        if "astra:base" in src.evidence:
+            statuses.support(S, ctl, "attestation", 0, float("inf") if src.evidence["astra:base"] is None else src.evidence["astra:base"])
+            S.fresh[ctl] = float("inf") if src.evidence["astra:base"] is None else src.evidence["astra:base"]
+            text += " Attested evidence on file."
+        why[ctl] = text
     for kind, (ok, until) in sorted(src.probe.items()):
         ctl = (kind, name)
         if not ok:
@@ -159,7 +168,7 @@ def _make_agent(name: str, src: Source, ctx: Ctx, built: "Built", seen: Set[str]
             resources[rid] = "write" if (kind == "memory" or write) else "read"
     delegates = [n["name"] for n in _targets(doc, prim["id"], "delegates")]
     agent = Agent(name, dept, autonomy=AUTONOMY.get((prim.get("p") or {}).get("auto"), "approve"), tools={t["name"]: {} for t in tools}, write_tools=write, hitl_tools=write & gated,
-                  resources=resources, may_delegate_to=set(delegates), components={n["name"]: True for n in _targets(doc, prim["id"], "connects")}, inputs=untrusted,
+                  resources=resources, may_delegate_to=set(delegates), components={n["name"]: True for n in _targets(doc, prim["id"], "connects")}, inputs=untrusted, baseline_monitored=src.monitored,
                   long_term_memory=any((n.get("p") or {}).get("long") for n in _targets(doc, prim["id"], "stores")))
     built.estate.agents[name] = agent
     _statuses_for(name, src, built)
