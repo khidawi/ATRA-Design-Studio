@@ -1007,7 +1007,8 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
      the real edges between them (hand-offs, data access, who works with an agent), and the events the collectors report flying along them. Beside it, one lane for each detector, in its own
      colour: the rules of the signed contracts (red), the statistical baseline (teal), the temporal graph network (amber) and the graph neural network (violet). Every number and flag comes from
      the platform (the runtime overview, the organisation graph and the learned-detector endpoints); nothing is simulated. A detector that is not adopted shows that, and shows nothing else. ----- */
-  const RM = { org: null, orgAt: 0, ev: [], seq: -1, det: null, ag: null, fl: [], lAt: 0, busy: false, err: null, g: null, cv: null, raf: 0, k: 1, px: 0, py: 0, sel: null, hover: null, drag: null, part: [], proj: [] };
+  const RM = { org: null, orgAt: 0, ev: [], seq: -1, det: null, ag: null, fl: [], lAt: 0, busy: false, err: null, g: null, cv: null, raf: 0, k: 1, px: 0, py: 0, sel: null, hover: null, drag: null, part: [], proj: [], sim: false, simFl: [], simEv: {} };
+  try { RM.sim = localStorage.getItem('astra.rm.sim') === '1'; } catch (e) { /* the preview stays off */ }
   const RM_COL = { rule: '#FF5C5C', base: '#2DD4BF', tgn: '#FFB030', gnn: '#A078FF' };
   const RM_DET = { baseline: 'base', tgn: 'tgn', gnn: 'gnn' };
   const RM_DEPT = ['#8ECDF5', '#F28B9B', '#F5A66B', '#A98BF2', '#9CCB8A', '#E08AD0', '#7FD6C8', '#E6C86E', '#8FA8FF', '#C0C7D1'];
@@ -1022,7 +1023,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
       if (!RM.lAt || Date.now() - RM.lAt > 6000) { [RM.det, RM.ag, RM.fl] = await Promise.all([STAI.api.learnedDetectors().catch(() => null), STAI.api.learnedAgents().catch(() => null), STAI.api.learnedFlags().catch(() => [])]); RM.lAt = Date.now(); }
       RM.err = null;
     } catch (e) { RM.err = e.message; }
-    RM.busy = false; rmSpawn();
+    RM.busy = false; rmSimulate(); rmSpawn();
   }
   // The graph: laid out once per version of the organisation. A role with a headcount is drawn as a small cloud of dots (not one dot per person); everything else is one-to-one.
   function rmBuild() {
@@ -1068,11 +1069,40 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
   }
   function rmSpawn() { // events newer than the last one seen become particles, spread over the poll interval
     const fresh = RM.ev.filter((e) => e.seq > RM.seq).reverse(); if (RM.seq < 0) { RM.seq = RM.ev.length ? RM.ev[0].seq : 0; return; }
-    fresh.forEach((e, i) => { const p = rmPair(e); if (p) RM.part.push({ a: p.a, b: p.b, t0: performance.now() + (i / Math.max(fresh.length, 1)) * 2500, dur: 1100, hot: e.verdict === 'DIVERGENT' }); });
+    fresh.forEach((e, i) => { const p = rmPair(e); if (p) RM.part.push({ a: p.a, b: p.b, t0: performance.now() + (i / Math.max(fresh.length, 1)) * 2500, dur: 1100, hot: e.verdict === 'DIVERGENT' ? 'rule' : (RM.sim ? RM.simEv[e.seq] || null : null) }); });
     if (fresh.length) RM.seq = Math.max(RM.seq, fresh[fresh.length - 1].seq);
   }
+  // The simulated preview (off unless asked for, and remembered in this browser). Two simple stand-ins read the real events here: one looks at order and timing the way a temporal network would,
+  // the other at who an agent reaches the way a graph network would. They are NOT the trained models, which are not adopted; they write nothing, create no finding and change no verdict.
+  function rmSimulate() {
+    RM.simFl = []; RM.simEv = {}; if (!RM.sim) return; const G = rmG(); if (!G) return;
+    const nb = {}; G.edges.forEach((e) => { if (e.a.type === 'agent') (nb[e.a.key] = nb[e.a.key] || new Set()).add(e.b.id); if (e.b.type === 'agent') (nb[e.b.key] = nb[e.b.key] || new Set()).add(e.a.id); });
+    // the temporal stand-in: per agent, oldest event first. Each event is scored by what is new about it given the agent's own history: a burst, a name never seen from it, an order never seen.
+    const by = {}; RM.ev.filter((e) => e.type !== 'heartbeat').slice().reverse().forEach((e) => { (by[e.agent_key] = by[e.agent_key] || []).push(e); });
+    Object.keys(by).forEach((k) => {
+      const evs = by[k], seenName = new Set(), seenPair = new Set(), gaps = []; let prev = null, prevName = '';
+      evs.forEach((e, i) => {
+        const t = new Date(e.at).getTime(), nm = e.type + ':' + (e.name || ''), pr = prev ? prev + '>' + nm : null, label = e.name || e.type.replace('_', ' '); let s = 0.12; const why = [];
+        if (i >= 30) {
+          if (gaps.length >= 8) { const med = gaps.slice().sort((a, b) => a - b)[gaps.length >> 1], gap = t - new Date(evs[i - 1].at).getTime(); if (med > 0 && gap * 5 < med) { s += 0.5; why.push('a burst: this event came much sooner after the last than is usual for this agent'); } }
+          if (e.name && !seenName.has(nm)) { s += 0.3; why.push('“' + e.name + '” has not been seen from this agent before'); }
+          if (pr && e.name && !seenPair.has(pr)) { s += 0.45; why.push('the order “' + prevName + '” then “' + label + '” has not been seen'); }
+        }
+        s = Math.min(0.99, s); seenName.add(nm); if (pr) seenPair.add(pr); if (i) gaps.push(t - new Date(evs[i - 1].at).getTime()); prev = nm; prevName = label;
+        if (s >= 0.8) { RM.simEv[e.seq] = 'tgn'; RM.simFl.push({ det: 'tgn', agent_key: k, score: s, why: why.join('; '), seq: e.seq, at: e.at }); }
+      });
+    });
+    // the graph stand-in: an agent's usual neighbourhood is what the organisation connects it to (who works with it, hand-offs, data access). A flow to something outside it is unusual, more so across departments.
+    RM.ev.forEach((e) => {
+      if (e.type !== 'data_access' && e.type !== 'delegation') return; const p = rmPair(e); if (!p) return; const known = nb[e.agent_key] || new Set(); let s = 0.05, why = '';
+      if (!p.b) { s = 0.82; why = '“' + (e.name || 'a target') + '” is not among the stores and agents the organisation knows, so this flow leaves the agent’s usual neighbourhood'; }
+      else if (!known.has(p.b.id)) { const cross = p.b.dept !== p.a.dept; s = cross ? 0.9 : 0.7; why = p.a.name + ' reached ' + p.b.name + ', which the organisation does not connect it to' + (cross ? ', and which belongs to another department: this flow between departments is unusual' : ''); }
+      if (s >= 0.75) { RM.simEv[e.seq] = RM.simEv[e.seq] || 'gnn'; const dup = RM.simFl.find((f) => f.det === 'gnn' && f.agent_key === e.agent_key && f.why === why); if (dup) dup.count = (dup.count || 1) + 1; else RM.simFl.push({ det: 'gnn', agent_key: e.agent_key, score: s, why, seq: e.seq, at: e.at, count: 1 }); }
+    });
+    RM.simFl.sort((a, b) => b.seq - a.seq);
+  }
   // what each detector says right now, per agent
-  function rmFlags() { const out = {}; (RM.fl || []).filter((f) => f.effective).forEach((f) => { (out[f.agent_key] = out[f.agent_key] || new Set()).add(RM_DET[f.detector] || 'base'); }); return out; }
+  function rmFlags() { const out = {}; (RM.fl || []).filter((f) => f.effective).forEach((f) => { (out[f.agent_key] = out[f.agent_key] || new Set()).add(RM_DET[f.detector] || 'base'); }); if (RM.sim) RM.simFl.forEach((f) => { (out[f.agent_key] = out[f.agent_key] || new Set()).add(f.det); }); return out; }
   function rmRule(now) { const out = {}; RM.ev.forEach((e) => { if (e.verdict !== 'DIVERGENT') return; const age = (Date.now() - new Date(e.at).getTime()) / 1000; if (age > 240) return; out[e.agent_key] = Math.max(out[e.agent_key] || 0, Math.exp(-age / 90)); }); return out; }
   function rmInit() {
     const cv = document.createElement('canvas'); cv.className = 'rm-cv'; cv.setAttribute('aria-label', 'Network of the organisation: departments, people, data stores and AI agents, with the events agents report'); RM.cv = cv;
@@ -1134,7 +1164,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     }
     // events travelling along the edges (a pulse on the agent when the event has no second end that the organisation knows)
     RM.part = RM.part.filter((q) => now - q.t0 < q.dur);
-    for (const q of RM.part) { const u = (now - q.t0) / q.dur; if (u < 0) continue; const [x1, y1] = rmXY(q.a, W, H, base); const col = q.hot ? '255,92,92' : '235,245,255'; c.save(); c.shadowColor = `rgba(${col},1)`; c.shadowBlur = 10; c.fillStyle = `rgba(${col},${0.95 * (1 - u * 0.4)})`; c.beginPath();
+    for (const q of RM.part) { const u = (now - q.t0) / q.dur; if (u < 0) continue; const [x1, y1] = rmXY(q.a, W, H, base); const col = { rule: '255,92,92', tgn: '255,176,48', gnn: '160,120,255' }[q.hot] || '235,245,255'; c.save(); c.shadowColor = `rgba(${col},1)`; c.shadowBlur = 10; c.fillStyle = `rgba(${col},${0.95 * (1 - u * 0.4)})`; c.beginPath();
       if (q.b) { const [x2, y2] = rmXY(q.b, W, H, base); c.arc(x1 + (x2 - x1) * u, y1 + (y2 - y1) * u, q.hot ? 3.6 : 2.2, 0, 7); } else { c.arc(x1, y1, 8 + u * 20, 0, 7); c.strokeStyle = `rgba(${col},${0.7 * (1 - u)})`; c.lineWidth = 2; c.stroke(); c.beginPath(); c.arc(x1, y1, 2.5, 0, 7); } c.fill(); c.restore(); }
   }
   // the panels beside the map
@@ -1142,9 +1172,9 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     const G = rmG(), n = G && RM.sel ? G.byId[RM.sel] || G.nodes.find((q) => q.id === RM.sel) : null; if (!n) return '<span class="cap">Click a dot, a square or a ring in the map.</span>';
     const dept = (RM.org.nodes.find((x) => x.id === n.dept) || { name: n.dept }).name; let h = `<b>${esc(n.name)}</b><br><span class="cap">${esc(n.type === 'agent' ? 'AI agent' : n.title)} · ${esc(dept)}</span>`;
     if (n.type === 'agent') {
-      const D = RT.data && RT.data.agents.find((a) => a.agent_key === n.key), fl = (RM.fl || []).filter((f) => f.agent_key === n.key && f.effective), la = RM.ag && RM.ag.find((a) => a.agent_key === n.key);
+      const D = RT.data && RT.data.agents.find((a) => a.agent_key === n.key), fl = (RM.fl || []).filter((f) => f.agent_key === n.key && f.effective).concat(RM.sim ? RM.simFl.filter((f) => f.agent_key === n.key).slice(0, 4).map((f) => ({ detector: f.det + ' (simulated)', score: f.score })) : []), la = RM.ag && RM.ag.find((a) => a.agent_key === n.key);
       h += D ? `<div class="cap" style="margin-top:6px">${D.events_1h} events in the last hour, ${D.divergent_1h} outside the contract. ${D.open_findings} open finding${D.open_findings === 1 ? '' : 's'}.</div>` : '<div class="cap" style="margin-top:6px">No runtime events yet.</div>';
-      h += `<div class="cap" style="margin-top:4px">Baseline: ${la ? esc(String(la.state).toLowerCase()) + (la.last_score ? ', last score ' + la.last_score.score.toFixed(1) + ' against ' + la.last_score.threshold.toFixed(1) : '') : 'no events yet'}. ${fl.length ? fl.map((f) => `<span class="pill muted" style="border:1px solid ${RM_COL[RM_DET[f.detector] || 'base']}">${esc(f.detector)} flag ${f.score.toFixed(1)}</span>`).join(' ') : 'No open learned flag.'}</div>`;
+      h += `<div class="cap" style="margin-top:4px">Baseline: ${la ? esc(String(la.state).toLowerCase()) + (la.last_score ? ', last score ' + la.last_score.score.toFixed(1) + ' against ' + la.last_score.threshold.toFixed(1) : '') : 'no events yet'}. ${fl.length ? fl.map((f) => `<span class="pill muted" style="border:1px solid ${RM_COL[RM_DET[String(f.detector).split(' ')[0]] || 'base']}">${esc(f.detector)} flag ${f.score.toFixed(1)}</span>`).join(' ') : 'No open learned flag.'}</div>`;
     }
     const nb = G.edges.filter((e) => e.a === n || e.b === n).map((e) => (e.a === n ? e.b : e.a)); if (nb.length) h += `<div class="cap" style="margin-top:6px">Connected to: ${[...new Set(nb.map((q) => q.name))].slice(0, 6).map(esc).join(', ')}.</div>`;
     return h;
@@ -1170,7 +1200,10 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
         pill = `<span class="pill ${st === 'adopted' ? 'ok' : 'muted'}">${st === 'adopted' ? 'adopted' : (st === 'candidate' ? 'candidate: not adopted' : 'not adopted')}</span>`;
         extra = st === 'adopted' ? '' : '<div class="cap" style="margin-top:4px">No model is adopted, so this detector scores nothing and flags nothing. A person adopts it only after it beats the baseline on attack families it never saw (Learned detectors).</div>';
       }
-      const fl = flags.length ? `<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">${flags.slice(0, 3).map((f) => `<span class="cap"><span class="pill" style="background:${rmRgba(RM_COL[k], 0.18)};color:inherit">flag ${f.score.toFixed(1)}</span> ${esc(f.agent_key)}${f.detail && f.detail.why && f.detail.why[0] ? ': ' + esc(f.detail.why[0]) : ''}</span>`).join('')}</div>` : '';
+      const fl0 = flags.length ? `<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">${flags.slice(0, 3).map((f) => `<span class="cap"><span class="pill" style="background:${rmRgba(RM_COL[k], 0.18)};color:inherit">flag ${f.score.toFixed(1)}</span> ${esc(f.agent_key)}${f.detail && f.detail.why && f.detail.why[0] ? ': ' + esc(f.detail.why[0]) : ''}</span>`).join('')}</div>` : '';
+      const simF = id !== 'baseline' && RM.sim ? RM.simFl.filter((f) => f.det === id) : [];
+      const fl = fl0 + (simF.length ? `<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">${simF.slice(0, 3).map((f) => `<span class="cap"><span class="pill" style="background:${rmRgba(RM_COL[k], 0.18)};color:inherit">flag ${f.score.toFixed(2)}</span> <span class="pill muted">simulated</span> ${esc(f.agent_key)}: ${esc(f.why)}${f.count > 1 ? ' (' + f.count + ' events)' : ''}</span>`).join('')}</div>` : '');
+      if (id !== 'baseline' && RM.sim) { pill = `<span class="pill" style="border:1px dashed ${RM_COL[k]}">simulated preview \u00b7 ${simF.length} flag${simF.length === 1 ? '' : 's'}</span>`; extra = `<div class="cap" style="margin-top:4px">Real status: ${info && info.status === 'adopted' ? 'adopted' : 'not adopted'}. The flags below come from a simple stand-in that reads your real events in the browser, not from the trained model.</div>`; }
       return lane(RM_COL[k], short, long, pill, `<span class="cap">${what}</span>${extra}${fl}<span class="cap" style="display:block;margin-top:4px">Advisory: it can only lower the agent’s baseline control to unverified, so the worst it can do is a review. It never blocks.</span>`);
     }).join('');
     return rules + lanes;
@@ -1186,8 +1219,8 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     if (!RM.org) return '<section class="card" style="padding:14px 20px"><h2>Who talks to whom</h2><span class="cap">Loading the organisation…</span></section>';
     const G = rmG(); if (!G || !G.groups.length) return '<section class="card" style="padding:14px 20px"><h2>Who talks to whom</h2><span class="cap">The organisation has no departments yet. Describe the company on the Organisation page and its departments, people and agents appear here.</span></section>';
     const legend = G.groups.map((g) => `<span><i style="background:${g.col}"></i>${esc(g.d.name)}</span>`).join('') + `<span><i style="background:#fff;box-shadow:inset 0 0 0 3px #17181B"></i>AI agent (ring)</span><span><i style="background:#ddd;border-radius:2px"></i>data store</span>`;
-    return `<section class="card rm" aria-label="Who talks to whom: the map, and the detectors"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><div class="stack" style="gap:2px"><h2>Who talks to whom</h2><span class="cap">Departments as communities of the organisation’s people, roles, data stores and AI agents. The events your agents report fly along the real edges; a red glow is a rule of a contract broken, and a colour glow is a detector flag. A role with a headcount is drawn as a cloud of dots, not one dot per person.</span></div><span class="cap">Drag to pan, scroll to zoom, double-click to reset</span></div>
-      <div class="rm-grid"><div class="rm-stage"><div id="rm-host"></div><div class="rm-legend">${legend}</div><div class="rm-key"><span><i style="background:${RM_COL.rule}"></i>rule</span><span><i style="background:${RM_COL.base}"></i>baseline</span><span><i style="background:${RM_COL.tgn}"></i>TGN</span><span><i style="background:${RM_COL.gnn}"></i>GNN</span></div><div class="rm-tip" id="rm-tip"></div></div>
+    return `<section class="card rm" aria-label="Who talks to whom: the map, and the detectors"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><div class="stack" style="gap:2px"><h2>Who talks to whom</h2><span class="cap">Departments as communities of the organisation’s people, roles, data stores and AI agents. The events your agents report fly along the real edges; a red glow is a rule of a contract broken, and a colour glow is a detector flag. A role with a headcount is drawn as a cloud of dots, not one dot per person.</span></div><span class="prow" style="gap:10px;flex-wrap:wrap;align-items:center"><button class="btn2 btn-s" data-act="rmSim" aria-pressed="${RM.sim}" title="Draws the TGN and the GNN with simple stand-ins that read your real events in this browser. They are not the trained models.">Simulated TGN and GNN preview: ${RM.sim ? 'on' : 'off'}</button><span class="cap">Drag to pan, scroll to zoom, double-click to reset</span></span></div>${RM.sim ? '<div class="note plain" role="status"><strong>Simulated preview is on</strong><span style="font-size:13px">The TGN and the GNN below are drawn by two simple stand-ins that read your real events in this browser. They are not the trained models (those are not adopted), they write nothing, create no finding and change no verdict. Turn it off to see only what the platform itself produces.</span></div>' : ''}
+      <div class="rm-grid"><div class="rm-stage"><div id="rm-host"></div><div class="rm-legend">${legend}</div><div class="rm-key"><span><i style="background:${RM_COL.rule}"></i>rule</span><span><i style="background:${RM_COL.base}"></i>baseline</span><span><i style="background:${RM_COL.tgn}"></i>TGN${RM.sim ? ' (simulated)' : ''}</span><span><i style="background:${RM_COL.gnn}"></i>GNN${RM.sim ? ' (simulated)' : ''}</span></div><div class="rm-tip" id="rm-tip"></div></div>
         <div class="rm-side"><div class="card" style="padding:12px 14px"><h3 style="margin:0 0 6px">Selected</h3><div id="rm-sel">${rmSelHtml()}</div></div>${rmLanes()}</div></div>
       <h3 style="margin:14px 0 6px">Flows between departments, last hour</h3><span class="cap">What the collectors observed an agent doing to a store or an agent that belongs to another department. These are counts; a score for a flow comes from the GNN once one is adopted.</span>${rmFlows()}</section>`;
   }
@@ -5347,6 +5380,7 @@ kill_switch:
   });
   /* ASTRA phase 15: the map on the Live runtime page */
   Object.assign(H, {
+    rmSim: () => { RM.sim = !RM.sim; try { localStorage.setItem('astra.rm.sim', RM.sim ? '1' : '0'); } catch (e) { /* only this session */ } rmSimulate(); },
     rmScore: async () => { try { await STAI.api.learnedScoreAll(); } catch (e) { window.alert('Could not score: ' + e.message); } RM.lAt = 0; rmRefresh(); },
   });
   /* ASTRA phase 14: handlers of the design-time Probe (assigned here because H exists by now) */
