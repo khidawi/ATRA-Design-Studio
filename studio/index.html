@@ -674,6 +674,7 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
       agentAssessments: (key) => call('/api/agents/designs/' + encodeURIComponent(key) + '/assessments'),
       agentRecordAssessment: (key) => post('/api/agents/designs/' + encodeURIComponent(key) + '/assessments', {}),
       agentContract: (key) => call('/api/agents/designs/' + encodeURIComponent(key) + '/contract'),
+      astraHandoffs: () => call('/api/astra/handoffs'),
       agentAcceptBaseline: (key, note) => post('/api/agents/designs/' + encodeURIComponent(key) + '/baseline', { note: note || null }),
       agentSignContract: (key) => post('/api/agents/designs/' + encodeURIComponent(key) + '/sign', {}),
       astraVerifyContract: (id) => call('/api/astra/contracts/' + encodeURIComponent(id) + '/verify'),
@@ -713,11 +714,12 @@ svg.og-svg text{font-family:inherit}.og-dim{opacity:.22}.og-hit{cursor:pointer}
   const PARENT = { newagent: 'agents', addagent: 'agents', contract: 'agents', pack: 'packs' };
 
   function nav(active) {
+    if (ME && hfStale(8000)) loadHF();
     return `<nav class="side" aria-label="Main">
       <a class="navback" href="#/" title="Back to the main menu">\u2190 Main menu</a>
       <div class="brand"><b>ASTRA</b><span>AI Agents</span></div>
       <button type="button" class="tenant" data-act="orgRename" title="Rename organisation"><strong>${esc(ORG.name)}</strong><small>Organisation · click to rename</small></button>
-      <div class="navlinks">${NAV.map(([k, l, b]) => (k === 'agents' ? [k, l, AG.loaded && AG.list.length ? String(AG.list.length) : ''] : (k === 'drift' ? [k, l, FD.loaded ? String(FD.drift.filter((x) => x.status === 'OPEN').length || '') : ''] : (k === 'findings' ? [k, l, FD.loaded ? String(FD.findings.filter((x) => x.status === 'OPEN').length || '') : ''] : (k === 'coverage' ? [k, l, CV.loaded && CV.data.agents_in_scope ? CV.data.covered + '/' + (CV.data.covered + CV.data.partial + CV.data.gap + CV.data.no_data) : ''] : (k === 'runtime' ? [k, l, RT.loaded ? String(RT.data.agents.filter((a) => a.status === 'live').length || '') : ''] : (k === 'workspace' ? [k, l, FD.loaded ? String(FD.drift.filter((x) => x.status === 'OPEN' && x.source !== 'DEMO').length || '') : ''] : [k, l, b]))))))).map(([k, l, b]) => `<a href="#/${k}"${k === active ? ' class="on" aria-current="page"' : ''}><span>${l}</span><small>${b}</small></a>`).join('')}</div>
+      <div class="navlinks">${NAV.map(([k, l, b]) => (k === 'agents' ? [k, l, AG.loaded && AG.list.length ? String(AG.list.length) : ''] : (k === 'drift' ? [k, l, FD.loaded ? String(FD.drift.filter((x) => x.status === 'OPEN').length || '') : ''] : (k === 'findings' ? [k, l, FD.loaded ? String(FD.findings.filter((x) => x.status === 'OPEN').length || '') : ''] : (k === 'coverage' ? [k, l, CV.loaded && CV.data.agents_in_scope ? CV.data.covered + '/' + (CV.data.covered + CV.data.partial + CV.data.gap + CV.data.no_data) : ''] : (k === 'runtime' ? [k, l, RT.loaded ? String(RT.data.agents.filter((a) => a.status === 'live').length || '') : ''] : (k === 'workspace' ? [k, l, FD.loaded ? String(FD.drift.filter((x) => x.status === 'OPEN' && x.source !== 'DEMO').length || '') : ''] : (k === 'overview' || k === 'studio' ? [k, l, HF.loaded && HF.forYou ? String(HF.forYou) : ''] : [k, l, b])))))))).map(([k, l, b]) => `<a href="#/${k}"${k === active ? ' class="on" aria-current="page"' : ''}><span>${l}</span><small>${b}</small></a>`).join('')}</div>
       ${whoBox()}
       ${AG.list.some((a) => a.origin === 'DEMO') ? '<div class="demo">Demo agents loaded</div>' : ''}
     </nav>`;
@@ -1225,6 +1227,31 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
       <h3 style="margin:14px 0 6px">Flows between departments, last hour</h3><span class="cap">What the collectors observed an agent doing to a store or an agent that belongs to another department. These are counts; a score for a flow comes from the GNN once one is adopted.</span>${rmFlows()}</section>`;
   }
 
+  /* ---------- Hand-over notices: what waits for the signed-in person, and what was signed lately (GET /api/astra/handoffs, computed from what is stored) ---------- */
+  const HF = { loaded: false, loading: false, error: null, items: [], forYou: 0, days: 14, at: 0 };
+  const hfStale = (ms) => !HF.loading && (!HF.loaded || Date.now() - HF.at > ms);
+  async function loadHF() {
+    HF.loading = true;
+    try { const r = await STAI.api.astraHandoffs(); HF.items = r.items; HF.forYou = r.for_you; HF.days = r.days; HF.error = null; HF.loaded = true; } catch (e) { HF.error = e.message; }
+    HF.at = Date.now(); HF.loading = false; renderIfIdle(route());
+  }
+  function hfBanner() {
+    if (hfStale(8000)) loadHF();
+    if (!HF.loaded) return '';
+    const when = (i) => esc(new Date(i.at).toLocaleString());
+    const todo = HF.items.filter((i) => i.for_you), wait = HF.items.filter((i) => !i.for_you && i.stage !== 'signed'), done = HF.items.filter((i) => i.stage === 'signed');
+    const row = (i, text, btn) => `<div class="prow" style="justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><span class="stack" style="min-width:0"><span style="font-weight:600">${esc(i.name)}${i.agent !== i.name ? ' <span class="cap">' + esc(i.agent) + '</span>' : ''}</span><span style="font-size:13px">${text}</span></span>${btn}</div>`;
+    const open = (i, label, cls) => `<button class="${cls} btn-s" data-act="hfOpen" data-arg="${esc(i.design_key)}">${label}</button>`;
+    const a = todo.length ? `<section class="note good" role="status" style="border-left:4px solid var(--ln-1e4fcb);gap:10px"><strong style="font-size:16px">${todo.length === 1 ? 'A contract is waiting for you' : todo.length + ' contracts are waiting for you'}</strong>${todo.map((i) => row(i, i.stage === 'to_accept'
+      ? `${esc(i.by)} recorded an approved assessment on ${when(i)}. Your step: read it and accept it as the baseline, then sign the contract.`
+      : `${esc(i.by)} accepted the baseline on ${when(i)}. Your step: sign the contract.${i.blocker ? ' <b>' + esc(i.blocker) + '</b>' : ''}`, open(i, i.stage === 'to_accept' ? 'Review and accept' : 'Review and sign', 'btn'))).join('')}</section>` : '';
+    const b = wait.length ? `<section class="note plain" role="status" style="gap:10px"><strong>Handed over, waiting for someone else</strong>${wait.map((i) => row(i, i.stage === 'to_accept'
+      ? `${i.mine ? 'You recorded' : esc(i.by) + ' recorded'} an approved assessment on ${when(i)}. A different person with sign-off permission, for example a compliance user, has to accept it as the baseline and sign the contract.`
+      : `${i.mine ? 'You accepted' : esc(i.by) + ' accepted'} the baseline on ${when(i)}. A person with sign-off permission has to sign the contract.`, open(i, 'Open', 'btn2'))).join('')}</section>` : '';
+    const c = done.length ? `<section class="note" role="status" style="background:var(--bg-e2f3e9);color:var(--fg-1e7f4f);border-left:4px solid var(--ln-1e7f4f);gap:10px"><strong style="font-size:16px">${done.length === 1 ? 'A contract was signed' : done.length + ' contracts were signed'}</strong>${done.map((i) => row(i, `Version ${esc(i.version)} was signed by ${esc(i.by)}${i.mine ? ' (you)' : ''} on ${when(i)}. It is now the agent's active contract.`, open(i, 'View contract', 'btn2'))).join('')}<span class="cap">Shown for ${HF.days} days after signing.</span></section>` : '';
+    return a + b + c;
+  }
+
   /* ---------- Overview and workspace (Task 7f): computed from what the other screens keep ---------- */
   const OV = { loaded: false, loading: false, error: null, data: null, at: 0 };
   const WS = { loaded: false, loading: false, error: null, data: null, at: 0 };
@@ -1246,7 +1273,7 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
     const o = OV.data, cv = o.coverage, fd = o.findings, dr = o.drift;
     const when = new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
     return hdr(`${esc(o.organisation)} \u00b7 ${when}`, 'Assurance overview', '<a class="btn2" href="#/studio">Design an agent</a><a class="btn" href="#/packs">Generate pack</a>') +
-      (o.demo_agents ? `<div class="note plain" role="status"><strong>Demo agents are loaded</strong><span style="font-size:13px">${o.demo_agents} sample agents (and their sample findings and drift) are not counted on this page. Remove them from the Agents screen.</span></div>` : '') + `
+      (o.demo_agents ? `<div class="note plain" role="status"><strong>Demo agents are loaded</strong><span style="font-size:13px">${o.demo_agents} sample agents (and their sample findings and drift) are not counted on this page. Remove them from the Agents screen.</span></div>` : '') + hfBanner() + `
     <section class="kpis" aria-label="Key measures">
       <a class="card kpi" href="#/agents"><span class="cap">Agents with an active contract</span><big>${o.agents_with_contract} <small>of ${o.agents_total}</small></big><span class="cap">${o.agents_to_ratify} to ratify \u00b7 ${o.agents_unowned} unowned</span></a>
       <a class="card kpi" href="#/coverage"><span class="cap">OWASP ASI coverage</span><big>${cv.covered} <small>of ${cv.total} covered</small></big><span class="cap">${cv.partial} partial \u00b7 ${cv.gap} gap \u00b7 ${cv.no_data} no data</span></a>
@@ -1713,9 +1740,16 @@ from astra_runtime.adapters.openai_agents import install; install()</pre><span c
       const shown = sg && sg.current && AS.signedDoc ? AS.signedDoc : ct.document;
       const dl = `<a class="btn2 btn-s" download="${esc(ct.document.agent.id)}-contract.json" href="data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(shown, null, 2))}">Download JSON</a>`;
       const canBase = sign && !bl && ct.verdict === 'APPROVED' && ct.assessment_recorded;
+      const rec = AS.hist && AS.hist[0] ? AS.hist[0].created_by : 'someone', meName = ME ? ME.full_name : '';
+      const nx = live ? { done: true, head: 'Signed', text: `Version ${sg.version} was signed by ${sg.signed_by}. It is this agent's active contract.` }
+        : bl ? (sign ? { head: 'Next step: sign the contract', text: `${bl.accepted_by} accepted the baseline. ${ct.probe_admitted ? 'Sign it with the button below.' : 'The Probe has to pass on this version first (see below).'}` } : { head: 'Waiting for a signature', text: `${bl.accepted_by} accepted the baseline. A person with sign-off permission has to sign the contract.` })
+        : (ct.assessment_recorded && ct.verdict === 'APPROVED') ? (sign && rec !== meName ? { head: 'Your step: accept the baseline', text: `${rec} recorded an approved assessment of this version. Read it, then accept it as the baseline with the button below.` }
+          : { head: 'Waiting for a second person', text: `${rec === meName ? 'You recorded' : rec + ' recorded'} this assessment, so a different person with sign-off permission, for example a compliance user, has to accept it as the baseline.` }) : null;
+      const nxHtml = nx ? `<div class="note ${nx.done ? '' : 'good'}" role="status" style="${nx.done ? 'background:var(--bg-e2f3e9);color:var(--fg-1e7f4f);border-left:4px solid var(--ln-1e7f4f)' : 'border-left:4px solid var(--ln-1e4fcb)'}"><strong>${esc(nx.head)}</strong><span style="font-size:13px">${esc(nx.text)}</span></div>` : '';
       const canSign = sign && bl && !ct.problems.length && ct.signing_configured && !live && ct.probe_admitted;
       ctr = `<h3>Behavioural contract</h3><div class="card" style="padding:12px 14px;display:flex;flex-direction:column;gap:8px">
-        <div class="prow" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><span>${esc(ct.document.agent.id)} \u00b7 version ${esc(ct.document.agent.model_version)}</span>${state}</div>
+        <div class="prow" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><span>${esc(ct.document.agent.id)} \u00b7 version ${esc(sg && sg.current && sg.status === 'ACTIVE' ? sg.version : ct.document.agent.model_version)}</span>${state}</div>
+        ${nxHtml}
         <span class="cap">The contract in the Appendix A format, built from this design and its assessment. It stays a draft until a different person from the one who recorded the assessment accepts the baseline, and a signer signs it.</span>
         ${ct.problems.length ? `<div class="note alert"><strong>Not valid yet</strong>${list(ct.problems)}</div>` : ''}
         ${bl ? `<span class="cap">Baseline accepted by ${esc(bl.accepted_by)} on ${esc(new Date(bl.created_at).toLocaleString())}${bl.note ? ': ' + esc(bl.note) : ''}.</span>` : ''}
@@ -4902,7 +4936,7 @@ kill_switch:
   /* ----- landing ----- */
   function home() {
     return `<div class="landing"><div class="landing-in"><div class="brand" style="padding:0"><b style="color:var(--fg-141a22);font-size:26px">ASTRA</b><span style="color:var(--fg-4a5563);font-size:14px">Assurance for AI agents and AI models</span></div>
-      <h1 style="font-size:32px;margin-top:8px">Choose a module</h1><p class="cap" style="font-size:15px;margin:0 0 8px">Choose the module that fits what you're assessing: an AI agent, or an AI model deployment. Each works on its own.</p>
+      <h1 style="font-size:32px;margin-top:8px">Choose a module</h1><p class="cap" style="font-size:15px;margin:0 0 8px">Choose the module that fits what you're assessing: an AI agent, or an AI model deployment. Each works on its own.</p>${hfBanner()}
       <div class="landing-grid">
         <a class="choice landing-card" href="#/overview"><span class="pill ok" style="align-self:flex-start">Agent</span><h2 style="font-size:22px">AI Agents</h2><span class="cap" style="font-size:14px">Design agents in the Secure Tropos studio, register running agents, review drift, ratify contracts and export Assurance Packs.</span><span style="display:flex;gap:8px;flex-wrap:wrap"><span class="pill muted">Design studio</span><span class="pill muted">Drift review</span><span class="pill muted">OWASP ASI</span><span class="pill muted">Risk score</span></span><span style="font-weight:600;color:var(--fg-1e4fcb)">Open agent module \u2192</span></a>
         <a class="choice landing-card" href="#/model/overview"><span class="pill" style="align-self:flex-start;background:var(--bg-ede7fb);color:var(--fg-4c1d95)">Model</span><h2 style="font-size:22px">AI Models</h2><span class="cap" style="font-size:14px">Map an AI model deployment's actors, departments, data and constraints, score it with the PCS engine and compile a contract once it is green.</span><span style="display:flex;gap:8px;flex-wrap:wrap"><span class="pill muted">PCS engine</span><span class="pill muted">GDPR \u00b7 EU AI Act</span><span class="pill muted">Constraint bundles</span><span class="pill muted">Contracts</span></span><span style="font-weight:600;color:var(--fg-1e4fcb)">Open model module \u2192</span></a>
@@ -5264,11 +5298,12 @@ kill_switch:
   }
   Object.assign(H, {
     astraRetry: () => { AS.key = null; AS.err = null; },
+    hfOpen: async (key) => { try { await openAgentDesign(key); S.studio.panel = 'astra'; AS.key = null; AS.err = null; location.hash = '#/studio'; } catch (e) { HF.error = e.message; } render(true); },
     astraFix: (asi) => { if (FIX[asi]) { FIX[asi](); AS.msg = null; } },
     astraRecord: async () => {
       const key = S.studio.designKey; if (!key || AS.busy) return;
       AS.busy = true; AS.msg = null; render(true);
-      try { const r = await STAI.api.agentRecordAssessment(key); AS.hist = await STAI.api.agentAssessments(key); AS.msg = { tone: 'good', text: 'Recorded: ' + r.verdict.toLowerCase().replace('_', ' ') + ', version ' + r.design_version + '.' }; }
+      try { const r = await STAI.api.agentRecordAssessment(key); AS.hist = await STAI.api.agentAssessments(key); AS.msg = { tone: 'good', text: 'Recorded: ' + r.verdict.toLowerCase().replace('_', ' ') + ', version ' + r.design_version + '.' }; HF.at = 0; }
       catch (e) { AS.msg = { tone: e.status === 409 ? 'plain' : 'alert', text: e.message }; }
       AS.busy = false; render(true);
     },
@@ -5284,21 +5319,21 @@ kill_switch:
       const note = window.prompt('Note for the baseline (optional):', '');
       if (note === null) return;
       AS.busy = true; AS.msg = null; render(true);
-      try { await STAI.api.agentAcceptBaseline(key, note.trim()); AS.ct = await STAI.api.agentContract(key); AS.msg = { tone: 'good', text: 'The design is accepted as the baseline.' }; }
+      try { await STAI.api.agentAcceptBaseline(key, note.trim()); AS.ct = await STAI.api.agentContract(key); AS.msg = { tone: 'good', text: 'The design is accepted as the baseline. Next step: sign the contract.' }; HF.at = 0; }
       catch (e) { AS.msg = { tone: 'alert', text: e.message }; }
       AS.busy = false; render(true);
     },
     astraSign: async () => {
       const key = S.studio.designKey; if (!key || AS.busy) return;
       AS.busy = true; AS.msg = null; render(true);
-      try { const r = await STAI.api.agentSignContract(key); AS.signedDoc = r.document; AS.ct = await STAI.api.agentContract(key); AS.vf = null; AS.msg = { tone: 'good', text: 'Signed: version ' + r.version + ' with key ' + r.key_id + '.' }; }
+      try { const r = await STAI.api.agentSignContract(key); AS.signedDoc = r.document; AS.ct = await STAI.api.agentContract(key); AS.vf = null; AS.msg = { tone: 'good', text: 'Signed: version ' + r.version + ' with key ' + r.key_id + '.' }; HF.at = 0; }
       catch (e) { AS.msg = { tone: 'alert', text: e.message }; }
       AS.busy = false; render(true);
     },
     astraVerify: async (id) => { try { AS.vf = await STAI.api.astraVerifyContract(id); } catch (e) { AS.vf = { valid: false, reasons: [e.message] }; } render(true); },
     astraRevoke: async (id) => {
       const reason = window.prompt('Why is this contract being revoked?', ''); if (!reason || reason.trim().length < 3) return;
-      try { await STAI.api.astraRevokeContract(id, reason.trim()); AS.ct = await STAI.api.agentContract(S.studio.designKey); AS.vf = null; AS.msg = { tone: 'good', text: 'The contract is revoked.' }; }
+      try { await STAI.api.astraRevokeContract(id, reason.trim()); AS.ct = await STAI.api.agentContract(S.studio.designKey); AS.vf = null; AS.msg = { tone: 'good', text: 'The contract is revoked.' }; HF.at = 0; }
       catch (e) { AS.msg = { tone: 'alert', text: e.message }; }
       render(true);
     }
@@ -6708,7 +6743,7 @@ kill_switch:
       models: '<span><i style="background:var(--bg-ede7fb);border:1.5px solid var(--ln-4c1d95)"></i>AI model</span><span><i style="background:var(--bg-ffffff);border:1.5px dotted var(--ln-e58aa0)"></i>Person or role</span><span><i style="background:var(--bg-fff3c4);border:1.5px solid var(--ln-9a7b00)"></i>Data</span><span><i style="background:var(--bg-a8e6b8);border:1px solid var(--ln-2b7a3f)"></i>Rule</span><span><i style="border:1.5px dashed var(--ln-b42318)"></i>Broken rule</span>' }[CO.view];
     const tools = `<div class="og-tools"><button class="og-tool${CO.palette ? ' on' : ''}" data-act="coPalette"${ed ? '' : ' disabled'}><span class="og-ico" style="background:var(--bg-2fb344)">+</span>Add Model Component</button><span class="og-sep"></span><button class="og-tool${CO.mode === 'connect' ? ' on' : ''}" data-act="coConnectMode"${ed ? '' : ' disabled'}><span class="og-ico" style="background:var(--bg-3ba1e6);font-size:13px">⇢</span>${CO.mode === 'connect' ? (CO.conn ? 'Pick the second item…' : 'Pick the first item…') : 'Add Connection'}</button><span class="og-sep"></span><button class="og-tool" data-act="coDelete"${ed && (CO.sel || CO.selEdge) ? '' : ' disabled'}><span class="og-ico" style="background:var(--bg-f2994a);font-size:14px">✕</span>Delete selected</button><span style="flex:1"></span><span class="cap">${esc(OG_HINT[CO.view])}</span>${pal}</div>`;
     const modelling = `<section class="stack" style="gap:10px"><div><h2>2 · Modelling</h2><span class="cap">One model, several views of it. A change in one view appears in the others.</span></div><div class="card" style="overflow:visible"><div class="og-views" role="tablist">${OG_VIEWS.map(([k, l]) => `<button class="${CO.view === k ? 'on' : ''}" data-act="coView" data-arg="${k}">${l}</button>`).join('')}</div>${tools}<div class="og-wrap"><div style="min-width:0">${filt}${modelPick}<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button class="btn2 btn-s" data-act="vwOpen" data-arg="org">Enlarge view</button></div><div class="card" data-viewable="org" style="padding:6px;overflow:auto">${canvas}</div>${extra}<div class="og-legend">${legend}</div></div><aside class="card og-pad stack" style="position:sticky;top:16px;gap:8px">${side}</aside></div></div></section>`;
-    return head + clearPanel + (orgFrom() === '' ? orgModules() : '') + (CO.notice ? `<div class="note good" role="status" style="font-size:13px">${esc(CO.notice)}</div>` : '') + ogDescribe() + modelling + `<section class="og-two">${ogTable(ix)}${ogChecks(ix)}</section>` + ogLive(ix);
+    return head + clearPanel + hfBanner() + (orgFrom() === '' ? orgModules() : '') + (CO.notice ? `<div class="note good" role="status" style="font-size:13px">${esc(CO.notice)}</div>` : '') + ogDescribe() + modelling + `<section class="og-two">${ogTable(ix)}${ogChecks(ix)}</section>` + ogLive(ix);
   }
   SCREENS.organisation = organisation;
 

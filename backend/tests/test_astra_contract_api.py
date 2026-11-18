@@ -237,6 +237,55 @@ def test_a_probe_run_of_an_earlier_version_does_not_admit_the_next_signature():
         assert two.post(f"/api/agents/designs/{KEY}/sign", json={}).status_code == 201
 
 
+def hand(client):
+    got = client.get("/api/astra/handoffs")
+    assert got.status_code == 200, got.text
+    mine = [i for i in got.json()["items"] if i["design_key"] == KEY]
+    return got.json(), (mine[0] if mine else None)
+
+
+@with_key
+def test_the_handoff_notice_follows_the_design_from_the_preparer_to_the_signer_and_back():
+    with authed_client("admin", "Ada Admin") as ada, authed_client("compliance", "Haris Compliance") as haris, authed_client("engineer", "Eli Engineer") as eng:
+        approved(ada, haris)                                                      # Ada records the APPROVED assessment
+        top, item = hand(haris)
+        assert item["stage"] == "to_accept" and item["by"] == "Ada Admin" and item["for_you"] and not item["mine"] and top["for_you"] >= 1, item
+        top, item = hand(ada)
+        assert item["stage"] == "to_accept" and item["mine"] and not item["for_you"], "the person who recorded it cannot accept it, so it is waiting on someone else"
+        assert hand(eng)[1]["for_you"] is False, "an engineer cannot sign anything off"
+        assert haris.post(f"/api/agents/designs/{KEY}/baseline", json={}).status_code == 201
+        _, item = hand(haris)
+        assert item["stage"] == "to_sign" and item["by"] == "Haris Compliance" and item["for_you"] and item["blocker"] is None, item
+        _, item = hand(ada)
+        assert item["stage"] == "to_sign" and item["for_you"], "an administrator holds the sign-off permission too"
+        sid = haris.post(f"/api/agents/designs/{KEY}/sign", json={}).json()["id"]
+        for who in (ada, haris, eng):
+            _, item = hand(who)
+            assert item["stage"] == "signed" and item["by"] == "Haris Compliance" and item["version"] == "1.0.0" and item["contract_id"] == sid and not item["for_you"], item
+        assert hand(haris)[1]["mine"] and not hand(ada)[1]["mine"]
+        two = haris.post(f"/api/astra/contracts/{sid}/revoke", json={"reason": "The agent was retired."})
+        assert two.status_code == 200 and hand(ada)[1] is None, "a revoked contract leaves the notice"
+
+
+@with_key
+def test_the_handoff_notice_says_when_the_probe_still_has_to_pass_and_forgets_a_changed_design():
+    with authed_client("admin", "Ada Admin") as ada, authed_client("compliance", "Haris Compliance") as haris:
+        approved(ada, haris, probed=False)
+        assert haris.post(f"/api/agents/designs/{KEY}/baseline", json={}).status_code == 201
+        _, item = hand(haris)
+        assert item["stage"] == "to_sign" and item["blocker"] and "Probe" in item["blocker"], item
+        probe(ada)
+        assert hand(haris)[1]["blocker"] is None
+        with SessionLocal() as s:
+            d = s.scalar(select(Design).where(Design.design_key == KEY))
+            nd = doc()
+            nd["nodes"].append({"id": "t2", "type": "tool", "name": "lookup", "p": {}})
+            nd["edges"].append({"from": "a1", "to": "t2", "label": "uses"})
+            d.document, d.version = nd, d.version + 1
+            s.commit()
+        assert hand(haris)[1] is None, "the design changed, so nothing about the old one is waiting for anyone"
+
+
 if __name__ == "__main__":
     tests = [(name, fn) for name, fn in sorted(globals().items()) if name.startswith("test_") and callable(fn)]
     failed = 0

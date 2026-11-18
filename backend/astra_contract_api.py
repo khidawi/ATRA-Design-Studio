@@ -8,6 +8,7 @@ The accepted baseline and the signed behavioural contract of an agent design (AS
   GET  /api/astra/contracts/{id}/verify          is it valid right now, and if not, why
   POST /api/astra/contracts/{id}/revoke          revoke it with a reason (signoff)
   GET  /api/astra/signing                        whether a signing key is configured, its id and the retired key ids (never the key)
+  GET  /api/astra/handoffs                       which designs wait for a baseline or a signature, which of those are for the signed-in person, and which were signed lately
 
 Nothing here changes the legacy contracts of /api/contracts. Enforcing a signed contract at runtime is phase 6.
 """
@@ -27,8 +28,8 @@ import astra_contract_export as EX
 import astra_estate as AE
 import astra_signing as SG
 import audit
-from auth import AuthUser, current_user
-from db.models import Agent, AstraAssessment, AstraBaseline, AstraSignedContract, User
+from auth import AuthUser, current_user, has
+from db.models import Agent, AstraAssessment, AstraBaseline, AstraSignedContract, Design, User
 from db.session import get_session
 from organisation import current_organisation
 
@@ -240,6 +241,57 @@ def revoke_signed(contract_id: uuid.UUID, body: RevokeIn, session: Session = Dep
     session.commit()
     audit.record(user.name, user.role, "astra.revoke", detail={"id": str(row.id), "agent": row.agent_key, "reason": body.reason.strip()})
     return _public(row)
+
+
+HANDOFF_DAYS = 14                       # a signed contract stays in the "signed" notice for this long
+
+
+@router.get("/api/astra/handoffs")
+def handoffs(session: Session = Depends(get_session), user: AuthUser = Depends(current_user)) -> Dict[str, Any]:
+    """Where each agent design stands in the hand-over from the person who prepared it to the people who sign it, computed from what is stored (nothing new is kept):
+
+      to_accept   an APPROVED assessment of the design as it is now is recorded and nobody has accepted it as the baseline yet
+      to_sign     a baseline is accepted and no contract of this exact design is signed
+      signed      a contract of this exact design was signed within the last HANDOFF_DAYS days and is still active
+
+    `for_you` says the signed-in person is the one who can take the next step (sign-off permission, and for the baseline not the person who recorded the assessment);
+    `mine` says the signed-in person did the step before, so the item is waiting on someone else."""
+    org = current_organisation(session)
+    can_sign = has(user.role, "signoff")
+    since = _now() - timedelta(days=HANDOFF_DAYS)
+    items = []
+    for design in session.scalars(select(Design).where(Design.organisation_id == org.id, Design.subject == "AGENT").order_by(Design.updated_at.desc())):
+        dhash = AA._hash(design.document)
+        try:
+            agent = EX.contract_agent_id(AE._primary(design.document)["name"])
+        except Exception:                                        # a design with no primary agent cannot be handed over
+            continue
+        signed = session.scalar(select(AstraSignedContract).where(AstraSignedContract.organisation_id == org.id, AstraSignedContract.design_key == design.design_key,
+                                                                  AstraSignedContract.design_hash == dhash)
+                                .order_by(AstraSignedContract.signed_at.desc()).limit(1))
+        row = {"design_key": design.design_key, "name": design.name, "agent": agent, "blocker": None, "version": None, "contract_id": None}
+        if signed is not None:                                   # a contract was already issued for this exact design: it is not waiting for anyone, even if it was revoked since
+            if signed.status == "ACTIVE" and signed.signed_at >= since:
+                items.append({**row, "stage": "signed", "by": signed.signed_by, "at": signed.signed_at.isoformat(), "version": signed.version, "contract_id": str(signed.id),
+                              "for_you": False, "mine": signed.signed_by == user.name})
+            continue
+        base = _baseline(session, design.design_key, dhash)
+        if base is not None:
+            blocker = None
+            try:
+                import astra_probe_api                           # lazily: that module imports this one
+                adm = astra_probe_api.admission_for(session, design)
+                if not adm["admit"]:
+                    blocker = "The Probe has to pass on this exact version before it can be signed. " + " ".join(adm["reasons"])
+            except Exception:
+                log.exception("the Probe admission could not be read for %s", design.design_key)
+            items.append({**row, "stage": "to_sign", "by": base.accepted_by, "at": base.created_at.isoformat(), "for_you": can_sign, "mine": base.accepted_by == user.name, "blocker": blocker})
+            continue
+        last = _latest_assessment(session, design.design_key)
+        if last is not None and last.design_hash == dhash and last.verdict == "APPROVED":
+            items.append({**row, "stage": "to_accept", "by": last.created_by, "at": last.created_at.isoformat(), "for_you": can_sign and last.created_by != user.name,
+                          "mine": last.created_by == user.name})
+    return {"me": user.name, "can_sign": can_sign, "items": items, "for_you": sum(1 for i in items if i["for_you"]), "days": HANDOFF_DAYS}
 
 
 @router.get("/api/astra/signing")
