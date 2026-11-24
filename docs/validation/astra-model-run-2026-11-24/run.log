@@ -1,0 +1,58 @@
+== Properties (intended semantics, no planted defect) ==
+PASS  P1 gate is monotone in the control statuses  [21089 checks; 0 violations]
+PASS  P2 learned evidence can only tighten  [4675 checks; 0 violations]
+PASS  P3 an event with a missing attribute never conforms  [66 checks; 0 events conformed with a required attribute missing]
+PASS  P4 gate is fail-closed (violated, unverified)  [4775 checks; 0 violations]
+PASS  P5 every class fires on its planted defect and not on its boundary case  [44 checks; 22 classes; failing: []]
+PASS  P6 narrowing a capability never lowers the verdict  [400 checks; 0 violations]
+PASS  P7 expired evidence is unverified  [350 checks; 0 violations]
+PASS  P8 contract validity and INVALID_CONTRACT precedence  [57 checks; 50 leaves; 0 violations]
+PASS  P9 a failed Probe scenario sets the control to violated  [287 checks; 0 violations]
+PASS  P10 delegation chains respect the depth bound  [2284 checks; 0 chains longer than the depth bound]
+
+== Planted defects: does some property fail? ==
+killed  ignore_unv               the gate treats UNV as satisfied                           by P4,P7
+killed  vio_tolerated            a violated control below the tolerance is approved         by P4
+killed  learned_supportive       a learned detector can raise a control to SAT              by P2
+killed  ignore_missing           a missing attribute is ignored                             by P3
+killed  ignore_expiry            evidence expiry is ignored                                 by P7,P9
+killed  ignore_depth             the delegation depth bound is ignored                      by P10
+killed  off_by_one_bound         parameter bounds are exclusive instead of inclusive        by P3,P5
+killed  drop_class_spawn         DVG-SPAWN-01 never fires                                   by P5
+killed  semantic_deterministic   a semantic class is treated as deterministic               by P5
+killed  hitl_bypass              DVG-AUT-02 never fires                                     by P5
+killed  skip_signature           the contract signature is not checked                      by P8
+killed  invalid_not_top          INVALID_CONTRACT is shadowed by BLOCKED                    by P8
+killed  probe_fail_ignored       a failed Probe scenario is ignored                         by P9
+killed  narrowing_noop           narrowing does not remove the capability                   by P6
+14/14 planted defects detected
+
+== Reference model vs the existing prototype reconciler (overlap: 5 event kinds) ==
+5000/5000 cases agree; 0 disagreements
+
+== ASTRA Probe scenarios (one per class) against the prototype reconciler ==
+DVG-GOAL-01    semantic      no event type in prototype
+DVG-GOAL-02    semantic      no event type in prototype
+DVG-TOOL-01    policy        detected
+DVG-TOOL-02    policy        no event type in prototype
+DVG-TOOL-03    policy        no event type in prototype
+DVG-EXEC-01    policy        no event type in prototype
+DVG-RES-01     policy        detected
+DVG-MEM-01     policy        detected
+DVG-MEM-02     policy        no event type in prototype
+DVG-DEL-01     policy        detected
+DVG-DEL-02     policy        no event type in prototype
+DVG-DEL-03     policy        no event type in prototype
+DVG-COMM-01    cryptographic no event type in prototype
+DVG-AUT-01     policy        no event type in prototype
+DVG-AUT-02     policy        no event type in prototype
+DVG-AUT-03     policy        no event type in prototype
+DVG-ID-01      policy        no event type in prototype
+DVG-LIFE-01    policy        no event type in prototype
+DVG-BASE-01    baseline      no event type in prototype
+DVG-SPAWN-01   policy        no event type in prototype
+DVG-SUP-01     cryptographic detected
+DVG-SUP-02     policy        detected
+prototype detects 6 of 22 classes; 6 of 19 deterministic classes
+
+classes in the model: 22; elapsed 40.6s

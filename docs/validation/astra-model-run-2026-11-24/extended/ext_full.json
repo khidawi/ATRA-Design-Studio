@@ -1,0 +1,116 @@
+[
+ {
+  "name": "E1 exhaustive gate",
+  "ok": true,
+  "counts": {
+   "estates": 120,
+   "assignments": 272160,
+   "gate_calls": 1607040
+  },
+  "violations": {
+   "oracle": 0,
+   "monotone": 0,
+   "failclosed": 0,
+   "na_as_sat": 0,
+   "empty_is_unv": 0,
+   "invalid_top": 0,
+   "risk": 0
+  },
+  "seconds": 27.4
+ },
+ {
+  "name": "E2 evidence order and monotone trajectory",
+  "ok": true,
+  "counts": {
+   "multisets": 250,
+   "orderings": 11280,
+   "steps": 53304,
+   "purity": 150
+  },
+  "violations": {
+   "raised": 0,
+   "order": 0,
+   "repeat": 0,
+   "impure": 0
+  },
+  "seconds": 3.7
+ },
+ {
+  "name": "E3 attack paths against an independent search",
+  "ok": true,
+  "counts": {
+   "estates": 1200,
+   "paths": 15125,
+   "required": 15125,
+   "longest_chain": 5
+  },
+  "violations": {
+   "path_set": 0,
+   "duplicates": 0,
+   "count": 0,
+   "limit": 0,
+   "required": 0,
+   "chain_repeats": 0,
+   "depth": 0
+  },
+  "seconds": 0.6
+ },
+ {
+  "name": "E4 contract signature and validity",
+  "ok": true,
+  "counts": {
+   "field_edits": 50,
+   "structure_edits": 51,
+   "hex_flips": 192,
+   "header_edits": 5,
+   "malformed": 33,
+   "window": 5
+  },
+  "violations": {
+   "baseline": 0,
+   "field_edit": 0,
+   "structure": 0,
+   "sig_flip": 0,
+   "hash_flip": 0,
+   "header": 0,
+   "status": 0,
+   "window": 0,
+   "key": 0,
+   "malformed": 0,
+   "canonical": 0,
+   "raised": 0
+  },
+  "seconds": 0.1
+ },
+ {
+  "name": "E5 learned evidence only tightens",
+  "ok": true,
+  "counts": {
+   "cases": 40
+  },
+  "violations": {
+   "raised": 0,
+   "sat": 0,
+   "vio": 0,
+   "others": 0,
+   "below": 0
+  },
+  "seconds": 0.0
+ },
+ {
+  "name": "E6 boundaries",
+  "ok": true,
+  "counts": {
+   "cases": 19
+  },
+  "violations": {
+   "expiry": 0,
+   "default_now": 0,
+   "threshold": 0,
+   "depth_cap": 0,
+   "encoding": 0,
+   "malformed_signed": 0
+  },
+  "seconds": 0.0
+ }
+]

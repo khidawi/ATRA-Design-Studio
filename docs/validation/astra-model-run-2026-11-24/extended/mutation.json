@@ -1,0 +1,922 @@
+[
+ {
+  "file": "gate.py",
+  "line": 32,
+  "mutation": "2 -> 3",
+  "killed": true,
+  "by": [
+   "e1",
+   "e6"
+  ],
+  "seconds": 3.9
+ },
+ {
+  "file": "gate.py",
+  "line": 32,
+  "mutation": "0 -> 1",
+  "killed": true,
+  "by": [
+   "e1",
+   "e6"
+  ],
+  "seconds": 4.1
+ },
+ {
+  "file": "gate.py",
+  "line": 31,
+  "mutation": "1 -> 2",
+  "killed": true,
+  "by": [
+   "e1"
+  ],
+  "seconds": 4.4
+ },
+ {
+  "file": "gate.py",
+  "line": 31,
+  "mutation": "2 -> 3",
+  "killed": true,
+  "by": [
+   "e1",
+   "e6"
+  ],
+  "seconds": 4.8
+ },
+ {
+  "file": "gate.py",
+  "line": 40,
+  "mutation": "True flipped",
+  "killed": true,
+  "by": [
+   "E1",
+   "E6"
+  ],
+  "seconds": 11.0
+ },
+ {
+  "file": "gate.py",
+  "line": 41,
+  "mutation": "not removed",
+  "killed": true,
+  "by": [
+   "E1",
+   "E6"
+  ],
+  "seconds": 11.5
+ },
+ {
+  "file": "gate.py",
+  "line": 36,
+  "mutation": "Gt -> GtE",
+  "killed": true,
+  "by": [
+   "E1"
+  ],
+  "seconds": 16.6
+ },
+ {
+  "file": "gate.py",
+  "line": 36,
+  "mutation": "Gt -> Lt",
+  "killed": true,
+  "by": [
+   "E1"
+  ],
+  "seconds": 16.6
+ },
+ {
+  "file": "gate.py",
+  "line": 24,
+  "mutation": "0 -> 1",
+  "killed": true,
+  "by": [
+   "E1"
+  ],
+  "seconds": 17.7
+ },
+ {
+  "file": "gate.py",
+  "line": 24,
+  "mutation": "3 -> 4",
+  "killed": true,
+  "by": [
+   "E1",
+   "E6"
+  ],
+  "seconds": 18.2
+ },
+ {
+  "file": "gate.py",
+  "line": 34,
+  "mutation": "Gt -> Lt",
+  "killed": true,
+  "by": [
+   "E1"
+  ],
+  "seconds": 18.1
+ },
+ {
+  "file": "gate.py",
+  "line": 24,
+  "mutation": "1 -> 2",
+  "killed": true,
+  "by": [
+   "E1"
+  ],
+  "seconds": 18.6
+ },
+ {
+  "file": "gate.py",
+  "line": 40,
+  "mutation": "0 -> 1",
+  "killed": true,
+  "by": [
+   "E6"
+  ],
+  "seconds": 18.9
+ },
+ {
+  "file": "gate.py",
+  "line": 34,
+  "mutation": "Gt -> GtE",
+  "killed": true,
+  "by": [
+   "E1"
+  ],
+  "seconds": 20.2
+ },
+ {
+  "file": "gate.py",
+  "line": 33,
+  "mutation": "In -> NotIn",
+  "killed": true,
+  "by": [
+   "E1",
+   "E6"
+  ],
+  "seconds": 20.2
+ },
+ {
+  "file": "gate.py",
+  "line": 51,
+  "mutation": "2 -> 3",
+  "killed": true,
+  "by": [
+   "e1"
+  ],
+  "seconds": 4.3
+ },
+ {
+  "file": "gate.py",
+  "line": 35,
+  "mutation": "In -> NotIn",
+  "killed": true,
+  "by": [
+   "E1",
+   "E6"
+  ],
+  "seconds": 21.5
+ },
+ {
+  "file": "gate.py",
+  "line": 24,
+  "mutation": "2 -> 3",
+  "killed": true,
+  "by": [
+   "E1"
+  ],
+  "seconds": 22.7
+ },
+ {
+  "file": "gate.py",
+  "line": 43,
+  "mutation": "Or swapped",
+  "killed": true,
+  "by": [
+   "E1"
+  ],
+  "seconds": 21.2
+ },
+ {
+  "file": "gate.py",
+  "line": 46,
+  "mutation": "0 -> 1",
+  "killed": true,
+  "by": [
+   "E6"
+  ],
+  "seconds": 21.9
+ },
+ {
+  "file": "gate.py",
+  "line": 48,
+  "mutation": "0 -> 1",
+  "killed": true,
+  "by": [
+   "E1",
+   "E6"
+  ],
+  "seconds": 18.9
+ },
+ {
+  "file": "gate.py",
+  "line": 50,
+  "mutation": "NotIn -> In",
+  "killed": true,
+  "by": [
+   "E1",
+   "E6"
+  ],
+  "seconds": 20.0
+ },
+ {
+  "file": "statuses.py",
+  "line": 13,
+  "mutation": "1 -> 2",
+  "killed": true,
+  "by": [
+   "E6"
+  ],
+  "seconds": 18.0
+ },
+ {
+  "file": "gate.py",
+  "line": 50,
+  "mutation": "any -> all",
+  "killed": true,
+  "by": [
+   "E1"
+  ],
+  "seconds": 20.2
+ },
+ {
+  "file": "gate.py",
+  "line": 52,
+  "mutation": "max -> min",
+  "killed": true,
+  "by": [
+   "E1"
+  ],
+  "seconds": 21.0
+ },
+ {
+  "file": "statuses.py",
+  "line": 31,
+  "mutation": "0 -> 1",
+  "killed": true,
+  "by": [
+   "E6"
+  ],
+  "seconds": 20.3
+ },
+ {
+  "file": "statuses.py",
+  "line": 33,
+  "mutation": "And swapped",
+  "killed": true,
+  "by": [
+   "E1",
+   "E6"
+  ],
+  "seconds": 17.8
+ },
+ {
+  "file": "statuses.py",
+  "line": 33,
+  "mutation": "Gt -> Lt",
+  "killed": true,
+  "by": [
+   "E1",
+   "E6"
+  ],
+  "seconds": 18.9
+ },
+ {
+  "file": "statuses.py",
+  "line": 33,
+  "mutation": "Gt -> GtE",
+  "killed": true,
+  "by": [
+   "E6"
+  ],
+  "seconds": 20.1
+ },
+ {
+  "file": "statuses.py",
+  "line": 33,
+  "mutation": "Eq -> NotEq",
+  "killed": true,
+  "by": [
+   "E6"
+  ],
+  "seconds": 20.2
+ },
+ {
+  "file": "statuses.py",
+  "line": 44,
+  "mutation": "NotIn -> In",
+  "killed": true,
+  "by": [
+   "e2",
+   "e5",
+   "e6"
+  ],
+  "seconds": 17.3
+ },
+ {
+  "file": "statuses.py",
+  "line": 39,
+  "mutation": "LtE -> Gt",
+  "killed": true,
+  "by": [
+   "E5",
+   "E6"
+  ],
+  "seconds": 18.2
+ },
+ {
+  "file": "exposure.py",
+  "line": 26,
+  "mutation": "1 -> 2",
+  "killed": true,
+  "by": [
+   "e1",
+   "e2",
+   "e3",
+   "e6"
+  ],
+  "seconds": 3.2
+ },
+ {
+  "file": "exposure.py",
+  "line": 27,
+  "mutation": "NotIn -> In",
+  "killed": true,
+  "by": [
+   "E3",
+   "E6"
+  ],
+  "seconds": 5.1
+ },
+ {
+  "file": "statuses.py",
+  "line": 47,
+  "mutation": "Eq -> NotEq",
+  "killed": true,
+  "by": [
+   "E2",
+   "e5"
+  ],
+  "seconds": 19.4
+ },
+ {
+  "file": "exposure.py",
+  "line": 27,
+  "mutation": "In -> NotIn",
+  "killed": true,
+  "by": [
+   "e3",
+   "E6"
+  ],
+  "seconds": 6.6
+ },
+ {
+  "file": "exposure.py",
+  "line": 28,
+  "mutation": "+ and - swapped",
+  "killed": true,
+  "by": [
+   "e1",
+   "e2",
+   "e3",
+   "e6"
+  ],
+  "seconds": 4.7
+ },
+ {
+  "file": "exposure.py",
+  "line": 17,
+  "mutation": "4 -> 5",
+  "killed": true,
+  "by": [
+   "E6"
+  ],
+  "seconds": 17.2
+ },
+ {
+  "file": "statuses.py",
+  "line": 72,
+  "mutation": "GtE -> Gt",
+  "killed": true,
+  "by": [
+   "E6"
+  ],
+  "seconds": 19.7
+ },
+ {
+  "file": "exposure.py",
+  "line": 51,
+  "mutation": "1 -> 2",
+  "killed": true,
+  "by": [
+   "e1",
+   "e2",
+   "e3",
+   "e6"
+  ],
+  "seconds": 3.7
+ },
+ {
+  "file": "statuses.py",
+  "line": 72,
+  "mutation": "GtE -> Lt",
+  "killed": true,
+  "by": [
+   "E5",
+   "E6"
+  ],
+  "seconds": 20.1
+ },
+ {
+  "file": "exposure.py",
+  "line": 53,
+  "mutation": "In -> NotIn",
+  "killed": true,
+  "by": [
+   "E3",
+   "E6"
+  ],
+  "seconds": 2.9
+ },
+ {
+  "file": "exposure.py",
+  "line": 27,
+  "mutation": "And swapped",
+  "killed": true,
+  "by": [
+   "e3"
+  ],
+  "seconds": 16.4
+ },
+ {
+  "file": "exposure.py",
+  "line": 23,
+  "mutation": "min -> max",
+  "killed": true,
+  "by": [
+   "E3",
+   "E6"
+  ],
+  "seconds": 19.6
+ },
+ {
+  "file": "exposure.py",
+  "line": 61,
+  "mutation": "0 -> 1",
+  "killed": true,
+  "by": [
+   "e1",
+   "e2",
+   "e3",
+   "e6"
+  ],
+  "seconds": 2.7
+ },
+ {
+  "file": "exposure.py",
+  "line": 73,
+  "mutation": "1 -> 2",
+  "killed": true,
+  "by": [
+   "e1",
+   "e2",
+   "e3",
+   "e6"
+  ],
+  "seconds": 2.2
+ },
+ {
+  "file": "exposure.py",
+  "line": 36,
+  "mutation": "0 -> 1",
+  "killed": true,
+  "by": [
+   "E3",
+   "E6"
+  ],
+  "seconds": 18.0
+ },
+ {
+  "file": "exposure.py",
+  "line": 69,
+  "mutation": "1 -> 2",
+  "killed": true,
+  "by": [
+   "E3"
+  ],
+  "seconds": 7.0
+ },
+ {
+  "file": "exposure.py",
+  "line": 40,
+  "mutation": "1 -> 2",
+  "killed": true,
+  "by": [
+   "E3",
+   "E6"
+  ],
+  "seconds": 20.5
+ },
+ {
+  "file": "exposure.py",
+  "line": 40,
+  "mutation": "In -> NotIn",
+  "killed": true,
+  "by": [
+   "E3",
+   "E6"
+  ],
+  "seconds": 18.5
+ },
+ {
+  "file": "exposure.py",
+  "line": 40,
+  "mutation": "1 -> 2",
+  "killed": true,
+  "by": [
+   "e3",
+   "e6"
+  ],
+  "seconds": 19.1
+ },
+ {
+  "file": "exposure.py",
+  "line": 42,
+  "mutation": "1 -> 2",
+  "killed": true,
+  "by": [
+   "E3"
+  ],
+  "seconds": 18.4
+ },
+ {
+  "file": "exposure.py",
+  "line": 41,
+  "mutation": "Gt -> Lt",
+  "killed": true,
+  "by": [
+   "E3",
+   "E6"
+  ],
+  "seconds": 19.0
+ },
+ {
+  "file": "exposure.py",
+  "line": 41,
+  "mutation": "Gt -> GtE",
+  "killed": true,
+  "by": [
+   "E3"
+  ],
+  "seconds": 19.9
+ },
+ {
+  "file": "exposure.py",
+  "line": 75,
+  "mutation": "Eq -> NotEq",
+  "killed": true,
+  "by": [
+   "E3"
+  ],
+  "seconds": 11.0
+ },
+ {
+  "file": "exposure.py",
+  "line": 75,
+  "mutation": "GtE -> Gt",
+  "killed": true,
+  "by": [
+   "E3"
+  ],
+  "seconds": 9.8
+ },
+ {
+  "file": "exposure.py",
+  "line": 75,
+  "mutation": "3 -> 4",
+  "killed": true,
+  "by": [
+   "E3"
+  ],
+  "seconds": 11.9
+ },
+ {
+  "file": "exposure.py",
+  "line": 77,
+  "mutation": "Eq -> NotEq",
+  "killed": true,
+  "by": [
+   "E3"
+  ],
+  "seconds": 11.7
+ },
+ {
+  "file": "exposure.py",
+  "line": 42,
+  "mutation": "+ and - swapped",
+  "killed": true,
+  "by": [
+   "E3"
+  ],
+  "seconds": 19.1
+ },
+ {
+  "file": "exposure.py",
+  "line": 75,
+  "mutation": "GtE -> Lt",
+  "killed": true,
+  "by": [
+   "E3"
+  ],
+  "seconds": 17.5
+ },
+ {
+  "file": "contract.py",
+  "line": 37,
+  "mutation": "True flipped",
+  "killed": true,
+  "by": [
+   "E4"
+  ],
+  "seconds": 19.3
+ },
+ {
+  "file": "contract.py",
+  "line": 37,
+  "mutation": "False flipped",
+  "killed": true,
+  "by": [
+   "E6"
+  ],
+  "seconds": 19.0
+ },
+ {
+  "file": "contract.py",
+  "line": 58,
+  "mutation": "Is -> IsNot",
+  "killed": true,
+  "by": [
+   "E4",
+   "E6"
+  ],
+  "seconds": 18.2
+ },
+ {
+  "file": "contract.py",
+  "line": 62,
+  "mutation": "False flipped",
+  "killed": true,
+  "by": [
+   "E4"
+  ],
+  "seconds": 16.5
+ },
+ {
+  "file": "contract.py",
+  "line": 59,
+  "mutation": "False flipped",
+  "killed": true,
+  "by": [
+   "E4",
+   "E6"
+  ],
+  "seconds": 18.5
+ },
+ {
+  "file": "contract.py",
+  "line": 58,
+  "mutation": "Or swapped",
+  "killed": true,
+  "by": [
+   "E6"
+  ],
+  "seconds": 19.1
+ },
+ {
+  "file": "contract.py",
+  "line": 61,
+  "mutation": "not removed",
+  "killed": true,
+  "by": [
+   "E4",
+   "E6"
+  ],
+  "seconds": 17.7
+ },
+ {
+  "file": "contract.py",
+  "line": 58,
+  "mutation": "NotIn -> In",
+  "killed": true,
+  "by": [
+   "E4",
+   "E6"
+  ],
+  "seconds": 21.0
+ },
+ {
+  "file": "contract.py",
+  "line": 65,
+  "mutation": "False flipped",
+  "killed": true,
+  "by": [
+   "E4"
+  ],
+  "seconds": 17.0
+ },
+ {
+  "file": "exposure.py",
+  "line": 75,
+  "mutation": "And swapped",
+  "killed": true,
+  "by": [
+   "E3"
+  ],
+  "seconds": 27.1
+ },
+ {
+  "file": "contract.py",
+  "line": 64,
+  "mutation": "Is -> IsNot",
+  "killed": true,
+  "by": [
+   "E4",
+   "E6"
+  ],
+  "seconds": 19.3
+ },
+ {
+  "file": "contract.py",
+  "line": 69,
+  "mutation": "False flipped",
+  "killed": true,
+  "by": [
+   "E4"
+  ],
+  "seconds": 18.5
+ },
+ {
+  "file": "contract.py",
+  "line": 70,
+  "mutation": "Eq -> NotEq",
+  "killed": true,
+  "by": [
+   "E4",
+   "E6"
+  ],
+  "seconds": 16.6
+ },
+ {
+  "file": "contract.py",
+  "line": 70,
+  "mutation": "LtE -> Lt",
+  "killed": true,
+  "by": [
+   "E4"
+  ],
+  "seconds": 16.7
+ },
+ {
+  "file": "contract.py",
+  "line": 70,
+  "mutation": "LtE -> Gt",
+  "killed": true,
+  "by": [
+   "E4",
+   "E6"
+  ],
+  "seconds": 16.3
+ },
+ {
+  "file": "contract.py",
+  "line": 70,
+  "mutation": "LtE -> Lt",
+  "killed": true,
+  "by": [
+   "E4"
+  ],
+  "seconds": 13.2
+ },
+ {
+  "file": "contract.py",
+  "line": 70,
+  "mutation": "LtE -> Gt",
+  "killed": true,
+  "by": [
+   "E4",
+   "E6"
+  ],
+  "seconds": 10.4
+ },
+ {
+  "file": "contract.py",
+  "line": 70,
+  "mutation": "And swapped",
+  "killed": true,
+  "by": [
+   "E4"
+  ],
+  "seconds": 10.0
+ },
+ {
+  "file": "contract.py",
+  "line": 72,
+  "mutation": "False flipped",
+  "killed": true,
+  "by": [
+   "E4"
+  ],
+  "seconds": 8.4
+ },
+ {
+  "file": "gate.py",
+  "line": 43,
+  "mutation": "min -> max",
+  "killed": false,
+  "by": [],
+  "seconds": 20.6,
+  "killed_by_existing": true
+ },
+ {
+  "file": "statuses.py",
+  "line": 13,
+  "mutation": "0 -> 1",
+  "killed": false,
+  "by": [],
+  "seconds": 19.1,
+  "killed_by_existing": true
+ },
+ {
+  "file": "statuses.py",
+  "line": 13,
+  "mutation": "2 -> 3",
+  "killed": false,
+  "by": [],
+  "seconds": 19.7,
+  "killed_by_existing": false
+ },
+ {
+  "file": "statuses.py",
+  "line": 39,
+  "mutation": "LtE -> Lt",
+  "killed": false,
+  "by": [],
+  "seconds": 20.5,
+  "killed_by_existing": false
+ },
+ {
+  "file": "statuses.py",
+  "line": 56,
+  "mutation": "NotIn -> In",
+  "killed": false,
+  "by": [],
+  "seconds": 18.4,
+  "killed_by_existing": true
+ },
+ {
+  "file": "statuses.py",
+  "line": 64,
+  "mutation": "not removed",
+  "killed": false,
+  "by": [],
+  "seconds": 16.0,
+  "killed_by_existing": true
+ },
+ {
+  "file": "statuses.py",
+  "line": 64,
+  "mutation": "not removed",
+  "killed": false,
+  "by": [],
+  "seconds": 17.7,
+  "killed_by_existing": true
+ },
+ {
+  "file": "statuses.py",
+  "line": 59,
+  "mutation": "+ and - swapped",
+  "killed": false,
+  "by": [],
+  "seconds": 20.0,
+  "killed_by_existing": true
+ },
+ {
+  "file": "statuses.py",
+  "line": 64,
+  "mutation": "Or swapped",
+  "killed": false,
+  "by": [],
+  "seconds": 19.0,
+  "killed_by_existing": true
+ }
+]

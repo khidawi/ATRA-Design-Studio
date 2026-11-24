@@ -1,0 +1,347 @@
+{
+ "properties": {
+  "P1 gate is monotone in the control statuses": {
+   "ok": true,
+   "checks": 21089,
+   "detail": "0 violations"
+  },
+  "P2 learned evidence can only tighten": {
+   "ok": true,
+   "checks": 4675,
+   "detail": "0 violations"
+  },
+  "P3 an event with a missing attribute never conforms": {
+   "ok": true,
+   "checks": 66,
+   "detail": "0 events conformed with a required attribute missing"
+  },
+  "P4 gate is fail-closed (violated, unverified)": {
+   "ok": true,
+   "checks": 4775,
+   "detail": "0 violations"
+  },
+  "P5 every class fires on its planted defect and not on its boundary case": {
+   "ok": true,
+   "checks": 44,
+   "detail": "22 classes; failing: []"
+  },
+  "P6 narrowing a capability never lowers the verdict": {
+   "ok": true,
+   "checks": 400,
+   "detail": "0 violations"
+  },
+  "P7 expired evidence is unverified": {
+   "ok": true,
+   "checks": 350,
+   "detail": "0 violations"
+  },
+  "P8 contract validity and INVALID_CONTRACT precedence": {
+   "ok": true,
+   "checks": 57,
+   "detail": "50 leaves; 0 violations"
+  },
+  "P9 a failed Probe scenario sets the control to violated": {
+   "ok": true,
+   "checks": 287,
+   "detail": "0 violations"
+  },
+  "P10 delegation chains respect the depth bound": {
+   "ok": true,
+   "checks": 2284,
+   "detail": "0 chains longer than the depth bound"
+  }
+ },
+ "defects": [
+  {
+   "defect": "ignore_unv",
+   "description": "the gate treats UNV as satisfied",
+   "killed": true,
+   "by": [
+    "P4",
+    "P7"
+   ]
+  },
+  {
+   "defect": "vio_tolerated",
+   "description": "a violated control below the tolerance is approved",
+   "killed": true,
+   "by": [
+    "P4"
+   ]
+  },
+  {
+   "defect": "learned_supportive",
+   "description": "a learned detector can raise a control to SAT",
+   "killed": true,
+   "by": [
+    "P2"
+   ]
+  },
+  {
+   "defect": "ignore_missing",
+   "description": "a missing attribute is ignored",
+   "killed": true,
+   "by": [
+    "P3"
+   ]
+  },
+  {
+   "defect": "ignore_expiry",
+   "description": "evidence expiry is ignored",
+   "killed": true,
+   "by": [
+    "P7",
+    "P9"
+   ]
+  },
+  {
+   "defect": "ignore_depth",
+   "description": "the delegation depth bound is ignored",
+   "killed": true,
+   "by": [
+    "P10"
+   ]
+  },
+  {
+   "defect": "off_by_one_bound",
+   "description": "parameter bounds are exclusive instead of inclusive",
+   "killed": true,
+   "by": [
+    "P3",
+    "P5"
+   ]
+  },
+  {
+   "defect": "drop_class_spawn",
+   "description": "DVG-SPAWN-01 never fires",
+   "killed": true,
+   "by": [
+    "P5"
+   ]
+  },
+  {
+   "defect": "semantic_deterministic",
+   "description": "a semantic class is treated as deterministic",
+   "killed": true,
+   "by": [
+    "P5"
+   ]
+  },
+  {
+   "defect": "hitl_bypass",
+   "description": "DVG-AUT-02 never fires",
+   "killed": true,
+   "by": [
+    "P5"
+   ]
+  },
+  {
+   "defect": "skip_signature",
+   "description": "the contract signature is not checked",
+   "killed": true,
+   "by": [
+    "P8"
+   ]
+  },
+  {
+   "defect": "invalid_not_top",
+   "description": "INVALID_CONTRACT is shadowed by BLOCKED",
+   "killed": true,
+   "by": [
+    "P8"
+   ]
+  },
+  {
+   "defect": "probe_fail_ignored",
+   "description": "a failed Probe scenario is ignored",
+   "killed": true,
+   "by": [
+    "P9"
+   ]
+  },
+  {
+   "defect": "narrowing_noop",
+   "description": "narrowing does not remove the capability",
+   "killed": true,
+   "by": [
+    "P6"
+   ]
+  }
+ ],
+ "differential": {
+  "cases": 5000,
+  "agree": 5000,
+  "mismatches": [],
+  "n_mismatch": 0
+ },
+ "prototype_gap": {
+  "rows": [
+   {
+    "cls": "DVG-GOAL-01",
+    "basis": "semantic",
+    "representable": false,
+    "detected": false,
+    "false_positive": false
+   },
+   {
+    "cls": "DVG-GOAL-02",
+    "basis": "semantic",
+    "representable": false,
+    "detected": false,
+    "false_positive": false
+   },
+   {
+    "cls": "DVG-TOOL-01",
+    "basis": "policy",
+    "representable": true,
+    "detected": true,
+    "false_positive": false
+   },
+   {
+    "cls": "DVG-TOOL-02",
+    "basis": "policy",
+    "representable": false,
+    "detected": false,
+    "false_positive": false
+   },
+   {
+    "cls": "DVG-TOOL-03",
+    "basis": "policy",
+    "representable": false,
+    "detected": false,
+    "false_positive": false
+   },
+   {
+    "cls": "DVG-EXEC-01",
+    "basis": "policy",
+    "representable": false,
+    "detected": false,
+    "false_positive": false
+   },
+   {
+    "cls": "DVG-RES-01",
+    "basis": "policy",
+    "representable": true,
+    "detected": true,
+    "false_positive": false
+   },
+   {
+    "cls": "DVG-MEM-01",
+    "basis": "policy",
+    "representable": true,
+    "detected": true,
+    "false_positive": false
+   },
+   {
+    "cls": "DVG-MEM-02",
+    "basis": "policy",
+    "representable": false,
+    "detected": false,
+    "false_positive": false
+   },
+   {
+    "cls": "DVG-DEL-01",
+    "basis": "policy",
+    "representable": true,
+    "detected": true,
+    "false_positive": false
+   },
+   {
+    "cls": "DVG-DEL-02",
+    "basis": "policy",
+    "representable": false,
+    "detected": false,
+    "false_positive": false
+   },
+   {
+    "cls": "DVG-DEL-03",
+    "basis": "policy",
+    "representable": false,
+    "detected": false,
+    "false_positive": false
+   },
+   {
+    "cls": "DVG-COMM-01",
+    "basis": "cryptographic",
+    "representable": false,
+    "detected": false,
+    "false_positive": false
+   },
+   {
+    "cls": "DVG-AUT-01",
+    "basis": "policy",
+    "representable": false,
+    "detected": false,
+    "false_positive": false
+   },
+   {
+    "cls": "DVG-AUT-02",
+    "basis": "policy",
+    "representable": false,
+    "detected": false,
+    "false_positive": false
+   },
+   {
+    "cls": "DVG-AUT-03",
+    "basis": "policy",
+    "representable": false,
+    "detected": false,
+    "false_positive": false
+   },
+   {
+    "cls": "DVG-ID-01",
+    "basis": "policy",
+    "representable": false,
+    "detected": false,
+    "false_positive": false
+   },
+   {
+    "cls": "DVG-LIFE-01",
+    "basis": "policy",
+    "representable": false,
+    "detected": false,
+    "false_positive": false
+   },
+   {
+    "cls": "DVG-BASE-01",
+    "basis": "baseline",
+    "representable": false,
+    "detected": false,
+    "false_positive": false
+   },
+   {
+    "cls": "DVG-SPAWN-01",
+    "basis": "policy",
+    "representable": false,
+    "detected": false,
+    "false_positive": false
+   },
+   {
+    "cls": "DVG-SUP-01",
+    "basis": "cryptographic",
+    "representable": true,
+    "detected": true,
+    "false_positive": false
+   },
+   {
+    "cls": "DVG-SUP-02",
+    "basis": "policy",
+    "representable": true,
+    "detected": true,
+    "false_positive": false
+   }
+  ],
+  "detected": 6,
+  "detected_classes": [
+   "DVG-TOOL-01",
+   "DVG-RES-01",
+   "DVG-MEM-01",
+   "DVG-DEL-01",
+   "DVG-SUP-01",
+   "DVG-SUP-02"
+  ],
+  "total": 22,
+  "deterministic_total": 19,
+  "deterministic_detected": 6
+ }
+}

@@ -1,0 +1,126 @@
+SURVIVED exposure.py:40 In -> NotIn []
+SURVIVED exposure.py:61 0 -> 1 []
+SURVIVED exposure.py:69 1 -> 2 []
+SURVIVED exposure.py:51 1 -> 2 []
+SURVIVED exposure.py:53 In -> NotIn []
+SURVIVED exposure.py:73 1 -> 2 []
+SURVIVED contract.py:37 False flipped []
+SURVIVED exposure.py:75 3 -> 4 []
+SURVIVED exposure.py:75 Eq -> NotEq []
+SURVIVED exposure.py:75 GtE -> Gt []
+SURVIVED exposure.py:75 GtE -> Lt []
+SURVIVED exposure.py:75 And swapped []
+SURVIVED contract.py:58 NotIn -> In []
+SURVIVED contract.py:58 Is -> IsNot []
+SURVIVED contract.py:37 True flipped []
+SURVIVED exposure.py:77 Eq -> NotEq []
+SURVIVED contract.py:61 not removed []
+SURVIVED contract.py:62 False flipped []
+SURVIVED contract.py:58 Or swapped []
+SURVIVED contract.py:64 Is -> IsNot []
+SURVIVED contract.py:59 False flipped []
+SURVIVED contract.py:65 False flipped []
+SURVIVED contract.py:70 LtE -> Lt []
+SURVIVED contract.py:69 False flipped []
+SURVIVED contract.py:70 Eq -> NotEq []
+SURVIVED contract.py:70 LtE -> Gt []
+SURVIVED contract.py:70 LtE -> Lt []
+SURVIVED contract.py:70 And swapped []
+SURVIVED contract.py:70 LtE -> Gt []
+SURVIVED contract.py:72 False flipped []
+tier 1: 0 of 88 killed; 88 survivors; running them against the existing test
+existing test kills gate.py:32 2 -> 3
+existing test kills gate.py:31 1 -> 2
+existing test kills gate.py:31 2 -> 3
+existing test kills gate.py:32 0 -> 1
+existing test kills gate.py:40 True flipped
+existing test kills gate.py:43 Or swapped
+existing test kills gate.py:24 1 -> 2
+existing test kills gate.py:34 Gt -> Lt
+existing test kills gate.py:24 3 -> 4
+existing test kills gate.py:34 Gt -> GtE
+existing test kills gate.py:33 In -> NotIn
+existing test kills gate.py:36 Gt -> Lt
+existing test kills gate.py:24 2 -> 3
+STILL SURVIVES      gate.py:40 0 -> 1
+existing test kills gate.py:24 0 -> 1
+existing test kills gate.py:35 In -> NotIn
+STILL SURVIVES      gate.py:36 Gt -> GtE
+existing test kills gate.py:43 min -> max
+STILL SURVIVES      gate.py:46 0 -> 1
+existing test kills gate.py:50 NotIn -> In
+existing test kills gate.py:41 not removed
+existing test kills statuses.py:13 1 -> 2
+existing test kills gate.py:51 2 -> 3
+existing test kills gate.py:52 max -> min
+existing test kills statuses.py:33 Eq -> NotEq
+existing test kills statuses.py:13 0 -> 1
+existing test kills gate.py:48 0 -> 1
+existing test kills statuses.py:33 Gt -> Lt
+STILL SURVIVES      statuses.py:33 Gt -> GtE
+STILL SURVIVES      statuses.py:31 0 -> 1
+STILL SURVIVES      statuses.py:13 2 -> 3
+existing test kills gate.py:50 any -> all
+existing test kills statuses.py:64 not removed
+existing test kills statuses.py:39 LtE -> Gt
+existing test kills exposure.py:26 1 -> 2
+existing test kills statuses.py:64 not removed
+existing test kills statuses.py:33 And swapped
+STILL SURVIVES      statuses.py:39 LtE -> Lt
+existing test kills statuses.py:44 NotIn -> In
+existing test kills statuses.py:56 NotIn -> In
+existing test kills exposure.py:27 In -> NotIn
+existing test kills statuses.py:47 Eq -> NotEq
+existing test kills statuses.py:64 Or swapped
+STILL SURVIVES      statuses.py:72 GtE -> Lt
+STILL SURVIVES      exposure.py:17 4 -> 5
+existing test kills statuses.py:59 + and - swapped
+existing test kills exposure.py:61 0 -> 1
+STILL SURVIVES      statuses.py:72 GtE -> Gt
+existing test kills exposure.py:27 NotIn -> In
+STILL SURVIVES      exposure.py:40 1 -> 2
+existing test kills exposure.py:28 + and - swapped
+existing test kills exposure.py:51 1 -> 2
+existing test kills exposure.py:27 And swapped
+existing test kills exposure.py:73 1 -> 2
+STILL SURVIVES      exposure.py:36 0 -> 1
+STILL SURVIVES      exposure.py:40 1 -> 2
+existing test kills exposure.py:23 min -> max
+STILL SURVIVES      exposure.py:41 Gt -> GtE
+existing test kills exposure.py:53 In -> NotIn
+STILL SURVIVES      exposure.py:41 Gt -> Lt
+STILL SURVIVES      exposure.py:42 + and - swapped
+STILL SURVIVES      exposure.py:40 In -> NotIn
+existing test kills exposure.py:69 1 -> 2
+STILL SURVIVES      exposure.py:42 1 -> 2
+existing test kills exposure.py:75 3 -> 4
+existing test kills exposure.py:75 GtE -> Gt
+existing test kills exposure.py:75 Eq -> NotEq
+STILL SURVIVES      contract.py:37 False flipped
+existing test kills exposure.py:75 GtE -> Lt
+existing test kills exposure.py:75 And swapped
+existing test kills contract.py:58 Is -> IsNot
+existing test kills contract.py:58 NotIn -> In
+STILL SURVIVES      contract.py:37 True flipped
+existing test kills contract.py:61 not removed
+existing test kills contract.py:62 False flipped
+existing test kills exposure.py:77 Eq -> NotEq
+STILL SURVIVES      contract.py:58 Or swapped
+existing test kills contract.py:64 Is -> IsNot
+STILL SURVIVES      contract.py:59 False flipped
+existing test kills contract.py:70 Eq -> NotEq
+existing test kills contract.py:70 And swapped
+existing test kills contract.py:70 LtE -> Gt
+existing test kills contract.py:70 LtE -> Gt
+STILL SURVIVES      contract.py:70 LtE -> Lt
+STILL SURVIVES      contract.py:70 LtE -> Lt
+STILL SURVIVES      contract.py:72 False flipped
+existing test kills contract.py:65 False flipped
+existing test kills contract.py:69 False flipped
+done
+
+real	44m25.624s
+user	0m1.342s
+sys	0m3.919s
+
+[exited with code 0]
