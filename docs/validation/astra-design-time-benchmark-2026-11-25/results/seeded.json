@@ -1,0 +1,416 @@
+{
+ "baseline": {
+  "verdict": "APPROVED",
+  "paths": 2,
+  "rows": {
+   "ASI01": "Covered",
+   "ASI02": "Covered",
+   "ASI03": "Covered",
+   "ASI04": "Covered",
+   "ASI05": "Not applicable",
+   "ASI06": "Covered",
+   "ASI07": "Not applicable",
+   "ASI08": "Covered",
+   "ASI09": "Covered",
+   "ASI10": "Covered"
+  }
+ },
+ "flaws": {
+  "F1 no approval gate": {
+   "verdict": "BLOCKED",
+   "paths": 2,
+   "rows_changed": [
+    "ASI02"
+   ],
+   "violated": [
+    "hitl:Seeded baseline agent"
+   ],
+   "notes": []
+  },
+  "F2 no injection filter": {
+   "verdict": "BLOCKED",
+   "paths": 2,
+   "rows_changed": [
+    "ASI01"
+   ],
+   "violated": [
+    "iso:Seeded baseline agent"
+   ],
+   "notes": []
+  },
+  "F3 unsigned MCP server": {
+   "verdict": "BLOCKED",
+   "paths": 2,
+   "rows_changed": [
+    "ASI04"
+   ],
+   "violated": [
+    "supply:Seeded baseline agent"
+   ],
+   "notes": []
+  },
+  "F4 memory without retention": {
+   "verdict": "BLOCKED",
+   "paths": 2,
+   "rows_changed": [
+    "ASI06"
+   ],
+   "violated": [
+    "memval:Seeded baseline agent"
+   ],
+   "notes": []
+  },
+  "F5 no named owner": {
+   "verdict": "BLOCKED",
+   "paths": 2,
+   "rows_changed": [
+    "ASI10"
+   ],
+   "violated": [
+    "ident:Seeded baseline agent",
+    "life:Seeded baseline agent"
+   ],
+   "notes": []
+  },
+  "F6 second write tool, ungated": {
+   "verdict": "BLOCKED",
+   "paths": 2,
+   "rows_changed": [
+    "ASI02"
+   ],
+   "violated": [
+    "hitl:Seeded baseline agent"
+   ],
+   "notes": []
+  },
+  "F7 approval beside the route": {
+   "verdict": "BLOCKED",
+   "paths": 2,
+   "rows_changed": [
+    "ASI02"
+   ],
+   "violated": [
+    "hitl:Seeded baseline agent"
+   ],
+   "notes": []
+  },
+  "F8 wrong kind of filter": {
+   "verdict": "BLOCKED",
+   "paths": 2,
+   "rows_changed": [
+    "ASI01"
+   ],
+   "violated": [
+    "iso:Seeded baseline agent"
+   ],
+   "notes": []
+  },
+  "F9 over-broad data access": {
+   "verdict": "APPROVED",
+   "paths": 3,
+   "rows_changed": [],
+   "violated": [],
+   "notes": []
+  },
+  "F10 over-broad delegation": {
+   "verdict": "REQUIRES_REVIEW",
+   "paths": 3,
+   "rows_changed": [
+    "ASI07"
+   ],
+   "violated": [],
+   "notes": []
+  },
+  "F11 delegation, reach unknown": {
+   "verdict": "APPROVED",
+   "paths": 2,
+   "rows_changed": [
+    "ASI07"
+   ],
+   "violated": [],
+   "notes": [
+    "Unknown helper is not in the inventory with a saved design: what it can reach is unknown."
+   ]
+  },
+  "F12 no rate limit": {
+   "verdict": "APPROVED",
+   "paths": 2,
+   "rows_changed": [
+    "ASI08"
+   ],
+   "violated": [],
+   "notes": []
+  },
+  "F13 no AI disclosure": {
+   "verdict": "APPROVED",
+   "paths": 2,
+   "rows_changed": [
+    "ASI09"
+   ],
+   "violated": [],
+   "notes": []
+  }
+ },
+ "neutral": {
+  "N1 renamed nodes": {
+   "verdict": "APPROVED",
+   "paths": 2,
+   "rows_changed": [],
+   "violated": [],
+   "notes": []
+  },
+  "N2 added read-only tool": {
+   "verdict": "APPROVED",
+   "paths": 2,
+   "rows_changed": [],
+   "violated": [],
+   "notes": []
+  },
+  "N3 second injection filter": {
+   "verdict": "APPROVED",
+   "paths": 2,
+   "rows_changed": [],
+   "violated": [],
+   "notes": []
+  },
+  "N4 second approval": {
+   "verdict": "APPROVED",
+   "paths": 2,
+   "rows_changed": [],
+   "violated": [],
+   "notes": []
+  },
+  "N5 second untrusted input": {
+   "verdict": "APPROVED",
+   "paths": 4,
+   "rows_changed": [],
+   "violated": [],
+   "notes": []
+  },
+  "N6 reordered nodes and edges": {
+   "verdict": "APPROVED",
+   "paths": 2,
+   "rows_changed": [],
+   "violated": [],
+   "notes": []
+  },
+  "N7 second retention constraint": {
+   "verdict": "APPROVED",
+   "paths": 2,
+   "rows_changed": [],
+   "violated": [],
+   "notes": []
+  }
+ },
+ "pairs": [
+  {
+   "a": "F1 no approval gate",
+   "b": "F2 no injection filter",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F1 no approval gate",
+   "b": "F3 unsigned MCP server",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F1 no approval gate",
+   "b": "F4 memory without retention",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F1 no approval gate",
+   "b": "F5 no named owner",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F1 no approval gate",
+   "b": "F6 second write tool, ungated",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F1 no approval gate",
+   "b": "F7 approval beside the route",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F1 no approval gate",
+   "b": "F8 wrong kind of filter",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F2 no injection filter",
+   "b": "F3 unsigned MCP server",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F2 no injection filter",
+   "b": "F4 memory without retention",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F2 no injection filter",
+   "b": "F5 no named owner",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F2 no injection filter",
+   "b": "F6 second write tool, ungated",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F2 no injection filter",
+   "b": "F7 approval beside the route",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F2 no injection filter",
+   "b": "F8 wrong kind of filter",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F3 unsigned MCP server",
+   "b": "F4 memory without retention",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F3 unsigned MCP server",
+   "b": "F5 no named owner",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F3 unsigned MCP server",
+   "b": "F6 second write tool, ungated",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F3 unsigned MCP server",
+   "b": "F7 approval beside the route",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F3 unsigned MCP server",
+   "b": "F8 wrong kind of filter",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F4 memory without retention",
+   "b": "F5 no named owner",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F4 memory without retention",
+   "b": "F6 second write tool, ungated",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F4 memory without retention",
+   "b": "F7 approval beside the route",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F4 memory without retention",
+   "b": "F8 wrong kind of filter",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F5 no named owner",
+   "b": "F6 second write tool, ungated",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F5 no named owner",
+   "b": "F7 approval beside the route",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F5 no named owner",
+   "b": "F8 wrong kind of filter",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F6 second write tool, ungated",
+   "b": "F7 approval beside the route",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F6 second write tool, ungated",
+   "b": "F8 wrong kind of filter",
+   "verdict": "BLOCKED",
+   "monotone": true
+  },
+  {
+   "a": "F7 approval beside the route",
+   "b": "F8 wrong kind of filter",
+   "verdict": "BLOCKED",
+   "monotone": true
+  }
+ ],
+ "runtime": {
+  "F1 no approval gate": {
+   "event": "tool_call",
+   "sound_contract": "DIVERGES",
+   "sound_classes": [
+    "DVG-AUT-02"
+   ],
+   "flawed_contract": "CONFORMS",
+   "flawed_classes": []
+  },
+  "F6 second write tool, ungated": {
+   "event": "tool_call",
+   "sound_contract": "DIVERGES",
+   "sound_classes": [
+    "DVG-TOOL-01"
+   ],
+   "flawed_contract": "CONFORMS",
+   "flawed_classes": []
+  },
+  "F9 over-broad data access": {
+   "event": "res_access",
+   "sound_contract": "DIVERGES",
+   "sound_classes": [
+    "DVG-RES-01"
+   ],
+   "flawed_contract": "CONFORMS",
+   "flawed_classes": []
+  },
+  "F10 over-broad delegation": {
+   "event": "deleg_out",
+   "sound_contract": "DIVERGES",
+   "sound_classes": [
+    "DVG-DEL-01"
+   ],
+   "flawed_contract": "CONFORMS",
+   "flawed_classes": []
+  }
+ },
+ "not_expressible": {
+  "F14 code execution": "ASI05 is 'never applicable' in the seeded rules: the design vocabulary has no code-execution tool, so the flaw cannot be written"
+ }
+}

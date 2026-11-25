@@ -1,0 +1,155 @@
+{
+ "seed": 14,
+ "metrics": {
+  "simulated": false,
+  "dataset_hash": "0abb855ba3267f07d2591bf0501686167d11d700e5cd7a098490a5f157ae7a3a",
+  "seed": 14,
+  "budget_fpr": 0.05,
+  "margin": 0.05,
+  "spans_seconds": {
+   "train": [
+    0.0,
+    455820.0
+   ],
+   "val": [
+    455820.0,
+    607740.0
+   ],
+   "test": [
+    607740.0,
+    759720.0
+   ]
+  },
+  "windows": {
+   "val": 822,
+   "test_normal": 1083
+  },
+  "tgn": {
+   "threshold": 2.5562,
+   "fpr_test": 0.0868,
+   "tpr": {
+    "order_swap": 0.07142857142857142,
+    "burst_repeat": 0.8571428571428571,
+    "novel_target": 1.0,
+    "metronome": 0.5,
+    "lateral_chain": 1.0,
+    "slow_drip": 0.0,
+    "kind_switch": 1.0
+   },
+   "macro_dev": 0.6429,
+   "macro_test": 0.625
+  },
+  "baseline": {
+   "threshold": 4.1591,
+   "fpr_test": 0.0369,
+   "tpr": {
+    "order_swap": 0.07142857142857142,
+    "burst_repeat": 1.0,
+    "novel_target": 0.9285714285714286,
+    "metronome": 0.42857142857142855,
+    "lateral_chain": 0.0,
+    "slow_drip": 0.0,
+    "kind_switch": 0.5714285714285714
+   },
+   "macro_dev": 0.6667,
+   "macro_test": 0.25
+  },
+  "families": {
+   "dev": [
+    "order_swap",
+    "burst_repeat",
+    "novel_target"
+   ],
+   "test": [
+    "metronome",
+    "lateral_chain",
+    "slow_drip",
+    "kind_switch"
+   ]
+  },
+  "normalisation": {
+   "Planner": [
+    1.465072,
+    1.125725
+   ],
+   "Navigator": [
+    1.30351,
+    0.790496
+   ],
+   "Editor": [
+    1.138626,
+    0.835871
+   ],
+   "Executor": [
+    1.160404,
+    0.763585
+   ]
+  },
+  "data": {
+   "kind": "real normal traffic with injected attacks",
+   "events": 29723,
+   "days": 8.793,
+   "agents": [
+    "Editor",
+    "Executor",
+    "Navigator",
+    "Planner"
+   ],
+   "agents_without_history": [],
+   "active_windows": {
+    "val": 822,
+    "test": 1083
+   },
+   "families_measured": [
+    "burst_repeat",
+    "kind_switch",
+    "lateral_chain",
+    "metronome",
+    "novel_target",
+    "order_swap",
+    "slow_drip"
+   ],
+   "families_skipped": {
+    "lateral_chain": "a lateral chain needs a second agent that this one never delegates to"
+   }
+  },
+  "decision": {
+   "passed": true,
+   "reasons": []
+  },
+  "selection": {
+   "chosen_on": "dev families only",
+   "candidates": [
+    {
+     "epochs": 6,
+     "d": 32,
+     "dev_detection": 0.5952,
+     "fpr_val_budget": 0.05
+    },
+    {
+     "epochs": 12,
+     "d": 32,
+     "dev_detection": 0.6429,
+     "fpr_val_budget": 0.05
+    }
+   ]
+  }
+ },
+ "decision": {
+  "passed": true,
+  "reasons": []
+ },
+ "families_skipped": {
+  "lateral_chain": "a lateral chain needs a second agent that this one never delegates to"
+ },
+ "victims": {
+  "order_swap": 14,
+  "burst_repeat": 14,
+  "novel_target": 14,
+  "metronome": 14,
+  "lateral_chain": 3,
+  "slow_drip": 14,
+  "kind_switch": 14
+ },
+ "seconds": 164
+}

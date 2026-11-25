@@ -1,0 +1,405 @@
+{
+ "n": 1636,
+ "frameworks": {
+  "AG2/GSM": {
+   "n": 223,
+   "mean_modes": 1.641255605381166,
+   "median_steps": 4,
+   "v3": {
+    "REQUIRES_REVIEW": 223
+   },
+   "agents": {
+    "2": 223
+   },
+   "partial": {
+    "rev3": [
+     null,
+     null
+    ],
+    "paths": [
+     null,
+     null
+    ],
+    "agents": [
+     null,
+     null
+    ]
+   }
+  },
+  "AG2/MMLU": {
+   "n": 168,
+   "mean_modes": 0.38095238095238093,
+   "median_steps": 6,
+   "v3": {
+    "APPROVED": 87,
+    "REQUIRES_REVIEW": 81
+   },
+   "agents": {
+    "4": 168
+   },
+   "partial": {
+    "rev3": [
+     -0.12364788458788517,
+     0.11037792441511697
+    ],
+    "paths": [
+     -0.1325787507791806,
+     0.08598280343931214
+    ],
+    "agents": [
+     null,
+     null
+    ]
+   }
+  },
+  "AG2/Olympiad": {
+   "n": 206,
+   "mean_modes": 2.4174757281553396,
+   "median_steps": 4,
+   "v3": {
+    "REQUIRES_REVIEW": 206
+   },
+   "agents": {
+    "2": 206
+   },
+   "partial": {
+    "rev3": [
+     null,
+     null
+    ],
+    "paths": [
+     null,
+     null
+    ],
+    "agents": [
+     null,
+     null
+    ]
+   }
+  },
+  "AppWorld/Test-C": {
+   "n": 30,
+   "mean_modes": 3.6666666666666665,
+   "median_steps": 20,
+   "v3": {
+    "APPROVED": 30
+   },
+   "agents": {
+    "2": 19,
+    "1": 6,
+    "3": 5
+   },
+   "partial": {
+    "rev3": [
+     null,
+     null
+    ],
+    "paths": [
+     -0.3384144291070295,
+     0.0691861627674465
+    ],
+    "agents": [
+     -0.3384144291070295,
+     0.0691861627674465
+    ]
+   }
+  },
+  "ChatDev/ProgramDev": {
+   "n": 130,
+   "mean_modes": 2.8230769230769233,
+   "median_steps": 13,
+   "v3": {
+    "REQUIRES_REVIEW": 130
+   },
+   "agents": {
+    "5": 130
+   },
+   "partial": {
+    "rev3": [
+     null,
+     null
+    ],
+    "paths": [
+     -0.040323423961908744,
+     0.6552689462107578
+    ],
+    "agents": [
+     null,
+     null
+    ]
+   }
+  },
+  "ChatDev/ProgramDev-v2": {
+   "n": 196,
+   "mean_modes": 5.88265306122449,
+   "median_steps": 52,
+   "v3": {
+    "REQUIRES_REVIEW": 196
+   },
+   "agents": {
+    "5": 196
+   },
+   "partial": {
+    "rev3": [
+     null,
+     null
+    ],
+    "paths": [
+     null,
+     null
+    ],
+    "agents": [
+     null,
+     null
+    ]
+   }
+  },
+  "HyperAgent/SWE-Bench-Lite": {
+   "n": 28,
+   "mean_modes": 6.5,
+   "median_steps": 53,
+   "v3": {
+    "REQUIRES_REVIEW": 26,
+    "APPROVED": 2
+   },
+   "agents": {
+    "4": 26,
+    "3": 2
+   },
+   "partial": {
+    "rev3": [
+     -0.027390411983229508,
+     0.8950209958008398
+    ],
+    "paths": [
+     -0.027390411983229508,
+     0.8950209958008398
+    ],
+    "agents": [
+     -0.027390411983229508,
+     0.8950209958008398
+    ]
+   }
+  },
+  "Magentic/GAIA": {
+   "n": 195,
+   "mean_modes": 4.082051282051282,
+   "median_steps": 19,
+   "v3": {
+    "APPROVED": 152,
+    "REQUIRES_REVIEW": 43
+   },
+   "agents": {
+    "3": 87,
+    "4": 62,
+    "5": 35,
+    "6": 8,
+    "2": 3
+   },
+   "partial": {
+    "rev3": [
+     -0.13251791752783287,
+     0.0655868826234753
+    ],
+    "paths": [
+     -0.13890441249715654,
+     0.05818836232753449
+    ],
+    "agents": [
+     -0.13890441249715654,
+     0.05818836232753449
+    ]
+   }
+  },
+  "MetaGPT/ProgramDev": {
+   "n": 230,
+   "mean_modes": 2.8260869565217392,
+   "median_steps": 5,
+   "v3": {
+    "REQUIRES_REVIEW": 229,
+    "APPROVED": 1
+   },
+   "agents": {
+    "3": 229,
+    "1": 1
+   },
+   "partial": {
+    "rev3": [
+     -0.03367916974035181,
+     0.6442711457708459
+    ],
+    "paths": [
+     -0.03367916974035181,
+     0.6442711457708459
+    ],
+    "agents": [
+     -0.03367916974035181,
+     0.6442711457708459
+    ]
+   }
+  },
+  "MetaGPT/ProgramDev-v2": {
+   "n": 200,
+   "mean_modes": 4.11,
+   "median_steps": 5,
+   "v3": {
+    "REQUIRES_REVIEW": 200
+   },
+   "agents": {
+    "3": 200
+   },
+   "partial": {
+    "rev3": [
+     null,
+     null
+    ],
+    "paths": [
+     null,
+     null
+    ],
+    "agents": [
+     null,
+     null
+    ]
+   }
+  },
+  "OpenManus/ProgramDev": {
+   "n": 30,
+   "mean_modes": 4.333333333333333,
+   "median_steps": 1,
+   "v3": {
+    "APPROVED": 30
+   },
+   "agents": {
+    "1": 30
+   },
+   "partial": {
+    "rev3": [
+     null,
+     null
+    ],
+    "paths": [
+     null,
+     null
+    ],
+    "agents": [
+     null,
+     null
+    ]
+   }
+  }
+ },
+ "pooled": {
+  "rev3": {
+   "rho": -0.07341992409053788,
+   "p": 0.013328890369876709,
+   "frameworks": [
+    "AG2/MMLU",
+    "Magentic/GAIA",
+    "MetaGPT/ProgramDev"
+   ],
+   "n": 593
+  },
+  "paths": {
+   "rho": -0.07393215031755165,
+   "p": 0.010329890036654448,
+   "frameworks": [
+    "AG2/MMLU",
+    "AppWorld/Test-C",
+    "ChatDev/ProgramDev",
+    "Magentic/GAIA",
+    "MetaGPT/ProgramDev"
+   ],
+   "n": 753
+  },
+  "agents": {
+   "rho": -0.06880772899372396,
+   "p": 0.04131956014661779,
+   "frameworks": [
+    "AppWorld/Test-C",
+    "Magentic/GAIA",
+    "MetaGPT/ProgramDev"
+   ],
+   "n": 455
+  }
+ },
+ "eta2_rev3_by_stratum": 0.6819630898551667,
+ "modes": {
+  "1.1": {
+   "name": "Disobey task specification",
+   "count": 590,
+   "tag": "adjacent"
+  },
+  "1.2": {
+   "name": "Disobey role specification",
+   "count": 91,
+   "tag": "covered"
+  },
+  "1.3": {
+   "name": "Step repetition",
+   "count": 664,
+   "tag": "outside"
+  },
+  "1.4": {
+   "name": "Loss of conversation history",
+   "count": 117,
+   "tag": "outside"
+  },
+  "1.5": {
+   "name": "Unaware of termination conditions",
+   "count": 436,
+   "tag": "outside"
+  },
+  "2.1": {
+   "name": "Conversation reset",
+   "count": 80,
+   "tag": "outside"
+  },
+  "2.2": {
+   "name": "Fail to ask for clarification",
+   "count": 265,
+   "tag": "outside"
+  },
+  "2.3": {
+   "name": "Task derailment",
+   "count": 353,
+   "tag": "covered"
+  },
+  "2.4": {
+   "name": "Information withholding",
+   "count": 24,
+   "tag": "outside"
+  },
+  "2.5": {
+   "name": "Ignored other agent's input",
+   "count": 370,
+   "tag": "outside"
+  },
+  "2.6": {
+   "name": "Reasoning-action mismatch",
+   "count": 609,
+   "tag": "outside"
+  },
+  "3.1": {
+   "name": "Premature termination",
+   "count": 274,
+   "tag": "adjacent"
+  },
+  "3.2": {
+   "name": "No or incomplete verification",
+   "count": 607,
+   "tag": "adjacent"
+  },
+  "3.3": {
+   "name": "Incorrect verification",
+   "count": 658,
+   "tag": "adjacent"
+  }
+ },
+ "coverage": {
+  "covered": 444,
+  "adjacent": 2129,
+  "outside": 2565,
+  "total": 5138
+ }
+}

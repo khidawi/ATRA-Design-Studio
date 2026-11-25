@@ -28,7 +28,15 @@ Save the design, open the **Assessment** tab. You see:
 - **what keeps it from being approved**, each with a reason; where the studio already has a fix ("Add to design") it is one click;
 - "A path starts only at an untrusted input the design declares": a design that declares none has no paths. That is stated, not hidden.
 
-Evidence: an attested record with the control key `astra:<kind>` (for example `astra:least`) makes a declared control satisfied until it lapses. A design that fails a check is not rescued by evidence.
+Evidence: an attested record with the control key `astra:<kind>` (for example `astra:least`) makes a declared control satisfied until it lapses. A design that fails a check is not rescued by evidence. Control keys: `iso`, `hitl`, `least`, `supply`, `memval`, `deleg`, `ident`, `life`, plus `auth` (the delegated messages of an agent that delegates are authenticated) and `sandbox` (the agent's code runs in a sandbox).
+
+Five rules go beyond the OWASP rows, because the rows cannot see them (found by the seeded-flaw test, `docs/validation/astra-design-time-benchmark-2026-11-25/`):
+
+- **Say why the agent needs a data store the department does not accept.** A data store whose impact tier is above its department's tolerance needs a **Purpose** on the data node in the design studio. Without one the least-privilege control (`least`) cannot be satisfied, whatever the evidence says, and the verdict is REQUIRES_REVIEW at best. A store within the tolerance needs no purpose. This changes the verdict of an existing design that reads such a store without one; recorded assessments are not changed.
+- **A missing rate limit (ASI08) lowers the delegation control of an agent that delegates**, where a failure can cascade. For an agent that delegates to no one, and for a missing AI disclosure (ASI09, a transparency duty, not an exposure path), the result lists it under `advisory` and the verdict does not change.
+- **An agent it delegates to that has no saved design is read at its strictest**: it is assumed to be able to write to a tier-4 resource in no known department, and the verdict cannot be approved until its design is saved.
+- **Code execution.** Mark a tool **Runs code**; the design then needs a constraint of type **Code sandbox**, or the sandbox control is violated (BLOCKED where the resource is above the tolerance).
+- **Delegated-message authentication** can be supported by an attested record `astra:auth`; before this, a delegation toward a store above the tolerance could never be approved.
 
 ## 3. Ratify and sign (Assessment tab, Behavioural contract)
 

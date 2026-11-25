@@ -1,0 +1,746 @@
+[
+ {
+  "file": "astra_model/events.py",
+  "line": 26,
+  "mutation": "+ and - swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 36,
+  "mutation": "Is -> IsNot",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 38,
+  "mutation": "NotIn -> In",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 39,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 39,
+  "mutation": "NotIn -> In",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 39,
+  "mutation": "In -> NotIn",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 39,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 41,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 41,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 41,
+  "mutation": "In -> NotIn",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 42,
+  "mutation": "NotIn -> In",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 45,
+  "mutation": "NotIn -> In",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 49,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 51,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 53,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 55,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 57,
+  "mutation": "NotIn -> In",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 60,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 61,
+  "mutation": "In -> NotIn",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 63,
+  "mutation": "Lt -> Gt",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 63,
+  "mutation": "Gt -> GtE",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 63,
+  "mutation": "Gt -> Lt",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 63,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 63,
+  "mutation": "Lt -> LtE",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_classes",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 66,
+  "mutation": "In -> NotIn",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 66,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 68,
+  "mutation": "In -> NotIn",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 69,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 69,
+  "mutation": "In -> NotIn",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 69,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 71,
+  "mutation": "In -> NotIn",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 72,
+  "mutation": "not removed",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 74,
+  "mutation": "NotEq -> Eq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 76,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 77,
+  "mutation": "not removed",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 77,
+  "mutation": "NotIn -> In",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 77,
+  "mutation": "IsNot -> Is",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 77,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 77,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 77,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 79,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 81,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 81,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 81,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 81,
+  "mutation": "NotIn -> In",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 81,
+  "mutation": "NotEq -> Eq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_classes",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 83,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 84,
+  "mutation": "not removed",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 84,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 84,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 84,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 84,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 84,
+  "mutation": "not removed",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_classes",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 86,
+  "mutation": "not removed",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 86,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 88,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 89,
+  "mutation": "NotIn -> In",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 89,
+  "mutation": "Gt -> Lt",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 89,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 89,
+  "mutation": "Gt -> GtE",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_classes",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 89,
+  "mutation": "1 -> 2",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_classes",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 91,
+  "mutation": "NotEq -> Eq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 93,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 94,
+  "mutation": "NotIn -> In",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 96,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 97,
+  "mutation": "not removed",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 97,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 99,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 100,
+  "mutation": "NotEq -> Eq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 102,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 103,
+  "mutation": "NotEq -> Eq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 103,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 103,
+  "mutation": "Gt -> Lt",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 103,
+  "mutation": "Gt -> GtE",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 105,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 106,
+  "mutation": "NotIn -> In",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 106,
+  "mutation": "not removed",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 106,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 108,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 109,
+  "mutation": "not removed",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 109,
+  "mutation": "True flipped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 109,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 111,
+  "mutation": "not removed",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 113,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 114,
+  "mutation": "0 -> 1",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 114,
+  "mutation": "GtE -> Lt",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 114,
+  "mutation": "GtE -> Gt",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_classes",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 119,
+  "mutation": "not removed",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 121,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 131,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 134,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 136,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_model/events.py",
+  "line": 138,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_model",
+  "killed_by_extended": null
+ }
+]

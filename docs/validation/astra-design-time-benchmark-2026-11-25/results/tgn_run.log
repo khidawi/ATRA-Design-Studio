@@ -1,0 +1,61 @@
+real traces: 29723 events over 8.793 days, 4 agent(s) with enough history (Editor, Executor, Navigator, Planner)
+  held-out active agent-minutes: 822 validation, 1083 test
+  attack families measured: burst_repeat, kind_switch, lateral_chain, metronome, novel_target, order_swap, slow_drip
+  not measured: lateral_chain: a lateral chain needs a second agent that this one never delegates to
+trained and evaluated in 292s
+{
+ "selection": {
+  "chosen_on": "dev families only",
+  "candidates": [
+   {
+    "epochs": 6,
+    "d": 32,
+    "dev_detection": 0.5,
+    "fpr_val_budget": 0.05
+   },
+   {
+    "epochs": 12,
+    "d": 32,
+    "dev_detection": 0.6667,
+    "fpr_val_budget": 0.05
+   }
+  ]
+ },
+ "budget_fpr": 0.05
+}
+{
+ "tgn": {
+  "threshold": 2.3607,
+  "fpr_test": 0.0914,
+  "tpr": {
+   "order_swap": 0.0,
+   "burst_repeat": 1.0,
+   "novel_target": 1.0,
+   "metronome": 0.8571428571428571,
+   "lateral_chain": 1.0,
+   "slow_drip": 0.14285714285714285,
+   "kind_switch": 1.0
+  },
+  "macro_dev": 0.6667,
+  "macro_test": 0.75
+ },
+ "baseline": {
+  "threshold": 4.1591,
+  "fpr_test": 0.0369,
+  "tpr": {
+   "order_swap": 0.0,
+   "burst_repeat": 1.0,
+   "novel_target": 0.8571428571428571,
+   "metronome": 0.6428571428571429,
+   "lateral_chain": 0.0,
+   "slow_drip": 0.0,
+   "kind_switch": 0.35714285714285715
+  },
+  "macro_dev": 0.619,
+  "macro_test": 0.25
+ }
+}
+DECISION: {
+ "passed": true,
+ "reasons": []
+}
