@@ -32,7 +32,7 @@ TABLE = [
     ("GET", "/api/astra/assurance/agent/{agent_key}", "read"), ("GET", "/api/astra/bindings", "read"), ("POST", "/api/astra/bindings", "signoff"),
     ("DELETE", "/api/astra/bindings/{binding_id}", "signoff"), ("GET", "/api/astra/classes", "read"), ("GET", "/api/astra/contracts/{contract_id}", "read"),
     ("POST", "/api/astra/contracts/{contract_id}/revoke", "signoff"), ("GET", "/api/astra/contracts/{contract_id}/verify", "read"), ("GET", "/api/astra/coverage", "read"),
-    ("POST", "/api/astra/findings/{key}/adjudicate", "signoff"), ("GET", "/api/astra/learned/agents", "read"), ("POST", "/api/astra/learned/agents/{agent_key}/calibrate", "signoff"),
+    ("POST", "/api/astra/findings/{key}/adjudicate", "signoff"), ("GET", "/api/astra/handoffs", "read"), ("GET", "/api/astra/learned/agents", "read"), ("POST", "/api/astra/learned/agents/{agent_key}/calibrate", "signoff"),
     ("POST", "/api/astra/learned/agents/{agent_key}/score", "write"), ("GET", "/api/astra/learned/agents/{agent_key}/scores", "read"), ("GET", "/api/astra/learned/detectors", "read"),
     ("GET", "/api/astra/learned/flags", "read"), ("POST", "/api/astra/learned/flags/{flag_id}/adjudicate", "signoff"), ("POST", "/api/astra/learned/score-all", "write"),
     ("GET", "/api/astra/learned/stream", "ingest"),

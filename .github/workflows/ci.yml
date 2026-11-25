@@ -157,6 +157,9 @@ jobs:
           load: true
           push: false
           tags: astra-${{ matrix.image }}:ci
+          # The studio's Dockerfile runs "apk upgrade" so that fixed operating-system packages are picked up. A cached layer would keep the packages it
+          # upgraded on the day it was built and the scan below would fail on them, so the studio (a tiny image) is built without the cache.
+          no-cache: ${{ matrix.image == 'studio' }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
       - name: Scan ${{ matrix.image }} for known vulnerabilities (fixable, high or critical)
