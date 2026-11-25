@@ -1,0 +1,483 @@
+{
+ "baselines": {
+  "B1": "APPROVED",
+  "B2": "APPROVED"
+ },
+ "flaws": {
+  "R1": {
+   "desc": "ASI01 filter linked to nothing",
+   "verdict": "BLOCKED",
+   "forecast": [
+    "BLOCKED"
+   ],
+   "forecast_ok": true,
+   "caught": true
+  },
+  "R2": {
+   "desc": "ASI01 filter limits only the delegate",
+   "verdict": "BLOCKED",
+   "forecast": [
+    "BLOCKED"
+   ],
+   "forecast_ok": true,
+   "caught": true
+  },
+  "R3": {
+   "desc": "ASI01 untrusted input feeds the tool, not the agent",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "caught": false
+  },
+  "R4": {
+   "desc": "ASI02 write tool declared read-only",
+   "verdict": "REQUIRES_REVIEW",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": false,
+   "caught": true
+  },
+  "R5": {
+   "desc": "ASI02 approval edge goes to the agent",
+   "verdict": "APPROVED",
+   "forecast": [
+    "BLOCKED"
+   ],
+   "forecast_ok": false,
+   "caught": false
+  },
+  "R6": {
+   "desc": "ASI03 owner is only spaces",
+   "verdict": "BLOCKED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": false,
+   "caught": true
+  },
+  "R7": {
+   "desc": "ASI03 second store, purpose is 'x'",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "caught": false
+  },
+  "R8": {
+   "desc": "ASI03 agent unknown to the organisation",
+   "verdict": "APPROVED",
+   "forecast": [
+    "REQUIRES_REVIEW"
+   ],
+   "forecast_ok": false,
+   "caught": false
+  },
+  "R9": {
+   "desc": "ASI03 store not in the organisation, with a purpose",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "caught": false
+  },
+  "R10": {
+   "desc": "ASI04 second MCP server unsigned",
+   "verdict": "BLOCKED",
+   "forecast": [
+    "BLOCKED"
+   ],
+   "forecast_ok": true,
+   "caught": true
+  },
+  "R11": {
+   "desc": "ASI04 MCP server with no signed property",
+   "verdict": "BLOCKED",
+   "forecast": [
+    "BLOCKED"
+   ],
+   "forecast_ok": true,
+   "caught": true
+  },
+  "R12": {
+   "desc": "ASI06 two long-term memories, one retention constraint",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "caught": false
+  },
+  "R13": {
+   "desc": "ASI07 delegate delegates to an unknown agent (2 hops)",
+   "verdict": "REQUIRES_REVIEW",
+   "forecast": [
+    "REQUIRES_REVIEW"
+   ],
+   "forecast_ok": true,
+   "caught": true
+  },
+  "R14": {
+   "desc": "ASI07 three-hop chain to a tier-4 store",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "caught": false
+  },
+  "R15": {
+   "desc": "ASI07 five-hop chain to a tier-4 store",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "caught": false
+  },
+  "R16": {
+   "desc": "ASI07 two-hop chain, no authentication attested (control)",
+   "verdict": "REQUIRES_REVIEW",
+   "forecast": [
+    "REQUIRES_REVIEW"
+   ],
+   "forecast_ok": true,
+   "caught": true
+  },
+  "R17": {
+   "desc": "ASI08 delegating agent, rate limit of the wrong kind",
+   "verdict": "BLOCKED",
+   "forecast": [
+    "BLOCKED"
+   ],
+   "forecast_ok": true,
+   "caught": true
+  },
+  "R18": {
+   "desc": "ASI08 three delegates, no rate limit",
+   "verdict": "BLOCKED",
+   "forecast": [
+    "BLOCKED"
+   ],
+   "forecast_ok": true,
+   "caught": true
+  },
+  "R19": {
+   "desc": "ASI10 delegate with no attested evidence",
+   "verdict": "REQUIRES_REVIEW",
+   "forecast": [
+    "REQUIRES_REVIEW"
+   ],
+   "forecast_ok": true,
+   "caught": true
+  },
+  "R20": {
+   "desc": "ASI02 approval evidence has lapsed",
+   "verdict": "REQUIRES_REVIEW",
+   "forecast": [
+    "REQUIRES_REVIEW"
+   ],
+   "forecast_ok": true,
+   "caught": true
+  },
+  "R21": {
+   "desc": "ASI02 no untrusted input declared, write tool ungated",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "caught": false
+  }
+ },
+ "neutral": {
+  "N1": {
+   "desc": "store name in capitals",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "approved": true
+  },
+  "N2": {
+   "desc": "store name with extra spaces",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "approved": true
+  },
+  "N3": {
+   "desc": "duplicated edges",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "approved": true
+  },
+  "N4": {
+   "desc": "isolated note, goal and human nodes",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "approved": true
+  },
+  "N5": {
+   "desc": "second approval on a read-only tool",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "approved": true
+  },
+  "N6": {
+   "desc": "two more injection filters",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "approved": true
+  },
+  "N7": {
+   "desc": "a very long purpose",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "approved": true
+  },
+  "N8": {
+   "desc": "store within tolerance, no purpose",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "approved": true
+  },
+  "N9": {
+   "desc": "second sound saved delegate",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "approved": true
+  },
+  "N10": {
+   "desc": "delegate renamed",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "approved": true
+  },
+  "N11": {
+   "desc": "B2 reordered",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "approved": true
+  },
+  "N12": {
+   "desc": "extra egress constraint",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "approved": true
+  },
+  "N13": {
+   "desc": "autonomy autonomous, approval kept",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "approved": true
+  },
+  "N14": {
+   "desc": "session-only memory, no retention",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "approved": true
+  },
+  "N15": {
+   "desc": "no rate limit on a single agent (advisory)",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "approved": true
+  },
+  "N16": {
+   "desc": "six read-only tools",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "approved": true
+  },
+  "N17": {
+   "desc": "delegate with code tool, sandbox and attestation",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "approved": true
+  },
+  "N18": {
+   "desc": "sound two-hop chain with authentication attested",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "approved": true
+  },
+  "N19": {
+   "desc": "MCP server signed, extra properties",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "approved": true
+  },
+  "N20": {
+   "desc": "extra store within tolerance, with a purpose",
+   "verdict": "APPROVED",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": true,
+   "approved": true
+  }
+ },
+ "policy": {
+  "P1": {
+   "desc": "R1 with the department tolerance raised to 4",
+   "verdict": "REQUIRES_REVIEW",
+   "forecast": [
+    "APPROVED"
+   ],
+   "forecast_ok": false
+  }
+ },
+ "metamorphic": {
+  "designs": 3000,
+  "verdict_distribution": {
+   "3": 1413,
+   "1": 1357,
+   "2": 230
+  },
+  "relations": {
+   "M1 reorder and rename ids": {
+    "applicable": 3000,
+    "violations": 0,
+    "examples": [],
+    "relation": "eq"
+   },
+   "M2 determinism": {
+    "applicable": 3000,
+    "violations": 0,
+    "examples": [],
+    "relation": "eq"
+   },
+   "M3 add a read-only tool": {
+    "applicable": 3000,
+    "violations": 0,
+    "examples": [],
+    "relation": "eq"
+   },
+   "M4 raise the tolerances": {
+    "applicable": 3000,
+    "violations": 0,
+    "examples": [],
+    "relation": "ge"
+   },
+   "M5 lower the store tiers": {
+    "applicable": 3000,
+    "violations": 0,
+    "examples": [],
+    "relation": "ge"
+   },
+   "M6 add evidence": {
+    "applicable": 2997,
+    "violations": 0,
+    "examples": [],
+    "relation": "ge"
+   },
+   "M7 remove evidence": {
+    "applicable": 3000,
+    "violations": 0,
+    "examples": [],
+    "relation": "le"
+   },
+   "M8 remove an approval": {
+    "applicable": 1705,
+    "violations": 0,
+    "examples": [],
+    "relation": "le"
+   },
+   "M9 remove an injection filter": {
+    "applicable": 1807,
+    "violations": 0,
+    "examples": [],
+    "relation": "le"
+   },
+   "M10 add a purpose to every store": {
+    "applicable": 2237,
+    "violations": 0,
+    "examples": [],
+    "relation": "ge"
+   },
+   "M11 remove the purposes": {
+    "applicable": 1774,
+    "violations": 0,
+    "examples": [],
+    "relation": "le"
+   },
+   "M12 make an MCP server unsigned": {
+    "applicable": 1501,
+    "violations": 0,
+    "examples": [],
+    "relation": "le"
+   },
+   "M13 add an untrusted input": {
+    "applicable": 3000,
+    "violations": 0,
+    "examples": [],
+    "relation": "le"
+   },
+   "M14 remove a delegation": {
+    "applicable": 2042,
+    "violations": 0,
+    "examples": [],
+    "relation": "ge"
+   }
+  }
+ }
+}

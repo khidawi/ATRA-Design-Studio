@@ -452,6 +452,46 @@ def test_the_suggestions_say_what_to_do_how_many_paths_it_helps_and_in_which_ord
     assert next(x for x in many["suggestions"] if x["kind"] == "iso")["paths"] == 2, "one control that holds up two paths helps both"
 
 
+def test_an_approval_on_the_agent_covers_its_write_tools_and_reaches_the_contract():
+    from astra_model import events as EV
+    d = doc()
+    d["nodes"].append({"id": "apx", "type": "approval", "name": "agent approval", "p": {}})
+    d["edges"].append({"from": "apx", "to": "a1", "label": "gates"})
+    b, out = result(d, rows(), ev=ALL)
+    assert b.estate.agents["payments-agent"].hitl_tools == {"refund"}, "the confirmation the check accepts must be in the contract"
+    assert out["verdict"] == "APPROVED"
+    r = EV.conforms(b.estate, {"kind": "tool_call", "agent": "payments-agent", "t": 1, "tool": "refund", "confirmed": False})
+    assert r["outcome"] == "DIVERGES" and r["classes"] == ["DVG-AUT-02"], r
+    plain, _ = result(doc(), rows(), ev=ALL)
+    assert plain.estate.agents["payments-agent"].hitl_tools == set(), "no approval anywhere: nothing to confirm"
+    d = doc()
+    d["nodes"].append({"id": "apx", "type": "guardrail", "name": "not an approval", "p": {"kind": "rate"}})
+    d["edges"].append({"from": "apx", "to": "a1", "label": "gates"})
+    assert result(d, rows(), ev=ALL)[0].estate.agents["payments-agent"].hitl_tools == set(), "only an approval counts"
+
+
+def test_an_agent_the_organisation_does_not_know_is_not_approved_on_the_strength_of_evidence():
+    c = ctx()
+    c.dept_of_agent.clear()
+    b = AE.build(AE.Source(doc(approval=True), rows(), ALL), c)
+    out = AE.describe(b, c, NOW)
+    ident = next(x for p in out["paths"] for x in p["controls"] if x["kind"] == "ident")
+    assert out["verdict"] == "REQUIRES_REVIEW" and ident["status"] == "UNV" and "not linked to a department" in ident["why"], out["verdict"]
+    assert any("Add the agent to the organisation" in x["label"] for x in out["suggestions"])
+    linked = ctx()
+    out2 = AE.describe(AE.build(AE.Source(doc(approval=True), rows(), ALL), linked), linked, NOW)
+    assert out2["verdict"] == "APPROVED", "once the agent is in the organisation the same design is approved"
+
+
+def test_the_injection_control_is_not_applicable_only_for_an_agent_with_no_write_tool():
+    na = rows(asi01=("Not applicable", "No untrusted input with write tools"))
+    _b, ro = result(doc(write=False), na, ev=ALL)
+    ctl = next(x for x in ro["paths"][0]["controls"] if x["kind"] == "iso")
+    assert ro["verdict"] == "APPROVED" and ctl["status"] == "NA" and "no write-capable tool" in ctl["why"], (ro["verdict"], ctl)
+    _b, rw = result(doc(write=True, approval=True), na, ev=ALL)
+    assert next(x for x in rw["paths"][0]["controls"] if x["kind"] == "iso")["status"] == "UNV" and rw["verdict"] == "REQUIRES_REVIEW"
+
+
 if __name__ == "__main__":
     tests = [(name, fn) for name, fn in sorted(globals().items()) if name.startswith("test_") and callable(fn)]
     failed = 0

@@ -1,0 +1,1482 @@
+[
+ {
+  "file": "astra_estate.py",
+  "line": 46,
+  "mutation": "500 -> 501",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 47,
+  "mutation": "5000 -> 5001",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 67,
+  "mutation": "False flipped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 94,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 94,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 94,
+  "mutation": "In -> NotIn",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 94,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 98,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 98,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 99,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 99,
+  "mutation": "Is -> IsNot",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 99,
+  "mutation": "not removed",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 105,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 114,
+  "mutation": "Is -> IsNot",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 117,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 119,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 119,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 119,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 119,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 119,
+  "mutation": "not removed",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 122,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 123,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 124,
+  "mutation": "Or swapped",
+  "killed_by_existing": false,
+  "by": null,
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 126,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 126,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 126,
+  "mutation": "not removed",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 131,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 133,
+  "mutation": "In -> NotIn",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 134,
+  "mutation": "0 -> 1",
+  "killed_by_existing": false,
+  "by": null,
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 134,
+  "mutation": "Is -> IsNot",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 135,
+  "mutation": "Is -> IsNot",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 144,
+  "mutation": "In -> NotIn",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 145,
+  "mutation": "0 -> 1",
+  "killed_by_existing": false,
+  "by": null,
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 145,
+  "mutation": "Is -> IsNot",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 146,
+  "mutation": "Is -> IsNot",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 151,
+  "mutation": "not removed",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 153,
+  "mutation": "+ and - swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 154,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 154,
+  "mutation": "Is -> IsNot",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 154,
+  "mutation": "NotIn -> In",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 154,
+  "mutation": "GtE -> Lt",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 154,
+  "mutation": "GtE -> Gt",
+  "killed_by_existing": false,
+  "by": null,
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 154,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 154,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 154,
+  "mutation": "not removed",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 155,
+  "mutation": "Is -> IsNot",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 155,
+  "mutation": "0 -> 1",
+  "killed_by_existing": false,
+  "by": null,
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 156,
+  "mutation": "Is -> IsNot",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 157,
+  "mutation": "+ and - swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 160,
+  "mutation": "IsNot -> Is",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 160,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 163,
+  "mutation": "Or swapped",
+  "killed_by_existing": false,
+  "by": null,
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 165,
+  "mutation": "Or swapped",
+  "killed_by_existing": false,
+  "by": null,
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 167,
+  "mutation": "IsNot -> Is",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 167,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 168,
+  "mutation": "Or swapped",
+  "killed_by_existing": false,
+  "by": null,
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 171,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 171,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 171,
+  "mutation": "any -> all",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 171,
+  "mutation": "not removed",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 171,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 171,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 174,
+  "mutation": "NotEq -> Eq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 174,
+  "mutation": "In -> NotIn",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 174,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 175,
+  "mutation": "0 -> 1",
+  "killed_by_existing": false,
+  "by": null,
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 175,
+  "mutation": "Is -> IsNot",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 176,
+  "mutation": "Is -> IsNot",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 180,
+  "mutation": "In -> NotIn",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 180,
+  "mutation": "NotEq -> Eq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 180,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 181,
+  "mutation": "0 -> 1",
+  "killed_by_existing": false,
+  "by": null,
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 181,
+  "mutation": "Is -> IsNot",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 182,
+  "mutation": "Is -> IsNot",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 188,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 188,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 188,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 188,
+  "mutation": "not removed",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 188,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 188,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 195,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 197,
+  "mutation": "In -> NotIn",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 197,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 197,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 197,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 198,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 199,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 199,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 199,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 199,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 199,
+  "mutation": "any -> all",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 201,
+  "mutation": "Is -> IsNot",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 202,
+  "mutation": "Is -> IsNot",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 205,
+  "mutation": "In -> NotIn",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 205,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 205,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 206,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 206,
+  "mutation": "any -> all",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 206,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 206,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 211,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 212,
+  "mutation": "IsNot -> Is",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 213,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 214,
+  "mutation": "In -> NotIn",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 216,
+  "mutation": "False flipped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 217,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": false,
+  "by": null,
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 218,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 219,
+  "mutation": "IsNot -> Is",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 220,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 220,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 221,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 221,
+  "mutation": "Gt -> Lt",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 221,
+  "mutation": "Gt -> GtE",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 221,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 221,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 221,
+  "mutation": "not removed",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 221,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 224,
+  "mutation": "Or swapped",
+  "killed_by_existing": false,
+  "by": null,
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 225,
+  "mutation": "True flipped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 226,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 226,
+  "mutation": "any -> all",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 227,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 227,
+  "mutation": "any -> all",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 240,
+  "mutation": "In -> NotIn",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 240,
+  "mutation": "Or swapped",
+  "killed_by_existing": false,
+  "by": null,
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 240,
+  "mutation": "In -> NotIn",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 243,
+  "mutation": "IsNot -> Is",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 247,
+  "mutation": "4 -> 5",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 248,
+  "mutation": "False flipped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 248,
+  "mutation": "4 -> 5",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 248,
+  "mutation": "False flipped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 258,
+  "mutation": "Gt -> GtE",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 258,
+  "mutation": "Gt -> Lt",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 260,
+  "mutation": "Gt -> Lt",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 260,
+  "mutation": "Gt -> GtE",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 273,
+  "mutation": "3 -> 4",
+  "killed_by_existing": false,
+  "by": null,
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 273,
+  "mutation": "+ and - swapped",
+  "killed_by_existing": false,
+  "by": null,
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 292,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 295,
+  "mutation": "In -> NotIn",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 296,
+  "mutation": "0 -> 1",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 296,
+  "mutation": "0 -> 1",
+  "killed_by_existing": false,
+  "by": null,
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 297,
+  "mutation": "+ and - swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 297,
+  "mutation": "max -> min",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 297,
+  "mutation": "1 -> 2",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 298,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 302,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 304,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 304,
+  "mutation": "In -> NotIn",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 304,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 305,
+  "mutation": "1 -> 2",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 305,
+  "mutation": "0 -> 1",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 305,
+  "mutation": "2 -> 3",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 306,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 306,
+  "mutation": "In -> NotIn",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 306,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 307,
+  "mutation": "0 -> 1",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 307,
+  "mutation": "1 -> 2",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 308,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 309,
+  "mutation": "+ and - swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 310,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 310,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 310,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 310,
+  "mutation": "In -> NotIn",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 311,
+  "mutation": "+ and - swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 312,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 312,
+  "mutation": "Eq -> NotEq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 312,
+  "mutation": "In -> NotIn",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 312,
+  "mutation": "And swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 313,
+  "mutation": "+ and - swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 315,
+  "mutation": "+ and - swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 318,
+  "mutation": "NotEq -> Eq",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 326,
+  "mutation": "1 -> 2",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 328,
+  "mutation": "2 -> 3",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 330,
+  "mutation": "0 -> 1",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 334,
+  "mutation": "0 -> 1",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 334,
+  "mutation": "1 -> 2",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 334,
+  "mutation": "Or swapped",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 335,
+  "mutation": "1 -> 2",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 335,
+  "mutation": "3 -> 4",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 335,
+  "mutation": "0 -> 1",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 335,
+  "mutation": "1 -> 2",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 336,
+  "mutation": "False flipped",
+  "killed_by_existing": false,
+  "by": null,
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 337,
+  "mutation": "min -> max",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 339,
+  "mutation": "0 -> 1",
+  "killed_by_existing": false,
+  "by": null,
+  "killed_by_extended": null
+ },
+ {
+  "file": "astra_estate.py",
+  "line": 339,
+  "mutation": "In -> NotIn",
+  "killed_by_existing": true,
+  "by": "tests.test_astra_estate",
+  "killed_by_extended": null
+ }
+]

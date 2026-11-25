@@ -23,7 +23,10 @@ Four readings go beyond the OWASP rows, because the rows cannot see them (found 
     * cascading failure (ASI08): a missing rate limit is a gap in the delegation control of an agent that delegates, where a failure can cascade; for an agent that delegates to no one it is
       reported as advisory, with ASI09 (disclosure, a transparency duty, not an exposure path);
     * code execution (ASI05): a tool marked as running code makes the sandbox control required, and a design with no sandbox constraint violates it;
-    * a delegate with no saved design is read at its strictest: it may write to a tier-4 resource in no known department, until its design is saved.
+    * a delegate with no saved design is read at its strictest: it may write to a tier-4 resource in no known department, until its design is saved;
+    * an agent the organisation does not know (no department) cannot have its identity control satisfied, whatever the evidence says: nobody in the organisation is accountable for it;
+    * an approval that gates the agent itself covers every tool the agent uses, so the confirmation is carried into the contract as it is by the check;
+    * the injection check (ASI01) applies only where an injected instruction can change something: an agent with no write-capable tool has that control not applicable, with the reason recorded.
 
 Approximations, all in the strict direction, and listed in the result's "limits":
     * the design does not say which data a write tool changes, so when the agent has any write tool every data node is treated as writable;
@@ -120,6 +123,9 @@ def _statuses_for(name: str, src: Source, built: "Built") -> None:
             if kind == "supply":
                 statuses.mark_not_applicable(S, ctl, text or "no MCP servers declared")
                 why[ctl] = f"{code}: {text}"
+            elif kind == "iso" and not built.estate.agents[name].write_tools:        # the check applies only where an injected instruction can change something
+                statuses.mark_not_applicable(S, ctl, "no write-capable tool, so an injected instruction has nothing to change")
+                why[ctl] = f"{code}: {text}. The agent has no write-capable tool."
             else:
                 why[ctl] = f"{code} does not apply to this design: {text}"
         elif st == "Covered":
@@ -190,7 +196,9 @@ def _make_agent(name: str, src: Source, ctx: Ctx, built: "Built", seen: Set[str]
     by_id = {n["id"]: n for n in doc.get("nodes", [])}
     gated = {by_id[e["to"]]["name"] for e in doc.get("edges", []) if e.get("label") == "gates" and e.get("to") in by_id and by_id[e["to"]].get("type") == "tool"
              and by_id.get(e.get("from"), {}).get("type") == "approval"}
+    gates_agent = any(e.get("label") == "gates" and e.get("to") == prim["id"] and by_id.get(e.get("from"), {}).get("type") == "approval" for e in doc.get("edges", []))   # an approval on the agent covers every tool it uses
     dept = ctx.dept_of_agent.get(_norm(name))
+    unlinked = dept is None
     if dept is None:
         dept = UNASSIGNED
         built.notes.append(f"{name} is not linked to a department in the organisation: its resources fall in {UNASSIGNED}, which accepts nothing.")
@@ -213,12 +221,16 @@ def _make_agent(name: str, src: Source, ctx: Ctx, built: "Built", seen: Set[str]
             if kind == "data" and tier > ctx.tolerance.get(rdept, risk_layer.DEFAULT_TOLERANCE) and not str((n.get("p") or {}).get("purpose") or "").strip():
                 unjustified.append(f"{n['name']} (tier {tier})")
     delegates =[n["name"] for n in _targets(doc, prim["id"], "delegates")]
-    agent = Agent(name, dept, autonomy=AUTONOMY.get((prim.get("p") or {}).get("auto"), "approve"), tools={t["name"]: {} for t in tools}, write_tools=write, hitl_tools=write & gated,
+    agent = Agent(name, dept, autonomy=AUTONOMY.get((prim.get("p") or {}).get("auto"), "approve"), tools={t["name"]: {} for t in tools}, write_tools=write, hitl_tools=write if gates_agent else write & gated,
                   resources=resources, may_delegate_to=set(delegates), components={n["name"]: True for n in _targets(doc, prim["id"], "connects")}, inputs=untrusted, baseline_monitored=src.monitored,
                   long_term_memory=any((n.get("p") or {}).get("long") for n in _targets(doc, prim["id"], "stores")),
                   runs_code=any((t.get("p") or {}).get("code") for t in tools))
     built.estate.agents[name] = agent
     _statuses_for(name, src, built)
+    if unlinked:                                                   # nobody in the organisation is accountable for an agent it does not know; evidence cannot stand in for that
+        statuses.adverse(built.state, ("ident", name), UNV)
+        built.why[("ident", name)] = (f"ASI10: {name} is not linked to a department in the organisation, so nobody in it is accountable for the agent. "
+                                      "Add the agent to the organisation.")
     if unjustified:                                                # least privilege: access the department does not accept has to be explained, and evidence cannot stand in for that
         statuses.adverse(built.state, ("least", name), UNV)
         built.why[("least", name)] = (f"ASI03: the design gives no purpose for {', '.join(unjustified)}, which the department's tolerance does not accept; "
@@ -295,6 +307,8 @@ def suggest(b: Built, paths: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             s.update(action="manual", label=OWNER[0], why=OWNER[1])
         elif e["state"] == "VIO":
             s.update(action="manual", label=f"Close the gap in {kind} for {agent}" + ("" if mine else f": fix it in the design of {agent}"), why=e["why"])
+        elif e["state"] == "UNV" and kind == "ident" and "not linked to a department" in e["why"]:
+            s.update(action="manual", label="Add the agent to the organisation, in a department" + ("" if mine else f" ({agent})"), why=e["why"])
         elif e["state"] == "UNV" and kind == "least" and "gives no purpose" in e["why"]:
             s.update(action="manual", label="Say why the agent needs this data: add a purpose to the data node" + ("" if mine else f" ({agent})"), why=e["why"])
         else:
