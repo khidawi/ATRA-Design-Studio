@@ -26,7 +26,7 @@ def base_doc():
     return {"nodes": [{"id": "a1", "type": "agent", "name": NAME, "p": {"owner": "Rhea", "auto": "approval"}, "primary": True},
                       {"id": "i1", "type": "input", "name": "customer email", "p": {"untrusted": True}},
                       {"id": "t1", "type": "tool", "name": "refund", "p": {"write": True}},
-                      {"id": "d1", "type": "data", "name": "ZZ Ledger", "p": {}}],
+                      {"id": "d1", "type": "data", "name": "ZZ Ledger", "p": {"purpose": "settle customer refunds"}}],
             "edges": [{"from": "i1", "to": "a1", "label": "feeds"}, {"from": "a1", "to": "t1", "label": "uses"}, {"from": "a1", "to": "d1", "label": "reads"}]}
 
 
